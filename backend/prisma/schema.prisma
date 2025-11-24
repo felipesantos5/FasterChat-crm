@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  AGENT
+  USER
+}
+
+model Company {
+  id         String   @id @default(uuid())
+  name       String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  users              User[]
+  customers          Customer[]
+  whatsappInstances  WhatsAppInstance[]
+
+  @@map("companies")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole @default(USER)
+  companyId    String   @map("company_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  conversations   Conversation[]
+
+  @@index([companyId])
+  @@index([email])
+  @@map("users")
+}
+
+model Customer {
+  id         String   @id @default(uuid())
+  companyId  String   @map("company_id")
+  name       String
+  phone      String
+  email      String?
+  tags       String[] @default([])
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  messages       Message[]
+  conversations  Conversation[]
+
+  @@unique([companyId, phone])
+  @@index([companyId])
+  @@index([phone])
+  @@index([email])
+  @@map("customers")
+}
+
+enum WhatsAppStatus {
+  DISCONNECTED
+  CONNECTING
+  CONNECTED
+}
+
+model WhatsAppInstance {
+  id            String         @id @default(uuid())
+  companyId     String         @map("company_id")
+  instanceName  String         @map("instance_name")
+  apiKey        String?        @map("api_key")
+  qrCode        String?        @map("qr_code") @db.Text
+  status        WhatsAppStatus @default(DISCONNECTED)
+  phoneNumber   String?        @map("phone_number")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  messages      Message[]
+
+  @@unique([companyId, instanceName])
+  @@index([companyId])
+  @@index([status])
+  @@map("whatsapp_instances")
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum SenderType {
+  HUMAN
+  AI
+}
+
+model Message {
+  id                  String           @id @default(uuid())
+  customerId          String           @map("customer_id")
+  whatsappInstanceId  String           @map("whatsapp_instance_id")
+  direction           MessageDirection
+  content             String           @db.Text
+  timestamp           DateTime
+  status              MessageStatus    @default(SENT)
+  messageId           String?          @map("message_id")
+  senderType          SenderType?      @map("sender_type") @default(HUMAN)
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  customer            Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  whatsappInstance    WhatsAppInstance @relation(fields: [whatsappInstanceId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([whatsappInstanceId])
+  @@index([timestamp])
+  @@index([messageId])
+  @@map("messages")
+}
+
+model Conversation {
+  id                 String   @id @default(uuid())
+  customerId         String   @map("customer_id")
+  companyId          String   @map("company_id")
+  assignedToId       String?  @map("assigned_to_id")
+  aiEnabled          Boolean  @default(true) @map("ai_enabled")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  customer           Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedTo         User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@unique([customerId])
+  @@index([companyId])
+  @@index([assignedToId])
+  @@index([aiEnabled])
+  @@map("conversations")
+}
