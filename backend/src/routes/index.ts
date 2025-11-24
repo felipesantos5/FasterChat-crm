@@ -5,6 +5,10 @@ import whatsappRoutes from './whatsapp.routes';
 import messageRoutes from './message.routes';
 import webhookRoutes from './webhook.routes';
 import conversationRoutes from './conversation.routes';
+import conversationExampleRoutes from './conversation-example.routes';
+import aiKnowledgeRoutes from './ai-knowledge.routes';
+import conversationExampleController from '../controllers/conversation-example.controller';
+import { authenticate } from '../middlewares/auth';
 
 const router = Router();
 
@@ -14,5 +18,10 @@ router.use('/whatsapp', whatsappRoutes);
 router.use('/messages', messageRoutes);
 router.use('/webhooks', webhookRoutes);
 router.use('/conversations', conversationRoutes);
+router.use('/conversations', conversationExampleRoutes);
+router.use('/ai', aiKnowledgeRoutes);
+
+// Rota adicional para listar exemplos
+router.get('/ai/examples', authenticate, conversationExampleController.getExamples);
 
 export default router;

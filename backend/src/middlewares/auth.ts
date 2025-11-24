@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt';
-import { JWTPayload } from '../types/auth';
 
-export const authMiddleware = (
+export const authenticate = (
   req: Request,
   res: Response,
   next: NextFunction

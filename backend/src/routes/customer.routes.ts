@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { customerController } from '../controllers/customer.controller';
-import { authMiddleware } from '../middlewares/auth';
+import { authenticate } from '../middlewares/auth';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authMiddleware);
+router.use(authenticate);
 
 // Customer CRUD
 router.post('/', customerController.create.bind(customerController));

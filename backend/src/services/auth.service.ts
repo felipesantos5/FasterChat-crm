@@ -1,4 +1,4 @@
-import { User, Company } from '@prisma/client';
+import { User } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { hashPassword, comparePassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';

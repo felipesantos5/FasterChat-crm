@@ -1,15 +1,29 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Message, MessageDirection } from '@/types/message';
+import { Message, MessageDirection, SenderType } from '@/types/message';
+import { Conversation } from '@/types/conversation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { messageApi } from '@/lib/message';
-import { Send, Loader2, MessageSquare } from 'lucide-react';
+import { conversationApi } from '@/lib/conversation';
+import { conversationExampleApi } from '@/lib/conversation-example';
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ChatAreaProps {
   customerId: string;
@@ -19,11 +33,52 @@ interface ChatAreaProps {
 
 export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [togglingAi, setTogglingAi] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [isExample, setIsExample] = useState(false);
+  const [showExampleModal, setShowExampleModal] = useState(false);
+  const [exampleNotes, setExampleNotes] = useState('');
+  const [markingExample, setMarkingExample] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Obtém userId do usuário logado
+  const getUserId = () => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      return userData.id;
+    }
+    return null;
+  };
+
+  // Obtém companyId do usuário logado
+  const getCompanyId = () => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      return userData.companyId;
+    }
+    return null;
+  };
+
+  // Carrega conversa
+  const loadConversation = async () => {
+    try {
+      const companyId = getCompanyId();
+      if (!companyId) return;
+
+      const response = await conversationApi.getConversation(customerId, companyId);
+      setConversation(response.data);
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    }
+  };
 
   // Carrega mensagens
   const loadMessages = async () => {
@@ -33,6 +88,21 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
       const sortedMessages = response.data.messages.sort(
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
+
+      // Verifica se há mensagem recente do cliente sem resposta da IA
+      const lastMessage = sortedMessages[sortedMessages.length - 1];
+      if (conversation?.aiEnabled && lastMessage?.direction === MessageDirection.INBOUND) {
+        // Verifica se há resposta da IA depois dessa mensagem
+        const hasAiResponse = sortedMessages.some(
+          (msg, idx) => idx > sortedMessages.length - 1 &&
+          msg.direction === MessageDirection.OUTBOUND &&
+          msg.senderType === SenderType.AI
+        );
+        setAiProcessing(!hasAiResponse && (Date.now() - new Date(lastMessage.timestamp).getTime() < 30000));
+      } else {
+        setAiProcessing(false);
+      }
+
       setMessages(sortedMessages);
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -41,14 +111,35 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
     }
   };
 
+  // Verifica se a conversa está marcada como exemplo
+  const checkIsExample = async () => {
+    if (!conversation?.id) return;
+    try {
+      const response = await conversationExampleApi.isExample(conversation.id);
+      setIsExample(response.data.isExample);
+    } catch (error) {
+      console.error('Error checking if is example:', error);
+    }
+  };
+
   useEffect(() => {
+    loadConversation();
     loadMessages();
 
     // Polling: atualiza a cada 3 segundos
-    const interval = setInterval(loadMessages, 3000);
+    const interval = setInterval(() => {
+      loadConversation();
+      loadMessages();
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [customerId]);
+
+  useEffect(() => {
+    if (conversation?.id) {
+      checkIsExample();
+    }
+  }, [conversation?.id]);
 
   // Scroll para última mensagem
   useEffect(() => {
@@ -87,6 +178,88 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
     }
   };
 
+  // Assume conversa
+  const handleAssignConversation = async () => {
+    try {
+      setAssigning(true);
+      const userId = getUserId();
+      if (!userId) {
+        alert('Usuário não encontrado');
+        return;
+      }
+
+      await conversationApi.assignConversation(customerId, userId);
+      await loadConversation();
+    } catch (error: any) {
+      console.error('Error assigning conversation:', error);
+      alert(error.response?.data?.message || 'Erro ao assumir conversa');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  // Libera conversa para IA
+  const handleUnassignConversation = async () => {
+    try {
+      setAssigning(true);
+      await conversationApi.unassignConversation(customerId);
+      await loadConversation();
+    } catch (error: any) {
+      console.error('Error unassigning conversation:', error);
+      alert(error.response?.data?.message || 'Erro ao liberar conversa');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  // Toggle IA
+  const handleToggleAi = async () => {
+    try {
+      setTogglingAi(true);
+      const newAiState = !conversation?.aiEnabled;
+      await conversationApi.toggleAI(customerId, newAiState);
+      await loadConversation();
+    } catch (error: any) {
+      console.error('Error toggling AI:', error);
+      alert(error.response?.data?.message || 'Erro ao alterar estado da IA');
+    } finally {
+      setTogglingAi(false);
+    }
+  };
+
+  // Abre modal para marcar como exemplo
+  const handleOpenExampleModal = () => {
+    setShowExampleModal(true);
+    setExampleNotes('');
+  };
+
+  // Marca/desmarca conversa como exemplo
+  const handleMarkAsExample = async () => {
+    if (!conversation?.id) return;
+
+    try {
+      setMarkingExample(true);
+
+      if (isExample) {
+        // Remove marcação
+        await conversationExampleApi.removeExample(conversation.id);
+        setIsExample(false);
+        alert('Conversa desmarcada como exemplo');
+      } else {
+        // Marca como exemplo
+        await conversationExampleApi.markAsExample(conversation.id, exampleNotes);
+        setIsExample(true);
+        setShowExampleModal(false);
+        alert('Conversa marcada como exemplo com sucesso!');
+      }
+    } catch (error: any) {
+      console.error('Error marking as example:', error);
+      alert(error.response?.data?.message || 'Erro ao marcar conversa como exemplo');
+    } finally {
+      setMarkingExample(false);
+    }
+  };
+
   // Formata timestamp
   const formatMessageTime = (timestamp: string) => {
     try {
@@ -104,17 +277,105 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
     );
   }
 
+  const isAiEnabled = conversation?.aiEnabled ?? false;
+  const assignedUser = conversation?.assignedTo;
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-muted/30">
-        <div>
-          <h2 className="font-semibold text-lg">{customerName}</h2>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold text-lg">{customerName}</h2>
+            {isAiEnabled ? (
+              <Badge className="bg-purple-500 hover:bg-purple-600">
+                <Bot className="h-3 w-3 mr-1" />
+                IA Ativa
+              </Badge>
+            ) : (
+              <Badge variant="secondary">
+                <UserIcon className="h-3 w-3 mr-1" />
+                {assignedUser ? assignedUser.name : 'Humano'}
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">{customerPhone}</p>
         </div>
-        <Badge variant="outline" className="text-xs">
-          Online
-        </Badge>
+
+        {/* Toggle de IA e Botões de Ação */}
+        <div className="flex items-center gap-4">
+          {/* Toggle IA */}
+          <div className="flex items-center gap-2">
+            <Switch
+              id="ai-toggle"
+              checked={isAiEnabled}
+              onCheckedChange={handleToggleAi}
+              disabled={togglingAi}
+            />
+            <Label htmlFor="ai-toggle" className="text-sm cursor-pointer">
+              {togglingAi ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isAiEnabled ? (
+                <span className="flex items-center gap-1">
+                  <Bot className="h-4 w-4" />
+                  IA Ativa
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <UserIcon className="h-4 w-4" />
+                  Atendimento Manual
+                </span>
+              )}
+            </Label>
+          </div>
+
+          {/* Botão Assumir/Liberar */}
+          {isAiEnabled ? (
+            <Button
+              onClick={handleAssignConversation}
+              disabled={assigning}
+              size="sm"
+              variant="outline"
+            >
+              {assigning ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <UserIcon className="h-4 w-4 mr-2" />
+              )}
+              Assumir Conversa
+            </Button>
+          ) : (
+            <Button
+              onClick={handleUnassignConversation}
+              disabled={assigning}
+              size="sm"
+              variant="outline"
+            >
+              {assigning ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Bot className="h-4 w-4 mr-2" />
+              )}
+              Liberar para IA
+            </Button>
+          )}
+
+          {/* Botão Marcar como Exemplo */}
+          <Button
+            onClick={isExample ? handleMarkAsExample : handleOpenExampleModal}
+            disabled={markingExample}
+            size="sm"
+            variant={isExample ? 'default' : 'outline'}
+            className={isExample ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
+          >
+            {markingExample ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Star className={cn('h-4 w-4 mr-2', isExample && 'fill-current')} />
+            )}
+            {isExample ? 'Remover Exemplo' : 'Marcar como Exemplo'}
+          </Button>
+        </div>
       </div>
 
       {/* Messages Area */}
@@ -132,6 +393,7 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
         ) : (
           messages.map((message) => {
             const isInbound = message.direction === MessageDirection.INBOUND;
+            const isAi = message.senderType === SenderType.AI;
 
             return (
               <div
@@ -146,9 +408,26 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                     'max-w-[70%] rounded-lg px-4 py-2',
                     isInbound
                       ? 'bg-muted text-foreground'
+                      : isAi
+                      ? 'bg-purple-500 text-white'
                       : 'bg-primary text-primary-foreground'
                   )}
                 >
+                  {!isInbound && (
+                    <div className="flex items-center gap-1 mb-1">
+                      {isAi ? (
+                        <Badge variant="secondary" className="text-xs h-4">
+                          <Bot className="h-3 w-3 mr-1" />
+                          IA
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs h-4">
+                          <UserIcon className="h-3 w-3 mr-1" />
+                          Você
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   <p className="text-sm whitespace-pre-wrap break-words">
                     {message.content}
                   </p>
@@ -157,7 +436,7 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                       'text-xs mt-1',
                       isInbound
                         ? 'text-muted-foreground'
-                        : 'text-primary-foreground/70'
+                        : 'text-white/70'
                     )}
                   >
                     {formatMessageTime(message.timestamp)}
@@ -167,6 +446,26 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
             );
           })
         )}
+
+        {/* AI Processing Indicator */}
+        {aiProcessing && (
+          <div className="flex justify-start">
+            <div className="max-w-[70%] rounded-lg px-4 py-2 bg-purple-100 dark:bg-purple-900/30">
+              <div className="flex items-center gap-2">
+                <Bot className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <div className="flex gap-1">
+                  <span className="animate-bounce" style={{ animationDelay: '0ms' }}>●</span>
+                  <span className="animate-bounce" style={{ animationDelay: '150ms' }}>●</span>
+                  <span className="animate-bounce" style={{ animationDelay: '300ms' }}>●</span>
+                </div>
+                <span className="text-sm text-purple-600 dark:text-purple-400">
+                  IA está pensando...
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -192,6 +491,62 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
           )}
         </Button>
       </form>
+
+      {/* Modal para Marcar como Exemplo */}
+      <Dialog open={showExampleModal} onOpenChange={setShowExampleModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Marcar Conversa como Exemplo</DialogTitle>
+            <DialogDescription>
+              Esta conversa será usada como referência para a IA aprender o tom e estilo de atendimento ideal.
+              Você pode adicionar uma nota opcional para documentar por que esta conversa é um bom exemplo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="example-notes">
+                Nota (Opcional)
+              </Label>
+              <Textarea
+                id="example-notes"
+                placeholder="Ex: Ótimo exemplo de como lidar com reclamações, tom empático e resolução rápida."
+                value={exampleNotes}
+                onChange={(e) => setExampleNotes(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowExampleModal(false)}
+              disabled={markingExample}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleMarkAsExample}
+              disabled={markingExample}
+              className="bg-yellow-500 hover:bg-yellow-600"
+            >
+              {markingExample ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Marcando...
+                </>
+              ) : (
+                <>
+                  <Star className="h-4 w-4 mr-2" />
+                  Marcar como Exemplo
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

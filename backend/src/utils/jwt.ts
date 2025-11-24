@@ -1,11 +1,11 @@
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { JWTPayload } from '../types/auth';
 import { config } from '../config';
 
 export const generateToken = (payload: JWTPayload): string => {
-  return jwt.sign(payload, config.jwt.secret, {
+  return jwt.sign(payload, config.jwt.secret as string, {
     expiresIn: config.jwt.expiresIn,
-  });
+  } as SignOptions);
 };
 
 export const verifyToken = (token: string): JWTPayload => {
@@ -17,9 +17,9 @@ export const verifyToken = (token: string): JWTPayload => {
 };
 
 export const generateRefreshToken = (payload: JWTPayload): string => {
-  return jwt.sign(payload, config.jwt.refreshSecret, {
+  return jwt.sign(payload, config.jwt.refreshSecret as string, {
     expiresIn: config.jwt.refreshExpiresIn,
-  });
+  } as SignOptions);
 };
 
 export const verifyRefreshToken = (token: string): JWTPayload => {

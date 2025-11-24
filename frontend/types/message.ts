@@ -24,6 +24,7 @@ export interface Message {
   timestamp: string;
   status: MessageStatus;
   messageId?: string | null;
+  senderType?: SenderType | null;
   createdAt: string;
   updatedAt: string;
   customer?: {

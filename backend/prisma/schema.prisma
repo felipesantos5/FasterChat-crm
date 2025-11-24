@@ -23,6 +23,7 @@ model Company {
   users              User[]
   customers          Customer[]
   whatsappInstances  WhatsAppInstance[]
+  aiKnowledge        AIKnowledge?
 
   @@map("companies")
 }
@@ -142,12 +143,44 @@ model Conversation {
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
-  customer           Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  assignedTo         User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  customer           Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedTo         User?                 @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  conversationExample ConversationExample?
 
   @@unique([customerId])
   @@index([companyId])
   @@index([assignedToId])
   @@index([aiEnabled])
   @@map("conversations")
+}
+
+model AIKnowledge {
+  id                 String   @id @default(uuid())
+  companyId          String   @unique @map("company_id")
+  companyInfo        String?  @map("company_info") @db.Text
+  productsServices   String?  @map("products_services") @db.Text
+  toneInstructions   String?  @map("tone_instructions") @db.Text
+  policies           String?  @db.Text
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("ai_knowledge")
+}
+
+model ConversationExample {
+  id               String       @id @default(uuid())
+  companyId        String       @map("company_id")
+  conversationId   String       @unique @map("conversation_id")
+  notes            String?      @db.Text
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([conversationId])
+  @@map("conversation_examples")
 }

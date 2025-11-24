@@ -1,5 +1,4 @@
 import { prisma } from '../utils/prisma';
-import { CreateConversationRequest } from '../types/conversation';
 
 class ConversationService {
   /**

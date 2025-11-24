@@ -93,12 +93,12 @@ class MessageService {
   }
 
   /**
-   * Atualiza o status de uma mensagem
+   * Atualiza o status de uma mensagem pelo ID interno
    */
-  async updateMessageStatus(messageId: string, status: MessageStatus) {
+  async updateMessageStatus(id: string, status: MessageStatus) {
     try {
       const message = await prisma.message.update({
-        where: { messageId },
+        where: { id },
         data: { status },
       });
 
@@ -309,15 +309,22 @@ class MessageService {
         text: content,
       });
 
-      // Salva a mensagem no banco
-      const message = await this.createMessage({
-        customerId: customer.id,
-        whatsappInstanceId: whatsappInstance.id,
-        direction: MessageDirection.OUTBOUND,
-        content,
-        timestamp: new Date(),
-        messageId: result.messageId,
-        status: MessageStatus.SENT,
+      // Salva a mensagem no banco com senderType
+      const message = await prisma.message.create({
+        data: {
+          customerId: customer.id,
+          whatsappInstanceId: whatsappInstance.id,
+          direction: MessageDirection.OUTBOUND,
+          content,
+          timestamp: new Date(),
+          messageId: result.messageId,
+          status: MessageStatus.SENT,
+          senderType: sentBy,
+        },
+        include: {
+          customer: true,
+          whatsappInstance: true,
+        },
       });
 
       return {

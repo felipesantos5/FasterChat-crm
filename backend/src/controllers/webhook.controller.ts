@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import messageService from '../services/message.service';
+import conversationService from '../services/conversation.service';
+import aiService from '../services/ai.service';
 import { EvolutionWebhookPayload } from '../types/message';
 
 class WebhookController {
@@ -58,12 +60,40 @@ class WebhookController {
 
         console.log('Message processed successfully:', result.message.id);
 
+        // Verifica se deve processar com IA
+        const conversation = await conversationService.getOrCreateConversation(
+          result.customer.id,
+          result.customer.companyId
+        );
+
+        // Se IA está habilitada, gera e envia resposta automática
+        if (conversation.aiEnabled && aiService.isConfigured()) {
+          console.log('AI is enabled for this conversation, generating response...');
+
+          try {
+            // Gera resposta usando IA
+            const aiResponse = await aiService.generateResponse(
+              result.customer.id,
+              content
+            );
+
+            // Envia a resposta via WhatsApp
+            await messageService.sendMessage(result.customer.id, aiResponse, 'AI');
+
+            console.log('AI response sent successfully');
+          } catch (aiError: any) {
+            console.error('Error processing AI response:', aiError);
+            // Não falha o webhook se a IA falhar
+          }
+        }
+
         return res.status(200).json({
           success: true,
           data: {
             messageId: result.message.id,
             customerId: result.customer.id,
             customerName: result.customer.name,
+            aiProcessed: conversation.aiEnabled && aiService.isConfigured(),
           },
         });
       }
@@ -93,7 +123,7 @@ class WebhookController {
    * GET /api/webhooks/whatsapp/test
    * Endpoint de teste para verificar se o webhook está funcionando
    */
-  async testWebhook(req: Request, res: Response) {
+  async testWebhook(_req: Request, res: Response) {
     return res.status(200).json({
       success: true,
       message: 'Webhook endpoint is working',

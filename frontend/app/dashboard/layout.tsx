@@ -12,15 +12,19 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
+    // Aguarda o loading terminar antes de redirecionar
+    if (isLoading) return;
+
     if (!isAuthenticated) {
       router.push("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isLoading, router]);
 
-  if (!isAuthenticated) {
+  // Mostra loading enquanto verifica autenticação
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Carregando...</p>

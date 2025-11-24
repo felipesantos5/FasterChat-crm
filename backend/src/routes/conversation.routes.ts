@@ -19,4 +19,7 @@ router.post('/:customerId/unassign', conversationController.unassignConversation
 // GET /api/conversations/assigned/:userId - Lista conversas atribuídas
 router.get('/assigned/:userId', conversationController.getAssignedConversations);
 
+// PATCH /api/conversations/:customerId/toggle-ai - Ativa/Desativa IA
+router.patch('/:customerId/toggle-ai', conversationController.toggleAI);
+
 export default router;

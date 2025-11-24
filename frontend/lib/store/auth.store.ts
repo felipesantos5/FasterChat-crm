@@ -13,13 +13,15 @@ interface AuthState {
   loadUser: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  token: null,
-  isAuthenticated: false,
-  isLoading: false,
+export const useAuthStore = create<AuthState>((set) => {
+  // Não inicializa do localStorage aqui para evitar hydration mismatch
+  return {
+    user: null,
+    token: null,
+    isAuthenticated: false,
+    isLoading: true, // Começa como loading
 
-  login: async (email, password) => {
+    login: async (email, password) => {
     set({ isLoading: true });
     try {
       const response = await authApi.login({ email, password });
@@ -73,6 +75,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: savedUser,
         token,
         isAuthenticated: true,
+        isLoading: false,
       });
 
       // Validate token by fetching user
@@ -87,8 +90,17 @@ export const useAuthStore = create<AuthState>((set) => ({
           user: null,
           token: null,
           isAuthenticated: false,
+          isLoading: false,
         });
       }
+    } else {
+      // No saved auth data
+      set({ isLoading: false });
     }
   },
-}));
+}});
+
+// Inicializa o store quando o módulo é carregado (lado do cliente)
+if (typeof window !== 'undefined') {
+  useAuthStore.getState().loadUser();
+}

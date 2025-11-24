@@ -143,6 +143,44 @@ class ConversationController {
       });
     }
   }
+
+  /**
+   * PATCH /api/conversations/:customerId/toggle-ai
+   * Ativa/Desativa IA em uma conversa
+   */
+  async toggleAI(req: Request, res: Response) {
+    try {
+      const { customerId } = req.params;
+      const { aiEnabled } = req.body;
+
+      if (!customerId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Customer ID is required',
+        });
+      }
+
+      if (typeof aiEnabled !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          message: 'aiEnabled must be a boolean',
+        });
+      }
+
+      const conversation = await conversationService.toggleAI(customerId, aiEnabled);
+
+      return res.status(200).json({
+        success: true,
+        data: conversation,
+      });
+    } catch (error: any) {
+      console.error('Error in toggleAI controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to toggle AI',
+      });
+    }
+  }
 }
 
 export default new ConversationController();
