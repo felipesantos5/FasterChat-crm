@@ -9,13 +9,19 @@ export default function Home() {
   const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
-    // Aguarda o loading terminar antes de redirecionar
-    if (isLoading) return;
+    console.log('[PAGE] isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
 
-    console.log(`isAuthenticated`, isAuthenticated);
+    // Aguarda o loading terminar antes de redirecionar
+    if (isLoading) {
+      console.log('[PAGE] Aguardando loading...');
+      return;
+    }
+
     if (isAuthenticated) {
+      console.log('[PAGE] Redirecionando para /dashboard');
       router.push("/dashboard");
     } else {
+      console.log('[PAGE] Redirecionando para /login');
       router.push("/login");
     }
   }, [isAuthenticated, isLoading, router]);

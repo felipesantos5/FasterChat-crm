@@ -63,10 +63,21 @@ class AIService {
 
       // Monta o contexto da empresa
       const aiKnowledge = customer.company.aiKnowledge;
+
+      // Verifica se resposta automática está habilitada
+      if (aiKnowledge && !aiKnowledge.autoReplyEnabled) {
+        throw new Error('Auto-reply is disabled for this company');
+      }
+
       const companyInfo = aiKnowledge?.companyInfo || 'Informações da empresa não disponíveis.';
       const productsServices = aiKnowledge?.productsServices || 'Produtos/serviços não especificados.';
       const toneInstructions = aiKnowledge?.toneInstructions || 'Seja profissional, educado e prestativo.';
       const policies = aiKnowledge?.policies || 'Nenhuma política específica definida.';
+
+      // Pega configurações avançadas da IA
+      const providerConfig = aiKnowledge?.provider as AIProvider | undefined;
+      const temperature = options?.temperature ?? aiKnowledge?.temperature ?? 0.7;
+      const maxTokens = options?.maxTokens ?? aiKnowledge?.maxTokens ?? 500;
 
       // Formata o histórico de mensagens de forma otimizada
       const historyText = messageHistory
@@ -99,9 +110,11 @@ class AIService {
       const userPrompt = this.buildUserPrompt(historyText, message);
 
       console.log(`[AIService] Generating response for customer: ${customer.name}`);
+      console.log(`[AIService] Using provider: ${providerConfig || options?.provider || 'default'}`);
+      console.log(`[AIService] Temperature: ${temperature}, Max tokens: ${maxTokens}`);
 
-      // Seleciona e usa o provedor
-      const provider = this.getProvider(options?.provider);
+      // Seleciona e usa o provedor (prioriza configuração da empresa)
+      const provider = this.getProvider(options?.provider || providerConfig);
 
       if (!provider.isConfigured()) {
         throw new Error(`AI provider is not configured. Please check your environment variables.`);
@@ -110,8 +123,8 @@ class AIService {
       const aiResponse = await provider.generateResponse({
         systemPrompt,
         userPrompt,
-        temperature: options?.temperature,
-        maxTokens: options?.maxTokens,
+        temperature,
+        maxTokens,
       });
 
       console.log('[AIService] Response generated successfully');

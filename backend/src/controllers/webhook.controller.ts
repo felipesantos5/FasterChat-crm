@@ -11,9 +11,18 @@ class WebhookController {
    */
   async handleWhatsAppWebhook(req: Request, res: Response) {
     try {
+      // Valida webhook secret (segurança)
+      const webhookSecret = process.env.WEBHOOK_SECRET;
+      const receivedSecret = req.headers['x-webhook-secret'];
+
+      if (webhookSecret && webhookSecret !== receivedSecret) {
+        console.warn('⚠️  Invalid webhook secret received');
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
       const payload: EvolutionWebhookPayload = req.body;
 
-      console.log('Webhook received:', {
+      console.log('📩 Webhook received:', {
         event: payload.event,
         instance: payload.instance,
       });
@@ -68,7 +77,7 @@ class WebhookController {
 
         // Se IA está habilitada, gera e envia resposta automática
         if (conversation.aiEnabled && aiService.isConfigured()) {
-          console.log('AI is enabled for this conversation, generating response...');
+          console.log('🤖 AI is enabled for this conversation, generating response...');
 
           try {
             // Gera resposta usando IA
@@ -80,11 +89,13 @@ class WebhookController {
             // Envia a resposta via WhatsApp
             await messageService.sendMessage(result.customer.id, aiResponse, 'AI');
 
-            console.log('AI response sent successfully');
+            console.log('✓ AI response sent successfully');
           } catch (aiError: any) {
-            console.error('Error processing AI response:', aiError);
+            console.error('✗ Error processing AI response:', aiError);
             // Não falha o webhook se a IA falhar
           }
+        } else {
+          console.log('ℹ️  AI disabled for this conversation or not configured');
         }
 
         return res.status(200).json({

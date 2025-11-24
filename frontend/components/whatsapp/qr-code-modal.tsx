@@ -24,32 +24,75 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
   const fetchQRCode = async () => {
     try {
       setError(null);
+      setLoading(true);
+
+      console.log('[QR Code Modal] Fetching QR Code for instance:', instanceId);
+
       const response = await whatsappApi.getQRCode(instanceId);
+
+      console.log('[QR Code Modal] Response:', {
+        hasQrCode: !!response.data.qrCode,
+        status: response.data.status,
+      });
+
       setQrCode(response.data.qrCode);
       setStatus(response.data.status);
+
+      // Se já está conectado
+      if (response.data.status === 'CONNECTED') {
+        console.log('[QR Code Modal] Already connected!');
+        onSuccess?.();
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      }
     } catch (err: any) {
-      console.error('Error fetching QR code:', err);
-      setError(err.response?.data?.message || 'Erro ao buscar QR Code');
+      console.error('[QR Code Modal] Error fetching QR code:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Erro ao buscar QR Code';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
+  // Contador de tentativas
+  const [attempts, setAttempts] = useState(0);
+  const maxAttempts = 40; // 40 tentativas x 5s = 3 minutos e 20 segundos
+
   // Função para verificar o status
   const checkStatus = async () => {
     try {
+      console.log(`[QR Code Modal] Checking status (attempt ${attempts + 1}/${maxAttempts})...`);
+
       const response = await whatsappApi.getStatus(instanceId);
+
+      console.log('[QR Code Modal] Status response:', response.data.status);
+
       setStatus(response.data.status);
+      setAttempts(prev => prev + 1);
 
       // Se conectado com sucesso
       if (response.data.status === WhatsAppStatus.CONNECTED) {
+        console.log('[QR Code Modal] ✓ Connected successfully!');
         onSuccess?.();
         setTimeout(() => {
           onClose();
         }, 2000);
+        return true; // Retorna true para parar o polling
       }
+
+      // Se desconectou, para o polling
+      if (response.data.status === WhatsAppStatus.DISCONNECTED) {
+        console.warn('[QR Code Modal] Instance disconnected, stopping polling');
+        setError('Instância desconectada. Por favor, tente reconectar novamente.');
+        return true; // Retorna true para parar o polling
+      }
+
+      return false; // Continua polling
     } catch (err: any) {
-      console.error('Error checking status:', err);
+      console.error('[QR Code Modal] Error checking status:', err);
+      setAttempts(prev => prev + 1);
+      return false;
     }
   };
 
@@ -58,20 +101,31 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
     if (isOpen && instanceId) {
       setLoading(true);
       setError(null);
+      setAttempts(0); // Reset contador
       fetchQRCode();
     }
   }, [isOpen, instanceId]);
 
-  // Polling: verifica o status a cada 3 segundos
+  // Polling: verifica o status a cada 5 segundos (mais seguro)
   useEffect(() => {
     if (!isOpen || status === WhatsAppStatus.CONNECTED) return;
 
-    const interval = setInterval(() => {
-      checkStatus();
-    }, 3000);
+    // Limita número de tentativas para não ficar em loop infinito
+    if (attempts >= maxAttempts) {
+      console.warn('[QR Code Modal] Max attempts reached, stopping polling');
+      setError('Tempo limite excedido. Por favor, tente novamente.');
+      return;
+    }
+
+    const interval = setInterval(async () => {
+      const shouldStop = await checkStatus();
+      if (shouldStop) {
+        clearInterval(interval);
+      }
+    }, 5000); // Aumentado de 3s para 5s
 
     return () => clearInterval(interval);
-  }, [isOpen, instanceId, status]);
+  }, [isOpen, instanceId, status, attempts]);
 
   const handleClose = () => {
     setQrCode(null);

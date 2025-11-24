@@ -85,9 +85,16 @@ class WhatsAppController {
 
       const result = await whatsappService.getStatus(instanceId);
 
+      // Headers para evitar cache HTTP 304
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
+
       return res.status(200).json({
         success: true,
         data: result,
+        timestamp: new Date().toISOString(), // Força resposta única
       });
     } catch (error: any) {
       console.error('Error in getStatus controller:', error);

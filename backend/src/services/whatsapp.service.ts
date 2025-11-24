@@ -96,33 +96,82 @@ class WhatsAppService {
         throw new Error('WhatsApp instance not found');
       }
 
-      // Se já temos o QR Code no banco, retornamos
-      if (instance.qrCode && instance.status === WhatsAppStatus.CONNECTING) {
+      console.log(`[WhatsApp Service] Getting QR Code for instance: ${instance.instanceName}`);
+
+      // Se já está conectado, não precisa de QR Code
+      if (instance.status === WhatsAppStatus.CONNECTED) {
+        return {
+          qrCode: null,
+          status: instance.status,
+        };
+      }
+
+      // Se já temos o QR Code recente no banco (menos de 2 minutos), retornamos
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+      if (
+        instance.qrCode &&
+        instance.status === WhatsAppStatus.CONNECTING &&
+        instance.updatedAt > twoMinutesAgo
+      ) {
+        console.log('[WhatsApp Service] Returning cached QR Code');
         return {
           qrCode: instance.qrCode,
           status: instance.status,
         };
       }
 
-      // Caso contrário, busca o QR Code da API
-      const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(
-        `/instance/qrcode/${instance.instanceName}`
-      );
+      console.log('[WhatsApp Service] Fetching new QR Code from Evolution API...');
 
-      const qrCode = response.data.base64;
+      // Busca o QR Code da Evolution API
+      // A Evolution API tem diferentes endpoints dependendo da versão
+      let qrCode: string;
+
+      try {
+        // Primeiro tenta o endpoint /instance/connect (versões mais recentes)
+        const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(
+          `/instance/connect/${instance.instanceName}`
+        );
+        qrCode = response.data.base64 || response.data.code;
+      } catch (connectError: any) {
+        console.log('[WhatsApp Service] /connect failed, trying /qrcode endpoint...');
+
+        // Se falhar, tenta o endpoint alternativo /instance/qrcode
+        try {
+          const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(
+            `/instance/qrcode/${instance.instanceName}`
+          );
+          qrCode = response.data.base64 || response.data.code;
+        } catch (qrcodeError: any) {
+          // Se ambos falharem, tenta /instance/qr
+          console.log('[WhatsApp Service] /qrcode failed, trying /qr endpoint...');
+          const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(
+            `/instance/qr/${instance.instanceName}`
+          );
+          qrCode = response.data.base64 || response.data.code;
+        }
+      }
+
+      if (!qrCode) {
+        throw new Error('QR Code not found in Evolution API response');
+      }
+
+      console.log('[WhatsApp Service] ✓ QR Code fetched successfully');
 
       // Atualiza o QR Code no banco
       await prisma.whatsAppInstance.update({
         where: { id: instanceId },
-        data: { qrCode },
+        data: {
+          qrCode,
+          status: WhatsAppStatus.CONNECTING,
+        },
       });
 
       return {
         qrCode,
-        status: instance.status,
+        status: WhatsAppStatus.CONNECTING,
       };
     } catch (error: any) {
-      console.error('Error getting QR code:', error.response?.data || error.message);
+      console.error('[WhatsApp Service] ✗ Error getting QR code:', error.response?.data || error.message);
       throw new Error(
         `Failed to get QR code: ${error.response?.data?.message || error.message}`
       );
@@ -142,12 +191,42 @@ class WhatsAppService {
         throw new Error('WhatsApp instance not found');
       }
 
-      // Busca o status da API
-      const response = await this.axiosInstance.get<EvolutionApiConnectionStateResponse>(
-        `/instance/connectionState/${instance.instanceName}`
-      );
+      console.log(`[WhatsApp Service] Checking status for: ${instance.instanceName}`);
 
-      const apiState = response.data.state;
+      // Cache de 3 segundos para evitar sobrecarga na Evolution API
+      const threeSecondsAgo = new Date(Date.now() - 3 * 1000);
+      if (instance.updatedAt > threeSecondsAgo) {
+        console.log('[WhatsApp Service] Returning cached status (< 3s old)');
+        return {
+          status: instance.status,
+          phoneNumber: instance.phoneNumber,
+          instanceName: instance.instanceName,
+        };
+      }
+
+      // Busca o status da Evolution API
+      let apiState: string;
+
+      try {
+        const response = await this.axiosInstance.get<EvolutionApiConnectionStateResponse>(
+          `/instance/connectionState/${instance.instanceName}`,
+          {
+            timeout: 5000, // Timeout de 5 segundos
+          }
+        );
+        apiState = response.data.state;
+        console.log(`[WhatsApp Service] Evolution API state: ${apiState}`);
+      } catch (apiError: any) {
+        console.error('[WhatsApp Service] Error from Evolution API:', apiError.message);
+
+        // Se a Evolution API falhar, retorna o último status conhecido
+        console.warn('[WhatsApp Service] Returning cached status due to API error');
+        return {
+          status: instance.status,
+          phoneNumber: instance.phoneNumber,
+          instanceName: instance.instanceName,
+        };
+      }
 
       // Mapeia o status da API para o nosso enum
       let status: WhatsAppStatus;
@@ -159,18 +238,27 @@ class WhatsAppService {
           status = WhatsAppStatus.CONNECTING;
           break;
         case 'close':
-        default:
+        case 'closed':
           status = WhatsAppStatus.DISCONNECTED;
           break;
+        default:
+          console.warn(`[WhatsApp Service] Unknown state: ${apiState}, treating as CONNECTING`);
+          status = WhatsAppStatus.CONNECTING;
+          break;
       }
+
+      console.log(`[WhatsApp Service] Mapped status: ${status}`);
 
       // Atualiza o status no banco
       const updatedInstance = await prisma.whatsAppInstance.update({
         where: { id: instanceId },
         data: {
           status,
-          // Limpa o QR Code se conectado
-          qrCode: status === WhatsAppStatus.CONNECTED ? null : instance.qrCode,
+          // Limpa o QR Code se conectado ou desconectado
+          qrCode: status === WhatsAppStatus.CONNECTED || status === WhatsAppStatus.DISCONNECTED
+            ? null
+            : instance.qrCode,
+          // Atualiza o updatedAt para servir como cache
         },
       });
 
@@ -180,7 +268,7 @@ class WhatsAppService {
         instanceName: updatedInstance.instanceName,
       };
     } catch (error: any) {
-      console.error('Error getting connection status:', error.response?.data || error.message);
+      console.error('[WhatsApp Service] ✗ Error getting connection status:', error.response?.data || error.message);
       throw new Error(
         `Failed to get connection status: ${error.response?.data?.message || error.message}`
       );
@@ -331,20 +419,39 @@ class WhatsAppService {
 
       const fullWebhookUrl = `${webhookUrl}/api/webhooks/whatsapp`;
 
+      // Configura webhook com todos os eventos necessários
       await this.axiosInstance.post(`/webhook/set/${instanceName}`, {
         url: fullWebhookUrl,
-        webhook_by_events: false,
-        webhook_base64: false,
+        enabled: true,
+        webhook_by_events: false, // Usa webhook único para todos eventos
+        webhook_base64: false, // Não envia arquivos em base64 (economiza banda)
         events: [
-          'MESSAGES_UPSERT',
-          'MESSAGES_UPDATE',
-          'CONNECTION_UPDATE',
+          // Eventos de mensagens
+          'MESSAGES_UPSERT', // Nova mensagem recebida ou enviada
+          'MESSAGES_UPDATE', // Status da mensagem (entregue, lido, etc)
+          'MESSAGES_DELETE', // Mensagem deletada
+
+          // Eventos de conexão
+          'CONNECTION_UPDATE', // Status da conexão (conectando, conectado, desconectado)
+          'QRCODE_UPDATED', // QR Code atualizado
+
+          // Eventos de contatos (opcional, para sincronizar contatos)
+          // 'CONTACTS_UPDATE',
+          // 'CONTACTS_UPSERT',
+
+          // Eventos de grupos (opcional, se for usar grupos)
+          // 'GROUPS_UPSERT',
+          // 'GROUPS_UPDATE',
         ],
+        // Headers customizados (opcional)
+        webhook_headers: {
+          'X-Webhook-Secret': process.env.WEBHOOK_SECRET || '',
+        },
       });
 
-      console.log(`Webhook configured for instance ${instanceName}: ${fullWebhookUrl}`);
+      console.log(`✓ Webhook configured for instance ${instanceName}: ${fullWebhookUrl}`);
     } catch (error: any) {
-      console.error('Error configuring webhook:', error.response?.data || error.message);
+      console.error('✗ Error configuring webhook:', error.response?.data || error.message);
       // Não lança erro para não bloquear a criação da instância
     }
   }

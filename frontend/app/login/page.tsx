@@ -28,9 +28,12 @@ export default function LoginPage() {
     setError("");
 
     try {
+      console.log('[LOGIN] Enviando requisição de login...');
       await login(email, password);
+      console.log('[LOGIN] Login concluído, redirecionando para /dashboard');
       router.push("/dashboard");
     } catch (err: any) {
+      console.error('[LOGIN] Erro no login:', err);
       setError(
         err.response?.data?.message || "Erro ao fazer login. Tente novamente."
       );

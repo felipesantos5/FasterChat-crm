@@ -9,11 +9,24 @@ import {
   MessageSquare,
   Settings,
   LogOut,
+  Bot,
+  Smartphone,
+  BookOpen,
+  ChevronDown,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-const menuItems = [
+// Tipo para os itens de menu
+interface MenuItem {
+  label: string;
+  icon: any;
+  href?: string;
+  children?: MenuItem[];
+}
+
+const menuItems: MenuItem[] = [
   {
     label: "Dashboard",
     icon: LayoutDashboard,
@@ -27,12 +40,34 @@ const menuItems = [
   {
     label: "Conversas",
     icon: MessageSquare,
-    href: "/dashboard/conversas",
+    href: "/dashboard/conversations",
   },
   {
     label: "Configurações",
     icon: Settings,
-    href: "/dashboard/configuracoes",
+    children: [
+      {
+        label: "IA",
+        icon: Bot,
+        href: "/dashboard/settings/ai",
+      },
+      {
+        label: "WhatsApp",
+        icon: Smartphone,
+        href: "/dashboard/settings/whatsapp",
+      },
+    ],
+  },
+  {
+    label: "IA",
+    icon: Bot,
+    children: [
+      {
+        label: "Exemplos de Conversas",
+        icon: BookOpen,
+        href: "/dashboard/ai/examples",
+      },
+    ],
   },
 ];
 
@@ -40,10 +75,81 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuthStore();
+  const [openMenus, setOpenMenus] = useState<string[]>([]);
 
   const handleLogout = () => {
     logout();
     router.push("/login");
+  };
+
+  const toggleMenu = (label: string) => {
+    setOpenMenus((prev) =>
+      prev.includes(label)
+        ? prev.filter((item) => item !== label)
+        : [...prev, label]
+    );
+  };
+
+  const renderMenuItem = (item: MenuItem, depth = 0) => {
+    const Icon = item.icon;
+    const hasChildren = item.children && item.children.length > 0;
+    const isOpen = openMenus.includes(item.label);
+    const isActive = item.href === pathname;
+    const isParentActive = item.children?.some((child) => child.href === pathname);
+
+    // Item com submenu
+    if (hasChildren) {
+      return (
+        <div key={item.label}>
+          <button
+            onClick={() => toggleMenu(item.label)}
+            className={cn(
+              "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              isParentActive
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+            style={{ paddingLeft: `${depth * 12 + 12}px` }}
+          >
+            <div className="flex items-center space-x-3">
+              <Icon className="h-5 w-5" />
+              <span>{item.label}</span>
+            </div>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 transition-transform",
+                isOpen && "rotate-180"
+              )}
+            />
+          </button>
+
+          {/* Submenu */}
+          {isOpen && (
+            <div className="mt-1 space-y-1">
+              {item.children?.map((child) => renderMenuItem(child, depth + 1))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Item sem submenu (link direto)
+    return (
+      <Link
+        key={item.href}
+        href={item.href!}
+        className={cn(
+          "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          isActive
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        )}
+        style={{ paddingLeft: `${depth * 12 + 12}px` }}
+      >
+        <Icon className="h-5 w-5" />
+        <span>{item.label}</span>
+      </Link>
+    );
   };
 
   return (
@@ -61,26 +167,7 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-          {menuItems.map((item) => {
-            const isActive = pathname === item.href;
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+          {menuItems.map((item) => renderMenuItem(item))}
         </nav>
 
         {/* Logout */}

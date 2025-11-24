@@ -161,6 +161,14 @@ model AIKnowledge {
   productsServices   String?  @map("products_services") @db.Text
   toneInstructions   String?  @map("tone_instructions") @db.Text
   policies           String?  @db.Text
+
+  // Configurações avançadas da IA
+  provider           String?  @default("openai") // openai ou anthropic
+  model              String?  // Nome do modelo específico (opcional)
+  temperature        Float?   @default(0.7) // 0.0 a 1.0 (menor = mais conservador)
+  maxTokens          Int?     @default(500) // Limite de tokens na resposta
+  autoReplyEnabled   Boolean  @default(true) @map("auto_reply_enabled") // Resposta automática ativada
+
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 

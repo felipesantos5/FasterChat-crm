@@ -23,6 +23,14 @@ class AIKnowledgeService {
    */
   async upsertKnowledge(companyId: string, data: UpdateAIKnowledgeRequest) {
     try {
+      console.log('[AI Knowledge Service] Upserting knowledge with data:', {
+        companyId,
+        provider: data.provider,
+        temperature: data.temperature,
+        maxTokens: data.maxTokens,
+        autoReplyEnabled: data.autoReplyEnabled,
+      });
+
       const knowledge = await prisma.aIKnowledge.upsert({
         where: { companyId },
         update: {
@@ -30,6 +38,12 @@ class AIKnowledgeService {
           productsServices: data.productsServices,
           toneInstructions: data.toneInstructions,
           policies: data.policies,
+          // Configurações avançadas
+          provider: data.provider,
+          model: data.model,
+          temperature: data.temperature,
+          maxTokens: data.maxTokens,
+          autoReplyEnabled: data.autoReplyEnabled,
         },
         create: {
           companyId,
@@ -37,14 +51,25 @@ class AIKnowledgeService {
           productsServices: data.productsServices,
           toneInstructions: data.toneInstructions,
           policies: data.policies,
+          // Configurações avançadas
+          provider: data.provider || 'openai',
+          model: data.model,
+          temperature: data.temperature ?? 0.7,
+          maxTokens: data.maxTokens ?? 500,
+          autoReplyEnabled: data.autoReplyEnabled ?? true,
         },
       });
 
-      console.log(`AI knowledge updated for company ${companyId}`);
+      console.log(`✓ AI knowledge updated for company ${companyId}`, {
+        provider: knowledge.provider,
+        temperature: knowledge.temperature,
+        maxTokens: knowledge.maxTokens,
+        autoReplyEnabled: knowledge.autoReplyEnabled,
+      });
 
       return knowledge;
     } catch (error: any) {
-      console.error('Error upserting AI knowledge:', error);
+      console.error('✗ Error upserting AI knowledge:', error);
       throw new Error(`Failed to upsert AI knowledge: ${error.message}`);
     }
   }

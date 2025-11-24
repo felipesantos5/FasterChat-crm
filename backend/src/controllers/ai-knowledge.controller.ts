@@ -38,7 +38,19 @@ class AIKnowledgeController {
    */
   async updateKnowledge(req: Request, res: Response) {
     try {
-      const { companyId, companyInfo, productsServices, toneInstructions, policies } = req.body;
+      const {
+        companyId,
+        companyInfo,
+        productsServices,
+        toneInstructions,
+        policies,
+        // Configurações avançadas
+        provider,
+        model,
+        temperature,
+        maxTokens,
+        autoReplyEnabled,
+      } = req.body;
 
       if (!companyId) {
         return res.status(400).json({
@@ -47,11 +59,24 @@ class AIKnowledgeController {
         });
       }
 
+      console.log('[AI Knowledge Controller] Updating knowledge with advanced settings:', {
+        companyId,
+        provider,
+        temperature,
+        maxTokens,
+        autoReplyEnabled,
+      });
+
       const knowledge = await aiKnowledgeService.upsertKnowledge(companyId, {
         companyInfo,
         productsServices,
         toneInstructions,
         policies,
+        provider,
+        model,
+        temperature,
+        maxTokens,
+        autoReplyEnabled,
       });
 
       return res.status(200).json({

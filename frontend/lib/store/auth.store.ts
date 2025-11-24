@@ -22,9 +22,11 @@ export const useAuthStore = create<AuthState>((set) => {
     isLoading: true, // Começa como loading
 
     login: async (email, password) => {
+    console.log('[AUTH] Iniciando login...');
     set({ isLoading: true });
     try {
       const response = await authApi.login({ email, password });
+      console.log('[AUTH] Login bem-sucedido:', response);
       setAuthToken(response.token);
       setUser(response.user);
       set({
@@ -33,7 +35,9 @@ export const useAuthStore = create<AuthState>((set) => {
         isAuthenticated: true,
         isLoading: false,
       });
+      console.log('[AUTH] Estado atualizado - isAuthenticated:', true);
     } catch (error) {
+      console.error('[AUTH] Erro no login:', error);
       set({ isLoading: false });
       throw error;
     }
@@ -67,10 +71,13 @@ export const useAuthStore = create<AuthState>((set) => {
   },
 
   loadUser: async () => {
+    console.log('[AUTH] Carregando usuário do localStorage...');
     const token = getAuthToken();
     const savedUser = getUser();
+    console.log('[AUTH] Token:', token ? 'existe' : 'não existe', 'User:', savedUser ? 'existe' : 'não existe');
 
     if (token && savedUser) {
+      console.log('[AUTH] Restaurando sessão...');
       set({
         user: savedUser,
         token,
@@ -83,8 +90,10 @@ export const useAuthStore = create<AuthState>((set) => {
         const user = await authApi.getMe();
         setUser(user);
         set({ user });
+        console.log('[AUTH] Token validado com sucesso');
       } catch (error) {
         // Token is invalid
+        console.error('[AUTH] Token inválido:', error);
         removeAuthToken();
         set({
           user: null,
@@ -95,6 +104,7 @@ export const useAuthStore = create<AuthState>((set) => {
       }
     } else {
       // No saved auth data
+      console.log('[AUTH] Nenhum dado de autenticação salvo');
       set({ isLoading: false });
     }
   },

@@ -15,11 +15,19 @@ export default function DashboardLayout({
   const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
+    console.log('[DASHBOARD LAYOUT] isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
+
     // Aguarda o loading terminar antes de redirecionar
-    if (isLoading) return;
+    if (isLoading) {
+      console.log('[DASHBOARD LAYOUT] Aguardando loading...');
+      return;
+    }
 
     if (!isAuthenticated) {
+      console.log('[DASHBOARD LAYOUT] Não autenticado, redirecionando para login');
       router.push("/login");
+    } else {
+      console.log('[DASHBOARD LAYOUT] Autenticado, renderizando dashboard');
     }
   }, [isAuthenticated, isLoading, router]);
 
