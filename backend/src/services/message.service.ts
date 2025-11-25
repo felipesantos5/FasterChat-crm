@@ -1,10 +1,6 @@
-import { prisma } from '../utils/prisma';
-import { MessageDirection, MessageStatus, MessageFeedback } from '@prisma/client';
-import {
-  CreateMessageRequest,
-  GetMessagesRequest,
-  ConversationSummary,
-} from '../types/message';
+import { prisma } from "../utils/prisma";
+import { MessageDirection, MessageStatus, MessageFeedback } from "@prisma/client";
+import { CreateMessageRequest, GetMessagesRequest, ConversationSummary } from "../types/message";
 
 class MessageService {
   /**
@@ -30,7 +26,7 @@ class MessageService {
 
       return message;
     } catch (error: any) {
-      console.error('Error creating message:', error);
+      console.error("Error creating message:", error);
       throw new Error(`Failed to create message: ${error.message}`);
     }
   }
@@ -40,13 +36,7 @@ class MessageService {
    */
   async getMessages(filters: GetMessagesRequest) {
     try {
-      const {
-        customerId,
-        whatsappInstanceId,
-        direction,
-        limit = 50,
-        offset = 0,
-      } = filters;
+      const { customerId, whatsappInstanceId, direction, limit = 50, offset = 0 } = filters;
 
       const where: any = {};
 
@@ -61,7 +51,7 @@ class MessageService {
           whatsappInstance: true,
         },
         orderBy: {
-          timestamp: 'desc',
+          timestamp: "desc",
         },
         take: limit,
         skip: offset,
@@ -76,7 +66,7 @@ class MessageService {
         offset,
       };
     } catch (error: any) {
-      console.error('Error getting messages:', error);
+      console.error("Error getting messages:", error);
       throw new Error(`Failed to get messages: ${error.message}`);
     }
   }
@@ -104,7 +94,7 @@ class MessageService {
 
       return message;
     } catch (error: any) {
-      console.error('Error updating message status:', error);
+      console.error("Error updating message status:", error);
       throw new Error(`Failed to update message status: ${error.message}`);
     }
   }
@@ -125,7 +115,7 @@ class MessageService {
           customer: true,
         },
         orderBy: {
-          timestamp: 'desc',
+          timestamp: "desc",
         },
       });
 
@@ -148,7 +138,7 @@ class MessageService {
 
       return Array.from(conversationsMap.values());
     } catch (error: any) {
-      console.error('Error getting conversations:', error);
+      console.error("Error getting conversations:", error);
       throw new Error(`Failed to get conversations: ${error.message}`);
     }
   }
@@ -156,14 +146,7 @@ class MessageService {
   /**
    * Processa mensagem recebida via webhook
    */
-  async processInboundMessage(
-    instanceName: string,
-    remoteJid: string,
-    content: string,
-    messageId: string,
-    timestamp: Date,
-    pushName?: string
-  ) {
+  async processInboundMessage(instanceName: string, remoteJid: string, content: string, messageId: string, timestamp: Date, pushName?: string) {
     try {
       // Busca a instância pelo nome
       const instance = await prisma.whatsAppInstance.findFirst({
@@ -175,7 +158,7 @@ class MessageService {
       }
 
       // Extrai o número de telefone do remoteJid (remove @s.whatsapp.net)
-      const phone = remoteJid.replace('@s.whatsapp.net', '');
+      const phone = remoteJid.replace("@s.whatsapp.net", "");
 
       // Busca ou cria o customer
       let customer = await prisma.customer.findFirst({
@@ -220,7 +203,7 @@ class MessageService {
         instance,
       };
     } catch (error: any) {
-      console.error('Error processing inbound message:', error);
+      console.error("Error processing inbound message:", error);
       throw new Error(`Failed to process inbound message: ${error.message}`);
     }
   }
@@ -246,7 +229,7 @@ class MessageService {
 
       return { success: true };
     } catch (error: any) {
-      console.error('Error marking messages as read:', error);
+      console.error("Error marking messages as read:", error);
       throw new Error(`Failed to mark messages as read: ${error.message}`);
     }
   }
@@ -262,7 +245,7 @@ class MessageService {
 
       return { success: true };
     } catch (error: any) {
-      console.error('Error deleting messages:', error);
+      console.error("Error deleting messages:", error);
       throw new Error(`Failed to delete messages: ${error.message}`);
     }
   }
@@ -270,19 +253,18 @@ class MessageService {
   /**
    * Envia uma mensagem para um customer via WhatsApp
    */
-  async sendMessage(customerId: string, content: string, sentBy: 'HUMAN' | 'AI' = 'HUMAN') {
+  async sendMessage(customerId: string, content: string, sentBy: "HUMAN" | "AI" = "HUMAN") {
     try {
-      // Busca o customer com sua empresa
+      // Busca o customer com sua empresa e TODAS as instâncias (sem filtrar status no banco)
       const customer = await prisma.customer.findUnique({
         where: { id: customerId },
         include: {
           company: {
             include: {
               whatsappInstances: {
-                where: {
-                  status: 'CONNECTED',
+                orderBy: {
+                  updatedAt: "desc", // Pega as mais recentes primeiro
                 },
-                take: 1,
               },
             },
           },
@@ -290,17 +272,26 @@ class MessageService {
       });
 
       if (!customer) {
-        throw new Error('Customer not found');
+        throw new Error("Customer not found");
       }
 
-      // Verifica se há uma instância conectada
-      const whatsappInstance = customer.company.whatsappInstances[0];
+      // Tenta encontrar uma instância CONECTADA
+      let whatsappInstance = customer.company.whatsappInstances.find((i) => i.status === "CONNECTED");
+
+      // FALLBACK: Se não achar conectada, pega a última que foi criada/atualizada
+      // Isso resolve o caso onde o status ainda é "CONNECTING" no banco mas já está funcionando
+      if (!whatsappInstance && customer.company.whatsappInstances.length > 0) {
+        whatsappInstance = customer.company.whatsappInstances[0];
+        console.warn(`⚠️ Usando instância com status ${whatsappInstance.status} como fallback.`);
+      }
+
       if (!whatsappInstance) {
-        throw new Error('No connected WhatsApp instance found for this company');
+        console.error("Instâncias encontradas:", customer.company.whatsappInstances);
+        throw new Error("No WhatsApp instance found for this company");
       }
 
       // Importa o whatsappService dinamicamente para evitar dependência circular
-      const whatsappService = (await import('./whatsapp.service')).default;
+      const whatsappService = (await import("./whatsapp.service")).default;
 
       // Envia a mensagem via WhatsApp
       const result = await whatsappService.sendMessage({
@@ -333,7 +324,7 @@ class MessageService {
         sentBy,
       };
     } catch (error: any) {
-      console.error('Error sending message:', error);
+      console.error("Error sending message:", error);
       throw new Error(`Failed to send message: ${error.message}`);
     }
   }
@@ -341,7 +332,7 @@ class MessageService {
   /**
    * Adiciona feedback a uma mensagem da IA
    */
-  async addFeedback(messageId: string, feedback: 'GOOD' | 'BAD', feedbackNote?: string) {
+  async addFeedback(messageId: string, feedback: "GOOD" | "BAD", feedbackNote?: string) {
     try {
       // Verifica se a mensagem existe e é da IA
       const existingMessage = await prisma.message.findUnique({
@@ -349,11 +340,11 @@ class MessageService {
       });
 
       if (!existingMessage) {
-        throw new Error('Message not found');
+        throw new Error("Message not found");
       }
 
-      if (existingMessage.senderType !== 'AI') {
-        throw new Error('Feedback can only be added to AI messages');
+      if (existingMessage.senderType !== "AI") {
+        throw new Error("Feedback can only be added to AI messages");
       }
 
       // Atualiza a mensagem com o feedback
@@ -371,7 +362,7 @@ class MessageService {
 
       return message;
     } catch (error: any) {
-      console.error('Error adding feedback:', error);
+      console.error("Error adding feedback:", error);
       throw new Error(`Failed to add feedback: ${error.message}`);
     }
   }
@@ -387,7 +378,7 @@ class MessageService {
           customer: {
             companyId,
           },
-          senderType: 'AI',
+          senderType: "AI",
         },
       });
 
@@ -397,8 +388,8 @@ class MessageService {
           customer: {
             companyId,
           },
-          senderType: 'AI',
-          feedback: 'GOOD',
+          senderType: "AI",
+          feedback: "GOOD",
         },
       });
 
@@ -408,8 +399,8 @@ class MessageService {
           customer: {
             companyId,
           },
-          senderType: 'AI',
-          feedback: 'BAD',
+          senderType: "AI",
+          feedback: "BAD",
         },
       });
 
@@ -418,9 +409,7 @@ class MessageService {
 
       // Percentual de feedback positivo (sobre mensagens com feedback)
       const totalWithFeedback = goodFeedback + badFeedback;
-      const goodPercentage = totalWithFeedback > 0
-        ? (goodFeedback / totalWithFeedback) * 100
-        : 0;
+      const goodPercentage = totalWithFeedback > 0 ? (goodFeedback / totalWithFeedback) * 100 : 0;
 
       return {
         totalAiMessages,
@@ -430,7 +419,7 @@ class MessageService {
         goodPercentage: Math.round(goodPercentage * 10) / 10, // Arredonda para 1 casa decimal
       };
     } catch (error: any) {
-      console.error('Error getting feedback stats:', error);
+      console.error("Error getting feedback stats:", error);
       throw new Error(`Failed to get feedback stats: ${error.message}`);
     }
   }
@@ -445,8 +434,8 @@ class MessageService {
           customer: {
             companyId,
           },
-          senderType: 'AI',
-          feedback: 'BAD',
+          senderType: "AI",
+          feedback: "BAD",
         },
         include: {
           customer: {
@@ -458,7 +447,7 @@ class MessageService {
           },
         },
         orderBy: {
-          timestamp: 'desc',
+          timestamp: "desc",
         },
         take: limit,
         skip: offset,
@@ -469,8 +458,8 @@ class MessageService {
           customer: {
             companyId,
           },
-          senderType: 'AI',
-          feedback: 'BAD',
+          senderType: "AI",
+          feedback: "BAD",
         },
       });
 
@@ -481,7 +470,7 @@ class MessageService {
         offset,
       };
     } catch (error: any) {
-      console.error('Error getting messages with bad feedback:', error);
+      console.error("Error getting messages with bad feedback:", error);
       throw new Error(`Failed to get messages with bad feedback: ${error.message}`);
     }
   }

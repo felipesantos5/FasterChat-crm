@@ -1,4 +1,4 @@
-import { MessageDirection, MessageStatus } from '@prisma/client';
+import { MessageDirection, MessageStatus } from "@prisma/client";
 
 export interface MessageData {
   id: string;
@@ -33,6 +33,7 @@ export interface GetMessagesRequest {
 
 // Evolution API Webhook Payload Types
 export interface EvolutionWebhookMessage {
+  lastDisconnect: any;
   key?: {
     remoteJid: string;
     fromMe: boolean;
@@ -49,6 +50,7 @@ export interface EvolutionWebhookMessage {
   instanceName?: string;
   // Campos de conexão
   state?: string;
+  reason?: any;
   connection?: string;
   instance?: {
     wuid?: string;
@@ -65,6 +67,7 @@ export interface EvolutionWebhookPayload {
   event: string;
   instance: string;
   data: EvolutionWebhookMessage;
+  lastDisconnect: any;
 }
 
 export interface ConversationSummary {

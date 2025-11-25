@@ -1,6 +1,6 @@
-import axios, { AxiosInstance } from 'axios';
-import { prisma } from '../utils/prisma';
-import { WhatsAppStatus } from '@prisma/client';
+import axios, { AxiosInstance } from "axios";
+import { prisma } from "../utils/prisma";
+import { WhatsAppStatus } from "@prisma/client";
 import {
   CreateInstanceRequest,
   SendMessageRequest,
@@ -8,7 +8,7 @@ import {
   EvolutionApiQRCodeResponse,
   EvolutionApiConnectionStateResponse,
   EvolutionApiSendMessageResponse,
-} from '../types/whatsapp';
+} from "../types/whatsapp";
 
 class WhatsAppService {
   private axiosInstance: AxiosInstance;
@@ -16,14 +16,14 @@ class WhatsAppService {
   private globalApiKey: string;
 
   constructor() {
-    this.apiUrl = process.env.EVOLUTION_API_URL || 'http://localhost:8080';
-    this.globalApiKey = process.env.EVOLUTION_API_KEY || '';
+    this.apiUrl = process.env.EVOLUTION_API_URL || "http://localhost:8080";
+    this.globalApiKey = process.env.EVOLUTION_API_KEY || "";
 
     this.axiosInstance = axios.create({
       baseURL: this.apiUrl,
       headers: {
-        'Content-Type': 'application/json',
-        'apikey': this.globalApiKey,
+        "Content-Type": "application/json",
+        apikey: this.globalApiKey,
       },
     });
   }
@@ -49,22 +49,23 @@ class WhatsAppService {
       const finalInstanceName = instanceName || `instance_${companyId}_${Date.now()}`;
 
       // Chama a Evolution API para criar a instância
-      const response = await this.axiosInstance.post<EvolutionApiCreateInstanceResponse>(
-        '/instance/create',
-        {
-          instanceName: finalInstanceName,
-          qrcode: true,
-          integration: 'WHATSAPP-BAILEYS',
-        }
-      );
+      const response = await this.axiosInstance.post<EvolutionApiCreateInstanceResponse>("/instance/create", {
+        instanceName: finalInstanceName,
+        qrcode: true,
+        integration: "WHATSAPP-BAILEYS",
+        browser: ["CRM IA", "Chrome", "10.0"],
+      });
 
       const { instance, hash, qrcode } = response.data;
 
-      console.log('Evolution API Response:', JSON.stringify({
-        instanceName: instance?.instanceName,
-        hasApiKey: !!hash?.apikey,
-        hasQRCode: !!qrcode?.base64,
-      }));
+      console.log(
+        "Evolution API Response:",
+        JSON.stringify({
+          instanceName: instance?.instanceName,
+          hasApiKey: !!hash?.apikey,
+          hasQRCode: !!qrcode?.base64,
+        })
+      );
 
       // Configura webhook para receber mensagens
       await this.configureWebhook(finalInstanceName);
@@ -83,10 +84,8 @@ class WhatsAppService {
 
       return whatsappInstance;
     } catch (error: any) {
-      console.error('Error creating WhatsApp instance:', error.response?.data || error.message);
-      throw new Error(
-        `Failed to create WhatsApp instance: ${error.response?.data?.message || error.message}`
-      );
+      console.error("Error creating WhatsApp instance:", error.response?.data || error.message);
+      throw new Error(`Failed to create WhatsApp instance: ${error.response?.data?.message || error.message}`);
     }
   }
 
@@ -100,7 +99,7 @@ class WhatsAppService {
       });
 
       if (!instance) {
-        throw new Error('WhatsApp instance not found');
+        throw new Error("WhatsApp instance not found");
       }
 
       // Se já está conectado, não precisa de QR Code
@@ -113,11 +112,7 @@ class WhatsAppService {
 
       // Se já temos o QR Code recente no banco (menos de 2 minutos), retornamos
       const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-      if (
-        instance.qrCode &&
-        instance.status === WhatsAppStatus.CONNECTING &&
-        instance.updatedAt > twoMinutesAgo
-      ) {
+      if (instance.qrCode && instance.status === WhatsAppStatus.CONNECTING && instance.updatedAt > twoMinutesAgo) {
         return {
           qrCode: instance.qrCode,
           status: instance.status,
@@ -130,26 +125,20 @@ class WhatsAppService {
 
       try {
         // Primeiro tenta o endpoint /instance/connect (versões mais recentes)
-        const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(
-          `/instance/connect/${instance.instanceName}`
-        );
+        const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(`/instance/connect/${instance.instanceName}`);
         qrCode = response.data.base64 || response.data.code;
       } catch (connectError: any) {
         try {
-          const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(
-            `/instance/qrcode/${instance.instanceName}`
-          );
+          const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(`/instance/qrcode/${instance.instanceName}`);
           qrCode = response.data.base64 || response.data.code;
         } catch (qrcodeError: any) {
-          const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(
-            `/instance/qr/${instance.instanceName}`
-          );
+          const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(`/instance/qr/${instance.instanceName}`);
           qrCode = response.data.base64 || response.data.code;
         }
       }
 
       if (!qrCode) {
-        throw new Error('QR Code not found in Evolution API response');
+        throw new Error("QR Code not found in Evolution API response");
       }
 
       // Atualiza o QR Code no banco
@@ -166,10 +155,8 @@ class WhatsAppService {
         status: WhatsAppStatus.CONNECTING,
       };
     } catch (error: any) {
-      console.error('[WhatsApp Service] ✗ Error getting QR code:', error.response?.data || error.message);
-      throw new Error(
-        `Failed to get QR code: ${error.response?.data?.message || error.message}`
-      );
+      console.error("[WhatsApp Service] ✗ Error getting QR code:", error.response?.data || error.message);
+      throw new Error(`Failed to get QR code: ${error.response?.data?.message || error.message}`);
     }
   }
 
@@ -183,19 +170,16 @@ class WhatsAppService {
       });
 
       if (!instance) {
-        throw new Error('WhatsApp instance not found');
+        throw new Error("WhatsApp instance not found");
       }
 
       // Busca o status da Evolution API (sem cache para garantir atualização imediata)
       let apiState: string;
 
       try {
-        const response = await this.axiosInstance.get<EvolutionApiConnectionStateResponse>(
-          `/instance/connectionState/${instance.instanceName}`,
-          {
-            timeout: 5000,
-          }
-        );
+        const response = await this.axiosInstance.get<EvolutionApiConnectionStateResponse>(`/instance/connectionState/${instance.instanceName}`, {
+          timeout: 5000,
+        });
         apiState = response.data.state;
       } catch (apiError: any) {
         // Se a Evolution API falhar, retorna o último status conhecido
@@ -209,15 +193,15 @@ class WhatsAppService {
       // Mapeia o status da API para o nosso enum
       let status: WhatsAppStatus;
       switch (apiState) {
-        case 'open':
+        case "open":
           status = WhatsAppStatus.CONNECTED;
           console.log(`✅ Evolution API: ${instance.instanceName} CONNECTED`);
           break;
-        case 'connecting':
+        case "connecting":
           status = WhatsAppStatus.CONNECTING;
           break;
-        case 'close':
-        case 'closed':
+        case "close":
+        case "closed":
           status = WhatsAppStatus.DISCONNECTED;
           console.log(`❌ Evolution API: ${instance.instanceName} DISCONNECTED`);
           break;
@@ -232,9 +216,7 @@ class WhatsAppService {
         data: {
           status,
           // Limpa o QR Code se conectado ou desconectado
-          qrCode: status === WhatsAppStatus.CONNECTED || status === WhatsAppStatus.DISCONNECTED
-            ? null
-            : instance.qrCode,
+          qrCode: status === WhatsAppStatus.CONNECTED || status === WhatsAppStatus.DISCONNECTED ? null : instance.qrCode,
           // Atualiza o updatedAt para servir como cache
         },
       });
@@ -245,10 +227,8 @@ class WhatsAppService {
         instanceName: updatedInstance.instanceName,
       };
     } catch (error: any) {
-      console.error('[WhatsApp Service] ✗ Error getting connection status:', error.response?.data || error.message);
-      throw new Error(
-        `Failed to get connection status: ${error.response?.data?.message || error.message}`
-      );
+      console.error("[WhatsApp Service] ✗ Error getting connection status:", error.response?.data || error.message);
+      throw new Error(`Failed to get connection status: ${error.response?.data?.message || error.message}`);
     }
   }
 
@@ -259,30 +239,37 @@ class WhatsAppService {
     try {
       const { instanceId, to, text } = data;
 
-      const instance = await prisma.whatsAppInstance.findUnique({
+      let instance = await prisma.whatsAppInstance.findUnique({
         where: { id: instanceId },
       });
 
       if (!instance) {
-        throw new Error('WhatsApp instance not found');
+        throw new Error("WhatsApp instance not found");
       }
 
+      // Verificação de status com tolerância para 'CONNECTING'
       if (instance.status !== WhatsAppStatus.CONNECTED) {
-        throw new Error('WhatsApp instance is not connected');
+        console.log(`[WhatsApp Service] Status: ${instance.status}. Double checking API...`);
+
+        const statusResult = await this.getStatus(instanceId);
+
+        // ALTERAÇÃO AQUI: Aceitamos CONNECTED ou CONNECTING
+        // A Evolution V2 frequentemente permite envio mesmo em estado 'connecting'
+        if (statusResult.status !== WhatsAppStatus.CONNECTED && statusResult.status !== WhatsAppStatus.CONNECTING) {
+          throw new Error(`Cannot send: Instance is ${statusResult.status}`);
+        }
+
+        console.log("[WhatsApp Service] Connection valid (Open or Connecting). Sending message...");
       }
 
-      // Formata o número de telefone (remove caracteres especiais e adiciona @s.whatsapp.net)
-      const formattedNumber = to.replace(/\D/g, '');
+      // ... (resto do código de formatação do número e envio permanece igual)
+      const formattedNumber = to.replace(/\D/g, "");
       const remoteJid = `${formattedNumber}@s.whatsapp.net`;
 
-      // Envia a mensagem via Evolution API
-      const response = await this.axiosInstance.post<EvolutionApiSendMessageResponse>(
-        `/message/sendText/${instance.instanceName}`,
-        {
-          number: remoteJid,
-          text,
-        }
-      );
+      const response = await this.axiosInstance.post<EvolutionApiSendMessageResponse>(`/message/sendText/${instance!.instanceName}`, {
+        number: remoteJid,
+        text,
+      });
 
       return {
         success: true,
@@ -290,10 +277,9 @@ class WhatsAppService {
         timestamp: response.data.messageTimestamp,
       };
     } catch (error: any) {
-      console.error('Error sending message:', error.response?.data || error.message);
-      throw new Error(
-        `Failed to send message: ${error.response?.data?.message || error.message}`
-      );
+      // ... (catch permanece igual)
+      console.error("Error sending message:", error.response?.data || error.message);
+      throw new Error(`Failed to send message: ${error.response?.data?.message || error.message}`);
     }
   }
 
@@ -304,12 +290,12 @@ class WhatsAppService {
     try {
       const instances = await prisma.whatsAppInstance.findMany({
         where: { companyId },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       return instances;
     } catch (error: any) {
-      console.error('Error getting instances:', error.message);
+      console.error("Error getting instances:", error.message);
       throw new Error(`Failed to get instances: ${error.message}`);
     }
   }
@@ -324,14 +310,14 @@ class WhatsAppService {
       });
 
       if (!instance) {
-        throw new Error('WhatsApp instance not found');
+        throw new Error("WhatsApp instance not found");
       }
 
       // Tenta deletar da Evolution API
       try {
         await this.axiosInstance.delete(`/instance/delete/${instance.instanceName}`);
       } catch (apiError) {
-        console.error('Error deleting from Evolution API:', apiError);
+        console.error("Error deleting from Evolution API:", apiError);
         // Continua mesmo se falhar na API
       }
 
@@ -342,7 +328,7 @@ class WhatsAppService {
 
       return { success: true };
     } catch (error: any) {
-      console.error('Error deleting instance:', error.message);
+      console.error("Error deleting instance:", error.message);
       throw new Error(`Failed to delete instance: ${error.message}`);
     }
   }
@@ -357,7 +343,7 @@ class WhatsAppService {
       });
 
       if (!instance) {
-        throw new Error('WhatsApp instance not found');
+        throw new Error("WhatsApp instance not found");
       }
 
       // Desconecta na Evolution API
@@ -375,10 +361,8 @@ class WhatsAppService {
 
       return { success: true };
     } catch (error: any) {
-      console.error('Error disconnecting instance:', error.response?.data || error.message);
-      throw new Error(
-        `Failed to disconnect instance: ${error.response?.data?.message || error.message}`
-      );
+      console.error("Error disconnecting instance:", error.response?.data || error.message);
+      throw new Error(`Failed to disconnect instance: ${error.response?.data?.message || error.message}`);
     }
   }
 
@@ -387,51 +371,42 @@ class WhatsAppService {
    */
   private async configureWebhook(instanceName: string) {
     try {
+      // Prioriza a variável WEBHOOK_URL
       const webhookUrl = process.env.WEBHOOK_URL || process.env.API_URL;
 
       if (!webhookUrl) {
-        console.warn('WEBHOOK_URL not configured, skipping webhook setup');
+        console.warn("WEBHOOK_URL not configured, skipping webhook setup");
         return;
       }
 
+      // Garante a rota correta da API
       const fullWebhookUrl = `${webhookUrl}/api/webhooks/whatsapp`;
 
-      // Configura webhook com todos os eventos necessários
+      console.log(`🔄 Configurando webhook para ${instanceName} em: ${fullWebhookUrl}`);
+
+      // CORREÇÃO: Formato V2 (dentro do objeto webhook) e Eventos Corrigidos
       await this.axiosInstance.post(`/webhook/set/${instanceName}`, {
-        url: fullWebhookUrl,
-        enabled: true,
-        webhook_by_events: false, // Usa webhook único para todos eventos
-        webhook_base64: false, // Não envia arquivos em base64 (economiza banda)
-        events: [
-          // Eventos de mensagens
-          'MESSAGES_UPSERT', // Nova mensagem recebida ou enviada
-          'MESSAGES_UPDATE', // Status da mensagem (entregue, lido, etc)
-          'MESSAGES_DELETE', // Mensagem deletada
-          'SEND_MESSAGE', // Mensagem enviada
-
-          // Eventos de conexão (CRÍTICOS para atualizar status)
-          'CONNECTION_UPDATE', // Status da conexão (conectando, conectado, desconectado)
-          'QRCODE_UPDATED', // QR Code atualizado
-          'STATUS_INSTANCE', // Status da instância
-
-          // Eventos de contatos (opcional, para sincronizar contatos)
-          // 'CONTACTS_UPDATE',
-          // 'CONTACTS_UPSERT',
-
-          // Eventos de grupos (opcional, se for usar grupos)
-          // 'GROUPS_UPSERT',
-          // 'GROUPS_UPDATE',
-        ],
-        // Headers customizados (opcional)
-        webhook_headers: {
-          'X-Webhook-Secret': process.env.WEBHOOK_SECRET || '',
+        webhook: {
+          url: fullWebhookUrl,
+          enabled: true,
+          webhook_by_events: false,
+          webhook_base64: false,
+          events: [
+            "MESSAGES_UPSERT",
+            "CONNECTION_UPDATE",
+            "QRCODE_UPDATED",
+            "SEND_MESSAGE",
+            // STATUS_INSTANCE removido pois causa erro 400
+          ],
+          webhook_headers: {
+            "X-Webhook-Secret": process.env.WEBHOOK_SECRET || "",
+          },
         },
       });
 
-      console.log(`✅ Webhook configured: ${instanceName}`);
+      console.log(`✅ Webhook configured successfully: ${instanceName}`);
     } catch (error: any) {
-      console.error('✗ Error configuring webhook:', error.response?.data || error.message);
-      // Não lança erro para não bloquear a criação da instância
+      console.error("✗ Error configuring webhook:", error.response?.data || error.message);
     }
   }
 }

@@ -87,7 +87,7 @@ services:
       - DATABASE_SAVE_DATA_CHATS=true
 
       # Redis config
-      - REDIS_ENABLED=true
+      - REDIS_ENABLED=false
       - REDIS_URI=redis://redis:6379
       - CACHE_REDIS_ENABLED=true
       - CACHE_REDIS_URI=redis://redis:6379
