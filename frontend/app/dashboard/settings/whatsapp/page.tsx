@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { QRCodeModal } from '@/components/whatsapp/qr-code-modal';
 import { whatsappApi } from '@/lib/whatsapp';
 import { WhatsAppInstance, WhatsAppStatus } from '@/types/whatsapp';
-import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
 
 export default function WhatsAppSettingsPage() {
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
@@ -16,6 +16,7 @@ export default function WhatsAppSettingsPage() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState<{ [key: string]: boolean }>({});
 
   // Obtém o companyId do usuário logado (você pode ajustar conforme sua implementação)
   const getCompanyId = () => {
@@ -49,6 +50,14 @@ export default function WhatsAppSettingsPage() {
 
   useEffect(() => {
     loadInstances();
+
+    // Polling: Atualiza status a cada 5 segundos
+    // Útil quando webhook não funciona (Evolution em Docker)
+    const interval = setInterval(() => {
+      loadInstances();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Cria uma nova instância
@@ -107,6 +116,20 @@ export default function WhatsAppSettingsPage() {
   const handleReconnect = (instanceId: string) => {
     setSelectedInstanceId(instanceId);
     setQrModalOpen(true);
+  };
+
+  // Sincroniza status manualmente com Evolution API
+  const handleSyncStatus = async (instanceId: string) => {
+    setSyncing(prev => ({ ...prev, [instanceId]: true }));
+    try {
+      await whatsappApi.syncStatus(instanceId);
+      await loadInstances();
+    } catch (err: any) {
+      console.error('Error syncing status:', err);
+      alert(err.response?.data?.message || 'Erro ao sincronizar status');
+    } finally {
+      setSyncing(prev => ({ ...prev, [instanceId]: false }));
+    }
   };
 
   // Retorna o badge de status
@@ -221,6 +244,17 @@ export default function WhatsAppSettingsPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {/* Botão de Sincronização Manual */}
+                    <Button
+                      onClick={() => handleSyncStatus(instance.id)}
+                      variant="ghost"
+                      size="sm"
+                      disabled={syncing[instance.id]}
+                      title="Sincronizar status com Evolution API"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${syncing[instance.id] ? 'animate-spin' : ''}`} />
+                    </Button>
+
                     {instance.status === WhatsAppStatus.CONNECTED && (
                       <Button
                         onClick={() => handleDisconnect(instance.id)}

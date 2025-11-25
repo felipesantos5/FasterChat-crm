@@ -99,7 +99,8 @@ services:
 
       # Authentication
       - AUTHENTICATION_TYPE=apikey
-      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}
+      # - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}
+      - AUTHENTICATION_API_KEY=crm-api-key-secure-2024
       - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
 
       # Webhook config

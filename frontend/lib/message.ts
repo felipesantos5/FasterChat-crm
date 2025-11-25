@@ -73,4 +73,55 @@ export const messageApi = {
     const response = await api.post('/messages/mark-read', data);
     return response.data;
   },
+
+  /**
+   * Adiciona feedback a uma mensagem da IA
+   */
+  async addFeedback(messageId: string, feedback: 'GOOD' | 'BAD', note?: string): Promise<{
+    success: boolean;
+    data: Message;
+  }> {
+    const response = await api.post(`/messages/${messageId}/feedback`, {
+      feedback,
+      note,
+    });
+    return response.data;
+  },
+
+  /**
+   * Obtém estatísticas de feedback
+   */
+  async getFeedbackStats(companyId: string): Promise<{
+    success: boolean;
+    data: {
+      totalAiMessages: number;
+      goodFeedback: number;
+      badFeedback: number;
+      noFeedback: number;
+      goodPercentage: number;
+    };
+  }> {
+    const response = await api.get(`/messages/feedback/stats/${companyId}`);
+    return response.data;
+  },
+
+  /**
+   * Obtém mensagens com feedback negativo
+   */
+  async getMessagesWithBadFeedback(companyId: string, limit?: number, offset?: number): Promise<{
+    success: boolean;
+    data: {
+      messages: Message[];
+      total: number;
+      limit: number;
+      offset: number;
+    };
+  }> {
+    const params: any = {};
+    if (limit) params.limit = limit;
+    if (offset) params.offset = offset;
+
+    const response = await api.get(`/messages/feedback/bad/${companyId}`, { params });
+    return response.data;
+  },
 };

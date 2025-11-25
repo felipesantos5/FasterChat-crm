@@ -230,6 +230,43 @@ class WhatsAppController {
       });
     }
   }
+
+  /**
+   * POST /api/whatsapp/sync/:instanceId
+   * Força sincronização de status com Evolution API
+   * Útil quando webhook não funciona (Evolution em Docker)
+   */
+  async syncStatus(req: Request, res: Response) {
+    try {
+      const { instanceId } = req.params;
+
+      if (!instanceId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Instance ID is required',
+        });
+      }
+
+      console.log('🔄 Manual sync requested for instance:', instanceId);
+
+      // Força consulta sem cache
+      const result = await whatsappService.getStatus(instanceId);
+
+      console.log('✓ Status synced:', result.status);
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Status synchronized successfully',
+      });
+    } catch (error: any) {
+      console.error('Error in syncStatus controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to sync status',
+      });
+    }
+  }
 }
 
 export default new WhatsAppController();

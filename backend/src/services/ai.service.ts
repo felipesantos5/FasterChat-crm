@@ -109,10 +109,6 @@ class AIService {
 
       const userPrompt = this.buildUserPrompt(historyText, message);
 
-      console.log(`[AIService] Generating response for customer: ${customer.name}`);
-      console.log(`[AIService] Using provider: ${providerConfig || options?.provider || 'default'}`);
-      console.log(`[AIService] Temperature: ${temperature}, Max tokens: ${maxTokens}`);
-
       // Seleciona e usa o provedor (prioriza configuração da empresa)
       const provider = this.getProvider(options?.provider || providerConfig);
 
@@ -127,11 +123,9 @@ class AIService {
         maxTokens,
       });
 
-      console.log('[AIService] Response generated successfully');
-
       return aiResponse;
     } catch (error: any) {
-      console.error('[AIService] Error generating AI response:', error);
+      console.error('AI Error:', error.message);
       throw new Error(`Failed to generate AI response: ${error.message}`);
     }
   }

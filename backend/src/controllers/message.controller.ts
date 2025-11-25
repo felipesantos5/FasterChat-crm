@@ -164,6 +164,110 @@ class MessageController {
       });
     }
   }
+
+  /**
+   * POST /api/messages/:id/feedback
+   * Adiciona feedback a uma mensagem da IA
+   */
+  async addFeedback(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { feedback, note } = req.body;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Message ID is required',
+        });
+      }
+
+      if (!feedback || !['GOOD', 'BAD'].includes(feedback)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Feedback must be either GOOD or BAD',
+        });
+      }
+
+      const message = await messageService.addFeedback(id, feedback, note);
+
+      return res.status(200).json({
+        success: true,
+        data: message,
+      });
+    } catch (error: any) {
+      console.error('Error in addFeedback controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to add feedback',
+      });
+    }
+  }
+
+  /**
+   * GET /api/messages/feedback/stats/:companyId
+   * Obtém estatísticas de feedback
+   */
+  async getFeedbackStats(req: Request, res: Response) {
+    try {
+      const { companyId } = req.params;
+
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Company ID is required',
+        });
+      }
+
+      const stats = await messageService.getFeedbackStats(companyId);
+
+      return res.status(200).json({
+        success: true,
+        data: stats,
+      });
+    } catch (error: any) {
+      console.error('Error in getFeedbackStats controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to get feedback stats',
+      });
+    }
+  }
+
+  /**
+   * GET /api/messages/feedback/bad/:companyId
+   * Obtém mensagens com feedback negativo
+   */
+  async getMessagesWithBadFeedback(req: Request, res: Response) {
+    try {
+      const { companyId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Company ID is required',
+        });
+      }
+
+      const result = await messageService.getMessagesWithBadFeedback(
+        companyId,
+        limit,
+        offset
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('Error in getMessagesWithBadFeedback controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to get messages with bad feedback',
+      });
+    }
+  }
 }
 
 export default new MessageController();

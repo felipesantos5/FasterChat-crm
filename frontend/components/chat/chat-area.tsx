@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { MessageFeedbackComponent } from '@/components/chat/message-feedback';
 
 interface ChatAreaProps {
   customerId: string;
@@ -260,6 +261,26 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
     }
   };
 
+  // Submete feedback de uma mensagem
+  const handleFeedbackSubmit = async (messageId: string, feedback: 'GOOD' | 'BAD', note?: string) => {
+    try {
+      await messageApi.addFeedback(messageId, feedback, note);
+
+      // Atualiza a mensagem localmente
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === messageId
+            ? { ...msg, feedback: feedback as any, feedbackNote: note || null }
+            : msg
+        )
+      );
+    } catch (error: any) {
+      console.error('Error submitting feedback:', error);
+      alert(error.response?.data?.message || 'Erro ao enviar feedback');
+      throw error;
+    }
+  };
+
   // Formata timestamp
   const formatMessageTime = (timestamp: string) => {
     try {
@@ -431,16 +452,27 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                   <p className="text-sm whitespace-pre-wrap break-words">
                     {message.content}
                   </p>
-                  <p
-                    className={cn(
-                      'text-xs mt-1',
-                      isInbound
-                        ? 'text-muted-foreground'
-                        : 'text-white/70'
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <p
+                      className={cn(
+                        'text-xs',
+                        isInbound
+                          ? 'text-muted-foreground'
+                          : 'text-white/70'
+                      )}
+                    >
+                      {formatMessageTime(message.timestamp)}
+                    </p>
+                    {/* Mostra feedback apenas para mensagens da IA */}
+                    {!isInbound && isAi && (
+                      <MessageFeedbackComponent
+                        messageId={message.id}
+                        currentFeedback={message.feedback}
+                        currentNote={message.feedbackNote}
+                        onFeedbackSubmit={handleFeedbackSubmit}
+                      />
                     )}
-                  >
-                    {formatMessageTime(message.timestamp)}
-                  </p>
+                  </div>
                 </div>
               </div>
             );

@@ -15,6 +15,11 @@ export enum SenderType {
   AI = 'AI',
 }
 
+export enum MessageFeedback {
+  GOOD = 'GOOD',
+  BAD = 'BAD',
+}
+
 export interface Message {
   id: string;
   customerId: string;
@@ -25,6 +30,8 @@ export interface Message {
   status: MessageStatus;
   messageId?: string | null;
   senderType?: SenderType | null;
+  feedback?: MessageFeedback | null;
+  feedbackNote?: string | null;
   createdAt: string;
   updatedAt: string;
   customer?: {

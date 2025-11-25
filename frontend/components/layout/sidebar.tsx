@@ -13,6 +13,7 @@ import {
   Smartphone,
   BookOpen,
   ChevronDown,
+  BarChart3,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useRouter } from "next/navigation";
@@ -62,6 +63,11 @@ const menuItems: MenuItem[] = [
     label: "IA",
     icon: Bot,
     children: [
+      {
+        label: "Insights",
+        icon: BarChart3,
+        href: "/dashboard/ai/insights",
+      },
       {
         label: "Exemplos de Conversas",
         icon: BookOpen,

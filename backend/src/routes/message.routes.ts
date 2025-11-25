@@ -22,4 +22,13 @@ router.post('/send', messageController.sendMessage);
 // POST /api/messages/mark-read - Marca mensagens como lidas
 router.post('/mark-read', messageController.markAsRead);
 
+// POST /api/messages/:id/feedback - Adiciona feedback a uma mensagem
+router.post('/:id/feedback', messageController.addFeedback);
+
+// GET /api/messages/feedback/stats/:companyId - Obtém estatísticas de feedback
+router.get('/feedback/stats/:companyId', messageController.getFeedbackStats);
+
+// GET /api/messages/feedback/bad/:companyId - Obtém mensagens com feedback negativo
+router.get('/feedback/bad/:companyId', messageController.getMessagesWithBadFeedback);
+
 export default router;

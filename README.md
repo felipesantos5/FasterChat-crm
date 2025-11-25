@@ -14,6 +14,7 @@ Sistema SaaS de CRM (Customer Relationship Management) com chatbot de inteligên
 ## 🛠 Stack Tecnológica
 
 ### Backend
+
 - **Runtime**: Node.js 18+
 - **Framework**: Express.js
 - **Language**: TypeScript
@@ -24,6 +25,7 @@ Sistema SaaS de CRM (Customer Relationship Management) com chatbot de inteligên
 - **API WhatsApp**: Evolution API
 
 ### Frontend
+
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
@@ -34,10 +36,12 @@ Sistema SaaS de CRM (Customer Relationship Management) com chatbot de inteligên
 - **HTTP Client**: Axios
 
 ### AI/ML
+
 - **LLM Tier 1**: GPT-4o Mini (OpenAI)
 - **LLM Tier 2**: GPT-4o (OpenAI) / Claude Sonnet (Anthropic)
 
 ### DevOps
+
 - **Containerization**: Docker + Docker Compose
 - **Database**: PostgreSQL (Docker)
 - **Cache**: Redis (Docker)
@@ -104,6 +108,7 @@ docker-compose up -d
 ```
 
 Isso iniciará:
+
 - PostgreSQL (porta 5432)
 - Redis (porta 6379)
 
@@ -162,6 +167,7 @@ O frontend estará rodando em: `http://localhost:3000`
 ## 📚 Documentação
 
 Para documentação técnica completa, incluindo:
+
 - Objetivos e proposta de valor
 - Arquitetura do sistema
 - Regras de negócio
@@ -200,14 +206,15 @@ Consulte o arquivo [PROJECT_SPEC.md](./PROJECT_SPEC.md)
 ### Backend (.env)
 
 Principais variáveis:
+
 - `DATABASE_URL` - URL de conexão PostgreSQL
 - `JWT_SECRET` - Secret para tokens JWT
-- `OPENAI_API_KEY` - Chave API OpenAI
 - `EVOLUTION_API_URL` - URL Evolution API (WhatsApp)
 
 ### Frontend (.env.local)
 
 Principais variáveis:
+
 - `NEXT_PUBLIC_API_URL` - URL da API backend
 - `NEXTAUTH_URL` - URL do NextAuth
 - `NEXTAUTH_SECRET` - Secret do NextAuth

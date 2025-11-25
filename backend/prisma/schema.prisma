@@ -111,6 +111,11 @@ enum SenderType {
   AI
 }
 
+enum MessageFeedback {
+  GOOD
+  BAD
+}
+
 model Message {
   id                  String           @id @default(uuid())
   customerId          String           @map("customer_id")
@@ -121,6 +126,8 @@ model Message {
   status              MessageStatus    @default(SENT)
   messageId           String?          @map("message_id")
   senderType          SenderType?      @map("sender_type") @default(HUMAN)
+  feedback            MessageFeedback? @map("feedback")
+  feedbackNote        String?          @map("feedback_note") @db.Text
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 
@@ -131,6 +138,7 @@ model Message {
   @@index([whatsappInstanceId])
   @@index([timestamp])
   @@index([messageId])
+  @@index([feedback])
   @@map("messages")
 }
 

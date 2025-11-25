@@ -33,7 +33,7 @@ export interface GetMessagesRequest {
 
 // Evolution API Webhook Payload Types
 export interface EvolutionWebhookMessage {
-  key: {
+  key?: {
     remoteJid: string;
     fromMe: boolean;
     id: string;
@@ -44,9 +44,21 @@ export interface EvolutionWebhookMessage {
       text: string;
     };
   };
-  messageTimestamp: string | number;
+  messageTimestamp?: string | number;
   pushName?: string;
   instanceName?: string;
+  // Campos de conexão
+  state?: string;
+  connection?: string;
+  instance?: {
+    wuid?: string;
+    state?: string;
+  };
+  // Campos de QR code
+  qrcode?: {
+    base64?: string;
+    code?: string;
+  };
 }
 
 export interface EvolutionWebhookPayload {

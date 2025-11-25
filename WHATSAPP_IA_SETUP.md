@@ -49,7 +49,6 @@ WEBHOOK_SECRET=your-webhook-secret-key
 
 # AI Configuration
 AI_PROVIDER=openai
-OPENAI_API_KEY=sua-chave-openai-aqui
 OPENAI_MODEL_MINI=gpt-4o-mini
 
 # Opcional: Claude (Anthropic)
@@ -80,6 +79,7 @@ docker-compose ps
 ```
 
 Você deve ver:
+
 - `crm_postgres` (rodando)
 - `evolution_postgres` (rodando)
 - `crm_redis` (rodando)
@@ -122,6 +122,7 @@ npm run dev
 ```
 
 Você deve ver:
+
 ```
 🚀 Server running on port 3001
 📊 Database connected successfully
@@ -167,6 +168,7 @@ Acesse: http://localhost:3000
 2. Preencha os campos:
 
 **Sobre sua empresa:**
+
 ```
 Somos a TechStore, uma loja especializada em produtos de tecnologia.
 Vendemos notebooks, celulares, acessórios e periféricos.
@@ -174,6 +176,7 @@ Atuamos há 10 anos no mercado e temos entrega para todo o Brasil.
 ```
 
 **Produtos e Serviços:**
+
 ```
 - MacBook Pro M3: R$ 15.999
 - iPhone 15 Pro: R$ 9.499
@@ -186,6 +189,7 @@ Frete grátis acima de R$ 1.000
 ```
 
 **Tom de Voz:**
+
 ```
 Seja amigável, prestativo e use uma linguagem descontraída.
 Use emojis quando apropriado.
@@ -194,6 +198,7 @@ Seja proativo em oferecer produtos relacionados.
 ```
 
 **Políticas:**
+
 ```
 - Garantia de 12 meses em todos os produtos
 - Troca em até 7 dias (produto sem uso)
@@ -298,6 +303,7 @@ Se quiser usar Claude (Anthropic):
 ### ❌ QR Code não aparece
 
 **Solução:**
+
 ```bash
 # Reiniciar Evolution API
 docker restart evolution_api
@@ -309,7 +315,7 @@ docker logs evolution_api -f
 ### ❌ IA não responde
 
 **Checklist:**
-1. Verificar se `OPENAI_API_KEY` está configurada corretamente
+
 2. Em **Configurações → IA**, certificar que **Resposta Automática** está ATIVADA
 3. Verificar logs do backend para erros
 4. Testar manualmente a API da OpenAI:
@@ -336,6 +342,7 @@ curl http://localhost:3001/api/webhooks/whatsapp/test
 ```
 
 Resposta esperada:
+
 ```json
 {
   "success": true,
@@ -372,12 +379,12 @@ docker-compose up -d
 
 ### Para o Cliente Configurar:
 
-| Parâmetro | O que faz | Valores | Recomendação |
-|-----------|-----------|---------|--------------|
-| **Resposta Automática** | Ativa/desativa IA | On/Off | **ON** |
-| **Provedor** | Qual IA usar | OpenAI/Anthropic | **OpenAI** (mais barato) |
-| **Temperature** | Criatividade | 0.0-1.0 | **0.7** (balanceado) |
-| **Max Tokens** | Tamanho resposta | 100-2000 | **500** (1-2 parágrafos) |
+| Parâmetro               | O que faz         | Valores          | Recomendação             |
+| ----------------------- | ----------------- | ---------------- | ------------------------ |
+| **Resposta Automática** | Ativa/desativa IA | On/Off           | **ON**                   |
+| **Provedor**            | Qual IA usar      | OpenAI/Anthropic | **OpenAI** (mais barato) |
+| **Temperature**         | Criatividade      | 0.0-1.0          | **0.7** (balanceado)     |
+| **Max Tokens**          | Tamanho resposta  | 100-2000         | **500** (1-2 parágrafos) |
 
 ### Informações da Base de Conhecimento:
 
@@ -393,16 +400,19 @@ docker-compose up -d
 ### Logs Importantes
 
 **Backend (mensagens e IA):**
+
 ```bash
 cd backend && npm run dev
 ```
 
 **Evolution API (WhatsApp):**
+
 ```bash
 docker logs evolution_api -f
 ```
 
 **Banco de Dados:**
+
 ```bash
 docker logs crm_postgres -f
 ```

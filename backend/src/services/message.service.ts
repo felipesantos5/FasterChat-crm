@@ -1,5 +1,5 @@
 import { prisma } from '../utils/prisma';
-import { MessageDirection, MessageStatus } from '@prisma/client';
+import { MessageDirection, MessageStatus, MessageFeedback } from '@prisma/client';
 import {
   CreateMessageRequest,
   GetMessagesRequest,
@@ -335,6 +335,154 @@ class MessageService {
     } catch (error: any) {
       console.error('Error sending message:', error);
       throw new Error(`Failed to send message: ${error.message}`);
+    }
+  }
+
+  /**
+   * Adiciona feedback a uma mensagem da IA
+   */
+  async addFeedback(messageId: string, feedback: 'GOOD' | 'BAD', feedbackNote?: string) {
+    try {
+      // Verifica se a mensagem existe e é da IA
+      const existingMessage = await prisma.message.findUnique({
+        where: { id: messageId },
+      });
+
+      if (!existingMessage) {
+        throw new Error('Message not found');
+      }
+
+      if (existingMessage.senderType !== 'AI') {
+        throw new Error('Feedback can only be added to AI messages');
+      }
+
+      // Atualiza a mensagem com o feedback
+      const message = await prisma.message.update({
+        where: { id: messageId },
+        data: {
+          feedback: feedback as MessageFeedback,
+          feedbackNote: feedbackNote || null,
+        },
+        include: {
+          customer: true,
+          whatsappInstance: true,
+        },
+      });
+
+      return message;
+    } catch (error: any) {
+      console.error('Error adding feedback:', error);
+      throw new Error(`Failed to add feedback: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtém estatísticas de feedback
+   */
+  async getFeedbackStats(companyId: string) {
+    try {
+      // Total de mensagens da IA
+      const totalAiMessages = await prisma.message.count({
+        where: {
+          customer: {
+            companyId,
+          },
+          senderType: 'AI',
+        },
+      });
+
+      // Mensagens com feedback positivo
+      const goodFeedback = await prisma.message.count({
+        where: {
+          customer: {
+            companyId,
+          },
+          senderType: 'AI',
+          feedback: 'GOOD',
+        },
+      });
+
+      // Mensagens com feedback negativo
+      const badFeedback = await prisma.message.count({
+        where: {
+          customer: {
+            companyId,
+          },
+          senderType: 'AI',
+          feedback: 'BAD',
+        },
+      });
+
+      // Mensagens sem feedback
+      const noFeedback = totalAiMessages - goodFeedback - badFeedback;
+
+      // Percentual de feedback positivo (sobre mensagens com feedback)
+      const totalWithFeedback = goodFeedback + badFeedback;
+      const goodPercentage = totalWithFeedback > 0
+        ? (goodFeedback / totalWithFeedback) * 100
+        : 0;
+
+      return {
+        totalAiMessages,
+        goodFeedback,
+        badFeedback,
+        noFeedback,
+        goodPercentage: Math.round(goodPercentage * 10) / 10, // Arredonda para 1 casa decimal
+      };
+    } catch (error: any) {
+      console.error('Error getting feedback stats:', error);
+      throw new Error(`Failed to get feedback stats: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtém mensagens com feedback negativo para revisão
+   */
+  async getMessagesWithBadFeedback(companyId: string, limit = 50, offset = 0) {
+    try {
+      const messages = await prisma.message.findMany({
+        where: {
+          customer: {
+            companyId,
+          },
+          senderType: 'AI',
+          feedback: 'BAD',
+        },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
+        },
+        orderBy: {
+          timestamp: 'desc',
+        },
+        take: limit,
+        skip: offset,
+      });
+
+      const total = await prisma.message.count({
+        where: {
+          customer: {
+            companyId,
+          },
+          senderType: 'AI',
+          feedback: 'BAD',
+        },
+      });
+
+      return {
+        messages,
+        total,
+        limit,
+        offset,
+      };
+    } catch (error: any) {
+      console.error('Error getting messages with bad feedback:', error);
+      throw new Error(`Failed to get messages with bad feedback: ${error.message}`);
     }
   }
 }

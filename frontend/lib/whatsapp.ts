@@ -67,4 +67,13 @@ export const whatsappApi = {
     const response = await api.post(`/whatsapp/disconnect/${instanceId}`);
     return response.data;
   },
+
+  /**
+   * Sincroniza status manualmente com Evolution API
+   * Útil quando webhook não funciona (Evolution em Docker)
+   */
+  async syncStatus(instanceId: string): Promise<StatusResponse> {
+    const response = await api.post(`/whatsapp/sync/${instanceId}`);
+    return response.data;
+  },
 };

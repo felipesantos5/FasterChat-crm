@@ -28,4 +28,7 @@ router.delete('/instance/:instanceId', whatsappController.deleteInstance);
 // POST /api/whatsapp/disconnect/:instanceId - Desconecta instância
 router.post('/disconnect/:instanceId', whatsappController.disconnectInstance);
 
+// POST /api/whatsapp/sync/:instanceId - Sincroniza status manualmente
+router.post('/sync/:instanceId', whatsappController.syncStatus);
+
 export default router;

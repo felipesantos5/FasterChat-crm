@@ -60,15 +60,22 @@ class WhatsAppService {
 
       const { instance, hash, qrcode } = response.data;
 
+      console.log('Evolution API Response:', JSON.stringify({
+        instanceName: instance?.instanceName,
+        hasApiKey: !!hash?.apikey,
+        hasQRCode: !!qrcode?.base64,
+      }));
+
       // Configura webhook para receber mensagens
       await this.configureWebhook(finalInstanceName);
 
       // Salva a instância no banco de dados
+      // Se Evolution não retornar apikey individual, usa a global
       const whatsappInstance = await prisma.whatsAppInstance.create({
         data: {
           companyId,
           instanceName: instance.instanceName,
-          apiKey: hash.apikey,
+          apiKey: hash?.apikey || this.globalApiKey,
           qrCode: qrcode?.base64 || null,
           status: WhatsAppStatus.CONNECTING,
         },
@@ -96,8 +103,6 @@ class WhatsAppService {
         throw new Error('WhatsApp instance not found');
       }
 
-      console.log(`[WhatsApp Service] Getting QR Code for instance: ${instance.instanceName}`);
-
       // Se já está conectado, não precisa de QR Code
       if (instance.status === WhatsAppStatus.CONNECTED) {
         return {
@@ -113,14 +118,11 @@ class WhatsAppService {
         instance.status === WhatsAppStatus.CONNECTING &&
         instance.updatedAt > twoMinutesAgo
       ) {
-        console.log('[WhatsApp Service] Returning cached QR Code');
         return {
           qrCode: instance.qrCode,
           status: instance.status,
         };
       }
-
-      console.log('[WhatsApp Service] Fetching new QR Code from Evolution API...');
 
       // Busca o QR Code da Evolution API
       // A Evolution API tem diferentes endpoints dependendo da versão
@@ -133,17 +135,12 @@ class WhatsAppService {
         );
         qrCode = response.data.base64 || response.data.code;
       } catch (connectError: any) {
-        console.log('[WhatsApp Service] /connect failed, trying /qrcode endpoint...');
-
-        // Se falhar, tenta o endpoint alternativo /instance/qrcode
         try {
           const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(
             `/instance/qrcode/${instance.instanceName}`
           );
           qrCode = response.data.base64 || response.data.code;
         } catch (qrcodeError: any) {
-          // Se ambos falharem, tenta /instance/qr
-          console.log('[WhatsApp Service] /qrcode failed, trying /qr endpoint...');
           const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(
             `/instance/qr/${instance.instanceName}`
           );
@@ -154,8 +151,6 @@ class WhatsAppService {
       if (!qrCode) {
         throw new Error('QR Code not found in Evolution API response');
       }
-
-      console.log('[WhatsApp Service] ✓ QR Code fetched successfully');
 
       // Atualiza o QR Code no banco
       await prisma.whatsAppInstance.update({
@@ -191,36 +186,19 @@ class WhatsAppService {
         throw new Error('WhatsApp instance not found');
       }
 
-      console.log(`[WhatsApp Service] Checking status for: ${instance.instanceName}`);
-
-      // Cache de 3 segundos para evitar sobrecarga na Evolution API
-      const threeSecondsAgo = new Date(Date.now() - 3 * 1000);
-      if (instance.updatedAt > threeSecondsAgo) {
-        console.log('[WhatsApp Service] Returning cached status (< 3s old)');
-        return {
-          status: instance.status,
-          phoneNumber: instance.phoneNumber,
-          instanceName: instance.instanceName,
-        };
-      }
-
-      // Busca o status da Evolution API
+      // Busca o status da Evolution API (sem cache para garantir atualização imediata)
       let apiState: string;
 
       try {
         const response = await this.axiosInstance.get<EvolutionApiConnectionStateResponse>(
           `/instance/connectionState/${instance.instanceName}`,
           {
-            timeout: 5000, // Timeout de 5 segundos
+            timeout: 5000,
           }
         );
         apiState = response.data.state;
-        console.log(`[WhatsApp Service] Evolution API state: ${apiState}`);
       } catch (apiError: any) {
-        console.error('[WhatsApp Service] Error from Evolution API:', apiError.message);
-
         // Se a Evolution API falhar, retorna o último status conhecido
-        console.warn('[WhatsApp Service] Returning cached status due to API error');
         return {
           status: instance.status,
           phoneNumber: instance.phoneNumber,
@@ -233,6 +211,7 @@ class WhatsAppService {
       switch (apiState) {
         case 'open':
           status = WhatsAppStatus.CONNECTED;
+          console.log(`✅ Evolution API: ${instance.instanceName} CONNECTED`);
           break;
         case 'connecting':
           status = WhatsAppStatus.CONNECTING;
@@ -240,14 +219,12 @@ class WhatsAppService {
         case 'close':
         case 'closed':
           status = WhatsAppStatus.DISCONNECTED;
+          console.log(`❌ Evolution API: ${instance.instanceName} DISCONNECTED`);
           break;
         default:
-          console.warn(`[WhatsApp Service] Unknown state: ${apiState}, treating as CONNECTING`);
           status = WhatsAppStatus.CONNECTING;
           break;
       }
-
-      console.log(`[WhatsApp Service] Mapped status: ${status}`);
 
       // Atualiza o status no banco
       const updatedInstance = await prisma.whatsAppInstance.update({
@@ -430,10 +407,12 @@ class WhatsAppService {
           'MESSAGES_UPSERT', // Nova mensagem recebida ou enviada
           'MESSAGES_UPDATE', // Status da mensagem (entregue, lido, etc)
           'MESSAGES_DELETE', // Mensagem deletada
+          'SEND_MESSAGE', // Mensagem enviada
 
-          // Eventos de conexão
+          // Eventos de conexão (CRÍTICOS para atualizar status)
           'CONNECTION_UPDATE', // Status da conexão (conectando, conectado, desconectado)
           'QRCODE_UPDATED', // QR Code atualizado
+          'STATUS_INSTANCE', // Status da instância
 
           // Eventos de contatos (opcional, para sincronizar contatos)
           // 'CONTACTS_UPDATE',
@@ -449,7 +428,7 @@ class WhatsAppService {
         },
       });
 
-      console.log(`✓ Webhook configured for instance ${instanceName}: ${fullWebhookUrl}`);
+      console.log(`✅ Webhook configured: ${instanceName}`);
     } catch (error: any) {
       console.error('✗ Error configuring webhook:', error.response?.data || error.message);
       // Não lança erro para não bloquear a criação da instância
