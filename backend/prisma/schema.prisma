@@ -24,8 +24,25 @@ model Company {
   customers          Customer[]
   whatsappInstances  WhatsAppInstance[]
   aiKnowledge        AIKnowledge?
+  campaigns          Campaign[]
+  tags               Tag[]
 
   @@map("companies")
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  name      String
+  color     String?  @default("#8B5CF6") // Cor padrão roxa
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("tags")
 }
 
 model User {
@@ -199,4 +216,41 @@ model ConversationExample {
   @@index([companyId])
   @@index([conversationId])
   @@map("conversation_examples")
+}
+
+enum CampaignType {
+  MANUAL
+  SCHEDULED
+}
+
+enum CampaignStatus {
+  DRAFT
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+model Campaign {
+  id                String         @id @default(uuid())
+  companyId         String         @map("company_id")
+  name              String
+  messageTemplate   String         @map("message_template") @db.Text
+  targetTags        String[]       @default([]) @map("target_tags")
+  type              CampaignType
+  status            CampaignStatus @default(DRAFT)
+  scheduledAt       DateTime?      @map("scheduled_at")
+  sentCount         Int            @default(0) @map("sent_count")
+  failedCount       Int            @default(0) @map("failed_count")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  company           Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([status])
+  @@index([type])
+  @@index([scheduledAt])
+  @@map("campaigns")
 }

@@ -1,6 +1,7 @@
 import { Customer } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { CreateCustomerDTO, UpdateCustomerDTO, CustomerFilters } from '../types/customer';
+import tagService from './tag.service';
 
 export class CustomerService {
   async create(companyId: string, data: CreateCustomerDTO): Promise<Customer> {
@@ -17,6 +18,18 @@ export class CustomerService {
     if (existingCustomer) {
       throw new Error('Telefone já cadastrado para esta empresa');
     }
+
+    // Salva automaticamente as tags no sistema
+    if (data.tags && data.tags.length > 0) {
+      console.log('[Customer Service] Saving tags for customer:', data.tags);
+      await tagService.createOrGetMany(companyId, data.tags);
+    }
+
+    console.log('[Customer Service] Creating customer with data:', {
+      companyId,
+      name: data.name,
+      tags: data.tags
+    });
 
     return prisma.customer.create({
       data: {
@@ -106,6 +119,11 @@ export class CustomerService {
       if (existingCustomer) {
         throw new Error('Telefone já cadastrado para esta empresa');
       }
+    }
+
+    // Salva automaticamente as tags no sistema quando atualizar
+    if (data.tags && data.tags.length > 0) {
+      await tagService.createOrGetMany(companyId, data.tags);
     }
 
     return prisma.customer.update({

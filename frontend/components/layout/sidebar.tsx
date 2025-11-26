@@ -14,6 +14,7 @@ import {
   BookOpen,
   ChevronDown,
   BarChart3,
+  Megaphone,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useRouter } from "next/navigation";
@@ -42,6 +43,11 @@ const menuItems: MenuItem[] = [
     label: "Conversas",
     icon: MessageSquare,
     href: "/dashboard/conversations",
+  },
+  {
+    label: "Campanhas",
+    icon: Megaphone,
+    href: "/dashboard/campaigns",
   },
   {
     label: "Configurações",

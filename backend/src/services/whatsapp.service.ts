@@ -15,6 +15,10 @@ class WhatsAppService {
   private apiUrl: string;
   private globalApiKey: string;
 
+  // Cache de status para evitar múltiplas requisições
+  private statusCache: Map<string, { status: WhatsAppStatus; timestamp: number }> = new Map();
+  private readonly CACHE_TTL = 3000; // 3 segundos de cache
+
   constructor() {
     this.apiUrl = process.env.EVOLUTION_API_URL || "http://localhost:8080";
     this.globalApiKey = process.env.EVOLUTION_API_KEY || "";
@@ -53,7 +57,10 @@ class WhatsAppService {
         instanceName: finalInstanceName,
         qrcode: true,
         integration: "WHATSAPP-BAILEYS",
-        browser: ["CRM IA", "Chrome", "10.0"],
+        reject_call: true, // 💡 Recomendado: Rejeita chamadas de voz/vídeo para não travar a IA
+        groups_ignore: true, // 💡 Recomendado: Ignora grupos se seu foco é atendimento individual
+        always_online: true, // 💡 Mantém status online
+        browser: ["CRM AI Agent", "Chrome", "10.0"],
       });
 
       const { instance, hash, qrcode } = response.data;
@@ -110,35 +117,60 @@ class WhatsAppService {
         };
       }
 
-      // Se já temos o QR Code recente no banco (menos de 2 minutos), retornamos
-      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-      if (instance.qrCode && instance.status === WhatsAppStatus.CONNECTING && instance.updatedAt > twoMinutesAgo) {
-        return {
-          qrCode: instance.qrCode,
-          status: instance.status,
-        };
-      }
+      // Tenta buscar o QR Code na Evolution API
+      let qrCode: string | undefined;
 
-      // Busca o QR Code da Evolution API
-      // A Evolution API tem diferentes endpoints dependendo da versão
-      let qrCode: string;
-
-      try {
-        // Primeiro tenta o endpoint /instance/connect (versões mais recentes)
-        const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(`/instance/connect/${instance.instanceName}`);
-        qrCode = response.data.base64 || response.data.code;
-      } catch (connectError: any) {
+      // Função auxiliar para buscar QR Code
+      const fetchQrFromApi = async () => {
         try {
-          const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(`/instance/qrcode/${instance.instanceName}`);
-          qrCode = response.data.base64 || response.data.code;
-        } catch (qrcodeError: any) {
-          const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(`/instance/qr/${instance.instanceName}`);
-          qrCode = response.data.base64 || response.data.code;
+          // Tenta endpoint V2 (/connect)
+          const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(`/instance/connect/${instance.instanceName}`);
+          return response.data.base64 || response.data.code;
+        } catch (e) {
+          // Se falhar, tenta endpoint alternativo
+          try {
+            const response = await this.axiosInstance.get<EvolutionApiQRCodeResponse>(`/instance/qr/${instance.instanceName}`);
+            return response.data.base64 || response.data.code;
+          } catch (e2) {
+            return undefined;
+          }
+        }
+      };
+
+      // 1. Primeira tentativa de buscar QR
+      qrCode = await fetchQrFromApi();
+
+      // 🛡️ BLINDAGEM: Se não achou QR Code, a instância pode ter sumido da Evolution.
+      // Vamos tentar recriá-la automaticamente (Auto-Healing).
+      if (!qrCode) {
+        console.log(`[WhatsApp Service] ⚠️ QR Code não encontrado. Tentando restaurar instância ${instance.instanceName}...`);
+
+        try {
+          // Tenta recriar a instância na Evolution
+          await this.axiosInstance.post("/instance/create", {
+            instanceName: instance.instanceName,
+            qrcode: true,
+            integration: "WHATSAPP-BAILEYS",
+            reject_call: true,
+            groups_ignore: true,
+            always_online: true,
+            browser: ["CRM AI Agent", "Chrome", "10.0"], // Mesma config do createInstance
+          });
+
+          console.log(`[WhatsApp Service] ✅ Instância restaurada. Buscando QR Code novamente...`);
+
+          // Aguarda 1s para garantir que a Evolution processou
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // 2. Segunda tentativa após recriar
+          qrCode = await fetchQrFromApi();
+        } catch (restoreError: any) {
+          console.error(`[WhatsApp Service] ❌ Falha ao restaurar instância:`, restoreError.message);
         }
       }
 
       if (!qrCode) {
-        throw new Error("QR Code not found in Evolution API response");
+        throw new Error("Não foi possível gerar o QR Code. Por favor, exclua a conexão e tente novamente.");
       }
 
       // Atualiza o QR Code no banco
@@ -173,7 +205,19 @@ class WhatsAppService {
         throw new Error("WhatsApp instance not found");
       }
 
-      // Busca o status da Evolution API (sem cache para garantir atualização imediata)
+      // Verifica se existe um status em cache válido
+      const cached = this.statusCache.get(instanceId);
+      const now = Date.now();
+
+      if (cached && now - cached.timestamp < this.CACHE_TTL) {
+        return {
+          status: cached.status,
+          phoneNumber: instance.phoneNumber,
+          instanceName: instance.instanceName,
+        };
+      }
+
+      // Cache expirado ou não existe, busca da Evolution API
       let apiState: string;
 
       try {
@@ -182,9 +226,10 @@ class WhatsAppService {
         });
         apiState = response.data.state;
       } catch (apiError: any) {
-        // Se a Evolution API falhar, retorna o último status conhecido
+        // Se a Evolution API falhar, retorna o último status conhecido (do banco ou cache)
+        console.log(`[WhatsApp Service] ⚠ Evolution API failed, returning last known status`);
         return {
-          status: instance.status,
+          status: cached?.status || instance.status,
           phoneNumber: instance.phoneNumber,
           instanceName: instance.instanceName,
         };
@@ -209,6 +254,12 @@ class WhatsAppService {
           status = WhatsAppStatus.CONNECTING;
           break;
       }
+
+      // Atualiza o cache
+      this.statusCache.set(instanceId, {
+        status,
+        timestamp: now,
+      });
 
       // Atualiza o status no banco
       const updatedInstance = await prisma.whatsAppInstance.update({

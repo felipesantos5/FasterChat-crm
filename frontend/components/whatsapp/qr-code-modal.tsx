@@ -38,13 +38,10 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
       setQrCode(response.data.qrCode);
       setStatus(response.data.status);
 
-      // Se já está conectado
+      // Se já está conectado, apenas atualiza o status
+      // O useEffect de fechamento automático cuidará do resto
       if (response.data.status === 'CONNECTED') {
         console.log('[QR Code Modal] Already connected!');
-        onSuccess?.();
-        setTimeout(() => {
-          onClose();
-        }, 1500);
       }
     } catch (err: any) {
       console.error('[QR Code Modal] Error fetching QR code:', err);
@@ -57,11 +54,19 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
 
   // Contador de tentativas
   const [attempts, setAttempts] = useState(0);
+  const [isChecking, setIsChecking] = useState(false); // Previne múltiplas chamadas simultâneas
   const maxAttempts = 40; // 40 tentativas x 5s = 3 minutos e 20 segundos
 
   // Função para verificar o status
   const checkStatus = async () => {
+    // Previne múltiplas requisições simultâneas
+    if (isChecking) {
+      console.log('[QR Code Modal] Already checking status, skipping...');
+      return false;
+    }
+
     try {
+      setIsChecking(true);
       console.log(`[QR Code Modal] Checking status (attempt ${attempts + 1}/${maxAttempts})...`);
 
       const response = await whatsappApi.getStatus(instanceId);
@@ -71,13 +76,10 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
       setStatus(response.data.status);
       setAttempts(prev => prev + 1);
 
-      // Se conectado com sucesso
+      // Se conectado com sucesso, apenas para o polling
+      // O useEffect de fechamento automático cuidará do resto
       if (response.data.status === WhatsAppStatus.CONNECTED) {
         console.log('[QR Code Modal] ✓ Connected successfully!');
-        onSuccess?.();
-        setTimeout(() => {
-          onClose();
-        }, 2000);
         return true; // Retorna true para parar o polling
       }
 
@@ -93,6 +95,8 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
       console.error('[QR Code Modal] Error checking status:', err);
       setAttempts(prev => prev + 1);
       return false;
+    } finally {
+      setIsChecking(false);
     }
   };
 
@@ -106,6 +110,19 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
     }
   }, [isOpen, instanceId]);
 
+  // Fecha o modal automaticamente quando conectar
+  useEffect(() => {
+    if (status === WhatsAppStatus.CONNECTED && isOpen) {
+      console.log('[QR Code Modal] ✓ Connected! Closing modal in 2 seconds...');
+      onSuccess?.();
+      const timeout = setTimeout(() => {
+        onClose();
+      }, 2000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [status, isOpen, onSuccess, onClose]);
+
   // Polling: verifica o status a cada 5 segundos (mais seguro)
   useEffect(() => {
     if (!isOpen || status === WhatsAppStatus.CONNECTED) return;
@@ -117,14 +134,27 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
       return;
     }
 
-    const interval = setInterval(async () => {
-      const shouldStop = await checkStatus();
-      if (shouldStop) {
-        clearInterval(interval);
-      }
-    }, 5000); // Aumentado de 3s para 5s
+    console.log('[QR Code Modal] Starting polling (every 5 seconds)');
 
-    return () => clearInterval(interval);
+    // Aguarda 3 segundos antes da primeira verificação (QR Code precisa aparecer primeiro)
+    const initialTimeout = setTimeout(async () => {
+      const shouldStop = await checkStatus();
+      if (shouldStop) return;
+
+      // Continua verificando a cada 5 segundos
+      const interval = setInterval(async () => {
+        const shouldStop = await checkStatus();
+        if (shouldStop) {
+          clearInterval(interval);
+        }
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }, 3000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+    };
   }, [isOpen, instanceId, status, attempts]);
 
   const handleClose = () => {

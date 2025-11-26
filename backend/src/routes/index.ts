@@ -7,6 +7,8 @@ import webhookRoutes from './webhook.routes';
 import conversationRoutes from './conversation.routes';
 import conversationExampleRoutes from './conversation-example.routes';
 import aiKnowledgeRoutes from './ai-knowledge.routes';
+import campaignRoutes from './campaign.routes';
+import tagRoutes from './tag.routes';
 import conversationExampleController from '../controllers/conversation-example.controller';
 import { authenticate } from '../middlewares/auth';
 
@@ -20,6 +22,8 @@ router.use('/webhooks', webhookRoutes);
 router.use('/conversations', conversationRoutes);
 router.use('/conversations', conversationExampleRoutes);
 router.use('/ai', aiKnowledgeRoutes);
+router.use('/campaigns', campaignRoutes);
+router.use('/tags', tagRoutes);
 
 // Rota adicional para listar exemplos
 router.get('/ai/examples', authenticate, conversationExampleController.getExamples);

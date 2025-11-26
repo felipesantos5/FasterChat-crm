@@ -45,6 +45,7 @@ export interface EvolutionWebhookMessage {
       text: string;
     };
   };
+  statusReason?: any;
   messageTimestamp?: string | number;
   pushName?: string;
   instanceName?: string;

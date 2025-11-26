@@ -26,7 +26,7 @@ export default function ConversationsPage() {
   };
 
   // Carrega as conversas
-  const loadConversations = async () => {
+  const loadConversations = async (isInitialLoad = false) => {
     try {
       setError(null);
       const companyId = getCompanyId();
@@ -39,8 +39,8 @@ export default function ConversationsPage() {
       const response = await messageApi.getConversations(companyId);
       setConversations(response.data);
 
-      // Se não há conversa selecionada e há conversas, seleciona a primeira
-      if (!selectedCustomerId && response.data.length > 0) {
+      // Se não há conversa selecionada e há conversas, seleciona a primeira APENAS no carregamento inicial
+      if (isInitialLoad && !selectedCustomerId && response.data.length > 0) {
         setSelectedCustomerId(response.data[0].customerId);
       }
     } catch (err: any) {
@@ -52,11 +52,11 @@ export default function ConversationsPage() {
   };
 
   useEffect(() => {
-    loadConversations();
+    loadConversations(true);
 
     // Polling: atualiza a cada 5 segundos
     const interval = setInterval(() => {
-      loadConversations();
+      loadConversations(false);
     }, 5000);
 
     return () => clearInterval(interval);

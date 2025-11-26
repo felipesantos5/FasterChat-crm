@@ -58,9 +58,9 @@ services:
       retries: 5
 
   evolution-api:
-    image: atendai/evolution-api:latest
+    image: evoapicloud/evolution-api:v2.3.6
     container_name: evolution_api
-    restart: unless-stopped
+    restart: always
     ports:
       - "8088:8080"
     volumes:
@@ -72,10 +72,16 @@ services:
         condition: service_healthy
     networks:
       - crm_network
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
     environment:
       # Session config
-      - CONFIG_SESSION_PHONE_VERSION=2.3000.1029362725
-
+      # - CONFIG_SESSION_PHONE_VERSION=2.3000.1029362725
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1030000000
+      # 👇 Adicione para forçar IPv4 no Node
+      - NODE_OPTIONS=--dns-result-order=ipv4first
+      - DEL_INSTANCE=false
       # Database config
       - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=postgresql

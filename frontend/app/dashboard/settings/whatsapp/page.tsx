@@ -51,14 +51,21 @@ export default function WhatsAppSettingsPage() {
   useEffect(() => {
     loadInstances();
 
-    // Polling: Atualiza status a cada 5 segundos
+    // Polling: Atualiza status a cada 10 segundos (reduzido de 5s)
     // Útil quando webhook não funciona (Evolution em Docker)
+    // IMPORTANTE: Pausa quando modal está aberto para evitar conflito
     const interval = setInterval(() => {
-      loadInstances();
-    }, 5000);
+      // Só faz polling se o modal NÃO estiver aberto
+      if (!qrModalOpen) {
+        console.log('[WhatsApp Settings] Polling instances status...');
+        loadInstances();
+      } else {
+        console.log('[WhatsApp Settings] Modal aberto, pulando polling');
+      }
+    }, 10000); // Aumentado de 5s para 10s
 
     return () => clearInterval(interval);
-  }, []);
+  }, [qrModalOpen]); // Adiciona qrModalOpen como dependência
 
   // Cria uma nova instância
   const handleCreateInstance = async () => {

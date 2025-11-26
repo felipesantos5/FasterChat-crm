@@ -135,15 +135,30 @@ class WebhookController {
               break;
             case "close":
             case "closed":
-              // MELHORIA: Verificar o motivo da desconexão
-              const reason = payload.data?.lastDisconnect?.error?.output?.statusCode || payload.data?.reason;
+              const reason =
+                payload.data?.lastDisconnect?.error?.output?.statusCode ||
+                payload.data?.statusReason || // Adicionei esta leitura do statusReason direto
+                payload.data?.reason;
               console.log(`⚠️ Evolution API Connection Closed. Reason: ${reason}`);
 
               // Se for 401 (Logged Out), marcamos como DISCONNECTED
               // Para qualquer outro erro (instabilidade, restart), marcamos como CONNECTING (para tentar de novo)
-              if (reason === 401 || reason === "loggedOut") {
+              if (reason === 401 || reason === 403 || reason === "loggedOut") {
                 newStatus = WhatsAppStatus.DISCONNECTED;
-                console.log(`❌ Evolution API: ${payload.instance} LOGGED OUT (Permanent)`);
+
+                // 🔥 BLINDAGEM: Limpar QR Code e Phone Number para forçar nova geração limpa
+                await prisma.whatsAppInstance.update({
+                  where: { id: instance.id },
+                  data: {
+                    status: WhatsAppStatus.DISCONNECTED,
+                    qrCode: null, // Força o usuário a pedir novo QR Code
+                    phoneNumber: null, // Limpa telefone vinculado
+                  },
+                });
+                console.log(`❌ Instance ${instance.instanceName} invalidated (401/403). Cleaned up for reconnection.`);
+
+                // Opcional: Chamar endpoint de Logout na Evolution para garantir limpeza lá também
+                // whatsappService.logout(instance.instanceName);
               } else {
                 newStatus = WhatsAppStatus.CONNECTING;
                 console.log(`🔄 Evolution API: ${payload.instance} RECONNECTING (Temporary fluctuation)`);
