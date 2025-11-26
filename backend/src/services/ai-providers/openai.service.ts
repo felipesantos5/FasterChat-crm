@@ -5,6 +5,7 @@ interface GenerateResponseParams {
   userPrompt: string;
   temperature?: number;
   maxTokens?: number;
+  model?: string;
 }
 
 class OpenAIService {
@@ -32,16 +33,19 @@ class OpenAIService {
         userPrompt,
         temperature = 0.7,
         maxTokens = 500, // GPT-4o Mini é mais eficiente com respostas concisas
+        model,
       } = params;
 
-      console.log(`[OpenAI] Generating response with ${this.model}`);
+      const modelToUse = model || this.model;
+
+      console.log(`[OpenAI] Generating response with ${modelToUse}`);
 
       // Otimizações para GPT-4o Mini:
       // 1. Temperature mais baixa (0.7) para respostas mais consistentes
       // 2. Max tokens reduzido para economia
       // 3. Prompt mais estruturado
       const response = await this.client.chat.completions.create({
-        model: this.model,
+        model: modelToUse,
         messages: [
           {
             role: 'system',

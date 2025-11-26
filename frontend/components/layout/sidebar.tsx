@@ -150,6 +150,7 @@ export function Sidebar() {
       <Link
         key={item.href}
         href={item.href!}
+        prefetch={true}
         className={cn(
           "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
           isActive
@@ -169,7 +170,7 @@ export function Sidebar() {
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="flex h-16 items-center border-b px-6">
-          <Link href="/dashboard" className="flex items-center space-x-2">
+          <Link href="/dashboard" prefetch={true} className="flex items-center space-x-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <span className="text-lg font-bold">C</span>
             </div>

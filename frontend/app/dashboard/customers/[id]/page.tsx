@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { CustomerFormModal } from "@/components/forms/customer-form-modal";
 import {
   ArrowLeft,
@@ -23,8 +22,8 @@ import {
   Trash,
   FileText,
 } from "lucide-react";
-import { getTagColor } from "@/lib/constants/tags";
-import { cn } from "@/lib/utils";
+import { TagBadge } from "@/components/ui/tag-badge";
+import { Tag } from "@/lib/tag";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -34,7 +33,7 @@ export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
 
   const loadCustomer = async () => {
     try {
@@ -179,13 +178,12 @@ export default function CustomerDetailPage() {
                 <p className="text-sm font-medium mb-2">Tags</p>
                 <div className="flex flex-wrap gap-2">
                   {customer.tags.map((tag) => (
-                    <Badge
+                    <TagBadge
                       key={tag}
-                      className={cn("border", getTagColor(tag))}
+                      tag={tag}
+                      tags={availableTags}
                       variant="outline"
-                    >
-                      {tag}
-                    </Badge>
+                    />
                   ))}
                 </div>
               </div>

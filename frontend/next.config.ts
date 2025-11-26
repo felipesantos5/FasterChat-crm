@@ -19,7 +19,31 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-icons',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-select',
+      '@radix-ui/react-popover',
+      'date-fns',
+    ],
+    // Melhora o desempenho do servidor
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
+  },
+
+  // Configurações de compilação
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+
+  // Turborepo para builds mais rápidas
+  modularizeImports: {
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{member}}',
+    },
   },
 };
 

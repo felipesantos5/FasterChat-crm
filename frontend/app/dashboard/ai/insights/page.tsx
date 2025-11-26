@@ -8,7 +8,6 @@ import { messageApi } from '@/lib/message';
 import { Message } from '@/types/message';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 
 export default function AIInsightsPage() {
   const [stats, setStats] = useState<{

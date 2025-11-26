@@ -4,10 +4,42 @@ import { CreateMessageRequest, GetMessagesRequest, ConversationSummary } from ".
 
 class MessageService {
   /**
-   * Cria uma nova mensagem
+   * Cria uma nova mensagem (ou retorna existente se houver duplicata)
    */
   async createMessage(data: CreateMessageRequest) {
     try {
+      // Se temos messageId e whatsappInstanceId, usa upsert para evitar duplicatas
+      if (data.messageId && data.whatsappInstanceId) {
+        const message = await prisma.message.upsert({
+          where: {
+            whatsappInstanceId_messageId: {
+              whatsappInstanceId: data.whatsappInstanceId,
+              messageId: data.messageId,
+            },
+          },
+          update: {
+            // Atualiza status se a mensagem já existe
+            status: data.status || MessageStatus.SENT,
+          },
+          create: {
+            customerId: data.customerId,
+            whatsappInstanceId: data.whatsappInstanceId,
+            direction: data.direction,
+            content: data.content,
+            timestamp: data.timestamp,
+            status: data.status || MessageStatus.SENT,
+            messageId: data.messageId,
+          },
+          include: {
+            customer: true,
+            whatsappInstance: true,
+          },
+        });
+
+        return message;
+      }
+
+      // Fallback para mensagens sem messageId (ex: mensagens enviadas manualmente)
       const message = await prisma.message.create({
         data: {
           customerId: data.customerId,
@@ -51,7 +83,7 @@ class MessageService {
           whatsappInstance: true,
         },
         orderBy: {
-          timestamp: "desc",
+          timestamp: "asc", // Ordenação ascendente para manter cronologia correta
         },
         take: limit,
         skip: offset,
@@ -119,11 +151,29 @@ class MessageService {
         },
       });
 
+      // Busca todas as conversas da empresa com informações de IA e atribuição
+      const conversations = await prisma.conversation.findMany({
+        where: { companyId },
+        include: {
+          assignedTo: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      // Cria um mapa de conversações para acesso rápido
+      const conversationMap = new Map(conversations.map((c) => [c.customerId, c]));
+
       // Agrupa por customer e pega a última mensagem de cada um
       const conversationsMap = new Map<string, ConversationSummary>();
 
       for (const message of messages) {
         if (!conversationsMap.has(message.customerId)) {
+          const conversation = conversationMap.get(message.customerId);
+
           conversationsMap.set(message.customerId, {
             customerId: message.customerId,
             customerName: message.customer.name,
@@ -132,6 +182,10 @@ class MessageService {
             lastMessageTimestamp: message.timestamp,
             unreadCount: 0, // TODO: implementar lógica de não lidas
             direction: message.direction,
+            aiEnabled: conversation?.aiEnabled ?? true, // Default para true se não houver conversa
+            needsHelp: conversation?.needsHelp ?? false,
+            assignedToId: conversation?.assignedToId ?? null,
+            assignedToName: conversation?.assignedTo?.name ?? null,
           });
         }
       }
@@ -178,10 +232,10 @@ class MessageService {
           },
         });
 
-        console.log(`New customer created: ${customer.id} - ${customer.name}`);
+        console.log(`✓ New customer created: ${customer.id} - ${customer.name}`);
       }
 
-      // Cria a mensagem
+      // Cria a mensagem (upsert automático evita duplicatas)
       const message = await this.createMessage({
         customerId: customer.id,
         whatsappInstanceId: instance.id,
@@ -192,10 +246,7 @@ class MessageService {
         status: MessageStatus.DELIVERED,
       });
 
-      console.log(`Inbound message saved: ${message.id}`);
-
-      // TODO: Disparar evento para IA processar
-      // eventEmitter.emit('message:inbound', message);
+      console.log(`✓ Inbound message processed: ${message.id} (${messageId})`);
 
       return {
         message,

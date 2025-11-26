@@ -78,22 +78,22 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
   const loadMessages = async () => {
     try {
       const response = await messageApi.getCustomerMessages(customerId, 100);
-      // Ordena por timestamp ascendente (mais antigas primeiro)
-      const sortedMessages = response.data.messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      // Backend já retorna ordenado por timestamp ascendente (cronologia correta)
+      const messages = response.data.messages;
 
       // Verifica se há mensagem recente do cliente sem resposta da IA
-      const lastMessage = sortedMessages[sortedMessages.length - 1];
+      const lastMessage = messages[messages.length - 1];
       if (conversation?.aiEnabled && lastMessage?.direction === MessageDirection.INBOUND) {
         // Verifica se há resposta da IA depois dessa mensagem
-        const hasAiResponse = sortedMessages.some(
-          (msg, idx) => idx > sortedMessages.length - 1 && msg.direction === MessageDirection.OUTBOUND && msg.senderType === SenderType.AI
+        const hasAiResponse = messages.some(
+          (msg, idx) => idx > messages.length - 1 && msg.direction === MessageDirection.OUTBOUND && msg.senderType === SenderType.AI
         );
         setAiProcessing(!hasAiResponse && Date.now() - new Date(lastMessage.timestamp).getTime() < 30000);
       } else {
         setAiProcessing(false);
       }
 
-      setMessages(sortedMessages);
+      setMessages(messages);
     } catch (error) {
       console.error("Error loading messages:", error);
     } finally {

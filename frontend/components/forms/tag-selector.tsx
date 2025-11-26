@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Plus, ChevronDown, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getTagColor } from '@/lib/constants/tags';
 import { cn } from '@/lib/utils';
-import { tagApi } from '@/lib/tag';
+import { tagApi, Tag } from '@/lib/tag';
+import { ColorPicker } from '@/components/ui/color-picker';
 import {
   Command,
   CommandEmpty,
@@ -25,10 +25,10 @@ import {
 interface TagSelectorProps {
   value: string[];
   onChange: (tags: string[]) => void;
-  availableTags?: string[];
+  availableTags?: Tag[];
   placeholder?: string;
   disabled?: boolean;
-  onTagCreated?: (tagName: string) => void; // Callback quando tag é criada
+  onTagCreated?: (tag: Tag) => void; // Callback quando tag é criada
 }
 
 export function TagSelector({
@@ -41,21 +41,22 @@ export function TagSelector({
 }: TagSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
-  const [showNewTagInput, setShowNewTagInput] = useState(false);
   const [newTagValue, setNewTagValue] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#8B5CF6');
   const [creating, setCreating] = useState(false);
 
-  const addTag = async (tag: string, createInDatabase = false) => {
+  const addTag = async (tag: string, createInDatabase = false, color?: string) => {
     const trimmedTag = tag.trim();
     if (trimmedTag && !value.includes(trimmedTag)) {
       // Se for uma tag nova e não estiver na lista de disponíveis, criar no banco
-      if (createInDatabase && !availableTags.includes(trimmedTag)) {
+      const tagExists = availableTags.some((t) => t.name === trimmedTag);
+      if (createInDatabase && !tagExists) {
         try {
           setCreating(true);
-          console.log('[TagSelector] Creating tag in database:', trimmedTag);
-          await tagApi.create(trimmedTag);
+          console.log('[TagSelector] Creating tag in database:', trimmedTag, color);
+          const createdTag = await tagApi.create(trimmedTag, color || newTagColor);
           console.log('[TagSelector] Tag created successfully');
-          onTagCreated?.(trimmedTag);
+          onTagCreated?.(createdTag);
         } catch (error) {
           console.error('[TagSelector] Error creating tag:', error);
         } finally {
@@ -66,7 +67,7 @@ export function TagSelector({
       onChange([...value, trimmedTag]);
       setSearchValue('');
       setNewTagValue('');
-      setShowNewTagInput(false);
+      setNewTagColor('#8B5CF6');
     }
   };
 
@@ -96,38 +97,51 @@ export function TagSelector({
   };
 
   // Filtra tags disponíveis que ainda não foram selecionadas
-  const unselectedTags = availableTags.filter((tag) => !value.includes(tag));
+  const unselectedTags = availableTags.filter((tag) => !value.includes(tag.name));
 
   // Filtra tags baseado na busca
   const filteredTags = searchValue
     ? unselectedTags.filter((tag) =>
-        tag.toLowerCase().includes(searchValue.toLowerCase())
+        tag.name.toLowerCase().includes(searchValue.toLowerCase())
       )
     : unselectedTags;
+
+  // Retorna a cor da tag pelo nome
+  const getTagColorByName = (tagName: string): string => {
+    const tag = availableTags.find((t) => t.name === tagName);
+    return tag?.color || '#8B5CF6';
+  };
 
   return (
     <div className="space-y-3">
       {/* Tags Selecionadas */}
       {value.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {value.map((tag) => (
-            <Badge
-              key={tag}
-              className={cn('gap-1 border', getTagColor(tag))}
-              variant="outline"
-            >
-              {tag}
-              {!disabled && (
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="ml-1 hover:bg-black/10 rounded-full p-0.5 transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </Badge>
-          ))}
+          {value.map((tag) => {
+            const tagColor = getTagColorByName(tag);
+            return (
+              <Badge
+                key={tag}
+                className={cn('gap-1 border text-white')}
+                variant="outline"
+                style={{
+                  backgroundColor: tagColor,
+                  borderColor: tagColor,
+                }}
+              >
+                {tag}
+                {!disabled && (
+                  <button
+                    type="button"
+                    onClick={() => removeTag(tag)}
+                    className="ml-1 hover:bg-black/20 rounded-full p-0.5 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </Badge>
+            );
+          })}
         </div>
       )}
 
@@ -158,10 +172,10 @@ export function TagSelector({
                   <CommandGroup heading="Tags Existentes">
                     {filteredTags.map((tag) => (
                       <CommandItem
-                        key={tag}
-                        value={tag}
+                        key={tag.id}
+                        value={tag.name}
                         onSelect={() => {
-                          toggleTag(tag);
+                          toggleTag(tag.name);
                           setSearchValue('');
                         }}
                       >
@@ -169,18 +183,22 @@ export function TagSelector({
                           <div
                             className={cn(
                               'h-4 w-4 border rounded-sm flex items-center justify-center',
-                              value.includes(tag) && 'bg-primary border-primary'
+                              value.includes(tag.name) && 'bg-primary border-primary'
                             )}
                           >
-                            {value.includes(tag) && (
+                            {value.includes(tag.name) && (
                               <Check className="h-3 w-3 text-primary-foreground" />
                             )}
                           </div>
                           <Badge
-                            className={cn('border', getTagColor(tag))}
+                            className={cn('border text-white')}
                             variant="outline"
+                            style={{
+                              backgroundColor: tag.color || '#8B5CF6',
+                              borderColor: tag.color || '#8B5CF6',
+                            }}
                           >
-                            {tag}
+                            {tag.name}
                           </Badge>
                         </div>
                       </CommandItem>
@@ -189,7 +207,7 @@ export function TagSelector({
                 )}
 
                 {/* Opção de criar nova tag */}
-                {searchValue && !availableTags.includes(searchValue) && (
+                {searchValue && !availableTags.some((t) => t.name === searchValue) && (
                   <CommandGroup heading="Nova Tag">
                     <CommandItem
                       value={`create-${searchValue}`}
@@ -217,7 +235,7 @@ export function TagSelector({
 
               {/* Input Manual para Nova Tag */}
               <div className="border-t p-3">
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Input
                       placeholder="Digite uma nova tag..."
@@ -240,8 +258,20 @@ export function TagSelector({
                       )}
                     </Button>
                   </div>
+                  {newTagValue.trim() && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-700">
+                        Escolha uma cor para a tag:
+                      </p>
+                      <ColorPicker
+                        value={newTagColor}
+                        onChange={setNewTagColor}
+                        disabled={creating}
+                      />
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    {creating ? 'Criando tag...' : 'Digite e pressione Enter ou clique em + para adicionar'}
+                    {creating ? 'Criando tag...' : 'Digite o nome, escolha a cor e pressione Enter ou clique em + para adicionar'}
                   </p>
                 </div>
               </div>

@@ -79,4 +79,8 @@ export interface ConversationSummary {
   lastMessageTimestamp: Date;
   unreadCount: number;
   direction: MessageDirection;
+  aiEnabled: boolean;
+  needsHelp: boolean;
+  assignedToId: string | null;
+  assignedToName: string | null;
 }

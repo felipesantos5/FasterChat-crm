@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
+import { ExpandableTextarea } from "@/components/ui/expandable-textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { AIKnowledge } from "@/types/ai-knowledge";
 import { Loader2, Save, Check, Bot, Settings2 } from "lucide-react";
 
 export default function AISettingsPage() {
-  const [knowledge, setKnowledge] = useState<AIKnowledge | null>(null);
+  const [, setKnowledge] = useState<AIKnowledge | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -28,9 +28,11 @@ export default function AISettingsPage() {
 
   // Configurações avançadas
   const [provider, setProvider] = useState<"openai" | "anthropic">("openai");
+  const [model, setModel] = useState<string>("");
   const [temperature, setTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(500);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(true);
+  const [savingAdvanced, setSavingAdvanced] = useState(false);
 
   // Autosave timer
   const autosaveTimer = useRef<NodeJS.Timeout | null>(null);
@@ -66,7 +68,13 @@ export default function AISettingsPage() {
         setPolicies(response.data.policies || "");
 
         // Configurações avançadas
-        setProvider(response.data.provider || "openai");
+        const loadedProvider = (response.data.provider as "openai" | "anthropic") || "openai";
+        setProvider(loadedProvider);
+
+        // Define modelo padrão se não houver modelo salvo
+        const loadedModel = response.data.model || (loadedProvider === "openai" ? "gpt-4o-mini" : "claude-sonnet-4-5-20250929");
+        setModel(loadedModel);
+
         setTemperature(response.data.temperature ?? 0.7);
         setMaxTokens(response.data.maxTokens ?? 500);
         setAutoReplyEnabled(response.data.autoReplyEnabled ?? true);
@@ -104,6 +112,7 @@ export default function AISettingsPage() {
         toneInstructions,
         policies,
         provider,
+        model,
         temperature,
         maxTokens,
         autoReplyEnabled,
@@ -121,6 +130,45 @@ export default function AISettingsPage() {
       setError(err.response?.data?.message || "Erro ao salvar configurações");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Salva apenas configurações avançadas
+  const saveAdvancedSettings = async () => {
+    try {
+      setSavingAdvanced(true);
+      setError(null);
+
+      const companyId = getCompanyId();
+
+      if (!companyId) {
+        setError("Empresa não encontrada");
+        return;
+      }
+
+      const response = await aiKnowledgeApi.updateKnowledge({
+        companyId,
+        companyInfo,
+        productsServices,
+        toneInstructions,
+        policies,
+        provider,
+        model,
+        temperature,
+        maxTokens,
+        autoReplyEnabled,
+      });
+
+      setKnowledge(response.data);
+
+      // Feedback visual
+      setTimeout(() => {
+        setSavingAdvanced(false);
+      }, 1000);
+    } catch (err: any) {
+      console.error("Error saving advanced settings:", err);
+      setError(err.response?.data?.message || "Erro ao salvar configurações avançadas");
+      setSavingAdvanced(false);
     }
   };
 
@@ -215,68 +263,48 @@ export default function AISettingsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Sobre sua empresa */}
-          <div className="space-y-2">
-            <Label htmlFor="companyInfo">
-              Sobre sua empresa
-              <span className="text-muted-foreground text-xs ml-2">(opcional)</span>
-            </Label>
-            <Textarea
-              id="companyInfo"
-              placeholder="Descreva o que você faz, vende, história da empresa, missão e valores..."
-              value={companyInfo}
-              onChange={(e) => handleFieldChange("companyInfo", e.target.value)}
-              rows={6}
-              className="resize-none"
-            />
-          </div>
+          <ExpandableTextarea
+            id="companyInfo"
+            label="Sobre sua empresa"
+            description="Descreva o que você faz, vende, história da empresa, missão e valores..."
+            placeholder="Ex: Somos uma empresa especializada em manutenção e instalação de ar condicionado..."
+            value={companyInfo}
+            onChange={(value) => handleFieldChange("companyInfo", value)}
+            rows={6}
+          />
 
           {/* Produtos e Serviços */}
-          <div className="space-y-2">
-            <Label htmlFor="productsServices">
-              Produtos e Serviços
-              <span className="text-muted-foreground text-xs ml-2">(opcional)</span>
-            </Label>
-            <Textarea
-              id="productsServices"
-              placeholder="Liste produtos, preços, descrições detalhadas, categorias, variações..."
-              value={productsServices}
-              onChange={(e) => handleFieldChange("productsServices", e.target.value)}
-              rows={8}
-              className="resize-none"
-            />
-          </div>
+          <ExpandableTextarea
+            id="productsServices"
+            label="Produtos e Serviços"
+            description="Liste produtos, preços, descrições detalhadas, categorias, variações..."
+            placeholder="Ex: Instalação de ar split 12.000 BTUs - R$ 350,00..."
+            value={productsServices}
+            onChange={(value) => handleFieldChange("productsServices", value)}
+            rows={8}
+          />
 
           {/* Tom de Voz */}
-          <div className="space-y-2">
-            <Label htmlFor="toneInstructions">
-              Tom de Voz e Instruções
-              <span className="text-muted-foreground text-xs ml-2">(opcional)</span>
-            </Label>
-            <Textarea
-              id="toneInstructions"
-              placeholder="Exemplo: Seja informal e use emojis. Se apresente como 'Assistente Virtual da [Nome]'. Seja simpático e prestativo. Use linguagem jovem..."
-              value={toneInstructions}
-              onChange={(e) => handleFieldChange("toneInstructions", e.target.value)}
-              rows={6}
-              className="resize-none"
-            />
-          </div>
+          <ExpandableTextarea
+            id="toneInstructions"
+            label="Tom de Voz e Instruções"
+            description="Defina o tom e estilo de comunicação da IA"
+            placeholder="Ex: Seja informal e use emojis. Se apresente como 'Assistente Virtual da ClimaTech'..."
+            value={toneInstructions}
+            onChange={(value) => handleFieldChange("toneInstructions", value)}
+            rows={6}
+          />
 
           {/* Políticas Importantes */}
-          <div className="space-y-2">
-            <Label htmlFor="policies">
-              Políticas Importantes
-              <span className="text-muted-foreground text-xs ml-2">(opcional)</span>
-            </Label>
-            <Textarea
-              id="policies"
-              placeholder="Prazos de entrega, políticas de garantia, formas de pagamento aceitas, horário de atendimento, política de trocas e devoluções..."
-              value={policies}
-              onChange={(e) => handleFieldChange("policies", e.target.value)}
-              rows={6}
-              className="resize-none"
-            />
-          </div>
+          <ExpandableTextarea
+            id="policies"
+            label="Políticas Importantes"
+            description="Prazos de entrega, garantias, pagamentos, horários, trocas e devoluções..."
+            placeholder="Ex: Atendimento de segunda a sexta, 8h às 18h. Aceitamos PIX, cartão e dinheiro..."
+            value={policies}
+            onChange={(value) => handleFieldChange("policies", value)}
+            rows={6}
+          />
 
           {/* Botão Salvar Manual */}
           <div className="flex items-center justify-between pt-4 border-t">
@@ -326,30 +354,73 @@ export default function AISettingsPage() {
             />
           </div>
 
-          {/* Provider da IA */}
-          <div className="space-y-2">
-            <Label htmlFor="provider">Provedor de IA</Label>
-            <Select
-              value={provider}
-              onValueChange={(value: "openai" | "anthropic") => {
-                setProvider(value);
-                handleFieldChange("provider", value);
-              }}
-            >
-              <SelectTrigger id="provider">
-                <SelectValue placeholder="Selecione o provedor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="openai">OpenAI (GPT-4o Mini)</SelectItem>
-                <SelectItem value="anthropic">Anthropic (Claude Sonnet)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {provider === "openai"
-                ? "Mais rápido e econômico, ótimo para a maioria dos casos"
-                : "Mais inteligente e contextual, ideal para conversas complexas"}
-            </p>
+          {/* Provider e Modelo da IA */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="provider">Provedor de IA</Label>
+              <Select
+                value={provider}
+                onValueChange={(value: "openai" | "anthropic") => {
+                  setProvider(value);
+                  // Define modelo padrão ao trocar de provedor
+                  if (value === "openai") {
+                    setModel("gpt-4o-mini");
+                  } else {
+                    setModel("claude-sonnet-4-5-20250929");
+                  }
+                }}
+              >
+                <SelectTrigger id="provider">
+                  <SelectValue placeholder="Selecione o provedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai">OpenAI</SelectItem>
+                  <SelectItem value="anthropic">Anthropic</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="model">Modelo</Label>
+              <Select
+                value={model}
+                onValueChange={setModel}
+              >
+                <SelectTrigger id="model">
+                  <SelectValue placeholder="Selecione o modelo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {provider === "openai" ? (
+                    <>
+                      <SelectItem value="gpt-4o-mini">GPT-4o Mini (Econômico)</SelectItem>
+                      <SelectItem value="gpt-4o">GPT-4o (Avançado)</SelectItem>
+                      <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Mais recente)</SelectItem>
+                      <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+                      <SelectItem value="claude-3-opus-20240229">Claude 3 Opus (Mais inteligente)</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          <p className="text-xs text-muted-foreground -mt-2">
+            {provider === "openai"
+              ? model === "gpt-4o-mini"
+                ? "💰 Mais rápido e econômico - Ideal para atendimento em escala"
+                : model === "gpt-4o"
+                ? "⚡ Modelo mais avançado da OpenAI - Melhor raciocínio e qualidade"
+                : "🚀 Ótimo equilíbrio entre velocidade e qualidade"
+              : model === "claude-sonnet-4-5-20250929"
+              ? "🌟 Modelo mais recente - Respostas excepcionais e contexto longo"
+              : model === "claude-3-opus-20240229"
+              ? "🧠 Máxima inteligência - Ideal para casos complexos"
+              : "⚡ Rápido e inteligente - Ótimo para conversas"}
+          </p>
 
           {/* Temperature */}
           <div className="space-y-4">
@@ -395,6 +466,28 @@ export default function AISettingsPage() {
                 500 tokens ≈ 375 palavras ou 1-2 parágrafos
               </p>
             </div>
+          </div>
+
+          {/* Botão Salvar Configurações Avançadas */}
+          <div className="flex items-center justify-end pt-4 border-t">
+            <Button
+              onClick={saveAdvancedSettings}
+              disabled={savingAdvanced}
+              size="lg"
+              variant="default"
+            >
+              {savingAdvanced ? (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Salvo!
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Salvar Configurações Avançadas
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>

@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const publicPaths = ["/login", "/signup", "/"];
-const protectedPaths = ["/dashboard"];
+// const publicPaths = ["/login", "/signup", "/"];
+// const protectedPaths = ["/dashboard"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("token")?.value || request.headers.get("authorization")?.split(" ")[1];
 
   // Check if path is protected
-  const isProtectedPath = protectedPaths.some((path) => pathname.startsWith(path));
-  const isPublicPath = publicPaths.includes(pathname);
+  // const isProtectedPath = protectedPaths.some((path) => pathname.startsWith(path));
+  // const isPublicPath = publicPaths.includes(pathname);
 
   // If accessing protected route without token, redirect to login
   // if (isProtectedPath && !token) {

@@ -121,6 +121,7 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
 
       return () => clearTimeout(timeout);
     }
+    return undefined;
   }, [status, isOpen, onSuccess, onClose]);
 
   // Polling: verifica o status a cada 5 segundos (mais seguro)

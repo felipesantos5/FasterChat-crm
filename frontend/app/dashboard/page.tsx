@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/store/auth.store";
 import {
   Card,
@@ -8,45 +9,85 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Users, MessageSquare, TrendingUp, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
+import { dashboardApi, DashboardStats } from "@/lib/dashboard";
+import { Users, MessageSquare, Bot, Activity, Loader2 } from "lucide-react";
+
+type PeriodType = "today" | "week" | "month";
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
+  const [period, setPeriod] = useState<PeriodType>("today");
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const stats = [
-    {
-      title: "Total de Clientes",
-      value: "0",
-      description: "Nenhum cliente cadastrado",
-      icon: Users,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
-    },
-    {
-      title: "Conversas Ativas",
-      value: "0",
-      description: "Nenhuma conversa ativa",
-      icon: MessageSquare,
-      color: "text-green-600",
-      bgColor: "bg-green-100",
-    },
-    {
-      title: "Taxa de Resolução",
-      value: "0%",
-      description: "Sem dados ainda",
-      icon: TrendingUp,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
-    },
-    {
-      title: "Atendimentos Hoje",
-      value: "0",
-      description: "Nenhum atendimento hoje",
-      icon: Activity,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
-    },
-  ];
+  const loadStats = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await dashboardApi.getStats(period);
+      setStats(data);
+    } catch (err: any) {
+      console.error("Error loading dashboard stats:", err);
+      setError(err.response?.data?.message || "Erro ao carregar estatísticas");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStats();
+  }, [period]);
+
+  const getPeriodLabel = (p: PeriodType) => {
+    switch (p) {
+      case "today":
+        return "Hoje";
+      case "week":
+        return "7 dias";
+      case "month":
+        return "30 dias";
+    }
+  };
+
+  const statCards = stats
+    ? [
+        {
+          title: "Novos Clientes",
+          value: stats.totalCustomers.current,
+          percentageChange: stats.totalCustomers.percentageChange,
+          icon: Users,
+          color: "text-blue-600",
+          bgColor: "bg-blue-100 dark:bg-blue-900/30",
+        },
+        {
+          title: "Conversas Ativas",
+          value: stats.activeConversations.current,
+          percentageChange: stats.activeConversations.percentageChange,
+          icon: MessageSquare,
+          color: "text-green-600",
+          bgColor: "bg-green-100 dark:bg-green-900/30",
+        },
+        {
+          title: "Mensagens Recebidas",
+          value: stats.messagesReceived.current,
+          percentageChange: stats.messagesReceived.percentageChange,
+          icon: Activity,
+          color: "text-orange-600",
+          bgColor: "bg-orange-100 dark:bg-orange-900/30",
+        },
+        {
+          title: "Respostas da IA",
+          value: stats.messagesWithAI.current,
+          percentageChange: stats.messagesWithAI.percentageChange,
+          icon: Bot,
+          color: "text-purple-600",
+          bgColor: "bg-purple-100 dark:bg-purple-900/30",
+        },
+      ]
+    : [];
 
   return (
     <div className="space-y-6">

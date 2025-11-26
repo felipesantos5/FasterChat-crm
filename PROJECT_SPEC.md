@@ -1,152 +1,170 @@
-# 🚀 CRM com Chatbot IA - Especificação Técnica Completa v2.0
+# 🚀 CRM IA & Sales Engine - Especificação Técnica v3.0
 
-## 📋 Índice
+## 1. Visão do Produto
 
-1. [Visão Geral do Projeto](#visão-geral)
-2. [Objetivos e Proposta de Valor](#objetivos-e-proposta-de-valor)
-3. [Arquitetura do Sistema](#arquitetura-do-sistema)
-4. [Stack Tecnológica Detalhada](#stack-tecnológica)
-5. [Regras de Negócio](#regras-de-negócio)
-6. [Modelagem de Dados](#modelagem-de-dados)
-7. [Padrões de Desenvolvimento](#padrões-de-desenvolvimento)
-8. [Boas Práticas de Código](#boas-práticas)
-9. [Segurança](#segurança)
-10. [Performance e Escalabilidade](#performance)
-11. [Testes](#testes)
-12. [Fluxos de Processo](#fluxos-de-processo)
-13. [APIs e Integrações](#apis-e-integrações)
-14. [Deployment e DevOps](#deployment)
-15. [Monitoramento e Observabilidade](#monitoramento)
+### O que é
+
+Um ecossistema de **Vendas e Relacionamento** via WhatsApp para empresas de serviços (foco inicial em Climatização/Ar Condicionado). O sistema transforma o WhatsApp de um canal de suporte passivo em uma **máquina ativa de vendas**.
+
+### Pilares de Valor
+
+1.  **Atendimento Híbrido (Sales-Driven AI):** Uma IA que não apenas tira dúvidas, mas tem o objetivo de _agendar visitas_ e _fechar orçamentos_, com transbordo inteligente para humanos.
+2.  **CRM de Dados (Data-Driven):** Centralização de dados do cliente (origem, LTV, histórico) para decisões estratégicas.
+3.  **Motor de Receita Recorrente (Active Marketing):** Automação de disparos para manutenção preventiva (ex: "Seu ar foi instalado há 6 meses, vamos limpar?") e campanhas promocionais segmentadas.
 
 ---
 
-## 🎯 Visão Geral do Projeto
+## 2. Objetivos e Métricas (KPIs)
 
-### Descrição
+### Objetivos de Negócio (O que o sistema deve entregar ao cliente final)
 
-Sistema SaaS de CRM (Customer Relationship Management) com chatbot de inteligência artificial integrado, projetado para automatizar e humanizar o atendimento ao cliente através de múltiplos canais (WhatsApp, Widget Web, Email).
+- **Aumento de Conversão:** Transformar >20% dos leads frios em agendamentos automáticos.
+- **Recuperação de Base:** Gerar >R$ 5.000/mês em receitas de manutenção preventiva automática.
+- **Organização:** Zero perda de leads por falta de resposta ou esquecimento.
 
-### Problema que Resolve
+### Objetivos Técnicos (Qualidade do Software)
 
-Empresas brasileiras gastam tempo excessivo com atendimento manual repetitivo, têm custos elevados com plataformas de mensageria oficiais, e perdem contexto do histórico do cliente entre diferentes canais de atendimento.
-
-### Solução Proposta
-
-Plataforma unificada que:
-
-- Centraliza todos os contatos e conversas em um único lugar
-- Automatiza respostas com IA que possui memória contextual completa
-- Reduz custos usando Evolution API (não-oficial) para WhatsApp
-- Escala automaticamente de IA simples → IA avançada → Humano baseado em complexidade
-- Oferece analytics em tempo real sobre atendimento e custos
-
-### Diferenciais Competitivos
-
-#### 1. Memória Contextual Inteligente
-
-A IA não apenas responde perguntas, mas tem acesso completo ao:
-
-- Histórico de todas as conversas anteriores do cliente
-- Compras, reclamações e preferências registradas
-- Dados customizados da empresa sobre aquele cliente
-- Contexto temporal (há quanto tempo é cliente, última interação, etc)
-
-#### 2. Roteamento Híbrido Inteligente de 3 Camadas
-
-Tier 1: GPT-4o Mini (R$ 0,0006/conversa)
-↓ Se complexidade > 7/10 OU sentimento < 5/10
-Tier 2: GPT-4o ou Claude Sonnet (R$ 0,02/conversa)
-↓ Se sentimento < 3/10 OU palavras-chave críticas
-Tier 3: Atendente Humano
-
-**Resultado**: 70% de economia vs usar só IA premium
-
-#### 3. Economia Radical em WhatsApp
-
-- Evolution API: R$ 50/mês ilimitado
-- Twilio oficial: R$ 1.900/mês para 10k mensagens
-- **Economia de 97%**
-
-#### 4. Multi-tenancy Nativo
-
-Arquitetura preparada para escalar de 10 a 10.000 empresas clientes sem refatoração.
+- **Estabilidade do WhatsApp:** Conexão persistente com auto-healing (Evolution API v2).
+- **Segurança de Envio:** Algoritmos de _throttling_ (atraso variável) em disparos em massa para evitar banimento do número.
+- **Performance:** Respostas da IA em < 3s.
 
 ---
 
-## 🎯 Objetivos e Proposta de Valor
+## 3. Stack Tecnológica e Padrões
 
-### Objetivos do Produto
+### Backend
 
-#### Objetivos de Negócio
+- **Runtime:** Node.js 20+ (TypeScript).
+- **Framework:** Express.js (Leve, robusto).
+- **Database:** PostgreSQL 16.
+- **ORM:** Prisma (Schema-first design).
+- **WhatsApp:** Evolution API v2 (Docker oficial `evoapicloud`).
+- **AI:** OpenAI `gpt-4o-mini` (Custo-benefício) + `gpt-4o` (Casos complexos).
+- **Queue/Jobs:** BullMQ + Redis (Para disparos em massa e agendamentos).
 
-1. **Validação de Mercado** (Mês 1-3)
+### Frontend
 
-   - Conseguir 10 empresas beta testando ativamente
-   - Processar 5.000+ conversas no MVP
-   - Coletar feedback de 50+ usuários
+- **Framework:** Next.js 14 (App Router).
+- **Estilo:** Tailwind CSS + Shadcn/ui.
+- **State:** Zustand.
+- **Data Fetching:** React Query ou SWR (para cache e real-time).
 
-2. **Tração Inicial** (Mês 4-6)
+### 🛡️ Padrões de Qualidade de Código (Regras para a IA)
 
-   - Atingir 50 empresas pagantes
-   - MRR de R$ 10.000
-   - NPS > 50
-   - Churn < 10%/mês
-
-3. **Escala** (Mês 7-12)
-   - 200 empresas ativas
-   - MRR de R$ 50.000
-   - Margem > 70%
-
-#### Objetivos Técnicos
-
-**Performance**
-
-- Response time API: p95 < 200ms, p99 < 500ms
-- Uptime: > 99.5%
-- Latência IA: < 3 segundos
-- WebSocket latency: < 100ms
-
-**Qualidade**
-
-- Cobertura de testes: > 75%
-- Zero critical bugs em produção por mais de 24h
-- Time to resolution de bugs críticos: < 2h
-- Code review obrigatório antes de merge
-
-**Escalabilidade**
-
-- Suportar 1.000 empresas sem refatoração
-- 100.000 mensagens/dia processadas
-- Escala horizontal (adicionar mais servidores)
-
-### Métricas de Sucesso (KPIs)
-
-#### Produto
-
-- **Taxa de Resolução Automática**: > 70% das conversas resolvidas sem humano
-- **CSAT (Customer Satisfaction)**: > 4.2/5
-- **Tempo Médio de Resposta**: < 30 segundos
-- **Taxa de Escalação para Humano**: < 25%
-
-#### Técnicas
-
-- **API Uptime**: > 99.5%
-- **Error Rate**: < 0.1%
-- **Latência p95**: < 200ms
-- **Coverage de Testes**: > 75%
-
-#### Negócio
-
-- **MRR (Monthly Recurring Revenue)**: Crescimento 15%/mês
-- **CAC (Customer Acquisition Cost)**: < R$ 300
-- **LTV (Lifetime Value)**: > R$ 3.000
-- **Churn Rate**: < 8%/mês
-- **Margem de Lucro**: > 70%
+1.  **Service-Repository Pattern:**
+    - _Controllers:_ Apenas recebem HTTP, validam (Zod) e chamam Services.
+    - _Services:_ Contêm toda a regra de negócio.
+    - _Utils/Helpers:_ Funções puras e reutilizáveis.
+2.  **Tipagem Forte:** Não usar `any`. Criar interfaces/types para todas as entradas e saídas (DTOs).
+3.  **Tratamento de Erros:** Try/Catch em todas as camadas async com logs estruturados.
+4.  **Comentários:** Apenas o essencial (JSDoc em métodos complexos). O código deve ser autoexplicativo.
+5.  **Clean Code:** Funções pequenas, responsabilidade única (SRP).
 
 ---
 
-### tecnologias
+## 4. Modelagem de Dados (Schema Expansion)
 
-backend com node typescript express e libs para auxiliar o desenvolvimento
+O `schema.prisma` deve ser expandido para suportar CRM e Marketing.
 
-front end next com tailwind + components shad/cn deixe o layout sempre padronizado
+### Novos Modelos / Campos Necessários
+
+#### `Customer` (Enriquecido)
+
+- `source`: Enum (ORGANIC, PAID_TRAFFIC, INDICATION, INFLUENCER, GOOGLE_ADS).
+- `status`: Enum (LEAD, ACTIVE, CHURNED).
+- `funnelStage`: Enum (NEW, QUALIFIED, NEGOTIATION, CLOSED, LOST).
+- `lifetimeValue`: Decimal (Soma total gasta).
+- `lastServiceDate`: DateTime (Para cálculo de manutenção).
+- `nextMaintenanceDate`: DateTime (Previsão).
+
+#### `Campaign` (Novo - Disparos)
+
+- `id`: UUID.
+- `name`: String (ex: "Promoção Inverno", "Lembrete Manutenção Junho").
+- `type`: Enum (MANUAL, SCHEDULED, RECURRING).
+- `status`: Enum (DRAFT, PENDING, PROCESSING, COMPLETED, FAILED).
+- `messageTemplate`: String (com variáveis `{{name}}`).
+- `targetTags`: String[] (Array de tags para segmentação).
+- `scheduledAt`: DateTime.
+- `stats`: JSON (Enviados, Lidos, Respondidos, Convertidos).
+
+#### `ServiceOrder` (Novo - Vendas)
+
+- `id`: UUID.
+- `customerId`: FK.
+- `value`: Decimal.
+- `description`: String.
+- `status`: Enum (OPEN, COMPLETED, CANCELED).
+- `completedAt`: DateTime.
+
+---
+
+## 5. Regras de Negócio Detalhadas
+
+### Módulo 1: Atendimento Inteligente (Sales AI)
+
+1.  **Contexto Dinâmico:** O prompt da IA deve injetar dinamicamente:
+    - Nome do cliente.
+    - Histórico resumido das últimas 5 mensagens.
+    - Produtos/Serviços da empresa (do `AIKnowledge`).
+    - _Regra de Ouro:_ Se o cliente já conversou recentemente (< 24h), **não** saudar novamente ("Olá"), ir direto ao ponto.
+2.  **Objetivo da Conversa:** A IA deve tentar conduzir o cliente para o fechamento (agendamento ou orçamento).
+3.  **Transbordo (Hand-off):** Se detectar sentimento negativo ou solicitação complexa ("quero falar com humano", "processo"), desativar IA (`aiEnabled = false`) e notificar admins.
+
+### Módulo 2: Gestão de Clientes (CRM)
+
+1.  **Captura Automática:** Todo novo número que chama vira um `Customer` com status `LEAD`.
+2.  **Etiquetagem (Tagging):** Permitir adicionar tags manualmente ou via IA (ex: IA detecta "interessado em instalação" -> adiciona tag `Interesse: Instalação`).
+3.  **Funil:** Kanban visual no frontend para mover clientes de estágio.
+
+### Módulo 3: Motor de Campanhas (Marketing Ativo)
+
+1.  **Segmentação:** O usuário seleciona um grupo de Tags (ex: `Cliente Antigo` + `Bairro X`).
+2.  **Agendamento:** O sistema deve permitir agendar o envio para data/hora futura.
+3.  **Segurança de Envio (Anti-Ban):**
+    - Não enviar tudo de uma vez.
+    - Usar fila (Queue).
+    - Adicionar `delay` aleatório entre 10s e 30s entre cada mensagem.
+    - Respeitar limites diários configuráveis.
+4.  **Variáveis:** Substituir `{{name}}` pelo primeiro nome do cliente para humanizar.
+
+---
+
+## 6. APIs e Integrações
+
+### Endpoints Críticos (Backend)
+
+#### Campanhas
+
+- `POST /api/campaigns`: Criar campanha (rascunho ou agendada).
+- `POST /api/campaigns/:id/start`: Iniciar disparo manual.
+- `GET /api/campaigns/:id/stats`: Ver progresso em tempo real.
+
+#### CRM
+
+- `PATCH /api/customers/:id/tags`: Adicionar/Remover tags.
+- `PATCH /api/customers/:id/pipeline`: Mudar estágio do funil.
+
+#### Webhooks (Evolution API)
+
+- Tratar eventos `SEND_MESSAGE` (para contabilizar disparos da campanha).
+- Tratar eventos `MESSAGES_UPSERT` (para parar automação se o cliente responder durante uma campanha).
+
+---
+
+## 7. Segurança e Infraestrutura
+
+1.  **Autenticação:** JWT com Refresh Token.
+2.  **Multi-tenancy:** Todas as queries do Prisma devem ter `where: { companyId: req.user.companyId }` obrigatório.
+3.  **Dados Sensíveis:** Nunca retornar senhas ou tokens de API no Frontend.
+4.  **Docker:** Manter `docker-compose.yml` com healthchecks para garantir que o Evolution e Redis estejam sempre online.
+
+---
+
+## 8. Roadmap de Implementação (Sugestão)
+
+1.  **Fase 1:** Refatoração do Prompt da IA (Contexto e Naturalidade). ✅
+2.  **Fase 2:** Expansão do Banco de Dados (Tabelas Campaign, ServiceOrder).
+3.  **Fase 3:** Frontend CRM (Gestão de Tags, Funil e Dados do Cliente).
+4.  **Fase 4:** Motor de Disparos (Backend Queue + Frontend de Campanhas).
+5.  **Fase 5:** Dashboard de ROI (Gráficos de conversão).

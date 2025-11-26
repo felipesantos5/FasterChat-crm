@@ -151,6 +151,7 @@ model Message {
   customer            Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
   whatsappInstance    WhatsAppInstance @relation(fields: [whatsappInstanceId], references: [id], onDelete: Cascade)
 
+  @@unique([whatsappInstanceId, messageId])
   @@index([customerId])
   @@index([whatsappInstanceId])
   @@index([timestamp])
@@ -165,6 +166,7 @@ model Conversation {
   companyId          String   @map("company_id")
   assignedToId       String?  @map("assigned_to_id")
   aiEnabled          Boolean  @default(true) @map("ai_enabled")
+  needsHelp          Boolean  @default(false) @map("needs_help")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -176,6 +178,7 @@ model Conversation {
   @@index([companyId])
   @@index([assignedToId])
   @@index([aiEnabled])
+  @@index([needsHelp])
   @@map("conversations")
 }
 

@@ -7,6 +7,7 @@ import {
   CustomerListResponse,
   CustomerStats,
 } from '@/types/customer';
+import { tagApi, Tag } from './tag';
 
 export const customerApi = {
   async getAll(filters?: CustomerFilters): Promise<CustomerListResponse> {
@@ -40,8 +41,8 @@ export const customerApi = {
     return response.data.data;
   },
 
-  async getAllTags(): Promise<string[]> {
-    const response = await api.get<{ data: string[] }>('/customers/tags');
-    return response.data.data;
+  async getAllTags(): Promise<Tag[]> {
+    // Usa a API de tags para buscar tags completas com cores
+    return tagApi.getAll();
   },
 };

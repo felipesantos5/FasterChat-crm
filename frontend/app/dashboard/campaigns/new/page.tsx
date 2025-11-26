@@ -13,11 +13,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TagSelector } from '@/components/forms/tag-selector';
 import { ArrowLeft, Loader2, Users } from 'lucide-react';
+import { Tag } from '@/lib/tag';
 
 export default function NewCampaignPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [estimate, setEstimate] = useState<{ totalCustomers: number; estimatedDuration: number } | null>(null);
   const [loadingEstimate, setLoadingEstimate] = useState(false);
 
@@ -207,8 +208,8 @@ export default function NewCampaignPage() {
                 }
                 availableTags={availableTags}
                 placeholder="Selecionar tags para segmentar clientes..."
-                onTagCreated={async (tagName) => {
-                  console.log('[CampaignForm] Nova tag criada:', tagName);
+                onTagCreated={async (tag) => {
+                  console.log('[CampaignForm] Nova tag criada:', tag.name);
                   // Recarrega as tags disponíveis
                   await loadTags();
                 }}

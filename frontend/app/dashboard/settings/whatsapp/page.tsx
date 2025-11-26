@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeModal } from '@/components/whatsapp/qr-code-modal';
+import { DisconnectConfirmDialog } from '@/components/whatsapp/disconnect-confirm-dialog';
 import { whatsappApi } from '@/lib/whatsapp';
 import { WhatsAppInstance, WhatsAppStatus } from '@/types/whatsapp';
 import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
@@ -17,6 +18,11 @@ export default function WhatsAppSettingsPage() {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<{ [key: string]: boolean }>({});
+
+  // Estados para os modais de confirmação
+  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [instanceToAction, setInstanceToAction] = useState<WhatsAppInstance | null>(null);
 
   // Obtém o companyId do usuário logado (você pode ajustar conforme sua implementação)
   const getCompanyId = () => {
@@ -93,29 +99,41 @@ export default function WhatsAppSettingsPage() {
     }
   };
 
+  // Abre o modal de confirmação de desconexão
+  const openDisconnectDialog = (instance: WhatsAppInstance) => {
+    setInstanceToAction(instance);
+    setDisconnectDialogOpen(true);
+  };
+
   // Desconecta uma instância
-  const handleDisconnect = async (instanceId: string) => {
-    if (!confirm('Deseja realmente desconectar este WhatsApp?')) return;
+  const handleDisconnect = async () => {
+    if (!instanceToAction) return;
 
     try {
-      await whatsappApi.disconnectInstance(instanceId);
+      await whatsappApi.disconnectInstance(instanceToAction.id);
       await loadInstances();
     } catch (err: any) {
       console.error('Error disconnecting:', err);
-      alert(err.response?.data?.message || 'Erro ao desconectar');
+      setError(err.response?.data?.message || 'Erro ao desconectar');
     }
   };
 
+  // Abre o modal de confirmação de exclusão
+  const openDeleteDialog = (instance: WhatsAppInstance) => {
+    setInstanceToAction(instance);
+    setDeleteDialogOpen(true);
+  };
+
   // Deleta uma instância
-  const handleDelete = async (instanceId: string) => {
-    if (!confirm('Deseja realmente deletar esta instância? Esta ação não pode ser desfeita.')) return;
+  const handleDelete = async () => {
+    if (!instanceToAction) return;
 
     try {
-      await whatsappApi.deleteInstance(instanceId);
+      await whatsappApi.deleteInstance(instanceToAction.id);
       await loadInstances();
     } catch (err: any) {
       console.error('Error deleting:', err);
-      alert(err.response?.data?.message || 'Erro ao deletar instância');
+      setError(err.response?.data?.message || 'Erro ao deletar instância');
     }
   };
 
@@ -264,7 +282,7 @@ export default function WhatsAppSettingsPage() {
 
                     {instance.status === WhatsAppStatus.CONNECTED && (
                       <Button
-                        onClick={() => handleDisconnect(instance.id)}
+                        onClick={() => openDisconnectDialog(instance)}
                         variant="outline"
                         size="sm"
                       >
@@ -293,7 +311,7 @@ export default function WhatsAppSettingsPage() {
                     )}
 
                     <Button
-                      onClick={() => handleDelete(instance.id)}
+                      onClick={() => openDeleteDialog(instance)}
                       variant="destructive"
                       size="sm"
                     >
@@ -328,6 +346,36 @@ export default function WhatsAppSettingsPage() {
           }}
           instanceId={selectedInstanceId}
           onSuccess={loadInstances}
+        />
+      )}
+
+      {/* Disconnect Confirmation Dialog */}
+      {instanceToAction && (
+        <DisconnectConfirmDialog
+          isOpen={disconnectDialogOpen}
+          onClose={() => {
+            setDisconnectDialogOpen(false);
+            setInstanceToAction(null);
+          }}
+          onConfirm={handleDisconnect}
+          instanceName={instanceToAction.instanceName}
+          phoneNumber={instanceToAction.phoneNumber}
+          isDeleting={false}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {instanceToAction && (
+        <DisconnectConfirmDialog
+          isOpen={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setInstanceToAction(null);
+          }}
+          onConfirm={handleDelete}
+          instanceName={instanceToAction.instanceName}
+          phoneNumber={instanceToAction.phoneNumber}
+          isDeleting={true}
         />
       )}
     </div>

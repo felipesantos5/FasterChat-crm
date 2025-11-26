@@ -29,7 +29,7 @@ class AIService {
   async generateResponse(
     customerId: string,
     message: string,
-    options?: { provider?: AIProvider; temperature?: number; maxTokens?: number }
+    options?: { provider?: AIProvider; model?: string; temperature?: number; maxTokens?: number }
   ): Promise<string> {
     try {
       // Busca o customer com informações da empresa
@@ -76,6 +76,7 @@ class AIService {
 
       // Pega configurações avançadas da IA
       const providerConfig = aiKnowledge?.provider as AIProvider | undefined;
+      const modelConfig = aiKnowledge?.model ?? undefined;
       const temperature = options?.temperature ?? aiKnowledge?.temperature ?? 0.7;
       const maxTokens = options?.maxTokens ?? aiKnowledge?.maxTokens ?? 500;
 
@@ -121,6 +122,7 @@ class AIService {
         userPrompt,
         temperature,
         maxTokens,
+        model: options?.model || modelConfig,
       });
 
       return aiResponse;
@@ -187,6 +189,7 @@ Telefone: ${customerPhone}${customerEmail ? `\nEmail: ${customerEmail}` : ""}${c
 3. **NOME:** Evite repetir o nome do cliente em toda frase. Use o nome apenas na saudação inicial (se houver). Se o nome parecer uma empresa (ex: "Barbearia..."), não o use.
 4. **FORMATO:** Escreva mensagens curtas, como num chat de WhatsApp. Evite blocos enormes de texto. Use emojis moderadamente se o tom permitir.
 5. **CONTEXTO:** Use as informações anteriores do histórico para não perguntar o que o cliente já disse.
+6. **TRANSBORDO HUMANO:** Se o cliente EXPLICITAMENTE pedir para falar com um humano/atendente OU se a pergunta NÃO estiver coberta pela Base de Conhecimento acima, inicie sua resposta EXATAMENTE com a tag [TRANSBORDO] seguida de uma mensagem educada informando que um atendente humano irá ajudá-lo em breve. Exemplo: "[TRANSBORDO] Entendo! Vou transferir você para um de nossos atendentes que poderá ajudar melhor. Aguarde um momento, por favor."
 
 Responda APENAS com a mensagem ao cliente.`;
   }

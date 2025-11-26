@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TagSelector } from "./tag-selector";
 import { Customer, CreateCustomerData, UpdateCustomerData } from "@/types/customer";
+import { Tag } from "@/lib/tag";
 
 const customerSchema = z.object({
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
@@ -34,7 +35,7 @@ interface CustomerFormModalProps {
   onClose: () => void;
   onSubmit: (data: CreateCustomerData | UpdateCustomerData) => Promise<void>;
   customer?: Customer;
-  availableTags: string[];
+  availableTags: Tag[];
 }
 
 export function CustomerFormModal({
@@ -182,12 +183,12 @@ export function CustomerFormModal({
               availableTags={availableTags}
               placeholder="Selecionar tags..."
               disabled={isSubmitting}
-              onTagCreated={async (tagName) => {
+              onTagCreated={async (tag) => {
                 // Recarrega a lista de tags disponíveis quando uma nova tag é criada
                 try {
-                  const tags = await import('@/lib/customer').then(m => m.customerApi.getAllTags());
+                  await import('@/lib/customer').then(m => m.customerApi.getAllTags());
                   // Atualiza o availableTags passado pelo componente pai
-                  console.log('[CustomerForm] Nova tag criada, atualizando lista:', tagName);
+                  console.log('[CustomerForm] Nova tag criada, atualizando lista:', tag.name);
                 } catch (error) {
                   console.error('[CustomerForm] Erro ao recarregar tags:', error);
                 }

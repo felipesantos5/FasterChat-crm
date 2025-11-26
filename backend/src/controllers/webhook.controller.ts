@@ -88,8 +88,30 @@ class WebhookController {
             // Gera resposta usando IA
             const aiResponse = await aiService.generateResponse(result.customer.id, content);
 
-            // Envia a resposta via WhatsApp
-            await messageService.sendMessage(result.customer.id, aiResponse, "AI");
+            // 🚨 TRANSBORDO HUMANO: Verifica se a IA solicitou transferência para humano
+            if (aiResponse.startsWith("[TRANSBORDO]")) {
+              console.log(`🚨 Transbordo solicitado para cliente ${result.customer.name}`);
+
+              // Remove a tag [TRANSBORDO] da mensagem
+              const cleanMessage = aiResponse.replace("[TRANSBORDO]", "").trim();
+
+              // Envia a mensagem limpa ao cliente
+              await messageService.sendMessage(result.customer.id, cleanMessage, "AI");
+
+              // Desativa a IA para essa conversa (transbordo para humano)
+              await conversationService.toggleAI(result.customer.id, false);
+
+              // Marca a conversa como precisando de ajuda
+              await prisma.conversation.update({
+                where: { customerId: result.customer.id },
+                data: { needsHelp: true }
+              });
+
+              console.log(`✓ Conversa transferida para atendimento humano: ${result.customer.id}`);
+            } else {
+              // Resposta normal da IA (sem transbordo)
+              await messageService.sendMessage(result.customer.id, aiResponse, "AI");
+            }
           } catch (aiError: any) {
             console.error("Error processing AI response:", aiError.message);
           }

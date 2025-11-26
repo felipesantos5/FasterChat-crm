@@ -6,28 +6,24 @@ import { useAuthStore } from "@/lib/store/auth.store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
-    console.log('[DASHBOARD LAYOUT] isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
+    console.log("[DASHBOARD LAYOUT] isLoading:", isLoading, "isAuthenticated:", isAuthenticated);
 
     // Aguarda o loading terminar antes de redirecionar
     if (isLoading) {
-      console.log('[DASHBOARD LAYOUT] Aguardando loading...');
+      console.log("[DASHBOARD LAYOUT] Aguardando loading...");
       return;
     }
 
     if (!isAuthenticated) {
-      console.log('[DASHBOARD LAYOUT] Não autenticado, redirecionando para login');
+      console.log("[DASHBOARD LAYOUT] Não autenticado, redirecionando para login");
       router.push("/login");
     } else {
-      console.log('[DASHBOARD LAYOUT] Autenticado, renderizando dashboard');
+      console.log("[DASHBOARD LAYOUT] Autenticado, renderizando dashboard");
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -51,9 +47,7 @@ export default function DashboardLayout({
         <Header />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-background p-6">
-          {children}
-        </main>
+        <main className="flex-1 overflow-y-auto bg-background">{children}</main>
       </div>
     </div>
   );

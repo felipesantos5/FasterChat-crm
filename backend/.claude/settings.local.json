@@ -4,7 +4,11 @@
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
       "Bash(npx prisma:*)",
-      "Bash(node check-db.js:*)"
+      "Bash(node check-db.js:*)",
+      "Bash(npm run db:seed:*)",
+      "Bash(cat:*)",
+      "Bash(move appdashboardconversationspage.tsx appdashboardconversationspage-old.tsx)",
+      "Bash(taskkill:*)"
     ],
     "deny": [],
     "ask": []

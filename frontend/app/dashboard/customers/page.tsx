@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CustomerFormModal } from "@/components/forms/customer-form-modal";
 import { Plus, Search, Phone, Mail, MoreVertical, Edit, Trash } from "lucide-react";
-import { getTagColor } from "@/lib/constants/tags";
+import { TagBadge } from "@/components/ui/tag-badge";
+import { Tag } from "@/lib/tag";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -26,7 +27,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const loadCustomers = async () => {
@@ -130,17 +131,25 @@ export default function CustomersPage() {
           <span className="text-sm text-muted-foreground">Filtrar por:</span>
           {availableTags.map((tag) => (
             <Badge
-              key={tag}
+              key={tag.id}
               className={cn(
-                "cursor-pointer border transition-all",
-                selectedTags.includes(tag)
-                  ? getTagColor(tag)
+                "cursor-pointer border transition-all text-white",
+                selectedTags.includes(tag.name)
+                  ? ""
                   : "bg-background text-muted-foreground hover:bg-accent"
               )}
               variant="outline"
-              onClick={() => toggleTagFilter(tag)}
+              style={
+                selectedTags.includes(tag.name)
+                  ? {
+                      backgroundColor: tag.color || '#8B5CF6',
+                      borderColor: tag.color || '#8B5CF6',
+                    }
+                  : undefined
+              }
+              onClick={() => toggleTagFilter(tag.name)}
             >
-              {tag}
+              {tag.name}
             </Badge>
           ))}
           {selectedTags.length > 0 && (
@@ -230,13 +239,13 @@ export default function CustomersPage() {
                 {customer.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {customer.tags.map((tag) => (
-                      <Badge
+                      <TagBadge
                         key={tag}
-                        className={cn("text-xs border", getTagColor(tag))}
+                        tag={tag}
+                        tags={availableTags}
                         variant="outline"
-                      >
-                        {tag}
-                      </Badge>
+                        className="text-xs"
+                      />
                     ))}
                   </div>
                 )}

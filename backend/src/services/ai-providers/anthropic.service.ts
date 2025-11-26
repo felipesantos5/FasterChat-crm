@@ -5,6 +5,7 @@ interface GenerateResponseParams {
   userPrompt: string;
   temperature?: number;
   maxTokens?: number;
+  model?: string;
 }
 
 class AnthropicService {
@@ -32,12 +33,15 @@ class AnthropicService {
         userPrompt,
         temperature = 0.7,
         maxTokens = 1024,
+        model,
       } = params;
 
-      console.log(`[Anthropic] Generating response with ${this.model}`);
+      const modelToUse = model || this.model;
+
+      console.log(`[Anthropic] Generating response with ${modelToUse}`);
 
       const response = await this.client.messages.create({
-        model: this.model,
+        model: modelToUse,
         max_tokens: maxTokens,
         temperature,
         messages: [

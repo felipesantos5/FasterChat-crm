@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Phone, Mail, Tag, ExternalLink } from 'lucide-react';
-import Link from 'next/link';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { User, Phone, Mail, Tag, ExternalLink } from "lucide-react";
+import Link from "next/link";
 
 interface CustomerDetailsProps {
   customerId: string;
@@ -14,13 +14,7 @@ interface CustomerDetailsProps {
   customerTags?: string[];
 }
 
-export function CustomerDetails({
-  customerId,
-  customerName,
-  customerPhone,
-  customerEmail,
-  customerTags = [],
-}: CustomerDetailsProps) {
+export function CustomerDetails({ customerId, customerName, customerPhone, customerEmail, customerTags = [] }: CustomerDetailsProps) {
   return (
     <div className="flex flex-col h-full p-4 space-y-4 overflow-y-auto">
       {/* Customer Info */}

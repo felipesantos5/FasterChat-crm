@@ -1,7 +1,6 @@
 import { api } from './api';
 import {
   GetConversationResponse,
-  AssignConversationRequest,
   AssignConversationResponse,
 } from '@/types/conversation';
 
