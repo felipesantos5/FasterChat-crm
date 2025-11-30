@@ -491,45 +491,6 @@ export default function AISettingsPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Card de Preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Preview do Contexto da IA</CardTitle>
-          <CardDescription className="text-xs">Veja como as informações serão formatadas para a IA</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-muted p-4 rounded-lg text-sm space-y-2 max-h-60 overflow-y-auto">
-            {companyInfo && (
-              <div>
-                <strong>Sobre a Empresa:</strong>
-                <p className="text-muted-foreground whitespace-pre-wrap">{companyInfo}</p>
-              </div>
-            )}
-            {productsServices && (
-              <div>
-                <strong>Produtos e Serviços:</strong>
-                <p className="text-muted-foreground whitespace-pre-wrap">{productsServices}</p>
-              </div>
-            )}
-            {toneInstructions && (
-              <div>
-                <strong>Tom de Voz:</strong>
-                <p className="text-muted-foreground whitespace-pre-wrap">{toneInstructions}</p>
-              </div>
-            )}
-            {policies && (
-              <div>
-                <strong>Políticas:</strong>
-                <p className="text-muted-foreground whitespace-pre-wrap">{policies}</p>
-              </div>
-            )}
-            {!companyInfo && !productsServices && !toneInstructions && !policies && (
-              <p className="text-muted-foreground text-xs">Preencha os campos acima para ver o preview</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

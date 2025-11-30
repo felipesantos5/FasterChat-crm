@@ -30,6 +30,8 @@ export interface Message {
   status: MessageStatus;
   messageId?: string | null;
   senderType?: SenderType | null;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
   feedback?: MessageFeedback | null;
   feedbackNote?: string | null;
   createdAt: string;

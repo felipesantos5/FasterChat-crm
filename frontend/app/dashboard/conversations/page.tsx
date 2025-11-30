@@ -214,9 +214,6 @@ export default function ConversationsPage() {
                     {filteredConversations.length} de {conversations.length}
                   </p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setShowSidebar(false)} className="h-8 w-8">
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
               </div>
 
               {/* Filtros Avançados */}

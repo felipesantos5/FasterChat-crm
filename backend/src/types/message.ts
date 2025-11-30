@@ -21,6 +21,8 @@ export interface CreateMessageRequest {
   timestamp: Date;
   status?: MessageStatus;
   messageId?: string;
+  mediaUrl?: string;
+  mediaType?: string;
 }
 
 export interface GetMessagesRequest {
@@ -43,6 +45,18 @@ export interface EvolutionWebhookMessage {
     conversation?: string;
     extendedTextMessage?: {
       text: string;
+    };
+    imageMessage?: {
+      caption?: string;
+      url?: string;
+      mimetype?: string;
+      base64?: string; // Evolution API pode enviar base64 se configurado
+    };
+    audioMessage?: {
+      url?: string;
+      mimetype?: string;
+      base64?: string; // Evolution API pode enviar base64 se configurado
+      seconds?: number;
     };
   };
   statusReason?: any;

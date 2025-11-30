@@ -330,19 +330,6 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
             </Label>
           </div>
 
-          {/* Botão Assumir/Liberar */}
-          {isAiEnabled ? (
-            <Button onClick={handleAssignConversation} disabled={assigning} size="sm" variant="outline">
-              {assigning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserIcon className="h-4 w-4 mr-2" />}
-              Assumir Conversa
-            </Button>
-          ) : (
-            <Button onClick={handleUnassignConversation} disabled={assigning} size="sm" variant="outline">
-              {assigning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bot className="h-4 w-4 mr-2" />}
-              Liberar para IA
-            </Button>
-          )}
-
           {/* Botão Marcar como Exemplo */}
           <Button
             onClick={isExample ? handleMarkAsExample : handleOpenExampleModal}
@@ -397,7 +384,38 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                       )}
                     </div>
                   )}
-                  <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                  <div className="flex flex-col gap-2">
+                    {message.mediaType === 'image' && message.mediaUrl && (
+                      <img 
+                        src={message.mediaUrl} 
+                        alt="Imagem enviada" 
+                        className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => message.mediaUrl && window.open(message.mediaUrl, '_blank')}
+                      />
+                    )}
+                    
+                    {(message.mediaType === 'audio' || message.content.startsWith('[Áudio]')) && (
+                      <div className="flex items-center gap-2 bg-secondary/50 p-2 rounded-md min-w-[200px]">
+                        {message.mediaUrl ? (
+                          <audio controls className="w-full h-8">
+                            <source src={message.mediaUrl} type="audio/ogg" />
+                            <source src={message.mediaUrl} type="audio/mpeg" />
+                            <source src={message.mediaUrl} type="audio/mp4" />
+                            Seu navegador não suporta áudio.
+                          </audio>
+                        ) : (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="text-xs">Áudio indisponível para reprodução</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Só mostra o conteúdo de texto se não for apenas o marcador de áudio/imagem ou se tiver transcrição */}
+                    {message.content && !message.content.startsWith('[Áudio]') && !message.content.startsWith('[Imagem]') && (
+                      <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between gap-2 mt-1">
                     <p className={cn("text-xs", isInbound ? "text-muted-foreground" : "text-white/70")}>{formatMessageTime(message.timestamp)}</p>
                     {/* Mostra feedback apenas para mensagens da IA */}
