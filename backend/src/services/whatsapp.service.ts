@@ -284,6 +284,39 @@ class WhatsAppService {
   }
 
   /**
+   * Atualiza o status de conexão (chamado pelo Webhook)
+   */
+  async updateConnectionStatus(instanceId: string, status: WhatsAppStatus, phoneNumber?: string) {
+    try {
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: instanceId },
+      });
+
+      if (!instance) return;
+
+      // Atualiza o cache
+      this.statusCache.set(instanceId, {
+        status,
+        timestamp: Date.now(),
+      });
+
+      // Atualiza o banco
+      await prisma.whatsAppInstance.update({
+        where: { id: instanceId },
+        data: {
+          status,
+          phoneNumber: phoneNumber || instance.phoneNumber,
+          qrCode: status === WhatsAppStatus.CONNECTED || status === WhatsAppStatus.DISCONNECTED ? null : instance.qrCode,
+        },
+      });
+
+      console.log(`[WhatsApp Service] Status updated via Webhook: ${instance.instanceName} -> ${status}`);
+    } catch (error: any) {
+      console.error("[WhatsApp Service] Error updating connection status:", error.message);
+    }
+  }
+
+  /**
    * Envia uma mensagem via WhatsApp
    */
   async sendMessage(data: SendMessageRequest) {

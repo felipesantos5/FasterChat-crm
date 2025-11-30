@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { whatsappApi } from '@/lib/whatsapp';
@@ -52,69 +52,71 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
     }
   };
 
-  // Contador de tentativas
-  const [attempts, setAttempts] = useState(0);
-  const [isChecking, setIsChecking] = useState(false); // Previne múltiplas chamadas simultâneas
-  const maxAttempts = 40; // 40 tentativas x 5s = 3 minutos e 20 segundos
+  // Contador de tentativas com Ref para evitar re-renders desnecessários e stale closures
+  const attemptsRef = useRef(0);
+  const [isChecking, setIsChecking] = useState(false);
+  const maxAttempts = 150; // Aumentado para dar mais tempo (5 min aprox)
 
   // Função para verificar o status
   const checkStatus = async () => {
-    // Previne múltiplas requisições simultâneas
-    if (isChecking) {
-      console.log('[QR Code Modal] Already checking status, skipping...');
-      return false;
-    }
+    if (isChecking) return false;
 
     try {
       setIsChecking(true);
-      console.log(`[QR Code Modal] Checking status (attempt ${attempts + 1}/${maxAttempts})...`);
+      const currentAttempt = attemptsRef.current + 1;
+      console.log(`[QR Code Modal] Checking status (attempt ${currentAttempt}/${maxAttempts})...`);
 
       const response = await whatsappApi.getStatus(instanceId);
 
-      console.log('[QR Code Modal] Status response:', response.data.status);
+      // Só atualiza o estado se mudou, para evitar re-renders
+      if (response.data.status !== status) {
+        setStatus(response.data.status);
+      }
+      
+      attemptsRef.current = currentAttempt;
 
-      setStatus(response.data.status);
-      setAttempts(prev => prev + 1);
-
-      // Se conectado com sucesso, apenas para o polling
-      // O useEffect de fechamento automático cuidará do resto
       if (response.data.status === WhatsAppStatus.CONNECTED) {
         console.log('[QR Code Modal] ✓ Connected successfully!');
-        return true; // Retorna true para parar o polling
+        return true;
       }
 
-      // Se desconectou, para o polling
       if (response.data.status === WhatsAppStatus.DISCONNECTED) {
         console.warn('[QR Code Modal] Instance disconnected, stopping polling');
         setError('Instância desconectada. Por favor, tente reconectar novamente.');
-        return true; // Retorna true para parar o polling
+        return true;
       }
 
-      return false; // Continua polling
+      return false;
     } catch (err: any) {
       console.error('[QR Code Modal] Error checking status:', err);
-      setAttempts(prev => prev + 1);
+      attemptsRef.current += 1;
       return false;
     } finally {
       setIsChecking(false);
     }
   };
 
+  // Ref para garantir que onSuccess seja chamado apenas uma vez por conexão
+  const hasCalledSuccessRef = useRef(false);
+
   // Busca o QR Code ao abrir o modal
   useEffect(() => {
     if (isOpen && instanceId) {
       setLoading(true);
       setError(null);
-      setAttempts(0); // Reset contador
+      attemptsRef.current = 0; // Reset contador
+      hasCalledSuccessRef.current = false; // Reset flag de sucesso
       fetchQRCode();
     }
   }, [isOpen, instanceId]);
 
   // Fecha o modal automaticamente quando conectar
   useEffect(() => {
-    if (status === WhatsAppStatus.CONNECTED && isOpen) {
+    if (status === WhatsAppStatus.CONNECTED && isOpen && !hasCalledSuccessRef.current) {
       console.log('[QR Code Modal] ✓ Connected! Closing modal in 2 seconds...');
+      hasCalledSuccessRef.current = true; // Marca como chamado
       onSuccess?.();
+      
       const timeout = setTimeout(() => {
         onClose();
       }, 2000);
@@ -124,39 +126,41 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
     return undefined;
   }, [status, isOpen, onSuccess, onClose]);
 
-  // Polling: verifica o status a cada 5 segundos (mais seguro)
+  // Polling: verifica o status a cada 2 segundos
   useEffect(() => {
-    if (!isOpen || status === WhatsAppStatus.CONNECTED) return;
-
-    // Limita número de tentativas para não ficar em loop infinito
-    if (attempts >= maxAttempts) {
-      console.warn('[QR Code Modal] Max attempts reached, stopping polling');
-      setError('Tempo limite excedido. Por favor, tente novamente.');
+    // Se não estiver aberto ou já estiver conectado/desconectado, não faz polling
+    if (!isOpen || status === WhatsAppStatus.CONNECTED || status === WhatsAppStatus.DISCONNECTED) {
       return;
     }
 
-    console.log('[QR Code Modal] Starting polling (every 5 seconds)');
+    let intervalId: NodeJS.Timeout;
+    
+    // Função de polling isolada
+    const pollStatus = async () => {
+      // Verifica se já excedeu tentativas
+      if (attemptsRef.current >= maxAttempts) {
+        console.warn('[QR Code Modal] Max attempts reached, stopping polling');
+        setError('Tempo limite excedido. Por favor, tente novamente.');
+        if (intervalId) clearInterval(intervalId);
+        return;
+      }
 
-    // Aguarda 3 segundos antes da primeira verificação (QR Code precisa aparecer primeiro)
-    const initialTimeout = setTimeout(async () => {
       const shouldStop = await checkStatus();
-      if (shouldStop) return;
-
-      // Continua verificando a cada 5 segundos
-      const interval = setInterval(async () => {
-        const shouldStop = await checkStatus();
-        if (shouldStop) {
-          clearInterval(interval);
-        }
-      }, 5000);
-
-      return () => clearInterval(interval);
-    }, 3000);
-
-    return () => {
-      clearTimeout(initialTimeout);
+      if (shouldStop && intervalId) {
+        clearInterval(intervalId);
+      }
     };
-  }, [isOpen, instanceId, status, attempts]);
+
+    console.log('[QR Code Modal] Starting polling...');
+    
+    // Inicia o intervalo
+    intervalId = setInterval(pollStatus, 2000);
+
+    // Cleanup: limpa o intervalo quando o componente desmontar ou as dependências mudarem
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isOpen, status]);
 
   const handleClose = () => {
     setQrCode(null);

@@ -5,6 +5,7 @@ import aiService from "../services/ai.service";
 import { prisma } from "../utils/prisma";
 import { WhatsAppStatus } from "@prisma/client";
 import { EvolutionWebhookPayload } from "../types/message";
+import whatsappService from "../services/whatsapp.service";
 
 class WebhookController {
   /**
@@ -69,10 +70,7 @@ class WebhookController {
         // AUTO-FIX: Se recebemos mensagem, é prova de que estamos conectados.
         // Forçamos o status para CONNECTED para que a IA não seja bloqueada.
         if (result.instance.status !== WhatsAppStatus.CONNECTED) {
-          await prisma.whatsAppInstance.update({
-            where: { id: result.instance.id },
-            data: { status: WhatsAppStatus.CONNECTED },
-          });
+          await whatsappService.updateConnectionStatus(result.instance.id, WhatsAppStatus.CONNECTED);
           console.log(`✅ Status auto-corrected to CONNECTED for ${result.instance.instanceName} (Message received)`);
 
           // Atualiza o objeto local para a lógica seguinte
@@ -169,12 +167,14 @@ class WebhookController {
                 newStatus = WhatsAppStatus.DISCONNECTED;
 
                 // 🔥 BLINDAGEM: Limpar QR Code e Phone Number para forçar nova geração limpa
+                await whatsappService.updateConnectionStatus(instance.id, WhatsAppStatus.DISCONNECTED);
+                
+                // Limpeza adicional se necessário (já feito pelo updateConnectionStatus mas garantindo campos extras se houver)
                 await prisma.whatsAppInstance.update({
                   where: { id: instance.id },
                   data: {
-                    status: WhatsAppStatus.DISCONNECTED,
-                    qrCode: null, // Força o usuário a pedir novo QR Code
-                    phoneNumber: null, // Limpa telefone vinculado
+                    qrCode: null, 
+                    phoneNumber: null,
                   },
                 });
                 console.log(`❌ Instance ${instance.instanceName} invalidated (401/403). Cleaned up for reconnection.`);
@@ -189,17 +189,11 @@ class WebhookController {
           }
 
           if (newStatus) {
-            await prisma.whatsAppInstance.update({
-              where: { id: instance.id },
-              data: {
-                status: newStatus,
-                phoneNumber:
-                  newStatus === WhatsAppStatus.CONNECTED && payload.data?.instance?.wuid
-                    ? payload.data.instance.wuid.split("@")[0]
-                    : instance.phoneNumber,
-                qrCode: newStatus === WhatsAppStatus.CONNECTED || newStatus === WhatsAppStatus.DISCONNECTED ? null : instance.qrCode,
-              },
-            });
+            const phoneNumber = newStatus === WhatsAppStatus.CONNECTED && payload.data?.instance?.wuid
+              ? payload.data.instance.wuid.split("@")[0]
+              : undefined;
+
+            await whatsappService.updateConnectionStatus(instance.id, newStatus, phoneNumber);
           }
 
           return res.status(200).json({
