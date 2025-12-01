@@ -18,6 +18,7 @@ import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageFeedbackComponent } from "@/components/chat/message-feedback";
+import { AudioPlayer } from "@/components/chat/audio-player";
 
 interface ChatAreaProps {
   customerId: string;
@@ -385,34 +386,28 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                     </div>
                   )}
                   <div className="flex flex-col gap-2">
-                    {message.mediaType === 'image' && message.mediaUrl && (
-                      <img 
-                        src={message.mediaUrl} 
-                        alt="Imagem enviada" 
+                    {/* Imagem */}
+                    {message.mediaType === "image" && message.mediaUrl && (
+                      <img
+                        src={message.mediaUrl}
+                        alt="Imagem enviada"
                         className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => message.mediaUrl && window.open(message.mediaUrl, '_blank')}
+                        onClick={() => message.mediaUrl && window.open(message.mediaUrl, "_blank")}
                       />
                     )}
-                    
-                    {(message.mediaType === 'audio' || message.content.startsWith('[Áudio]')) && (
-                      <div className="flex items-center gap-2 bg-secondary/50 p-2 rounded-md min-w-[200px]">
-                        {message.mediaUrl ? (
-                          <audio controls className="w-full h-8">
-                            <source src={message.mediaUrl} type="audio/ogg" />
-                            <source src={message.mediaUrl} type="audio/mpeg" />
-                            <source src={message.mediaUrl} type="audio/mp4" />
-                            Seu navegador não suporta áudio.
-                          </audio>
-                        ) : (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span className="text-xs">Áudio indisponível para reprodução</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
 
-                    {/* Só mostra o conteúdo de texto se não for apenas o marcador de áudio/imagem ou se tiver transcrição */}
-                    {message.content && !message.content.startsWith('[Áudio]') && !message.content.startsWith('[Imagem]') && (
+                    {/* Áudio com Player Customizado */}
+                    {message.mediaType === "audio" && message.mediaUrl ? (
+                      <AudioPlayer audioUrl={message.mediaUrl} transcription={message.content} isInbound={isInbound} />
+                    ) : message.mediaType === "audio" && !message.mediaUrl ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-secondary/50 rounded-md">
+                        <span className="text-xs">🎤 Áudio indisponível para reprodução</span>
+                        {message.content && <p className="text-xs italic">"{message.content}"</p>}
+                      </div>
+                    ) : null}
+
+                    {/* Texto (apenas se não for áudio) */}
+                    {message.mediaType !== "audio" && message.content && !message.content.startsWith("[Imagem]") && (
                       <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                     )}
                   </div>

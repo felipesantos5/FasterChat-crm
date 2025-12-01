@@ -21,7 +21,7 @@ export interface CreateMessageRequest {
   timestamp: Date;
   status?: MessageStatus;
   messageId?: string;
-  mediaUrl?: string;
+  mediaUrl?: any;
   mediaType?: string;
 }
 
@@ -80,9 +80,9 @@ export interface EvolutionWebhookMessage {
 
 export interface EvolutionWebhookPayload {
   event: string;
-  instance: string;
+  instance?: string; // Opcional pois pode não vir em alguns eventos
   data: EvolutionWebhookMessage;
-  lastDisconnect: any;
+  lastDisconnect?: any;
 }
 
 export interface ConversationSummary {

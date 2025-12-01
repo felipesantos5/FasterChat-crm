@@ -451,6 +451,42 @@ class WhatsAppService {
   }
 
   /**
+   * Baixa mídia (áudio, imagem, etc) através da Evolution API
+   * A Evolution API faz o download e descriptografia automaticamente
+   * Documentação: https://doc.evolution-api.com/v2/api-reference/chat-controller/get-base64
+   */
+  async downloadMedia(instanceName: string, messageKey: any): Promise<Buffer> {
+    try {
+      console.log(`[WhatsApp Service] 📥 Downloading media for message ${messageKey.id}...`);
+
+      // Endpoint correto da Evolution API v2 para obter base64 de mídia
+      const response = await this.axiosInstance.post(`/chat/getBase64FromMediaMessage/${instanceName}`, {
+        message: {
+          key: messageKey,
+        },
+        convertToMp4: false, // Mantém formato original
+      });
+
+      // A resposta contém o base64 da mídia
+      const base64Data = response.data?.base64;
+
+      if (!base64Data) {
+        throw new Error('No base64 data in response');
+      }
+
+      console.log(`[WhatsApp Service] ✅ Media base64 received: ${(base64Data.length / 1024).toFixed(2)} KB`);
+
+      // Converte base64 para Buffer
+      const mediaBuffer = Buffer.from(base64Data, 'base64');
+
+      return mediaBuffer;
+    } catch (error: any) {
+      console.error('[WhatsApp Service] ❌ Error downloading media:', error.response?.data || error.message);
+      throw new Error(`Failed to download media: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
    * Configura webhook na Evolution API
    */
   private async configureWebhook(instanceName: string) {
@@ -474,7 +510,7 @@ class WhatsAppService {
           url: fullWebhookUrl,
           enabled: true,
           webhook_by_events: false,
-          webhook_base64: false,
+          webhook_base64: true,
           events: [
             "MESSAGES_UPSERT",
             "CONNECTION_UPDATE",

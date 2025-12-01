@@ -83,9 +83,18 @@ class AIService {
       // Formata o histórico de mensagens de forma otimizada
       const historyText = messageHistory
         .map((msg) => {
-          const sender = msg.direction === "INBOUND" ? customer.name : "Assistente";
-          const senderTypeLabel = msg.senderType === "AI" ? " (IA)" : msg.senderType === "HUMAN" ? " (Humano)" : "";
-          return `${sender}${senderTypeLabel}: ${msg.content}`;
+          const sender = msg.direction === "INBOUND" ? customer.name : "Você";
+          const senderTypeLabel = msg.senderType === "AI" ? "" : msg.senderType === "HUMAN" ? " (Atendente)" : "";
+
+          // Adiciona indicador de tipo de mídia de forma sutil
+          let mediaIndicator = "";
+          if (msg.mediaType === "audio") {
+            mediaIndicator = " 🎤";
+          } else if (msg.mediaType === "image") {
+            mediaIndicator = " 📷";
+          }
+
+          return `${sender}${senderTypeLabel}${mediaIndicator}: ${msg.content}`;
         })
         .join("\n");
 
@@ -117,12 +126,22 @@ class AIService {
         throw new Error(`AI provider is not configured. Please check your environment variables.`);
       }
 
+      const lastMessage = messageHistory[messageHistory.length - 1];
+      let imageUrlForVision: string | undefined = undefined;
+
+      // Se a última mensagem do cliente for uma imagem, passamos para a IA analisar
+      if (lastMessage && lastMessage.direction === "INBOUND" && lastMessage.mediaType === "image" && lastMessage.mediaUrl) {
+        imageUrlForVision = lastMessage.mediaUrl;
+        console.log("[AIService] Image detected, enabling Vision capabilities");
+      }
+
       const aiResponse = await provider.generateResponse({
         systemPrompt,
         userPrompt,
         temperature,
         maxTokens,
         model: options?.model || modelConfig,
+        imageUrl: imageUrlForVision,
       });
 
       return aiResponse;
@@ -135,63 +154,59 @@ class AIService {
   /**
    * Constrói prompt otimizado (mais conciso para GPT-4o Mini)
    */
-  private buildOptimizedPrompt(data: {
-    companyName: string;
-    companyInfo: string;
-    productsServices: string;
-    toneInstructions: string;
-    policies: string;
-    examplesText: string;
-    customerName: string;
-    customerPhone: string;
-    customerEmail?: string | null;
-    customerTags: string[];
-    customerNotes?: string | null;
-  }): string {
-    const {
-      companyName,
-      companyInfo,
-      productsServices,
-      toneInstructions,
-      policies,
-      examplesText,
-      customerName,
-      customerPhone,
-      customerEmail,
-      customerTags,
-      customerNotes,
-    } = data;
+  private buildOptimizedPrompt(data: any): string {
+    const { companyName, companyInfo, productsServices, toneInstructions, policies, customerName } = data;
 
-    // Prompt otimizado para naturalidade e contexto
-    return `Você é o assistente virtual da ${companyName}.
+    return `ATUE COMO: Consultor de Vendas Sênior da ${companyName}.
+OBJETIVO: Vender soluções de climatização (Instalação, Manutenção ou Aparelhos).
 
-# EMPRESA
+# CONTEXTO DO NEGÓCIO
 ${companyInfo}
-
-# PRODUTOS/SERVIÇOS
 ${productsServices}
-
-# TOM DE VOZ
-${toneInstructions}
-
-# POLÍTICAS
 ${policies}
 
-${examplesText ? `# EXEMPLOS DE REFERÊNCIA\n${examplesText}\n` : ""}# CLIENTE
+# SUA PERSONALIDADE DE VENDAS (The Wolf of HVAC)
+
+🎯 **REGRAS FUNDAMENTAIS:**
+
+1. **Mensagens de Áudio do Cliente:**
+   - O sistema já transcreveu automaticamente o áudio do cliente para texto
+   - Você receberá o texto EXATO do que o cliente falou
+   - IMPORTANTE: Responda naturalmente ao conteúdo, SEM mencionar que é áudio
+   - NÃO diga "ouvi seu áudio" ou "recebi sua mensagem de voz"
+   - Trate como se fosse uma mensagem de texto normal
+   - Seja direto e objetivo na resposta
+
+2. **Qualificação Ativa:**
+   - Nunca dê apenas o preço sem contexto
+   - Descubra a necessidade: tamanho do ambiente, incidência de sol, andar
+   - Pergunte apenas 1-2 coisas por vez para não sobrecarregar
+
+3. **Análise de Imagens:**
+   - Se o cliente mandou foto, analise detalhes técnicos
+   - Comente sobre: modelo, instalação, estado do equipamento
+   - Use isso para gerar credibilidade técnica
+
+4. **Fechamento Direto:**
+   - Sempre termine com UMA pergunta de ação clara
+   - Exemplos: "Posso agendar visita?" / "Prefere orçamento via WhatsApp?"
+   - Evite múltiplas perguntas que confundem
+
+5. **Objeções de Preço:**
+   - Justifique com: garantia, economia de energia, instalação profissional
+   - Compare com manutenções futuras ou energia desperdiçada
+
+# FORMATO DE RESPOSTA
+- Máximo 3-4 linhas por mensagem (WhatsApp é rápido)
+- Use emojis técnicos com moderação: ❄️ 🔧 🏠 💡
+- NÃO repita saudações se já há histórico
+- Se não souber responder algo crítico, use [TRANSBORDO]
+
+# DADOS DO CLIENTE
 Nome: ${customerName}
-Telefone: ${customerPhone}${customerEmail ? `\nEmail: ${customerEmail}` : ""}${customerTags.length > 0 ? `\nTags: ${customerTags.join(", ")}` : ""}${
-      customerNotes ? `\nNotas: ${customerNotes}` : ""
-    }
+${data.customerTags.length ? `Tags: ${data.customerTags.join(", ")}` : ""}
 
-# REGRAS DE OURO (SIGA RIGOROSAMENTE)
-1. **CONTINUIDADE:** Analise o histórico de mensagens abaixo. Se o cliente já estiver conversando (histórico recente), NÃO use saudações iniciais como "Oi", "Olá" ou "Tudo bem". Vá direto ao ponto da pergunta atual.
-2. **SAUDAÇÃO:** Use "Oi" ou "Olá" APENAS se for a PRIMEIRA mensagem do histórico ou se o cliente disser "Oi" primeiro.
-3. **NOME:** Evite repetir o nome do cliente em toda frase. Use o nome apenas na saudação inicial (se houver). Se o nome parecer uma empresa (ex: "Barbearia..."), não o use.
-4. **FORMATO:** Escreva mensagens curtas, como num chat de WhatsApp. Evite blocos enormes de texto. Use emojis moderadamente se o tom permitir.
-5. **CONTEXTO:** Use as informações anteriores do histórico para não perguntar o que o cliente já disse.
-6. **TRANSBORDO HUMANO:** Se o cliente EXPLICITAMENTE pedir para falar com um humano/atendente OU se a pergunta NÃO estiver coberta pela Base de Conhecimento acima, inicie sua resposta EXATAMENTE com a tag [TRANSBORDO] seguida de uma mensagem educada informando que um atendente humano irá ajudá-lo em breve. Exemplo: "[TRANSBORDO] Entendo! Vou transferir você para um de nossos atendentes que poderá ajudar melhor. Aguarde um momento, por favor."
-
-Responda APENAS com a mensagem ao cliente.`;
+Responda de forma NATURAL e CONVERSACIONAL, como se estivesse falando pessoalmente:`;
   }
 
   /**

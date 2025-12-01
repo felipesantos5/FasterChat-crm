@@ -145,6 +145,8 @@ model Message {
   senderType          SenderType?      @map("sender_type") @default(HUMAN)
   feedback            MessageFeedback? @map("feedback")
   feedbackNote        String?          @map("feedback_note") @db.Text
+  mediaType           String?          @default("text") @map("media_type") // text, audio, image, video, document
+  mediaUrl            String?          @map("media_url") @db.Text // URL ou base64 da mídia
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 
@@ -157,6 +159,7 @@ model Message {
   @@index([timestamp])
   @@index([messageId])
   @@index([feedback])
+  @@index([mediaType])
   @@map("messages")
 }
 

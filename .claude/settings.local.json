@@ -5,7 +5,11 @@
       "Bash(npx prisma migrate:*)",
       "Bash(npx prisma:*)",
       "Bash(npm run build:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "WebSearch",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:platform.openai.com)"
     ],
     "deny": [],
     "ask": []
