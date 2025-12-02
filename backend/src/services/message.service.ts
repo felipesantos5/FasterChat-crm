@@ -189,6 +189,7 @@ class MessageService {
             direction: message.direction,
             aiEnabled: conversation?.aiEnabled ?? true, // Default para true se não houver conversa
             needsHelp: conversation?.needsHelp ?? false,
+            isGroup: message.customer.isGroup ?? false, // Identifica se é um grupo do WhatsApp
             assignedToId: conversation?.assignedToId ?? null,
             assignedToName: conversation?.assignedTo?.name ?? null,
           });
@@ -216,6 +217,9 @@ class MessageService {
 
       const phone = remoteJid.replace("@s.whatsapp.net", "");
 
+      // Detecta automaticamente se é um grupo do WhatsApp
+      const isGroup = phone.includes('@g.us');
+
       // Busca ou cria cliente (Upsert otimizado)
       let customer = await prisma.customer.findUnique({
         where: { companyId_phone: { companyId: instance.companyId, phone } },
@@ -227,7 +231,14 @@ class MessageService {
             companyId: instance.companyId,
             name: data.pushName || phone,
             phone,
+            isGroup,
           },
+        });
+      } else if (customer.isGroup !== isGroup) {
+        // Atualiza o campo isGroup se estiver incorreto
+        customer = await prisma.customer.update({
+          where: { id: customer.id },
+          data: { isGroup },
         });
       }
 
@@ -310,15 +321,61 @@ class MessageService {
       // 3. Imagem
       else if (msgData?.imageMessage) {
         mediaType = "image";
+        console.log(`[MessageService] 📷 Image message detected for ${phone}`);
+
         const caption = msgData.imageMessage.caption || "";
         const base64Image = msgData.imageMessage.base64;
+        const imageUrl = msgData.imageMessage.url;
 
-        if (base64Image) {
-          // Prepara URL Data URI para o GPT-4o Vision
-          mediaUrl = `data:${msgData.imageMessage.mimetype};base64,${base64Image}`;
-          content = caption ? `[Imagem]: ${caption}` : `[Imagem enviada pelo cliente]`;
-        } else {
-          content = "[Imagem não processada - Base64 ausente]";
+        // Log para debug
+        console.log(`[MessageService] 🔍 Image message structure:`, {
+          hasBase64: !!base64Image,
+          hasUrl: !!imageUrl,
+          hasCaption: !!caption,
+          caption: caption || 'none',
+          mimetype: msgData.imageMessage.mimetype,
+        });
+
+        try {
+          let imageBuffer: Buffer | null = null;
+
+          // Estratégia 1: Usar base64 se disponível
+          if (base64Image && base64Image.length > 0) {
+            console.log(`[MessageService] 📦 Using base64 image data`);
+            imageBuffer = Buffer.from(base64Image, 'base64');
+          }
+          // Estratégia 2: Baixar através da Evolution API (descriptografa automaticamente)
+          else if (data.key) {
+            console.log(`[MessageService] 🔄 Downloading image via Evolution API...`);
+            const whatsappService = (await import("./whatsapp.service")).default;
+            imageBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+          }
+
+          if (imageBuffer && imageBuffer.length > 0) {
+            console.log(`[MessageService] 📷 Image downloaded: ${(imageBuffer.length / 1024).toFixed(2)} KB`);
+
+            // Detecta o mimetype (padrão JPEG se não especificado)
+            const mimetype = msgData.imageMessage.mimetype || 'image/jpeg';
+
+            // Salva a imagem como Data URI para exibição no frontend
+            const base64ForDisplay = imageBuffer.toString('base64');
+            mediaUrl = `data:${mimetype};base64,${base64ForDisplay}`;
+
+            // Conteúdo inicial com legenda (se houver)
+            if (caption) {
+              content = `Cliente enviou uma imagem com legenda: "${caption}"`;
+            } else {
+              content = `Cliente enviou uma imagem`;
+            }
+
+            console.log(`[MessageService] 📝 Image saved for Vision API analysis`);
+          } else {
+            console.warn(`[MessageService] ⚠️ Could not obtain image data`);
+            content = caption ? `[Imagem com legenda: ${caption}]` : "[Imagem não disponível]";
+          }
+        } catch (error: any) {
+          console.error(`[MessageService] ❌ Image processing failed:`, error.message);
+          content = caption ? `[Imagem com legenda: ${caption}]` : "[Imagem não processada]";
         }
       }
 

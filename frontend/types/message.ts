@@ -74,6 +74,7 @@ export interface ConversationSummary {
   direction: MessageDirection;
   aiEnabled: boolean;
   needsHelp: boolean;
+  isGroup: boolean; // Identifica se é um grupo do WhatsApp
   assignedToId: string | null;
   assignedToName: string | null;
 }

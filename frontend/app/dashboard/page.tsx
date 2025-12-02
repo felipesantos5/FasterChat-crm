@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth.store";
 import {
   Card,
@@ -9,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
+import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
 import { dashboardApi, DashboardStats } from "@/lib/dashboard";
 import { Users, MessageSquare, Bot, Activity, Loader2 } from "lucide-react";
 
@@ -16,6 +18,7 @@ type PeriodType = "today" | "week" | "month";
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const [period, setPeriod] = useState<PeriodType>("today");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,14 +150,24 @@ export default function DashboardPage() {
             <CardTitle>Ações Rápidas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <button className="flex w-full items-center space-x-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent">
+            <button
+              onClick={() => router.push("/dashboard/customers")}
+              className="flex w-full items-center space-x-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent"
+            >
               <Users className="h-4 w-4" />
               <span>Adicionar Cliente</span>
             </button>
-            <button className="flex w-full items-center space-x-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent">
-              <MessageSquare className="h-4 w-4" />
-              <span>Nova Conversa</span>
-            </button>
+            <NewConversationDialog
+              trigger={
+                <button className="flex w-full items-center space-x-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent">
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Nova Conversa</span>
+                </button>
+              }
+              onConversationCreated={(customerId) => {
+                router.push(`/dashboard/conversations?customer=${customerId}`);
+              }}
+            />
           </CardContent>
         </Card>
       </div>

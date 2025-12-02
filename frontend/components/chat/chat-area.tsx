@@ -388,12 +388,22 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                   <div className="flex flex-col gap-2">
                     {/* Imagem */}
                     {message.mediaType === "image" && message.mediaUrl && (
-                      <img
-                        src={message.mediaUrl}
-                        alt="Imagem enviada"
-                        className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => message.mediaUrl && window.open(message.mediaUrl, "_blank")}
-                      />
+                      <div className="space-y-2">
+                        <img
+                          src={message.mediaUrl}
+                          alt="Imagem enviada"
+                          className="max-w-full max-h-[400px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-md"
+                          onClick={() => message.mediaUrl && window.open(message.mediaUrl, "_blank")}
+                        />
+                        {message.content && !message.content.startsWith("[Imagem") && (
+                          <p className={cn(
+                            "text-xs italic",
+                            isInbound ? "text-muted-foreground" : "text-white/80"
+                          )}>
+                            {message.content}
+                          </p>
+                        )}
+                      </div>
                     )}
 
                     {/* Áudio com Player Customizado */}

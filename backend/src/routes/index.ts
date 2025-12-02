@@ -10,6 +10,7 @@ import aiKnowledgeRoutes from './ai-knowledge.routes';
 import campaignRoutes from './campaign.routes';
 import tagRoutes from './tag.routes';
 import dashboardRoutes from './dashboard.routes';
+import pipelineRoutes from './pipeline.routes';
 import conversationExampleController from '../controllers/conversation-example.controller';
 import { authenticate } from '../middlewares/auth';
 
@@ -26,6 +27,7 @@ router.use('/ai', aiKnowledgeRoutes);
 router.use('/campaigns', campaignRoutes);
 router.use('/tags', tagRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/pipeline', pipelineRoutes);
 
 // Rota adicional para listar exemplos
 router.get('/ai/examples', authenticate, conversationExampleController.getExamples);

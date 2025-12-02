@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+// Aceita tanto formato E.164 (+5511999999999) quanto com sufixo WhatsApp (5511999999999@s.whatsapp.net ou @g.us)
+const phoneRegex = /^(\+?[1-9]\d{1,14}|[1-9]\d{1,14}@(s\.whatsapp\.net|g\.us))$/;
 
 export const createCustomerSchema = z.object({
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),

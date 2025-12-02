@@ -15,6 +15,7 @@ import {
   ChevronDown,
   BarChart3,
   Megaphone,
+  Kanban,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useRouter } from "next/navigation";
@@ -38,6 +39,11 @@ const menuItems: MenuItem[] = [
     label: "Clientes",
     icon: Users,
     href: "/dashboard/customers",
+  },
+  {
+    label: "Pipeline",
+    icon: Kanban,
+    href: "/dashboard/pipeline",
   },
   {
     label: "Conversas",

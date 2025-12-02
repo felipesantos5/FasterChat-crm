@@ -6,6 +6,8 @@ export interface Customer {
   email?: string | null;
   tags: string[];
   notes?: string | null;
+  isGroup: boolean; // Identifica se é um grupo do WhatsApp
+  pipelineStageId?: string | null; // Estágio atual no pipeline
   createdAt: string;
   updatedAt: string;
 }

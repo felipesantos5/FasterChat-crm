@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { ChatArea } from "@/components/chat/chat-area";
 import { CustomerDetails } from "@/components/chat/customer-details";
 import { AdvancedFilters, AdvancedFilters as AdvancedFiltersType } from "@/components/chat/advanced-filters";
+import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
 import { messageApi } from "@/lib/message";
 import { customerApi } from "@/lib/customer";
 import { ConversationSummary } from "@/types/message";
 import { Customer } from "@/types/customer";
-import { Loader2, MessageSquare, Search, X, Bot, User, ChevronLeft, ChevronRight, HelpCircle } from "lucide-react";
+import { Loader2, MessageSquare, Search, X, Bot, User, ChevronLeft, ChevronRight, HelpCircle, MessageSquarePlus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ type FilterType = "all" | "ai" | "human" | "unread" | "needsHelp";
 type SortType = "recent" | "oldest" | "name";
 
 export default function ConversationsPage() {
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +37,8 @@ export default function ConversationsPage() {
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersType>({
     excludeGroups: false,
     selectedTags: [],
+    onlyNeedsHelp: false,
+    onlyAiEnabled: false,
   });
 
   // Layout
@@ -63,6 +68,12 @@ export default function ConversationsPage() {
       }
 
       const response = await messageApi.getConversations(companyId);
+
+      // Debug: verificar grupos nas conversas
+      const grupos = response.data.filter(c => c.isGroup || c.customerPhone.includes('@g.us'));
+      console.log(`[Conversas] Total: ${response.data.length}, Grupos: ${grupos.length}`);
+      grupos.forEach(g => console.log(`[Grupo] ${g.customerName}: isGroup=${g.isGroup}, phone=${g.customerPhone}`));
+
       setConversations(response.data);
 
       // Se não há conversa selecionada e há conversas, seleciona a primeira APENAS no carregamento inicial
@@ -99,6 +110,14 @@ export default function ConversationsPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Efeito para selecionar conversa via query parameter
+  useEffect(() => {
+    const customerId = searchParams.get("customer");
+    if (customerId) {
+      setSelectedCustomerId(customerId);
+    }
+  }, [searchParams]);
+
   // Filtra e ordena conversas
   const filteredConversations = conversations
     .filter((conv) => {
@@ -132,8 +151,10 @@ export default function ConversationsPage() {
     .filter((conv) => {
       // Filtro avançado: Excluir grupos
       if (advancedFilters.excludeGroups) {
-        // Grupos no WhatsApp geralmente contêm "@g.us" no número
-        if (conv.customerPhone.includes("@g.us")) {
+        // Debug: verificar grupos
+        const hasGroupPattern = conv.customerPhone.includes('@g.us');
+        if (hasGroupPattern || conv.isGroup) {
+          console.log(`[Filtro] Grupo excluído: ${conv.customerName} (isGroup: ${conv.isGroup}, phone: ${conv.customerPhone})`);
           return false;
         }
       }
@@ -147,6 +168,20 @@ export default function ConversationsPage() {
 
         // Verifica se o cliente tem pelo menos uma das tags selecionadas
         return advancedFilters.selectedTags.some((tag) => customer.tags.includes(tag));
+      }
+      return true;
+    })
+    .filter((conv) => {
+      // Filtro avançado: Apenas conversas que precisam de ajuda
+      if (advancedFilters.onlyNeedsHelp) {
+        return conv.needsHelp === true;
+      }
+      return true;
+    })
+    .filter((conv) => {
+      // Filtro avançado: Apenas conversas com IA ativa
+      if (advancedFilters.onlyAiEnabled) {
+        return conv.aiEnabled === true;
       }
       return true;
     })
@@ -214,6 +249,17 @@ export default function ConversationsPage() {
                     {filteredConversations.length} de {conversations.length}
                   </p>
                 </div>
+                <NewConversationDialog
+                  trigger={
+                    <Button size="sm" variant="default">
+                      <MessageSquarePlus className="h-4 w-4" />
+                    </Button>
+                  }
+                  onConversationCreated={(customerId) => {
+                    setSelectedCustomerId(customerId);
+                    loadConversations(false);
+                  }}
+                />
               </div>
 
               {/* Filtros Avançados */}
