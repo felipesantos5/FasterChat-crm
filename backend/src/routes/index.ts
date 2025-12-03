@@ -10,6 +10,10 @@ import aiKnowledgeRoutes from './ai-knowledge.routes';
 import campaignRoutes from './campaign.routes';
 import tagRoutes from './tag.routes';
 import dashboardRoutes from './dashboard.routes';
+import pipelineRoutes from './pipeline.routes';
+import googleCalendarRoutes from './google-calendar.routes';
+import appointmentRoutes from './appointment.routes';
+import whatsappLinkRoutes from './whatsapp-link.routes';
 import conversationExampleController from '../controllers/conversation-example.controller';
 import { authenticate } from '../middlewares/auth';
 
@@ -26,6 +30,13 @@ router.use('/ai', aiKnowledgeRoutes);
 router.use('/campaigns', campaignRoutes);
 router.use('/tags', tagRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/pipeline', pipelineRoutes);
+router.use('/google', googleCalendarRoutes);
+router.use('/appointments', appointmentRoutes);
+router.use('/whatsapp-links', whatsappLinkRoutes);
+
+// Rotas públicas (sem /api prefix) - devem ser registradas no server.ts
+// router.use('/l', linkRedirectRoutes);
 
 // Rota adicional para listar exemplos
 router.get('/ai/examples', authenticate, conversationExampleController.getExamples);

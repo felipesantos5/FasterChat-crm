@@ -49,4 +49,29 @@ export const campaignApi = {
   async cancel(id: string): Promise<void> {
     await api.post(`/campaigns/${id}/cancel`);
   },
+
+  // 🚀 Novos métodos de execução com BullMQ
+  async execute(id: string): Promise<void> {
+    await api.post(`/campaigns/${id}/execute`);
+  },
+
+  async schedule(id: string, scheduledAt: string): Promise<void> {
+    await api.post(`/campaigns/${id}/schedule`, { scheduledAt });
+  },
+
+  async cancelExecution(id: string): Promise<void> {
+    await api.post(`/campaigns/${id}/cancel-execution`);
+  },
+
+  async getStats(id: string): Promise<any> {
+    const response = await api.get(`/campaigns/${id}/stats`);
+    return response.data;
+  },
+
+  async getLogs(id: string, page = 1, limit = 50): Promise<any> {
+    const response = await api.get(`/campaigns/${id}/logs`, {
+      params: { page, limit },
+    });
+    return response.data;
+  },
 };

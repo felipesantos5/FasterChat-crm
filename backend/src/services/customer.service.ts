@@ -25,10 +25,15 @@ export class CustomerService {
       await tagService.createOrGetMany(companyId, data.tags);
     }
 
+    // Detecta automaticamente se é um grupo do WhatsApp
+    // Grupos do WhatsApp sempre contêm "@g.us" no número
+    const isGroup = data.phone.includes('@g.us');
+
     console.log('[Customer Service] Creating customer with data:', {
       companyId,
       name: data.name,
-      tags: data.tags
+      tags: data.tags,
+      isGroup
     });
 
     return prisma.customer.create({
@@ -38,6 +43,7 @@ export class CustomerService {
         email: data.email || null,
         tags: data.tags || [],
         notes: data.notes || null,
+        isGroup,
       },
     });
   }

@@ -4,7 +4,7 @@ import { ConversationSummary, MessageDirection } from '@/types/message';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { MessageSquare, AlertCircle } from 'lucide-react';
+import { MessageSquare, AlertCircle, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ConversationListProps {
@@ -50,6 +50,7 @@ export function ConversationList({
       {conversations.map((conversation) => {
         // Verifica se a conversa precisa de ajuda (quando a IA não consegue mais responder)
         const needsHelp = conversation.needsHelp;
+        const isGroup = conversation.isGroup;
 
         return (
           <div
@@ -58,18 +59,21 @@ export function ConversationList({
             className={cn(
               'flex items-start gap-3 p-3 border-b cursor-pointer transition-colors hover:bg-accent',
               selectedCustomerId === conversation.customerId && 'bg-accent',
-              needsHelp && 'bg-yellow-50 dark:bg-yellow-900/10 border-l-4 border-l-yellow-500'
+              needsHelp && 'bg-yellow-50 dark:bg-yellow-900/10 border-l-4 border-l-yellow-500',
+              isGroup && 'bg-blue-50/50 dark:bg-blue-900/10 border-l-4 border-l-blue-500'
             )}
           >
             {/* Avatar */}
             <div
               className={cn(
                 'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1',
-                needsHelp ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-primary/10'
+                needsHelp ? 'bg-yellow-100 dark:bg-yellow-900/30' : isGroup ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-primary/10'
               )}
             >
               {needsHelp ? (
                 <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+              ) : isGroup ? (
+                <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               ) : (
                 <MessageSquare className="h-5 w-5 text-primary" />
               )}
@@ -82,6 +86,12 @@ export function ConversationList({
                   <h3 className="font-semibold text-sm truncate">
                     {conversation.customerName}
                   </h3>
+                  {isGroup && (
+                    <Badge className="bg-blue-500 hover:bg-blue-600 text-white text-xs h-5 px-2 flex-shrink-0">
+                      <Users className="h-3 w-3 mr-1" />
+                      Grupo
+                    </Badge>
+                  )}
                   {needsHelp && (
                     <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs h-5 px-2 flex-shrink-0">
                       <AlertCircle className="h-3 w-3 mr-1" />

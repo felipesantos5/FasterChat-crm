@@ -6,10 +6,11 @@ import { Campaign, CampaignStatus, CampaignType } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Send, Edit, Trash, XCircle, Loader2 } from 'lucide-react';
+import { Plus, Send, Edit, Trash, XCircle, Loader2, Calendar, BarChart3, Clock, Megaphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { buttons, cards, typography, spacing, badges, icons } from "@/lib/design-system";
 
 export default function CampaignsPage() {
   const router = useRouter();
@@ -48,26 +49,52 @@ export default function CampaignsPage() {
     loadCampaigns();
   }, []);
 
-  const handleSendNow = async (campaignId: string, isRepeat = false) => {
-    const message = isRepeat
-      ? 'Deseja disparar esta campanha novamente? As mensagens serão enviadas para todos os clientes com as tags selecionadas.'
-      : 'Deseja disparar esta campanha agora? As mensagens serão enviadas imediatamente.';
-
-    if (!confirm(message)) {
+  const handleExecute = async (campaignId: string) => {
+    if (!confirm('Deseja disparar esta campanha agora? As mensagens serão enviadas com throttling para evitar bloqueios.')) {
       return;
     }
 
     try {
       setSendingCampaignId(campaignId);
-      await campaignApi.sendNow(campaignId);
-      alert('Campanha iniciada! As mensagens estão sendo enviadas em segundo plano.');
+      await campaignApi.execute(campaignId);
+      alert('🚀 Campanha em execução! As mensagens estão sendo enviadas em fila com delays inteligentes.');
       await loadCampaigns();
     } catch (error: any) {
-      console.error('Error sending campaign:', error);
+      console.error('Error executing campaign:', error);
       alert(error.response?.data?.message || 'Erro ao disparar campanha');
     } finally {
       setSendingCampaignId(null);
     }
+  };
+
+  const handleSchedule = async (campaignId: string) => {
+    const dateStr = prompt('Digite a data e hora para agendar (formato: YYYY-MM-DD HH:mm):\nExemplo: 2025-12-25 10:00');
+
+    if (!dateStr) return;
+
+    try {
+      const scheduledDate = new Date(dateStr);
+      if (isNaN(scheduledDate.getTime())) {
+        alert('Data inválida! Use o formato: YYYY-MM-DD HH:mm');
+        return;
+      }
+
+      if (scheduledDate <= new Date()) {
+        alert('A data deve ser no futuro!');
+        return;
+      }
+
+      await campaignApi.schedule(campaignId, scheduledDate.toISOString());
+      alert(`📅 Campanha agendada para ${format(scheduledDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`);
+      await loadCampaigns();
+    } catch (error: any) {
+      console.error('Error scheduling campaign:', error);
+      alert(error.response?.data?.message || 'Erro ao agendar campanha');
+    }
+  };
+
+  const handleViewStats = (campaignId: string) => {
+    router.push(`/dashboard/campaigns/${campaignId}/stats`);
   };
 
   const handleDelete = async (campaignId: string) => {
@@ -84,13 +111,14 @@ export default function CampaignsPage() {
     }
   };
 
-  const handleCancel = async (campaignId: string) => {
-    if (!confirm('Deseja cancelar esta campanha?')) {
+  const handleCancelExecution = async (campaignId: string) => {
+    if (!confirm('Deseja cancelar a execução desta campanha? Mensagens já enviadas não serão afetadas.')) {
       return;
     }
 
     try {
-      await campaignApi.cancel(campaignId);
+      await campaignApi.cancelExecution(campaignId);
+      alert('Execução cancelada!');
       await loadCampaigns();
     } catch (error: any) {
       console.error('Error canceling campaign:', error);
@@ -137,48 +165,53 @@ export default function CampaignsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Campanhas</h1>
-          <p className="text-muted-foreground">
-            Gerencie suas campanhas de disparo em massa
-          </p>
-        </div>
-        <Button onClick={() => router.push('/dashboard/campaigns/new')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Campanha
-        </Button>
-      </div>
-
-      {/* Campaigns List */}
-      {loading ? (
-        <Card className="p-8">
-          <div className="flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        </Card>
-      ) : campaigns.length === 0 ? (
-        <Card className="p-8">
-          <div className="text-center">
-            <p className="text-muted-foreground">
-              Nenhuma campanha criada ainda.
+    <div className={spacing.page}>
+      <div className={spacing.section}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className={`${typography.pageTitle} flex items-center gap-3`}>
+              <Megaphone className={`${icons.large} text-purple-600`} />
+              Campanhas
+            </h1>
+            <p className={typography.pageSubtitle}>
+              Gerencie suas campanhas de disparo em massa
             </p>
-            <Button
-              onClick={() => router.push('/dashboard/campaigns/new')}
-              className="mt-4"
-              variant="outline"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Criar primeira campanha
-            </Button>
           </div>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {campaigns.map((campaign) => (
-            <Card key={campaign.id} className="p-6">
+          <button
+            onClick={() => router.push('/dashboard/campaigns/new')}
+            className={buttons.primary}
+          >
+            <Plus className={`${icons.default} inline-block mr-2`} />
+            Nova Campanha
+          </button>
+        </div>
+
+        {/* Campaigns List */}
+        {loading ? (
+          <div className={`${cards.default} text-center py-16`}>
+            <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto" />
+            <p className={`${typography.body} mt-4 text-gray-600`}>Carregando campanhas...</p>
+          </div>
+        ) : campaigns.length === 0 ? (
+          <div className={`${cards.default} text-center py-16`}>
+            <Megaphone className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className={`${typography.sectionTitle} mb-2`}>Nenhuma campanha criada ainda</h3>
+            <p className={`${typography.body} text-gray-600 mb-8`}>
+              Crie sua primeira campanha de disparo em massa
+            </p>
+            <button
+              onClick={() => router.push('/dashboard/campaigns/new')}
+              className={buttons.primary}
+            >
+              <Plus className={`${icons.default} inline-block mr-2`} />
+              Criar Primeira Campanha
+            </button>
+          </div>
+        ) : (
+          <div className={`${spacing.element} space-y-6`}>
+            {campaigns.map((campaign) => (
+              <div key={campaign.id} className={cards.hover}>
               <div className="flex items-start justify-between">
                 <div className="flex-1 space-y-3">
                   <div>
@@ -250,24 +283,15 @@ export default function CampaignsPage() {
                         Editar
                       </Button>
                       <Button
-                        onClick={() => handleSendNow(campaign.id, campaign.sentCount > 0)}
+                        onClick={() => handleSchedule(campaign.id)}
+                        variant="outline"
                         size="sm"
-                        disabled={sendingCampaignId === campaign.id}
                       >
-                        {sendingCampaignId === campaign.id ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4 mr-1" />
-                        )}
-                        {campaign.sentCount > 0 ? 'Disparar Novamente' : 'Disparar'}
+                        <Calendar className="h-4 w-4 mr-1" />
+                        Agendar
                       </Button>
-                    </>
-                  )}
-
-                  {campaign.status === CampaignStatus.PENDING && (
-                    <>
                       <Button
-                        onClick={() => handleSendNow(campaign.id)}
+                        onClick={() => handleExecute(campaign.id)}
                         size="sm"
                         disabled={sendingCampaignId === campaign.id}
                       >
@@ -278,8 +302,25 @@ export default function CampaignsPage() {
                         )}
                         Disparar Agora
                       </Button>
+                    </>
+                  )}
+
+                  {campaign.status === CampaignStatus.PENDING && (
+                    <>
                       <Button
-                        onClick={() => handleCancel(campaign.id)}
+                        onClick={() => handleExecute(campaign.id)}
+                        size="sm"
+                        disabled={sendingCampaignId === campaign.id}
+                      >
+                        {sendingCampaignId === campaign.id ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4 mr-1" />
+                        )}
+                        Executar Agora
+                      </Button>
+                      <Button
+                        onClick={() => handleCancelExecution(campaign.id)}
                         variant="outline"
                         size="sm"
                       >
@@ -290,30 +331,55 @@ export default function CampaignsPage() {
                   )}
 
                   {campaign.status === CampaignStatus.PROCESSING && (
-                    <Badge variant="default">
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      Enviando...
-                    </Badge>
+                    <>
+                      <Button
+                        onClick={() => handleViewStats(campaign.id)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <BarChart3 className="h-4 w-4 mr-1" />
+                        Ver Progresso
+                      </Button>
+                      <Button
+                        onClick={() => handleCancelExecution(campaign.id)}
+                        variant="destructive"
+                        size="sm"
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Parar
+                      </Button>
+                    </>
                   )}
 
                   {(campaign.status === CampaignStatus.COMPLETED ||
                     campaign.status === CampaignStatus.FAILED ||
                     campaign.status === CampaignStatus.CANCELED) && (
-                    <Button
-                      onClick={() => handleDelete(campaign.id)}
-                      variant="destructive"
-                      size="sm"
-                    >
-                      <Trash className="h-4 w-4 mr-1" />
-                      Excluir
-                    </Button>
+                    <>
+                      <Button
+                        onClick={() => handleViewStats(campaign.id)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <BarChart3 className="h-4 w-4 mr-1" />
+                        Estatísticas
+                      </Button>
+                      <Button
+                        onClick={() => handleDelete(campaign.id)}
+                        variant="destructive"
+                        size="sm"
+                      >
+                        <Trash className="h-4 w-4 mr-1" />
+                        Excluir
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
-            </Card>
-          ))}
-        </div>
-      )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

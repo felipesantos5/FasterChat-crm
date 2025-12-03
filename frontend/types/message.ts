@@ -30,6 +30,8 @@ export interface Message {
   status: MessageStatus;
   messageId?: string | null;
   senderType?: SenderType | null;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
   feedback?: MessageFeedback | null;
   feedbackNote?: string | null;
   createdAt: string;
@@ -72,6 +74,7 @@ export interface ConversationSummary {
   direction: MessageDirection;
   aiEnabled: boolean;
   needsHelp: boolean;
+  isGroup: boolean; // Identifica se é um grupo do WhatsApp
   assignedToId: string | null;
   assignedToName: string | null;
 }

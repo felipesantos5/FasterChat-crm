@@ -15,6 +15,9 @@ import {
   ChevronDown,
   BarChart3,
   Megaphone,
+  Kanban,
+  CalendarDays,
+  Link2,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useRouter } from "next/navigation";
@@ -35,9 +38,19 @@ const menuItems: MenuItem[] = [
     href: "/dashboard",
   },
   {
+    label: "Calendário",
+    icon: CalendarDays,
+    href: "/dashboard/calendario",
+  },
+  {
     label: "Clientes",
     icon: Users,
     href: "/dashboard/customers",
+  },
+  {
+    label: "Pipeline",
+    icon: Kanban,
+    href: "/dashboard/pipeline",
   },
   {
     label: "Conversas",
@@ -48,6 +61,11 @@ const menuItems: MenuItem[] = [
     label: "Campanhas",
     icon: Megaphone,
     href: "/dashboard/campaigns",
+  },
+  {
+    label: "Links de WhatsApp",
+    icon: Link2,
+    href: "/dashboard/links",
   },
   {
     label: "Configurações",

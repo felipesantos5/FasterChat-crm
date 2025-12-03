@@ -25,6 +25,9 @@ class WebhookController {
 
       const payload: EvolutionWebhookPayload = req.body;
 
+      // Log do webhook recebido para debug
+      console.log(`[Webhook] Event: ${payload.event}, Instance: ${payload.instance || 'NOT PROVIDED'}`);
+
       // Verifica se é um evento de mensagem recebida
       if (payload.event === "messages.upsert") {
         const { data } = payload;
@@ -39,32 +42,23 @@ class WebhookController {
           return res.status(200).json({ success: true, message: "Ignored outbound message" });
         }
 
-        // Extrai o conteúdo da mensagem
-        let content = "";
-        if (data.message?.conversation) {
-          content = data.message.conversation;
-        } else if (data.message?.extendedTextMessage?.text) {
-          content = data.message.extendedTextMessage.text;
+        // Validação: verifica se payload.instance está presente
+        if (!payload.instance) {
+          console.error("Error: payload.instance is null or undefined", JSON.stringify(payload, null, 2));
+          return res.status(200).json({ success: false, message: "Instance name not found in payload" });
         }
 
-        if (!content) {
-          return res.status(200).json({ success: true, message: "No text content" });
-        }
-
-        // Converte timestamp
-        const timestamp = new Date(
-          typeof data.messageTimestamp === "string" ? parseInt(data.messageTimestamp) * 1000 : (data.messageTimestamp || Date.now()) * 1000
-        );
-
-        // Processa a mensagem
+        // Processa a mensagem (o método agora aceita o payload completo)
         const result = await messageService.processInboundMessage(
           payload.instance,
           data.key.remoteJid,
-          content,
-          data.key.id,
-          timestamp,
-          data.pushName
+          data // Payload completo com data.key para download de mídia
         );
+
+        // Se não conseguiu processar (mensagem sem conteúdo válido)
+        if (!result) {
+          return res.status(200).json({ success: true, message: "No valid content to process" });
+        }
 
         // 👇👇👇 ADICIONE ESTE BLOCO DE CORREÇÃO AQUI 👇👇👇
         // AUTO-FIX: Se recebemos mensagem, é prova de que estamos conectados.
@@ -83,32 +77,72 @@ class WebhookController {
         // Se IA está habilitada, gera e envia resposta automática
         if (conversation.aiEnabled && aiService.isConfigured()) {
           try {
-            // Gera resposta usando IA
-            const aiResponse = await aiService.generateResponse(result.customer.id, content);
+            // 📅 PRIORITY CHECK: Verifica se JÁ ESTÁ em fluxo de agendamento ativo
+            const { aiAppointmentService } = await import("../services/ai-appointment.service");
+            const hasActiveFlow = await aiAppointmentService.hasActiveAppointmentFlow(result.customer.id);
 
-            // 🚨 TRANSBORDO HUMANO: Verifica se a IA solicitou transferência para humano
-            if (aiResponse.startsWith("[TRANSBORDO]")) {
-              console.log(`🚨 Transbordo solicitado para cliente ${result.customer.name}`);
+            if (hasActiveFlow) {
+              // Cliente está EM MEIO a um agendamento, continua o fluxo
+              const appointmentResult = await aiAppointmentService.processAppointmentMessage(
+                result.customer.id,
+                result.customer.companyId,
+                result.message.content
+              );
 
-              // Remove a tag [TRANSBORDO] da mensagem
-              const cleanMessage = aiResponse.replace("[TRANSBORDO]", "").trim();
-
-              // Envia a mensagem limpa ao cliente
-              await messageService.sendMessage(result.customer.id, cleanMessage, "AI");
-
-              // Desativa a IA para essa conversa (transbordo para humano)
-              await conversationService.toggleAI(result.customer.id, false);
-
-              // Marca a conversa como precisando de ajuda
-              await prisma.conversation.update({
-                where: { customerId: result.customer.id },
-                data: { needsHelp: true }
-              });
-
-              console.log(`✓ Conversa transferida para atendimento humano: ${result.customer.id}`);
+              if (appointmentResult.shouldContinue && appointmentResult.response) {
+                await messageService.sendMessage(result.customer.id, appointmentResult.response, "AI");
+              }
             } else {
-              // Resposta normal da IA (sem transbordo)
-              await messageService.sendMessage(result.customer.id, aiResponse, "AI");
+              // NÃO está em fluxo de agendamento, processa normalmente com a IA
+              const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
+
+              // 🎯 COMANDO ESPECIAL: Verifica se a IA detectou intenção de agendamento
+              if (aiResponse.startsWith("[INICIAR_AGENDAMENTO]")) {
+                console.log(`📅 IA detectou intenção de agendamento para ${result.customer.name}`);
+
+                // Remove a tag e pega a mensagem da IA
+                const aiMessage = aiResponse.replace("[INICIAR_AGENDAMENTO]", "").trim();
+
+                // Envia a mensagem da IA primeiro
+                if (aiMessage) {
+                  await messageService.sendMessage(result.customer.id, aiMessage, "AI");
+                }
+
+                // Inicia o fluxo de agendamento
+                const appointmentResult = await aiAppointmentService.startAppointmentFlow(
+                  result.customer.id,
+                  result.customer.companyId,
+                  result.message.content
+                );
+
+                if (appointmentResult.response) {
+                  await messageService.sendMessage(result.customer.id, appointmentResult.response, "AI");
+                }
+              }
+              // 🚨 TRANSBORDO HUMANO: Verifica se a IA solicitou transferência para humano
+              else if (aiResponse.startsWith("[TRANSBORDO]")) {
+                console.log(`🚨 Transbordo solicitado para cliente ${result.customer.name}`);
+
+                // Remove a tag [TRANSBORDO] da mensagem
+                const cleanMessage = aiResponse.replace("[TRANSBORDO]", "").trim();
+
+                // Envia a mensagem limpa ao cliente
+                await messageService.sendMessage(result.customer.id, cleanMessage, "AI");
+
+                // Desativa a IA para essa conversa (transbordo para humano)
+                await conversationService.toggleAI(result.customer.id, false);
+
+                // Marca a conversa como precisando de ajuda
+                await prisma.conversation.update({
+                  where: { customerId: result.customer.id },
+                  data: { needsHelp: true }
+                });
+
+                console.log(`✓ Conversa transferida para atendimento humano: ${result.customer.id}`);
+              } else {
+                // Resposta normal da IA (sem comandos especiais)
+                await messageService.sendMessage(result.customer.id, aiResponse, "AI");
+              }
             }
           } catch (aiError: any) {
             console.error("Error processing AI response:", aiError.message);
@@ -134,11 +168,18 @@ class WebhookController {
       // Eventos de conexão (CONNECTION_UPDATE)
       if (payload.event === "connection.update") {
         try {
+          // Validação: verifica se payload.instance está presente
+          if (!payload.instance) {
+            console.error("Error: payload.instance is null for connection.update", JSON.stringify(payload, null, 2));
+            return res.status(200).json({ success: false, message: "Instance name not found in payload" });
+          }
+
           const instance = await prisma.whatsAppInstance.findFirst({
             where: { instanceName: payload.instance },
           });
 
           if (!instance) {
+            console.warn(`[Webhook] Instance ${payload.instance} not found in database`);
             return res.status(200).json({ success: true, message: "Instance not found" });
           }
 
@@ -213,11 +254,18 @@ class WebhookController {
       // Eventos de QR Code atualizado
       if (payload.event === "qrcode.updated") {
         try {
+          // Validação: verifica se payload.instance está presente
+          if (!payload.instance) {
+            console.error("Error: payload.instance is null for qrcode.updated", JSON.stringify(payload, null, 2));
+            return res.status(200).json({ success: false, message: "Instance name not found in payload" });
+          }
+
           const instance = await prisma.whatsAppInstance.findFirst({
             where: { instanceName: payload.instance },
           });
 
           if (!instance) {
+            console.warn(`[Webhook] Instance ${payload.instance} not found in database`);
             return res.status(200).json({ success: true, message: "Instance not found" });
           }
 

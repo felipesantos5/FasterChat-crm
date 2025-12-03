@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Message, MessageDirection, SenderType } from "@/types/message";
 import { Conversation } from "@/types/conversation";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageFeedbackComponent } from "@/components/chat/message-feedback";
+import { AudioPlayer } from "@/components/chat/audio-player";
+import { MessageText } from "@/components/chat/message-text";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface ChatAreaProps {
   customerId: string;
@@ -30,7 +33,6 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [assigning, setAssigning] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [togglingAi, setTogglingAi] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -38,18 +40,61 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
   const [showExampleModal, setShowExampleModal] = useState(false);
   const [exampleNotes, setExampleNotes] = useState("");
   const [markingExample, setMarkingExample] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Obtém userId do usuário logado
-  const getUserId = () => {
-    const user = localStorage.getItem("user");
-    if (user) {
-      const userData = JSON.parse(user);
-      return userData.id;
+  // Handler para novas mensagens via WebSocket
+  const handleWebSocketMessage = useCallback((message: any) => {
+    // Verifica se a mensagem é para este cliente
+    if (message.customerId === customerId) {
+      console.log('📩 Nova mensagem WebSocket recebida:', message);
+
+      setMessages((prev) => {
+        // Evita duplicatas
+        const exists = prev.some(m => m.id === message.id);
+        if (exists) return prev;
+        return [...prev, message];
+      });
+
+      // Se foi mensagem do cliente, marca IA como processando
+      if (message.direction === MessageDirection.INBOUND && conversation?.aiEnabled) {
+        setAiProcessing(true);
+        // Remove indicador após 30 segundos
+        setTimeout(() => setAiProcessing(false), 30000);
+      }
+
+      // Se foi resposta da IA, remove indicador
+      if (message.direction === MessageDirection.OUTBOUND && message.senderType === SenderType.AI) {
+        setAiProcessing(false);
+        setIsTyping(false);
+      }
     }
-    return null;
-  };
+  }, [customerId, conversation?.aiEnabled]);
+
+  // Handler para atualizações de conversa via WebSocket
+  const handleWebSocketConversationUpdate = useCallback((update: any) => {
+    if (update.customerId === customerId) {
+      console.log('🔄 Atualização de conversa WebSocket recebida:', update);
+      setConversation(prev => prev ? { ...prev, ...update } : null);
+    }
+  }, [customerId]);
+
+  // Handler para indicador de digitação
+  const handleWebSocketTyping = useCallback((data: any) => {
+    if (data.customerId === customerId) {
+      console.log('⌨️ Indicador de digitação:', data.isTyping);
+      setIsTyping(data.isTyping);
+    }
+  }, [customerId]);
+
+  // WebSocket - usa hook diretamente para ter controle dos eventos
+  const { isConnected, isAuthenticated, subscribeToConversation, unsubscribeFromConversation } = useWebSocket({
+    autoConnect: true,
+    onNewMessage: handleWebSocketMessage,
+    onConversationUpdate: handleWebSocketConversationUpdate,
+    onTyping: handleWebSocketTyping,
+  });
 
   // Obtém companyId do usuário logado
   const getCompanyId = () => {
@@ -112,18 +157,23 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
     }
   };
 
+  // Carrega dados iniciais e configura WebSocket
   useEffect(() => {
     loadConversation();
     loadMessages();
 
-    // Polling: atualiza a cada 3 segundos
-    const interval = setInterval(() => {
-      loadConversation();
-      loadMessages();
-    }, 3000);
+    // Se o WebSocket estiver autenticado, inscreve-se na conversa
+    if (isAuthenticated && customerId) {
+      console.log('🔌 Inscrevendo-se na conversa:', customerId);
+      subscribeToConversation(customerId);
 
-    return () => clearInterval(interval);
-  }, [customerId]);
+      return () => {
+        console.log('🔌 Desinscrevendo-se da conversa:', customerId);
+        unsubscribeFromConversation(customerId);
+      };
+    }
+    return undefined;
+  }, [customerId, isAuthenticated, subscribeToConversation, unsubscribeFromConversation]);
 
   useEffect(() => {
     if (conversation?.id) {
@@ -165,40 +215,6 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
       setInputValue(messageContent); // Restaura o texto
     } finally {
       setSending(false);
-    }
-  };
-
-  // Assume conversa
-  const handleAssignConversation = async () => {
-    try {
-      setAssigning(true);
-      const userId = getUserId();
-      if (!userId) {
-        alert("Usuário não encontrado");
-        return;
-      }
-
-      await conversationApi.assignConversation(customerId, userId);
-      await loadConversation();
-    } catch (error: any) {
-      console.error("Error assigning conversation:", error);
-      alert(error.response?.data?.message || "Erro ao assumir conversa");
-    } finally {
-      setAssigning(false);
-    }
-  };
-
-  // Libera conversa para IA
-  const handleUnassignConversation = async () => {
-    try {
-      setAssigning(true);
-      await conversationApi.unassignConversation(customerId);
-      await loadConversation();
-    } catch (error: any) {
-      console.error("Error unassigning conversation:", error);
-      alert(error.response?.data?.message || "Erro ao liberar conversa");
-    } finally {
-      setAssigning(false);
     }
   };
 
@@ -304,6 +320,13 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                 {assignedUser ? assignedUser.name : "Humano"}
               </Badge>
             )}
+            {/* WebSocket Status Indicator */}
+            {isConnected && isAuthenticated && (
+              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse" />
+                Tempo Real
+              </Badge>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">{customerPhone}</p>
         </div>
@@ -329,19 +352,6 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
               )}
             </Label>
           </div>
-
-          {/* Botão Assumir/Liberar */}
-          {isAiEnabled ? (
-            <Button onClick={handleAssignConversation} disabled={assigning} size="sm" variant="outline">
-              {assigning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserIcon className="h-4 w-4 mr-2" />}
-              Assumir Conversa
-            </Button>
-          ) : (
-            <Button onClick={handleUnassignConversation} disabled={assigning} size="sm" variant="outline">
-              {assigning ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bot className="h-4 w-4 mr-2" />}
-              Liberar para IA
-            </Button>
-          )}
 
           {/* Botão Marcar como Exemplo */}
           <Button
@@ -397,7 +407,43 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                       )}
                     </div>
                   )}
-                  <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                  <div className="flex flex-col gap-2">
+                    {/* Imagem */}
+                    {message.mediaType === "image" && message.mediaUrl && (
+                      <div className="space-y-2">
+                        <img
+                          src={message.mediaUrl}
+                          alt="Imagem enviada"
+                          className="max-w-full max-h-[400px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-md"
+                          onClick={() => message.mediaUrl && window.open(message.mediaUrl, "_blank")}
+                        />
+                        {message.content && !message.content.startsWith("[Imagem") && (
+                          <MessageText
+                            content={message.content}
+                            className={cn(
+                              "text-xs italic",
+                              isInbound ? "text-muted-foreground" : "text-white/80"
+                            )}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Áudio com Player Customizado */}
+                    {message.mediaType === "audio" && message.mediaUrl ? (
+                      <AudioPlayer audioUrl={message.mediaUrl} transcription={message.content} isInbound={isInbound} />
+                    ) : message.mediaType === "audio" && !message.mediaUrl ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-secondary/50 rounded-md">
+                        <span className="text-xs">🎤 Áudio indisponível para reprodução</span>
+                        {message.content && <p className="text-xs italic">"{message.content}"</p>}
+                      </div>
+                    ) : null}
+
+                    {/* Texto (apenas se não for áudio) */}
+                    {message.mediaType !== "audio" && message.content && !message.content.startsWith("[Imagem]") && (
+                      <MessageText content={message.content} className="text-sm whitespace-pre-wrap break-words" />
+                    )}
+                  </div>
                   <div className="flex items-center justify-between gap-2 mt-1">
                     <p className={cn("text-xs", isInbound ? "text-muted-foreground" : "text-white/70")}>{formatMessageTime(message.timestamp)}</p>
                     {/* Mostra feedback apenas para mensagens da IA */}
@@ -416,8 +462,8 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
           })
         )}
 
-        {/* AI Processing Indicator */}
-        {aiProcessing && (
+        {/* AI Processing/Typing Indicator */}
+        {(aiProcessing || isTyping) && (
           <div className="flex justify-start">
             <div className="max-w-[70%] rounded-lg px-4 py-2 bg-purple-100 dark:bg-purple-900/30">
               <div className="flex items-center gap-2">
@@ -433,7 +479,9 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                     ●
                   </span>
                 </div>
-                <span className="text-sm text-purple-600 dark:text-purple-400">IA está pensando...</span>
+                <span className="text-sm text-purple-600 dark:text-purple-400">
+                  {isTyping ? "IA está digitando..." : "IA está pensando..."}
+                </span>
               </div>
             </div>
           </div>

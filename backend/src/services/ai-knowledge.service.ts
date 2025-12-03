@@ -38,6 +38,7 @@ class AIKnowledgeService {
           productsServices: data.productsServices,
           toneInstructions: data.toneInstructions,
           policies: data.policies,
+          negativeExamples: data.negativeExamples,
           // Configurações avançadas
           provider: data.provider,
           model: data.model,
@@ -51,6 +52,7 @@ class AIKnowledgeService {
           productsServices: data.productsServices,
           toneInstructions: data.toneInstructions,
           policies: data.policies,
+          negativeExamples: data.negativeExamples,
           // Configurações avançadas
           provider: data.provider || 'openai',
           model: data.model,

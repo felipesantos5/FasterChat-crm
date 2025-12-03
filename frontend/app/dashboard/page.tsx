@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth.store";
 import {
   Card,
@@ -9,13 +10,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
+import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
 import { dashboardApi, DashboardStats } from "@/lib/dashboard";
-import { Users, MessageSquare, Bot, Activity, Loader2 } from "lucide-react";
+import { Users, MessageSquare, Bot, Activity, Loader2, LayoutDashboard } from "lucide-react";
+import { buttons, cards, typography, spacing, icons } from "@/lib/design-system";
 
 type PeriodType = "today" | "week" | "month";
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const [period, setPeriod] = useState<PeriodType>("today");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,52 +86,52 @@ export default function DashboardPage() {
     : [];
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Bem-vindo de volta, {user?.name}
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      {loading && !stats ? (
-        <div className="flex items-center justify-center h-40">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    <div className={spacing.page}>
+      <div className={spacing.section}>
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className={`${typography.pageTitle} flex items-center gap-3`}>
+            <LayoutDashboard className={`${icons.large} text-purple-600`} />
+            Dashboard
+          </h1>
+          <p className={typography.pageSubtitle}>
+            Bem-vindo de volta, {user?.name}
+          </p>
         </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* CORREÇÃO AQUI: Usar statCards.map em vez de stats.map */}
-          {statCards.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <Card key={stat.title}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    {stat.title}
-                  </CardTitle>
-                  <div className={`rounded-full p-2 ${stat.bgColor}`}>
-                    <Icon className={`h-4 w-4 ${stat.color}`} />
+
+        {/* Stats Grid */}
+        {loading && !stats ? (
+          <div className={`${cards.default} text-center py-16`}>
+            <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto" />
+            <p className={`${typography.body} mt-4 text-gray-600`}>Carregando estatísticas...</p>
+          </div>
+        ) : (
+          <div className={`grid ${spacing.cardGap} md:grid-cols-2 lg:grid-cols-4 mb-8`}>
+            {statCards.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <div key={stat.title} className={cards.stats}>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className={typography.caption}>{stat.title}</p>
+                    <div className={`rounded-xl p-3 ${stat.bgColor}`}>
+                      <Icon className={`${icons.default} ${stat.color}`} />
+                    </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <div className="flex items-center justify-between mt-1">
-                    <p className="text-xs text-muted-foreground">
+                  <p className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</p>
+                  <div className="flex items-center justify-between">
+                    <p className={typography.caption}>
                       {stat.description}
                     </p>
                     <StatChangeBadge 
                       percentageChange={stat.percentageChange} 
-                      period={period} 
+                      period={period}
                     />
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
       {/* Recent Activity */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -147,16 +151,27 @@ export default function DashboardPage() {
             <CardTitle>Ações Rápidas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <button className="flex w-full items-center space-x-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent">
+            <button
+              onClick={() => router.push("/dashboard/customers")}
+              className="flex w-full items-center space-x-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent"
+            >
               <Users className="h-4 w-4" />
               <span>Adicionar Cliente</span>
             </button>
-            <button className="flex w-full items-center space-x-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent">
-              <MessageSquare className="h-4 w-4" />
-              <span>Nova Conversa</span>
-            </button>
+            <NewConversationDialog
+              trigger={
+                <button className="flex w-full items-center space-x-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent">
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Nova Conversa</span>
+                </button>
+              }
+              onConversationCreated={(customerId) => {
+                router.push(`/dashboard/conversations?customer=${customerId}`);
+              }}
+            />
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

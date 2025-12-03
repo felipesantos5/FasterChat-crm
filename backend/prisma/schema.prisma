@@ -26,6 +26,10 @@ model Company {
   aiKnowledge        AIKnowledge?
   campaigns          Campaign[]
   tags               Tag[]
+  pipelineStages     PipelineStage[]
+  googleCalendar     GoogleCalendar?
+  appointments       Appointment[]
+  whatsappLinks      WhatsAppLink[]
 
   @@map("companies")
 }
@@ -64,24 +68,30 @@ model User {
 }
 
 model Customer {
-  id         String   @id @default(uuid())
-  companyId  String   @map("company_id")
-  name       String
-  phone      String
-  email      String?
-  tags       String[] @default([])
-  notes      String?
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id              String         @id @default(uuid())
+  companyId       String         @map("company_id")
+  name            String
+  phone           String
+  email           String?
+  tags            String[]       @default([])
+  notes           String?
+  isGroup         Boolean        @default(false) @map("is_group") // Identifica se é um grupo do WhatsApp
+  pipelineStageId String?        @map("pipeline_stage_id") // Estágio atual no funil de vendas
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  pipelineStage  PipelineStage?  @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
   messages       Message[]
   conversations  Conversation[]
+  appointments   Appointment[]
 
   @@unique([companyId, phone])
   @@index([companyId])
   @@index([phone])
   @@index([email])
+  @@index([isGroup])
+  @@index([pipelineStageId])
   @@map("customers")
 }
 
@@ -145,6 +155,8 @@ model Message {
   senderType          SenderType?      @map("sender_type") @default(HUMAN)
   feedback            MessageFeedback? @map("feedback")
   feedbackNote        String?          @map("feedback_note") @db.Text
+  mediaType           String?          @default("text") @map("media_type") // text, audio, image, video, document
+  mediaUrl            String?          @map("media_url") @db.Text // URL ou base64 da mídia
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
 
@@ -157,6 +169,7 @@ model Message {
   @@index([timestamp])
   @@index([messageId])
   @@index([feedback])
+  @@index([mediaType])
   @@map("messages")
 }
 
@@ -167,6 +180,7 @@ model Conversation {
   assignedToId       String?  @map("assigned_to_id")
   aiEnabled          Boolean  @default(true) @map("ai_enabled")
   needsHelp          Boolean  @default(false) @map("needs_help")
+  appointmentState   Json?    @map("appointment_state") // Estado do fluxo de agendamento via IA
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -189,6 +203,7 @@ model AIKnowledge {
   productsServices   String?  @map("products_services") @db.Text
   toneInstructions   String?  @map("tone_instructions") @db.Text
   policies           String?  @db.Text
+  negativeExamples   String?  @map("negative_examples") @db.Text // Anti-exemplos: o que NÃO fazer
 
   // Configurações avançadas da IA
   provider           String?  @default("openai") // openai ou anthropic
@@ -246,10 +261,14 @@ model Campaign {
   scheduledAt       DateTime?      @map("scheduled_at")
   sentCount         Int            @default(0) @map("sent_count")
   failedCount       Int            @default(0) @map("failed_count")
+  totalTarget       Int            @default(0) @map("total_target") // Total de destinatários
+  startedAt         DateTime?      @map("started_at") // Quando começou a execução
+  completedAt       DateTime?      @map("completed_at") // Quando terminou
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
 
   company           Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  logs              CampaignLog[]
 
   @@index([companyId])
   @@index([status])
@@ -257,3 +276,167 @@ model Campaign {
   @@index([scheduledAt])
   @@map("campaigns")
 }
+
+enum CampaignLogStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model CampaignLog {
+  id          String            @id @default(uuid())
+  campaignId  String            @map("campaign_id")
+  customerId  String            @map("customer_id")
+  customerName String           @map("customer_name")
+  customerPhone String          @map("customer_phone")
+  status      CampaignLogStatus @default(PENDING)
+  message     String            @db.Text // Mensagem personalizada enviada
+  error       String?           @db.Text // Erro em caso de falha
+  sentAt      DateTime?         @map("sent_at")
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  campaign    Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([customerId])
+  @@index([status])
+  @@map("campaign_logs")
+}
+
+model PipelineStage {
+  id          String     @id @default(uuid())
+  companyId   String     @map("company_id")
+  name        String     // Nome do estágio (ex: "Lead", "Negociação", "Fechado")
+  description String?    // Descrição opcional do estágio
+  color       String     @default("#8B5CF6") // Cor do estágio no Kanban
+  order       Int        // Ordem de exibição (0, 1, 2, ...)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customers   Customer[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@index([order])
+  @@map("pipeline_stages")
+}
+
+model GoogleCalendar {
+  id              String   @id @default(uuid())
+  companyId       String   @unique @map("company_id")
+  accessToken     String   @map("access_token") @db.Text
+  refreshToken    String   @map("refresh_token") @db.Text
+  tokenExpiry     DateTime @map("token_expiry")
+  calendarId      String?  @map("calendar_id") // ID do calendário principal
+  email           String?  // Email da conta Google conectada
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("google_calendars")
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentType {
+  VISIT
+  INSTALLATION
+  MAINTENANCE
+  CONSULTATION
+  OTHER
+}
+
+model Appointment {
+  id                String            @id @default(uuid())
+  companyId         String            @map("company_id")
+  customerId        String            @map("customer_id")
+  title             String
+  description       String?           @db.Text
+  type              AppointmentType   @default(VISIT)
+  status            AppointmentStatus @default(SCHEDULED)
+  startTime         DateTime          @map("start_time")
+  endTime           DateTime          @map("end_time")
+  duration          Int               @default(60) // Duração em minutos
+  location          String?
+  googleEventId     String?           @map("google_event_id") // ID do evento no Google Calendar
+  notes             String?           @db.Text
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  company           Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer          Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([startTime])
+  @@index([status])
+  @@index([type])
+  @@map("appointments")
+}
+
+// ============================================
+// WHATSAPP LINK TRACKING
+// ============================================
+
+model WhatsAppLink {
+  id             String   @id @default(uuid())
+  companyId      String   @map("company_id")
+  name           String   // Nome/descrição do link (ex: "Instagram Bio", "Campanha Black Friday")
+  slug           String   @unique // Slug único para o link (ex: "black-friday-2024")
+  phoneNumber    String   @map("phone_number") // Número do WhatsApp (com código do país, ex: "5511999999999")
+  message        String?  @db.Text // Mensagem pré-preenchida opcional
+  isActive       Boolean  @default(true) @map("is_active") // Link ativo ou desativado
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clicks         LinkClick[]
+
+  @@index([companyId])
+  @@index([slug])
+  @@index([isActive])
+  @@map("whatsapp_links")
+}
+
+model LinkClick {
+  id             String   @id @default(uuid())
+  linkId         String   @map("link_id")
+
+  // Dados do visitante
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent") @db.Text
+  referer        String?  @db.Text // De onde veio (ex: Instagram, Google, etc)
+
+  // Geolocalização (pode ser obtida via API de IP)
+  country        String?
+  region         String?  // Estado/Província
+  city           String?
+  latitude       Float?
+  longitude      Float?
+
+  // Informações do dispositivo
+  deviceType     String?  @map("device_type") // mobile, desktop, tablet
+  browser        String?
+  os             String?
+
+  // Timestamp
+  clickedAt      DateTime @default(now()) @map("clicked_at")
+
+  link           WhatsAppLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@index([linkId])
+  @@index([clickedAt])
+  @@index([country])
+  @@index([deviceType])
+  @@map("link_clicks")
+}
+

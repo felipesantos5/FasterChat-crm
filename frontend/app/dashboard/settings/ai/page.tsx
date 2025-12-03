@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { AIKnowledge } from "@/types/ai-knowledge";
 import { Loader2, Save, Check, Bot, Settings2 } from "lucide-react";
+import { typography, spacing } from "@/lib/design-system";
 
 export default function AISettingsPage() {
   const [, setKnowledge] = useState<AIKnowledge | null>(null);
@@ -25,6 +26,7 @@ export default function AISettingsPage() {
   const [productsServices, setProductsServices] = useState("");
   const [toneInstructions, setToneInstructions] = useState("");
   const [policies, setPolicies] = useState("");
+  const [negativeExamples, setNegativeExamples] = useState("");
 
   // Configurações avançadas
   const [provider, setProvider] = useState<"openai" | "anthropic">("openai");
@@ -66,6 +68,7 @@ export default function AISettingsPage() {
         setProductsServices(response.data.productsServices || "");
         setToneInstructions(response.data.toneInstructions || "");
         setPolicies(response.data.policies || "");
+        setNegativeExamples(response.data.negativeExamples || "");
 
         // Configurações avançadas
         const loadedProvider = (response.data.provider as "openai" | "anthropic") || "openai";
@@ -111,6 +114,7 @@ export default function AISettingsPage() {
         productsServices,
         toneInstructions,
         policies,
+        negativeExamples,
         provider,
         model,
         temperature,
@@ -152,6 +156,7 @@ export default function AISettingsPage() {
         productsServices,
         toneInstructions,
         policies,
+        negativeExamples,
         provider,
         model,
         temperature,
@@ -188,6 +193,9 @@ export default function AISettingsPage() {
       case "policies":
         setPolicies(value);
         break;
+      case "negativeExamples":
+        setNegativeExamples(value);
+        break;
     }
 
     // Cancela timer anterior
@@ -219,10 +227,11 @@ export default function AISettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+    <div className={spacing.page}>
+      <div className={spacing.section}>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className={`${typography.pageTitle} flex items-center gap-3`}>
             <Bot className="h-8 w-8" />
             Configurações da IA
           </h1>
@@ -303,6 +312,17 @@ export default function AISettingsPage() {
             placeholder="Ex: Atendimento de segunda a sexta, 8h às 18h. Aceitamos PIX, cartão e dinheiro..."
             value={policies}
             onChange={(value) => handleFieldChange("policies", value)}
+            rows={6}
+          />
+
+          {/* Exemplos Negativos - Anti-Exemplos */}
+          <ExpandableTextarea
+            id="negativeExamples"
+            label="❌ Exemplos Negativos - O que NÃO fazer"
+            description="Ensine a IA comportamentos que ela NUNCA deve ter. Exemplos de respostas ruins, tom inadequado, abordagens erradas..."
+            placeholder="Ex: Nunca seja grosseiro ou impaciente com o cliente. Não use linguagem muito técnica que o cliente não entenda. Não prometa prazos impossíveis..."
+            value={negativeExamples}
+            onChange={(value) => handleFieldChange("negativeExamples", value)}
             rows={6}
           />
 
@@ -491,45 +511,7 @@ export default function AISettingsPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Card de Preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Preview do Contexto da IA</CardTitle>
-          <CardDescription className="text-xs">Veja como as informações serão formatadas para a IA</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-muted p-4 rounded-lg text-sm space-y-2 max-h-60 overflow-y-auto">
-            {companyInfo && (
-              <div>
-                <strong>Sobre a Empresa:</strong>
-                <p className="text-muted-foreground whitespace-pre-wrap">{companyInfo}</p>
-              </div>
-            )}
-            {productsServices && (
-              <div>
-                <strong>Produtos e Serviços:</strong>
-                <p className="text-muted-foreground whitespace-pre-wrap">{productsServices}</p>
-              </div>
-            )}
-            {toneInstructions && (
-              <div>
-                <strong>Tom de Voz:</strong>
-                <p className="text-muted-foreground whitespace-pre-wrap">{toneInstructions}</p>
-              </div>
-            )}
-            {policies && (
-              <div>
-                <strong>Políticas:</strong>
-                <p className="text-muted-foreground whitespace-pre-wrap">{policies}</p>
-              </div>
-            )}
-            {!companyInfo && !productsServices && !toneInstructions && !policies && (
-              <p className="text-muted-foreground text-xs">Preencha os campos acima para ver o preview</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      </div>
     </div>
   );
 }

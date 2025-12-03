@@ -5,50 +5,40 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { WebSocketProvider } from "@/contexts/WebSocketContext";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
-    console.log("[DASHBOARD LAYOUT] isLoading:", isLoading, "isAuthenticated:", isAuthenticated);
-
-    // Aguarda o loading terminar antes de redirecionar
-    if (isLoading) {
-      console.log("[DASHBOARD LAYOUT] Aguardando loading...");
-      return;
-    }
-
+    if (isLoading) return;
     if (!isAuthenticated) {
-      console.log("[DASHBOARD LAYOUT] Não autenticado, redirecionando para login");
       router.push("/login");
-    } else {
-      console.log("[DASHBOARD LAYOUT] Autenticado, renderizando dashboard");
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Mostra loading enquanto verifica autenticação
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>Carregando...</p>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
-      <Sidebar />
+    <WebSocketProvider>
+      <div className="flex h-screen overflow-hidden bg-gray-50">
+        <Sidebar />
 
-      {/* Main Content */}
-      <div className="flex flex-1 flex-col overflow-hidden pl-64">
-        {/* Header */}
-        <Header />
-
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-background">{children}</main>
+        <div className="flex flex-1 flex-col overflow-hidden pl-64">
+          <Header />
+          <main className="flex-1 overflow-y-auto bg-gray-50">{children}</main>
+        </div>
       </div>
-    </div>
+    </WebSocketProvider>
   );
 }

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CustomerFormModal } from "@/components/forms/customer-form-modal";
-import { Plus, Search, Phone, Mail, MoreVertical, Edit, Trash } from "lucide-react";
+import { Plus, Search, Phone, Mail, MoreVertical, Edit, Trash, Users } from "lucide-react";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { Tag } from "@/lib/tag";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { buttons, cards, typography, spacing, icons, forms } from "@/lib/design-system";
 
 export default function CustomersPage() {
   const router = useRouter();
@@ -94,36 +95,43 @@ export default function CustomersPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
-          <p className="text-muted-foreground">
-            Gerencie seus clientes e contatos
-          </p>
+    <div className={spacing.page}>
+      <div className={spacing.section}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className={`${typography.pageTitle} flex items-center gap-3`}>
+              <Users className={`${icons.large} text-purple-600`} />
+              Clientes
+            </h1>
+            <p className={typography.pageSubtitle}>
+              Gerencie seus clientes e contatos
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setEditingCustomer(undefined);
+              setModalOpen(true);
+            }}
+            className={buttons.primary}
+          >
+            <Plus className={`${icons.default} inline-block mr-2`} />
+            Novo Cliente
+          </button>
         </div>
-        <Button onClick={() => {
-          setEditingCustomer(undefined);
-          setModalOpen(true);
-        }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Cliente
-        </Button>
-      </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome, telefone ou email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
+        {/* Filters */}
+        <div className={`${cards.default} mb-6`}>
+          <div className="relative">
+            <Search className={`absolute left-4 top-1/2 ${icons.default} -translate-y-1/2 text-gray-400`} />
+            <Input
+              placeholder="Buscar por nome, telefone ou email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-12"
+            />
+          </div>
         </div>
-      </div>
 
       {/* Tag Filters */}
       {availableTags.length > 0 && (
@@ -269,8 +277,9 @@ export default function CustomersPage() {
         }}
         onSubmit={editingCustomer ? handleUpdate : handleCreate}
         customer={editingCustomer}
-        availableTags={availableTags}
-      />
+          availableTags={availableTags}
+        />
+      </div>
     </div>
   );
 }

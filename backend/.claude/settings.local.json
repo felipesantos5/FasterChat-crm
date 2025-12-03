@@ -8,7 +8,8 @@
       "Bash(npm run db:seed:*)",
       "Bash(cat:*)",
       "Bash(move appdashboardconversationspage.tsx appdashboardconversationspage-old.tsx)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(del nul)"
     ],
     "deny": [],
     "ask": []

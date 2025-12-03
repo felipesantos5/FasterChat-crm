@@ -5,6 +5,7 @@ export interface AIKnowledgeData {
   productsServices?: string | null;
   toneInstructions?: string | null;
   policies?: string | null;
+  negativeExamples?: string | null;
 
   // Configurações avançadas
   provider?: string | null;
@@ -22,6 +23,7 @@ export interface UpdateAIKnowledgeRequest {
   productsServices?: string;
   toneInstructions?: string;
   policies?: string;
+  negativeExamples?: string;
 
   // Configurações avançadas
   provider?: string;

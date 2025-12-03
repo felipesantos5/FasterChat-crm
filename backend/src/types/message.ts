@@ -21,6 +21,8 @@ export interface CreateMessageRequest {
   timestamp: Date;
   status?: MessageStatus;
   messageId?: string;
+  mediaUrl?: any;
+  mediaType?: string;
 }
 
 export interface GetMessagesRequest {
@@ -44,6 +46,18 @@ export interface EvolutionWebhookMessage {
     extendedTextMessage?: {
       text: string;
     };
+    imageMessage?: {
+      caption?: string;
+      url?: string;
+      mimetype?: string;
+      base64?: string; // Evolution API pode enviar base64 se configurado
+    };
+    audioMessage?: {
+      url?: string;
+      mimetype?: string;
+      base64?: string; // Evolution API pode enviar base64 se configurado
+      seconds?: number;
+    };
   };
   statusReason?: any;
   messageTimestamp?: string | number;
@@ -66,9 +80,9 @@ export interface EvolutionWebhookMessage {
 
 export interface EvolutionWebhookPayload {
   event: string;
-  instance: string;
+  instance?: string; // Opcional pois pode não vir em alguns eventos
   data: EvolutionWebhookMessage;
-  lastDisconnect: any;
+  lastDisconnect?: any;
 }
 
 export interface ConversationSummary {
@@ -81,6 +95,7 @@ export interface ConversationSummary {
   direction: MessageDirection;
   aiEnabled: boolean;
   needsHelp: boolean;
+  isGroup: boolean; // Identifica se é um grupo do WhatsApp
   assignedToId: string | null;
   assignedToName: string | null;
 }

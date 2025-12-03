@@ -10,6 +10,7 @@ import { whatsappApi } from '@/lib/whatsapp';
 import { WhatsAppInstance, WhatsAppStatus } from '@/types/whatsapp';
 import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
 
+import { buttons, cards, typography, spacing, icons } from "@/lib/design-system";
 export default function WhatsAppSettingsPage() {
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [loading, setLoading] = useState(true);

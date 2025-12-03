@@ -1,6 +1,8 @@
 import { prisma } from "../utils/prisma";
 import { MessageDirection, MessageStatus, MessageFeedback } from "@prisma/client";
 import { CreateMessageRequest, GetMessagesRequest, ConversationSummary } from "../types/message";
+import openaiService from "./ai-providers/openai.service";
+import { websocketService } from "./websocket.service";
 
 class MessageService {
   /**
@@ -29,12 +31,30 @@ class MessageService {
             timestamp: data.timestamp,
             status: data.status || MessageStatus.SENT,
             messageId: data.messageId,
+            mediaType: data.mediaType || "text",
+            mediaUrl: data.mediaUrl || null,
           },
           include: {
             customer: true,
             whatsappInstance: true,
           },
         });
+
+        // 🔌 Emite evento WebSocket
+        if (websocketService.isInitialized()) {
+          websocketService.emitNewMessage(message.customer.companyId, {
+            id: message.id,
+            customerId: message.customerId,
+            customerName: message.customer.name,
+            direction: message.direction,
+            content: message.content,
+            timestamp: message.timestamp,
+            status: message.status,
+            senderType: message.senderType,
+            mediaType: message.mediaType,
+            mediaUrl: message.mediaUrl,
+          });
+        }
 
         return message;
       }
@@ -49,12 +69,30 @@ class MessageService {
           timestamp: data.timestamp,
           status: data.status || MessageStatus.SENT,
           messageId: data.messageId,
+          mediaType: data.mediaType || "text",
+          mediaUrl: data.mediaUrl || null,
         },
         include: {
           customer: true,
           whatsappInstance: true,
         },
       });
+
+      // 🔌 Emite evento WebSocket
+      if (websocketService.isInitialized()) {
+        websocketService.emitNewMessage(message.customer.companyId, {
+          id: message.id,
+          customerId: message.customerId,
+          customerName: message.customer.name,
+          direction: message.direction,
+          content: message.content,
+          timestamp: message.timestamp,
+          status: message.status,
+          senderType: message.senderType,
+          mediaType: message.mediaType,
+          mediaUrl: message.mediaUrl,
+        });
+      }
 
       return message;
     } catch (error: any) {
@@ -184,6 +222,7 @@ class MessageService {
             direction: message.direction,
             aiEnabled: conversation?.aiEnabled ?? true, // Default para true se não houver conversa
             needsHelp: conversation?.needsHelp ?? false,
+            isGroup: message.customer.isGroup ?? false, // Identifica se é um grupo do WhatsApp
             assignedToId: conversation?.assignedToId ?? null,
             assignedToName: conversation?.assignedTo?.name ?? null,
           });
@@ -200,62 +239,204 @@ class MessageService {
   /**
    * Processa mensagem recebida via webhook
    */
-  async processInboundMessage(instanceName: string, remoteJid: string, content: string, messageId: string, timestamp: Date, pushName?: string) {
+  async processInboundMessage(
+    instanceName: string,
+    remoteJid: string,
+    data: any // Payload completo da mensagem (EvolutionWebhookMessage)
+  ) {
     try {
-      // Busca a instância pelo nome
-      const instance = await prisma.whatsAppInstance.findFirst({
-        where: { instanceName },
-      });
+      const instance = await prisma.whatsAppInstance.findFirst({ where: { instanceName } });
+      if (!instance) throw new Error(`Instance not found: ${instanceName}`);
 
-      if (!instance) {
-        throw new Error(`WhatsApp instance not found: ${instanceName}`);
-      }
-
-      // Extrai o número de telefone do remoteJid (remove @s.whatsapp.net)
       const phone = remoteJid.replace("@s.whatsapp.net", "");
 
-      // Busca ou cria o customer
-      let customer = await prisma.customer.findFirst({
-        where: {
-          companyId: instance.companyId,
-          phone,
-        },
+      // Detecta automaticamente se é um grupo do WhatsApp
+      const isGroup = phone.includes('@g.us');
+
+      // Busca ou cria cliente (Upsert otimizado)
+      let customer = await prisma.customer.findUnique({
+        where: { companyId_phone: { companyId: instance.companyId, phone } },
       });
 
       if (!customer) {
-        // Cria novo customer
         customer = await prisma.customer.create({
           data: {
             companyId: instance.companyId,
-            name: pushName || phone,
+            name: data.pushName || phone,
             phone,
+            isGroup,
           },
         });
-
-        console.log(`✓ New customer created: ${customer.id} - ${customer.name}`);
+      } else if (customer.isGroup !== isGroup) {
+        // Atualiza o campo isGroup se estiver incorreto
+        customer = await prisma.customer.update({
+          where: { id: customer.id },
+          data: { isGroup },
+        });
       }
 
-      // Cria a mensagem (upsert automático evita duplicatas)
+      // --- LÓGICA DE PROCESSAMENTO DE MÍDIA ---
+      let content = "";
+      let mediaType = "text";
+      let mediaUrl = null;
+
+      const msgData = data.message;
+
+      // 1. Texto Simples
+      if (msgData?.conversation || msgData?.extendedTextMessage?.text) {
+        content = msgData.conversation || msgData.extendedTextMessage.text;
+      }
+      // 2. Áudio
+      else if (msgData?.audioMessage) {
+        mediaType = "audio";
+        console.log(`[MessageService] 🎤 Audio message detected for ${phone}`);
+
+        // Evolution API pode enviar base64 ou URL
+        const base64Audio = msgData.audioMessage.base64;
+        const audioUrl = msgData.audioMessage.url;
+
+        // Log para debug
+        console.log(`[MessageService] 🔍 Audio message structure:`, {
+          hasBase64: !!base64Audio,
+          base64Length: base64Audio ? base64Audio.length : 0,
+          hasUrl: !!audioUrl,
+          audioUrl: audioUrl || 'null',
+          mimetype: msgData.audioMessage.mimetype,
+          seconds: msgData.audioMessage.seconds,
+        });
+
+        try {
+          let audioBuffer: Buffer | null = null;
+
+          // Estratégia 1: Usar base64 se disponível
+          if (base64Audio && base64Audio.length > 0) {
+            console.log(`[MessageService] 📦 Using base64 audio data`);
+            audioBuffer = Buffer.from(base64Audio, 'base64');
+          }
+          // Estratégia 2: Baixar através da Evolution API (descriptografa automaticamente)
+          else if (data.key) {
+            console.log(`[MessageService] 🔄 Downloading audio via Evolution API...`);
+            const whatsappService = (await import("./whatsapp.service")).default;
+            audioBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+          }
+          // Estratégia 3: Fallback - tentar baixar direto da URL (pode não funcionar se encriptado)
+          else if (audioUrl) {
+            console.log(`[MessageService] ⚠️ Trying direct URL download (may fail if encrypted)...`);
+            audioBuffer = await openaiService.transcribeAudio(audioUrl) as any; // Usa a função que já baixa
+          }
+
+          if (audioBuffer && audioBuffer.length > 0) {
+            console.log(`[MessageService] 🎤 Transcribing audio (${(audioBuffer.length / 1024).toFixed(2)} KB)...`);
+
+            // Converte buffer para base64 para passar ao OpenAI
+            const base64ForTranscription = audioBuffer.toString('base64');
+            const transcription = await openaiService.transcribeAudio(base64ForTranscription);
+
+            console.log(`[MessageService] ✅ Transcription successful: "${transcription}"`);
+
+            // Salva o áudio como Data URI para reprodução no frontend
+            mediaUrl = `data:audio/ogg;base64,${base64ForTranscription}`;
+
+            // Conteúdo é a transcrição para a IA processar
+            content = transcription;
+
+            console.log(`[MessageService] 📝 Audio saved with transcription for playback`);
+          } else {
+            console.warn(`[MessageService] ⚠️ Could not obtain audio data`);
+            content = "Recebi seu áudio mas não consegui processar. Pode me enviar sua mensagem por texto? 🙏";
+          }
+        } catch (error: any) {
+          console.error(`[MessageService] ❌ Audio processing failed:`, error.message);
+          console.error(`[MessageService] ❌ Full error:`, error);
+          content = "Recebi seu áudio mas não consegui processar. Pode me enviar sua mensagem por texto? 🙏";
+        }
+      }
+      // 3. Imagem
+      else if (msgData?.imageMessage) {
+        mediaType = "image";
+        console.log(`[MessageService] 📷 Image message detected for ${phone}`);
+
+        const caption = msgData.imageMessage.caption || "";
+        const base64Image = msgData.imageMessage.base64;
+        const imageUrl = msgData.imageMessage.url;
+
+        // Log para debug
+        console.log(`[MessageService] 🔍 Image message structure:`, {
+          hasBase64: !!base64Image,
+          hasUrl: !!imageUrl,
+          hasCaption: !!caption,
+          caption: caption || 'none',
+          mimetype: msgData.imageMessage.mimetype,
+        });
+
+        try {
+          let imageBuffer: Buffer | null = null;
+
+          // Estratégia 1: Usar base64 se disponível
+          if (base64Image && base64Image.length > 0) {
+            console.log(`[MessageService] 📦 Using base64 image data`);
+            imageBuffer = Buffer.from(base64Image, 'base64');
+          }
+          // Estratégia 2: Baixar através da Evolution API (descriptografa automaticamente)
+          else if (data.key) {
+            console.log(`[MessageService] 🔄 Downloading image via Evolution API...`);
+            const whatsappService = (await import("./whatsapp.service")).default;
+            imageBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+          }
+
+          if (imageBuffer && imageBuffer.length > 0) {
+            console.log(`[MessageService] 📷 Image downloaded: ${(imageBuffer.length / 1024).toFixed(2)} KB`);
+
+            // Detecta o mimetype (padrão JPEG se não especificado)
+            const mimetype = msgData.imageMessage.mimetype || 'image/jpeg';
+
+            // Salva a imagem como Data URI para exibição no frontend
+            const base64ForDisplay = imageBuffer.toString('base64');
+            mediaUrl = `data:${mimetype};base64,${base64ForDisplay}`;
+
+            // Conteúdo inicial com legenda (se houver)
+            if (caption) {
+              content = `Cliente enviou uma imagem com legenda: "${caption}"`;
+            } else {
+              content = `Cliente enviou uma imagem`;
+            }
+
+            console.log(`[MessageService] 📝 Image saved for Vision API analysis`);
+          } else {
+            console.warn(`[MessageService] ⚠️ Could not obtain image data`);
+            content = caption ? `[Imagem com legenda: ${caption}]` : "[Imagem não disponível]";
+          }
+        } catch (error: any) {
+          console.error(`[MessageService] ❌ Image processing failed:`, error.message);
+          content = caption ? `[Imagem com legenda: ${caption}]` : "[Imagem não processada]";
+        }
+      }
+
+      if (!content && !mediaUrl) return null; // Ignora mensagens vazias/status
+
+      console.log(`[MessageService] 📝 Creating message:`, {
+        mediaType,
+        hasMediaUrl: !!mediaUrl,
+        contentPreview: content.substring(0, 50),
+      });
+
+      // Cria a mensagem
       const message = await this.createMessage({
         customerId: customer.id,
         whatsappInstanceId: instance.id,
         direction: MessageDirection.INBOUND,
         content,
-        timestamp,
-        messageId,
+        timestamp: new Date((data.messageTimestamp || Date.now()) * 1000),
+        messageId: data.key.id,
         status: MessageStatus.DELIVERED,
+        mediaType, // Tipo correto (text, audio, image)
+        mediaUrl, // URL da mídia (se houver)
       });
 
-      console.log(`✓ Inbound message processed: ${message.id} (${messageId})`);
-
-      return {
-        message,
-        customer,
-        instance,
-      };
+      return { message, customer, instance };
     } catch (error: any) {
       console.error("Error processing inbound message:", error);
-      throw new Error(`Failed to process inbound message: ${error.message}`);
+      throw error;
     }
   }
 
@@ -362,12 +543,31 @@ class MessageService {
           messageId: result.messageId,
           status: MessageStatus.SENT,
           senderType: sentBy,
+          mediaType: "text", // Mensagens enviadas são sempre texto por enquanto
+          mediaUrl: null,
         },
         include: {
           customer: true,
           whatsappInstance: true,
         },
       });
+
+      // 🔌 Emite evento WebSocket para mensagem da IA ou Humano
+      if (websocketService.isInitialized()) {
+        console.log(`📤 Emitindo mensagem ${sentBy} via WebSocket para customer ${customer.id}`);
+        websocketService.emitNewMessage(customer.companyId, {
+          id: message.id,
+          customerId: message.customerId,
+          customerName: customer.name,
+          direction: message.direction,
+          content: message.content,
+          timestamp: message.timestamp,
+          status: message.status,
+          senderType: message.senderType,
+          mediaType: message.mediaType,
+          mediaUrl: message.mediaUrl,
+        });
+      }
 
       return {
         message,

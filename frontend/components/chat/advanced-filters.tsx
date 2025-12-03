@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 export interface AdvancedFilters {
   excludeGroups: boolean;
   selectedTags: string[];
+  onlyNeedsHelp: boolean; // Mostra apenas conversas que precisam de ajuda
+  onlyAiEnabled: boolean; // Mostra apenas conversas com IA ativa
 }
 
 interface AdvancedFiltersProps {
@@ -45,12 +47,26 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
   }, [open]);
 
   // Verifica se há filtros ativos
-  const hasActiveFilters = filters.excludeGroups || filters.selectedTags.length > 0;
+  const hasActiveFilters = filters.excludeGroups || filters.selectedTags.length > 0 || filters.onlyNeedsHelp || filters.onlyAiEnabled;
 
   const handleToggleGroup = () => {
     onFiltersChange({
       ...filters,
       excludeGroups: !filters.excludeGroups,
+    });
+  };
+
+  const handleToggleNeedsHelp = () => {
+    onFiltersChange({
+      ...filters,
+      onlyNeedsHelp: !filters.onlyNeedsHelp,
+    });
+  };
+
+  const handleToggleAiEnabled = () => {
+    onFiltersChange({
+      ...filters,
+      onlyAiEnabled: !filters.onlyAiEnabled,
     });
   };
 
@@ -70,6 +86,8 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
     onFiltersChange({
       excludeGroups: false,
       selectedTags: [],
+      onlyNeedsHelp: false,
+      onlyAiEnabled: false,
     });
   };
 
@@ -111,6 +129,47 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
                 Limpar tudo
               </Button>
             )}
+          </div>
+
+          {/* Filtros de Status */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">
+              STATUS DA CONVERSA
+            </Label>
+
+            {/* Apenas conversas que precisam de ajuda */}
+            <div className="flex items-center justify-between rounded-lg border p-3 bg-yellow-50/50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-800">
+              <div className="space-y-0.5">
+                <Label htmlFor="only-needs-help" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                  🚨 Precisa de ajuda
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Conversas transferidas para humano
+                </p>
+              </div>
+              <Switch
+                id="only-needs-help"
+                checked={filters.onlyNeedsHelp}
+                onCheckedChange={handleToggleNeedsHelp}
+              />
+            </div>
+
+            {/* Apenas conversas com IA ativa */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="only-ai-enabled" className="text-sm font-medium cursor-pointer">
+                  IA ativa
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Conversas sendo atendidas pela IA
+                </p>
+              </div>
+              <Switch
+                id="only-ai-enabled"
+                checked={filters.onlyAiEnabled}
+                onCheckedChange={handleToggleAiEnabled}
+              />
+            </div>
           </div>
 
           {/* Filtro de Grupos */}
@@ -180,6 +239,16 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
             <div className="pt-2 border-t">
               <p className="text-xs text-muted-foreground mb-2">Filtros ativos:</p>
               <div className="flex flex-wrap gap-1.5">
+                {filters.onlyNeedsHelp && (
+                  <Badge className="text-xs bg-yellow-500">
+                    🚨 Precisa de ajuda
+                  </Badge>
+                )}
+                {filters.onlyAiEnabled && (
+                  <Badge variant="secondary" className="text-xs">
+                    IA ativa
+                  </Badge>
+                )}
                 {filters.excludeGroups && (
                   <Badge variant="secondary" className="text-xs">
                     Sem grupos
