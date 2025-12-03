@@ -45,48 +45,57 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Handler para novas mensagens via WebSocket
-  const handleWebSocketMessage = useCallback((message: any) => {
-    // Verifica se a mensagem é para este cliente
-    if (message.customerId === customerId) {
-      console.log('📩 Nova mensagem WebSocket recebida:', message);
+  const handleWebSocketMessage = useCallback(
+    (message: any) => {
+      // Verifica se a mensagem é para este cliente
+      if (message.customerId === customerId) {
+        console.log("📩 Nova mensagem WebSocket recebida:", message);
 
-      setMessages((prev) => {
-        // Evita duplicatas
-        const exists = prev.some(m => m.id === message.id);
-        if (exists) return prev;
-        return [...prev, message];
-      });
+        setMessages((prev) => {
+          // Evita duplicatas
+          const exists = prev.some((m) => m.id === message.id);
+          if (exists) return prev;
+          return [...prev, message];
+        });
 
-      // Se foi mensagem do cliente, marca IA como processando
-      if (message.direction === MessageDirection.INBOUND && conversation?.aiEnabled) {
-        setAiProcessing(true);
-        // Remove indicador após 30 segundos
-        setTimeout(() => setAiProcessing(false), 30000);
+        // Se foi mensagem do cliente, marca IA como processando
+        if (message.direction === MessageDirection.INBOUND && conversation?.aiEnabled) {
+          setAiProcessing(true);
+          // Remove indicador após 30 segundos
+          setTimeout(() => setAiProcessing(false), 30000);
+        }
+
+        // Se foi resposta da IA, remove indicador
+        if (message.direction === MessageDirection.OUTBOUND && message.senderType === SenderType.AI) {
+          setAiProcessing(false);
+          setIsTyping(false);
+        }
       }
-
-      // Se foi resposta da IA, remove indicador
-      if (message.direction === MessageDirection.OUTBOUND && message.senderType === SenderType.AI) {
-        setAiProcessing(false);
-        setIsTyping(false);
-      }
-    }
-  }, [customerId, conversation?.aiEnabled]);
+    },
+    [customerId, conversation?.aiEnabled]
+  );
 
   // Handler para atualizações de conversa via WebSocket
-  const handleWebSocketConversationUpdate = useCallback((update: any) => {
-    if (update.customerId === customerId) {
-      console.log('🔄 Atualização de conversa WebSocket recebida:', update);
-      setConversation(prev => prev ? { ...prev, ...update } : null);
-    }
-  }, [customerId]);
+  const handleWebSocketConversationUpdate = useCallback(
+    (update: any) => {
+      if (update.customerId === customerId) {
+        console.log("🔄 Atualização de conversa WebSocket recebida:", update);
+        setConversation((prev) => (prev ? { ...prev, ...update } : null));
+      }
+    },
+    [customerId]
+  );
 
   // Handler para indicador de digitação
-  const handleWebSocketTyping = useCallback((data: any) => {
-    if (data.customerId === customerId) {
-      console.log('⌨️ Indicador de digitação:', data.isTyping);
-      setIsTyping(data.isTyping);
-    }
-  }, [customerId]);
+  const handleWebSocketTyping = useCallback(
+    (data: any) => {
+      if (data.customerId === customerId) {
+        console.log("⌨️ Indicador de digitação:", data.isTyping);
+        setIsTyping(data.isTyping);
+      }
+    },
+    [customerId]
+  );
 
   // WebSocket - usa hook diretamente para ter controle dos eventos
   const { isConnected, isAuthenticated, subscribeToConversation, unsubscribeFromConversation } = useWebSocket({
@@ -164,11 +173,11 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
 
     // Se o WebSocket estiver autenticado, inscreve-se na conversa
     if (isAuthenticated && customerId) {
-      console.log('🔌 Inscrevendo-se na conversa:', customerId);
+      console.log("🔌 Inscrevendo-se na conversa:", customerId);
       subscribeToConversation(customerId);
 
       return () => {
-        console.log('🔌 Desinscrevendo-se da conversa:', customerId);
+        console.log("🔌 Desinscrevendo-se da conversa:", customerId);
         unsubscribeFromConversation(customerId);
       };
     }
@@ -420,10 +429,7 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                         {message.content && !message.content.startsWith("[Imagem") && (
                           <MessageText
                             content={message.content}
-                            className={cn(
-                              "text-xs italic",
-                              isInbound ? "text-muted-foreground" : "text-white/80"
-                            )}
+                            className={cn("text-xs italic", isInbound ? "text-muted-foreground" : "text-white/80")}
                           />
                         )}
                       </div>
@@ -479,9 +485,7 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
                     ●
                   </span>
                 </div>
-                <span className="text-sm text-purple-600 dark:text-purple-400">
-                  {isTyping ? "IA está digitando..." : "IA está pensando..."}
-                </span>
+                <span className="text-sm text-purple-600 dark:text-purple-400">{isTyping ? "IA está digitando..." : "IA está pensando..."}</span>
               </div>
             </div>
           </div>

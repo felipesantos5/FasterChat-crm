@@ -26,7 +26,7 @@ class WebhookController {
       const payload: EvolutionWebhookPayload = req.body;
 
       // Log do webhook recebido para debug
-      console.log(`[Webhook] Event: ${payload.event}, Instance: ${payload.instance || 'NOT PROVIDED'}`);
+      console.log(`[Webhook] Event: ${payload.event}, Instance: ${payload.instance || "NOT PROVIDED"}`);
 
       // Verifica se é um evento de mensagem recebida
       if (payload.event === "messages.upsert") {
@@ -135,7 +135,7 @@ class WebhookController {
                 // Marca a conversa como precisando de ajuda
                 await prisma.conversation.update({
                   where: { customerId: result.customer.id },
-                  data: { needsHelp: true }
+                  data: { needsHelp: true },
                 });
 
                 console.log(`✓ Conversa transferida para atendimento humano: ${result.customer.id}`);
@@ -209,12 +209,12 @@ class WebhookController {
 
                 // 🔥 BLINDAGEM: Limpar QR Code e Phone Number para forçar nova geração limpa
                 await whatsappService.updateConnectionStatus(instance.id, WhatsAppStatus.DISCONNECTED);
-                
+
                 // Limpeza adicional se necessário (já feito pelo updateConnectionStatus mas garantindo campos extras se houver)
                 await prisma.whatsAppInstance.update({
                   where: { id: instance.id },
                   data: {
-                    qrCode: null, 
+                    qrCode: null,
                     phoneNumber: null,
                   },
                 });
@@ -230,9 +230,8 @@ class WebhookController {
           }
 
           if (newStatus) {
-            const phoneNumber = newStatus === WhatsAppStatus.CONNECTED && payload.data?.instance?.wuid
-              ? payload.data.instance.wuid.split("@")[0]
-              : undefined;
+            const phoneNumber =
+              newStatus === WhatsAppStatus.CONNECTED && payload.data?.instance?.wuid ? payload.data.instance.wuid.split("@")[0] : undefined;
 
             await whatsappService.updateConnectionStatus(instance.id, newStatus, phoneNumber);
           }

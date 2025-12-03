@@ -142,7 +142,7 @@ class AIService {
       }
 
       // 🎯 Function Calling: Passa tools apenas para OpenAI (Anthropic não suporta ainda)
-      const useTools = providerName === 'openai' || (options?.provider || providerConfig) === 'openai';
+      const useTools = providerName === "openai" || (options?.provider || providerConfig) === "openai";
 
       const aiResponse = await provider.generateResponse({
         systemPrompt,
@@ -154,7 +154,7 @@ class AIService {
         // Adiciona tools e contexto para Function Calling
         ...(useTools && {
           tools: essentialTools,
-          toolChoice: 'auto', // IA decide quando usar
+          toolChoice: "auto", // IA decide quando usar
           context: {
             customerId: customer.id,
             companyId: customer.companyId,
@@ -177,25 +177,27 @@ class AIService {
    * WhatsApp não renderiza markdown, então removemos para evitar ** e _ aparecendo no texto
    */
   private removeMarkdown(text: string): string {
-    return text
-      // Remove bold: **texto** ou __texto__
-      .replace(/\*\*(.+?)\*\*/g, '$1')
-      .replace(/__(.+?)__/g, '$1')
-      // Remove italic: *texto* ou _texto_
-      .replace(/\*(.+?)\*/g, '$1')
-      .replace(/_(.+?)_/g, '$1')
-      // Remove strikethrough: ~~texto~~
-      .replace(/~~(.+?)~~/g, '$1')
-      // Remove code: `texto`
-      .replace(/`(.+?)`/g, '$1')
-      // Remove headers: # texto
-      .replace(/^#+\s+/gm, '')
-      // Remove listas: - item ou * item
-      .replace(/^[\*\-]\s+/gm, '')
-      // Remove links: [texto](url)
-      .replace(/\[(.+?)\]\(.+?\)/g, '$1')
-      // Remove > (quote)
-      .replace(/^>\s+/gm, '');
+    return (
+      text
+        // Remove bold: **texto** ou __texto__
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/__(.+?)__/g, "$1")
+        // Remove italic: *texto* ou _texto_
+        .replace(/\*(.+?)\*/g, "$1")
+        .replace(/_(.+?)_/g, "$1")
+        // Remove strikethrough: ~~texto~~
+        .replace(/~~(.+?)~~/g, "$1")
+        // Remove code: `texto`
+        .replace(/`(.+?)`/g, "$1")
+        // Remove headers: # texto
+        .replace(/^#+\s+/gm, "")
+        // Remove listas: - item ou * item
+        .replace(/^[\*\-]\s+/gm, "")
+        // Remove links: [texto](url)
+        .replace(/\[(.+?)\]\(.+?\)/g, "$1")
+        // Remove > (quote)
+        .replace(/^>\s+/gm, "")
+    );
   }
 
   /**
@@ -274,7 +276,9 @@ ${policies}
    - Redirecione SEMPRE para o assunto do negócio
    - Se insistir 2+ vezes em assuntos proibidos → use [TRANSBORDO]
 
-${negativeExamples ? `
+${
+  negativeExamples
+    ? `
 # ❌ ANTI-EXEMPLOS: O QUE NÃO FAZER
 
 A empresa configurou exemplos NEGATIVOS de comportamentos que você NUNCA deve ter:
@@ -282,7 +286,9 @@ A empresa configurou exemplos NEGATIVOS de comportamentos que você NUNCA deve t
 ${negativeExamples}
 
 **IMPORTANTE:** Evite completamente esses padrões negativos acima. São exemplos do que NÃO fazer.
-` : ''}
+`
+    : ""
+}
 
 2. **Mensagens de Áudio do Cliente:**
    - O sistema já transcreveu automaticamente o áudio do cliente para texto

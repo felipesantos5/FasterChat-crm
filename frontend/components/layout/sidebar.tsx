@@ -113,11 +113,7 @@ export function Sidebar() {
   };
 
   const toggleMenu = (label: string) => {
-    setOpenMenus((prev) =>
-      prev.includes(label)
-        ? prev.filter((item) => item !== label)
-        : [...prev, label]
-    );
+    setOpenMenus((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]));
   };
 
   const renderMenuItem = (item: MenuItem, depth = 0) => {
@@ -135,9 +131,7 @@ export function Sidebar() {
             onClick={() => toggleMenu(item.label)}
             className={cn(
               "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              isParentActive
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              isParentActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             )}
             style={{ paddingLeft: `${depth * 12 + 12}px` }}
           >
@@ -145,20 +139,11 @@ export function Sidebar() {
               <Icon className="h-5 w-5" />
               <span>{item.label}</span>
             </div>
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 transition-transform",
-                isOpen && "rotate-180"
-              )}
-            />
+            <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
           </button>
 
           {/* Submenu */}
-          {isOpen && (
-            <div className="mt-1 space-y-1">
-              {item.children?.map((child) => renderMenuItem(child, depth + 1))}
-            </div>
-          )}
+          {isOpen && <div className="mt-1 space-y-1">{item.children?.map((child) => renderMenuItem(child, depth + 1))}</div>}
         </div>
       );
     }
@@ -171,9 +156,7 @@ export function Sidebar() {
         prefetch={true}
         className={cn(
           "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-          isActive
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         )}
         style={{ paddingLeft: `${depth * 12 + 12}px` }}
       >
@@ -197,9 +180,7 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-          {menuItems.map((item) => renderMenuItem(item))}
-        </nav>
+        <nav className="flex-1 space-y-1 overflow-y-auto p-4">{menuItems.map((item) => renderMenuItem(item))}</nav>
 
         {/* Logout */}
         <div className="border-t p-4">

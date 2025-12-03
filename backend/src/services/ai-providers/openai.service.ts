@@ -1,6 +1,6 @@
-import OpenAI, { toFile } from 'openai';
-import axios from 'axios';
-import { ChatCompletionTool, ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import OpenAI, { toFile } from "openai";
+import axios from "axios";
+import { ChatCompletionTool, ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 interface GenerateResponseParams {
   systemPrompt: string;
@@ -10,7 +10,7 @@ interface GenerateResponseParams {
   model?: string;
   imageUrl?: string;
   tools?: ChatCompletionTool[];
-  toolChoice?: 'auto' | 'none' | 'required';
+  toolChoice?: "auto" | "none" | "required";
   context?: {
     customerId: string;
     companyId: string;
@@ -24,12 +24,12 @@ class OpenAIService {
   constructor() {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.warn('OPENAI_API_KEY not found in environment variables. OpenAI features will be disabled.');
+      console.warn("OPENAI_API_KEY not found in environment variables. OpenAI features will be disabled.");
     }
     this.client = new OpenAI({
-      apiKey: apiKey || '',
+      apiKey: apiKey || "",
     });
-    this.model = process.env.OPENAI_MODEL_MINI || 'gpt-4o-mini';
+    this.model = process.env.OPENAI_MODEL_MINI || "gpt-4o-mini";
   }
 
   /**
@@ -45,19 +45,19 @@ class OpenAIService {
         model,
         imageUrl,
         tools,
-        toolChoice = 'auto',
+        toolChoice = "auto",
         context,
       } = params;
 
       const modelToUse = model || this.model;
 
-      console.log(`[OpenAI] Generating response with ${modelToUse}${tools ? ` + ${tools.length} tools` : ''}`);
+      console.log(`[OpenAI] Generating response with ${modelToUse}${tools ? ` + ${tools.length} tools` : ""}`);
 
       // Se há imagem, usa GPT-4o (Vision) ao invés do Mini
-      const visionModel = imageUrl ? 'gpt-4o' : modelToUse;
+      const visionModel = imageUrl ? "gpt-4o" : modelToUse;
 
       if (imageUrl) {
-        console.log('[OpenAI] Image detected, using GPT-4o Vision capabilities');
+        console.log("[OpenAI] Image detected, using GPT-4o Vision capabilities");
       }
 
       // Prepara o conteúdo da mensagem do usuário
@@ -66,11 +66,11 @@ class OpenAIService {
       if (imageUrl) {
         // Formato para Vision API
         userContent.push({
-          type: 'text',
+          type: "text",
           text: userPrompt,
         });
         userContent.push({
-          type: 'image_url',
+          type: "image_url",
           image_url: {
             url: imageUrl,
           },
@@ -80,11 +80,11 @@ class OpenAIService {
       // Prepara mensagens
       const messages: ChatCompletionMessageParam[] = [
         {
-          role: 'system',
+          role: "system",
           content: systemPrompt,
         },
         {
-          role: 'user',
+          role: "user",
           content: imageUrl ? userContent : userPrompt,
         },
       ];
@@ -109,7 +109,7 @@ class OpenAIService {
       // Primeira chamada à API
       let response = await this.client.chat.completions.create(requestConfig);
 
-      let finalContent = response.choices[0]?.message?.content || '';
+      let finalContent = response.choices[0]?.message?.content || "";
       const toolCalls = response.choices[0]?.message?.tool_calls;
 
       // Se a IA decidiu chamar tools
@@ -117,7 +117,7 @@ class OpenAIService {
         console.log(`[OpenAI] AI decided to call ${toolCalls.length} tool(s)`);
 
         // Importa handlers dinamicamente para evitar dependência circular
-        const { executeToolCall } = await import('../ai-tools/handlers');
+        const { executeToolCall } = await import("../ai-tools/handlers");
 
         // Adiciona mensagem da IA (com tool_calls) ao histórico
         messages.push(response.choices[0].message);
@@ -134,14 +134,14 @@ class OpenAIService {
 
           // Adiciona resultado da tool ao histórico
           messages.push({
-            role: 'tool',
+            role: "tool",
             tool_call_id: toolCall.id,
             content: JSON.stringify(toolResult),
           });
         }
 
         // Segunda chamada à API com os resultados das tools
-        console.log('[OpenAI] Generating final response with tool results...');
+        console.log("[OpenAI] Generating final response with tool results...");
         response = await this.client.chat.completions.create({
           model: visionModel,
           messages,
@@ -149,34 +149,34 @@ class OpenAIService {
           max_tokens: maxTokens,
         });
 
-        finalContent = response.choices[0]?.message?.content || '';
+        finalContent = response.choices[0]?.message?.content || "";
       }
 
       if (!finalContent) {
-        throw new Error('No content in OpenAI response');
+        throw new Error("No content in OpenAI response");
       }
 
-      console.log(`[OpenAI] Response generated successfully. Tokens used: ${response.usage?.total_tokens || 'unknown'}`);
+      console.log(`[OpenAI] Response generated successfully. Tokens used: ${response.usage?.total_tokens || "unknown"}`);
 
       // Log de custo aproximado (GPT-4o Mini é ~$0.15/1M input tokens, ~$0.60/1M output tokens)
       if (response.usage) {
         const inputCost = (response.usage.prompt_tokens / 1_000_000) * 0.15;
-        const outputCost = (response.usage.completion_tokens / 1_000_000) * 0.60;
+        const outputCost = (response.usage.completion_tokens / 1_000_000) * 0.6;
         const totalCost = inputCost + outputCost;
         console.log(`[OpenAI] Estimated cost: $${totalCost.toFixed(6)}`);
       }
 
       return finalContent;
     } catch (error: any) {
-      console.error('[OpenAI] Error generating response:', error);
+      console.error("[OpenAI] Error generating response:", error);
 
       // Tratamento de erros específicos da OpenAI
-      if (error.code === 'insufficient_quota') {
-        throw new Error('OpenAI API quota exceeded. Please check your billing.');
-      } else if (error.code === 'invalid_api_key') {
-        throw new Error('Invalid OpenAI API key.');
+      if (error.code === "insufficient_quota") {
+        throw new Error("OpenAI API quota exceeded. Please check your billing.");
+      } else if (error.code === "invalid_api_key") {
+        throw new Error("Invalid OpenAI API key.");
       } else if (error.status === 429) {
-        throw new Error('OpenAI API rate limit exceeded. Please try again later.');
+        throw new Error("OpenAI API rate limit exceeded. Please try again later.");
       }
 
       throw new Error(`Failed to generate OpenAI response: ${error.message}`);
@@ -190,10 +190,10 @@ class OpenAIService {
    */
   private async downloadAudioFromUrl(url: string): Promise<Buffer> {
     try {
-      console.log('[OpenAI] 🌐 Downloading audio from URL...');
+      console.log("[OpenAI] 🌐 Downloading audio from URL...");
 
       const response = await axios.get(url, {
-        responseType: 'arraybuffer',
+        responseType: "arraybuffer",
         timeout: 30000, // 30 segundos
       });
 
@@ -202,7 +202,7 @@ class OpenAIService {
 
       return audioBuffer;
     } catch (error: any) {
-      console.error('[OpenAI] ❌ Failed to download audio from URL:', error.message);
+      console.error("[OpenAI] ❌ Failed to download audio from URL:", error.message);
       throw new Error(`Failed to download audio: ${error.message}`);
     }
   }
@@ -214,82 +214,82 @@ class OpenAIService {
    */
   async transcribeAudio(audioInput: string): Promise<string> {
     try {
-      console.log('[OpenAI] 🎤 Starting audio transcription with Whisper API');
+      console.log("[OpenAI] 🎤 Starting audio transcription with Whisper API");
 
       let audioBuffer: Buffer;
 
       // Detecta se é URL ou base64
-      if (audioInput.startsWith('http://') || audioInput.startsWith('https://')) {
+      if (audioInput.startsWith("http://") || audioInput.startsWith("https://")) {
         // É uma URL - faz download
-        console.log('[OpenAI] 🔗 Audio input is URL');
+        console.log("[OpenAI] 🔗 Audio input is URL");
         audioBuffer = await this.downloadAudioFromUrl(audioInput);
       } else {
         // É base64 - decodifica
-        console.log('[OpenAI] 📦 Audio input is base64');
-        const base64Data = audioInput.replace(/^data:audio\/[^;]+;base64,/, '');
-        audioBuffer = Buffer.from(base64Data, 'base64');
+        console.log("[OpenAI] 📦 Audio input is base64");
+        const base64Data = audioInput.replace(/^data:audio\/[^;]+;base64,/, "");
+        audioBuffer = Buffer.from(base64Data, "base64");
       }
 
       console.log(`[OpenAI] 📦 Audio buffer size: ${(audioBuffer.length / 1024).toFixed(2)} KB`);
 
       // Valida o tamanho do buffer
       if (audioBuffer.length === 0) {
-        throw new Error('Audio buffer is empty');
+        throw new Error("Audio buffer is empty");
       }
 
       // CORREÇÃO: Usa toFile() para criar um objeto File-like sem filesystem
       // A OpenAI API aceita diversos formatos: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg
       // WhatsApp geralmente envia em formato OGG (Opus codec)
-      const audioFile = await toFile(audioBuffer, 'audio.ogg', {
-        type: 'audio/ogg; codecs=opus',
+      const audioFile = await toFile(audioBuffer, "audio.ogg", {
+        type: "audio/ogg; codecs=opus",
       });
 
-      console.log('[OpenAI] 📄 Audio file object created successfully');
+      console.log("[OpenAI] 📄 Audio file object created successfully");
 
       // Chama a Whisper API para transcrição
       const transcription = await this.client.audio.transcriptions.create({
         file: audioFile,
-        model: 'whisper-1',
-        language: 'pt', // Português brasileiro
-        response_format: 'text',
+        model: "whisper-1",
+        language: "pt", // Português brasileiro
+        response_format: "text",
         temperature: 0, // 0 = mais preciso, menos criativo
         // Prompt opcional para melhorar contexto (Whisper usa isso como referência)
-        prompt: 'Conversa de atendimento sobre ar condicionado, climatização, instalação e manutenção. Cliente falando em português brasileiro.',
+        prompt: "Conversa de atendimento sobre ar condicionado, climatização, instalação e manutenção. Cliente falando em português brasileiro.",
       });
 
       // Limpa a transcrição
       const cleanedTranscription = (transcription as string)
         .trim()
-        .replace(/\s+/g, ' ') // Remove espaços múltiplos
-        .replace(/\n+/g, ' '); // Remove quebras de linha
+        .replace(/\s+/g, " ") // Remove espaços múltiplos
+        .replace(/\n+/g, " "); // Remove quebras de linha
 
-      console.log('[OpenAI] ✅ Audio transcription completed successfully');
+      console.log("[OpenAI] ✅ Audio transcription completed successfully");
       console.log(`[OpenAI] 📝 Transcription (${cleanedTranscription.length} chars): "${cleanedTranscription}"`);
 
       // Se a transcrição estiver vazia ou muito curta, pode ser ruído
       if (cleanedTranscription.length < 3) {
-        console.warn('[OpenAI] ⚠️ Transcription too short, might be noise');
-        throw new Error('Audio transcription resulted in empty or invalid text');
+        console.warn("[OpenAI] ⚠️ Transcription too short, might be noise");
+        throw new Error("Audio transcription resulted in empty or invalid text");
       }
 
       return cleanedTranscription;
     } catch (error: any) {
-      console.error('[OpenAI] ❌ Error transcribing audio:', error);
+      console.error("[OpenAI] ❌ Error transcribing audio:", error);
 
       // Log detalhado do erro para debug
       if (error.response) {
-        console.error('[OpenAI] Error response:', JSON.stringify(error.response.data, null, 2));
+        console.error("[OpenAI] Error response:", JSON.stringify(error.response.data, null, 2));
       }
 
       // Tratamento de erros específicos
-      if (error.code === 'insufficient_quota') {
-        throw new Error('OpenAI API quota exceeded. Please check your billing.');
-      } else if (error.code === 'invalid_api_key') {
-        throw new Error('Invalid OpenAI API key.');
+      if (error.code === "insufficient_quota") {
+        throw new Error("OpenAI API quota exceeded. Please check your billing.");
+      } else if (error.code === "invalid_api_key") {
+        throw new Error("Invalid OpenAI API key.");
       } else if (error.status === 429) {
-        throw new Error('OpenAI API rate limit exceeded. Please try again later.');
-      } else if (error.message?.includes('invalid_file') || error.message?.includes('Invalid file format')) {
-        throw new Error('Invalid audio format. Please try sending the audio again.');
+        throw new Error("OpenAI API rate limit exceeded. Please try again later.");
+      } else if (error.message?.includes("invalid_file") || error.message?.includes("Invalid file format")) {
+        throw new Error("Invalid audio format. Please try sending the audio again.");
       }
 
       throw new Error(`Failed to transcribe audio: ${error.message}`);
@@ -310,12 +310,12 @@ class OpenAIService {
     try {
       await this.client.chat.completions.create({
         model: this.model,
-        messages: [{ role: 'user', content: 'test' }],
+        messages: [{ role: "user", content: "test" }],
         max_tokens: 5,
       });
       return true;
     } catch (error) {
-      console.error('[OpenAI] Connection test failed:', error);
+      console.error("[OpenAI] Connection test failed:", error);
       return false;
     }
   }
@@ -325,22 +325,22 @@ class OpenAIService {
    */
   getModelInfo() {
     return {
-      provider: 'OpenAI',
+      provider: "OpenAI",
       model: this.model,
       maxTokens: 16384, // GPT-4o Mini context window
       pricing: {
-        input: '$0.15 / 1M tokens',
-        output: '$0.60 / 1M tokens',
-        whisper: '$0.006 / minute',
-        vision: 'GPT-4o pricing applies',
+        input: "$0.15 / 1M tokens",
+        output: "$0.60 / 1M tokens",
+        whisper: "$0.006 / minute",
+        vision: "GPT-4o pricing applies",
       },
       features: [
-        'Rápido e econômico',
-        'Ideal para atendimento em escala',
-        'Baixa latência',
-        'Boa qualidade para conversas simples',
-        'Transcrição de áudio com Whisper API',
-        'Análise de imagens com GPT-4o Vision',
+        "Rápido e econômico",
+        "Ideal para atendimento em escala",
+        "Baixa latência",
+        "Boa qualidade para conversas simples",
+        "Transcrição de áudio com Whisper API",
+        "Análise de imagens com GPT-4o Vision",
       ],
     };
   }

@@ -251,7 +251,7 @@ class MessageService {
       const phone = remoteJid.replace("@s.whatsapp.net", "");
 
       // Detecta automaticamente se é um grupo do WhatsApp
-      const isGroup = phone.includes('@g.us');
+      const isGroup = phone.includes("@g.us");
 
       // Busca ou cria cliente (Upsert otimizado)
       let customer = await prisma.customer.findUnique({
@@ -300,7 +300,7 @@ class MessageService {
           hasBase64: !!base64Audio,
           base64Length: base64Audio ? base64Audio.length : 0,
           hasUrl: !!audioUrl,
-          audioUrl: audioUrl || 'null',
+          audioUrl: audioUrl || "null",
           mimetype: msgData.audioMessage.mimetype,
           seconds: msgData.audioMessage.seconds,
         });
@@ -311,7 +311,7 @@ class MessageService {
           // Estratégia 1: Usar base64 se disponível
           if (base64Audio && base64Audio.length > 0) {
             console.log(`[MessageService] 📦 Using base64 audio data`);
-            audioBuffer = Buffer.from(base64Audio, 'base64');
+            audioBuffer = Buffer.from(base64Audio, "base64");
           }
           // Estratégia 2: Baixar através da Evolution API (descriptografa automaticamente)
           else if (data.key) {
@@ -322,14 +322,14 @@ class MessageService {
           // Estratégia 3: Fallback - tentar baixar direto da URL (pode não funcionar se encriptado)
           else if (audioUrl) {
             console.log(`[MessageService] ⚠️ Trying direct URL download (may fail if encrypted)...`);
-            audioBuffer = await openaiService.transcribeAudio(audioUrl) as any; // Usa a função que já baixa
+            audioBuffer = (await openaiService.transcribeAudio(audioUrl)) as any; // Usa a função que já baixa
           }
 
           if (audioBuffer && audioBuffer.length > 0) {
             console.log(`[MessageService] 🎤 Transcribing audio (${(audioBuffer.length / 1024).toFixed(2)} KB)...`);
 
             // Converte buffer para base64 para passar ao OpenAI
-            const base64ForTranscription = audioBuffer.toString('base64');
+            const base64ForTranscription = audioBuffer.toString("base64");
             const transcription = await openaiService.transcribeAudio(base64ForTranscription);
 
             console.log(`[MessageService] ✅ Transcription successful: "${transcription}"`);
@@ -365,7 +365,7 @@ class MessageService {
           hasBase64: !!base64Image,
           hasUrl: !!imageUrl,
           hasCaption: !!caption,
-          caption: caption || 'none',
+          caption: caption || "none",
           mimetype: msgData.imageMessage.mimetype,
         });
 
@@ -375,7 +375,7 @@ class MessageService {
           // Estratégia 1: Usar base64 se disponível
           if (base64Image && base64Image.length > 0) {
             console.log(`[MessageService] 📦 Using base64 image data`);
-            imageBuffer = Buffer.from(base64Image, 'base64');
+            imageBuffer = Buffer.from(base64Image, "base64");
           }
           // Estratégia 2: Baixar através da Evolution API (descriptografa automaticamente)
           else if (data.key) {
@@ -388,10 +388,10 @@ class MessageService {
             console.log(`[MessageService] 📷 Image downloaded: ${(imageBuffer.length / 1024).toFixed(2)} KB`);
 
             // Detecta o mimetype (padrão JPEG se não especificado)
-            const mimetype = msgData.imageMessage.mimetype || 'image/jpeg';
+            const mimetype = msgData.imageMessage.mimetype || "image/jpeg";
 
             // Salva a imagem como Data URI para exibição no frontend
-            const base64ForDisplay = imageBuffer.toString('base64');
+            const base64ForDisplay = imageBuffer.toString("base64");
             mediaUrl = `data:${mimetype};base64,${base64ForDisplay}`;
 
             // Conteúdo inicial com legenda (se houver)
