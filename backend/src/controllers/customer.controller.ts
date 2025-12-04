@@ -1,12 +1,8 @@
-import { Request, Response } from 'express';
-import { customerService } from '../services/customer.service';
-import tagService from '../services/tag.service';
-import {
-  validateCreateCustomer,
-  validateUpdateCustomer,
-  validateCustomerFilters,
-} from '../utils/validation.customer';
-import { ZodError } from 'zod';
+import { Request, Response } from "express";
+import { customerService } from "../services/customer.service";
+import tagService from "../services/tag.service";
+import { validateCreateCustomer, validateUpdateCustomer, validateCustomerFilters, validateImportCustomers } from "../utils/validation.customer";
+import { ZodError } from "zod";
 
 export class CustomerController {
   async create(req: Request, res: Response): Promise<void> {
@@ -14,34 +10,34 @@ export class CustomerController {
       if (!req.user) {
         res.status(401).json({
           success: false,
-          message: 'Não autenticado',
+          message: "Não autenticado",
         });
         return;
       }
 
-      console.log('[Customer Controller] Create request:', {
+      console.log("[Customer Controller] Create request:", {
         companyId: req.user.companyId,
         body: req.body,
       });
 
       const validatedData = validateCreateCustomer(req.body);
-      console.log('[Customer Controller] Validated data:', validatedData);
+      console.log("[Customer Controller] Validated data:", validatedData);
 
       const customer = await customerService.create(req.user.companyId, validatedData);
-      console.log('[Customer Controller] Customer created:', customer.id);
+      console.log("[Customer Controller] Customer created:", customer.id);
 
       res.status(201).json({
         success: true,
-        message: 'Cliente criado com sucesso',
+        message: "Cliente criado com sucesso",
         data: customer,
       });
     } catch (error) {
       if (error instanceof ZodError) {
         res.status(400).json({
           success: false,
-          message: 'Dados inválidos',
+          message: "Dados inválidos",
           errors: error.errors.map((err) => ({
-            field: err.path.join('.'),
+            field: err.path.join("."),
             message: err.message,
           })),
         });
@@ -58,7 +54,7 @@ export class CustomerController {
 
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor',
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -68,7 +64,7 @@ export class CustomerController {
       if (!req.user) {
         res.status(401).json({
           success: false,
-          message: 'Não autenticado',
+          message: "Não autenticado",
         });
         return;
       }
@@ -84,9 +80,9 @@ export class CustomerController {
       if (error instanceof ZodError) {
         res.status(400).json({
           success: false,
-          message: 'Filtros inválidos',
+          message: "Filtros inválidos",
           errors: error.errors.map((err) => ({
-            field: err.path.join('.'),
+            field: err.path.join("."),
             message: err.message,
           })),
         });
@@ -95,7 +91,7 @@ export class CustomerController {
 
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor',
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -105,7 +101,7 @@ export class CustomerController {
       if (!req.user) {
         res.status(401).json({
           success: false,
-          message: 'Não autenticado',
+          message: "Não autenticado",
         });
         return;
       }
@@ -116,7 +112,7 @@ export class CustomerController {
       if (!customer) {
         res.status(404).json({
           success: false,
-          message: 'Cliente não encontrado',
+          message: "Cliente não encontrado",
         });
         return;
       }
@@ -128,7 +124,7 @@ export class CustomerController {
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor',
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -138,31 +134,27 @@ export class CustomerController {
       if (!req.user) {
         res.status(401).json({
           success: false,
-          message: 'Não autenticado',
+          message: "Não autenticado",
         });
         return;
       }
 
       const { id } = req.params;
       const validatedData = validateUpdateCustomer(req.body);
-      const customer = await customerService.update(
-        id,
-        req.user.companyId,
-        validatedData
-      );
+      const customer = await customerService.update(id, req.user.companyId, validatedData);
 
       res.status(200).json({
         success: true,
-        message: 'Cliente atualizado com sucesso',
+        message: "Cliente atualizado com sucesso",
         data: customer,
       });
     } catch (error) {
       if (error instanceof ZodError) {
         res.status(400).json({
           success: false,
-          message: 'Dados inválidos',
+          message: "Dados inválidos",
           errors: error.errors.map((err) => ({
-            field: err.path.join('.'),
+            field: err.path.join("."),
             message: err.message,
           })),
         });
@@ -179,7 +171,7 @@ export class CustomerController {
 
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor',
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -189,7 +181,7 @@ export class CustomerController {
       if (!req.user) {
         res.status(401).json({
           success: false,
-          message: 'Não autenticado',
+          message: "Não autenticado",
         });
         return;
       }
@@ -199,7 +191,7 @@ export class CustomerController {
 
       res.status(200).json({
         success: true,
-        message: 'Cliente excluído com sucesso',
+        message: "Cliente excluído com sucesso",
       });
     } catch (error) {
       if (error instanceof Error) {
@@ -212,7 +204,7 @@ export class CustomerController {
 
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor',
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -222,7 +214,7 @@ export class CustomerController {
       if (!req.user) {
         res.status(401).json({
           success: false,
-          message: 'Não autenticado',
+          message: "Não autenticado",
         });
         return;
       }
@@ -236,7 +228,7 @@ export class CustomerController {
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor',
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -244,31 +236,60 @@ export class CustomerController {
   async getAllTags(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) {
-        console.error('[Customer Controller] getAllTags: User not authenticated');
+        console.error("[Customer Controller] getAllTags: User not authenticated");
         res.status(401).json({
           success: false,
-          message: 'Não autenticado',
+          message: "Não autenticado",
         });
         return;
       }
 
-      console.log('[Customer Controller] getAllTags: Getting tags for company', req.user.companyId);
+      console.log("[Customer Controller] getAllTags: Getting tags for company", req.user.companyId);
 
       // Usa o tag service que retorna as tags cadastradas no sistema
       const tags = await tagService.findAllNames(req.user.companyId);
 
-      console.log('[Customer Controller] getAllTags: Found tags', tags);
+      console.log("[Customer Controller] getAllTags: Found tags", tags);
 
       res.status(200).json({
         success: true,
         data: tags,
       });
     } catch (error: any) {
-      console.error('[Customer Controller] getAllTags error:', error);
+      console.error("[Customer Controller] getAllTags error:", error);
       res.status(500).json({
         success: false,
-        message: error.message || 'Erro interno do servidor',
+        message: error.message || "Erro interno do servidor",
       });
+    }
+  }
+
+  async import(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, message: "Não autenticado" });
+        return;
+      }
+
+      const validatedData = validateImportCustomers(req.body);
+
+      const result = await customerService.import(req.user.companyId, validatedData);
+
+      res.status(200).json({
+        success: true,
+        message: `Importação concluída. ${result.success} importados, ${result.failed} falharam.`,
+        data: result,
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({
+          success: false,
+          message: "Dados inválidos no arquivo",
+          errors: error.errors,
+        });
+        return;
+      }
+      res.status(500).json({ success: false, message: "Erro interno do servidor" });
     }
   }
 }

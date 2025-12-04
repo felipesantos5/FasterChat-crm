@@ -1,7 +1,7 @@
-import { Customer } from '@prisma/client';
-import { prisma } from '../utils/prisma';
-import { CreateCustomerDTO, UpdateCustomerDTO, CustomerFilters } from '../types/customer';
-import tagService from './tag.service';
+import { Customer } from "@prisma/client";
+import { prisma } from "../utils/prisma";
+import { CreateCustomerDTO, UpdateCustomerDTO, CustomerFilters } from "../types/customer";
+import tagService from "./tag.service";
 
 export class CustomerService {
   async create(companyId: string, data: CreateCustomerDTO): Promise<Customer> {
@@ -16,24 +16,24 @@ export class CustomerService {
     });
 
     if (existingCustomer) {
-      throw new Error('Telefone já cadastrado para esta empresa');
+      throw new Error("Telefone já cadastrado para esta empresa");
     }
 
     // Salva automaticamente as tags no sistema
     if (data.tags && data.tags.length > 0) {
-      console.log('[Customer Service] Saving tags for customer:', data.tags);
+      console.log("[Customer Service] Saving tags for customer:", data.tags);
       await tagService.createOrGetMany(companyId, data.tags);
     }
 
     // Detecta automaticamente se é um grupo do WhatsApp
     // Grupos do WhatsApp sempre contêm "@g.us" no número
-    const isGroup = data.phone.includes('@g.us');
+    const isGroup = data.phone.includes("@g.us");
 
-    console.log('[Customer Service] Creating customer with data:', {
+    console.log("[Customer Service] Creating customer with data:", {
       companyId,
       name: data.name,
       tags: data.tags,
-      isGroup
+      isGroup,
     });
 
     return prisma.customer.create({
@@ -48,10 +48,7 @@ export class CustomerService {
     });
   }
 
-  async findAll(
-    companyId: string,
-    filters: CustomerFilters
-  ): Promise<{ customers: Customer[]; total: number; page: number; limit: number }> {
+  async findAll(companyId: string, filters: CustomerFilters): Promise<{ customers: Customer[]; total: number; page: number; limit: number }> {
     const { search, tags, page = 1, limit = 10 } = filters;
     const skip = (page - 1) * limit;
 
@@ -61,9 +58,9 @@ export class CustomerService {
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: "insensitive" } },
         { phone: { contains: search } },
-        { email: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: "insensitive" } },
       ];
     }
 
@@ -78,7 +75,7 @@ export class CustomerService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       prisma.customer.count({ where }),
     ]);
@@ -100,15 +97,11 @@ export class CustomerService {
     });
   }
 
-  async update(
-    id: string,
-    companyId: string,
-    data: UpdateCustomerDTO
-  ): Promise<Customer> {
+  async update(id: string, companyId: string, data: UpdateCustomerDTO): Promise<Customer> {
     // Check if customer exists and belongs to company
     const customer = await this.findById(id, companyId);
     if (!customer) {
-      throw new Error('Cliente não encontrado');
+      throw new Error("Cliente não encontrado");
     }
 
     // If updating phone, check if it's already in use
@@ -123,7 +116,7 @@ export class CustomerService {
       });
 
       if (existingCustomer) {
-        throw new Error('Telefone já cadastrado para esta empresa');
+        throw new Error("Telefone já cadastrado para esta empresa");
       }
     }
 
@@ -136,7 +129,7 @@ export class CustomerService {
       where: { id },
       data: {
         ...data,
-        email: data.email === '' ? null : data.email,
+        email: data.email === "" ? null : data.email,
       },
     });
   }
@@ -145,7 +138,7 @@ export class CustomerService {
     // Check if customer exists and belongs to company
     const customer = await this.findById(id, companyId);
     if (!customer) {
-      throw new Error('Cliente não encontrado');
+      throw new Error("Cliente não encontrado");
     }
 
     await prisma.customer.delete({
@@ -212,6 +205,62 @@ export class CustomerService {
     });
 
     return Array.from(allTags).sort();
+  }
+
+  async import(companyId: string, customers: CreateCustomerDTO[]): Promise<{ success: number; failed: number; errors: any[] }> {
+    let success = 0;
+    let failed = 0;
+    const errors: any[] = [];
+
+    // Processa em série para não sobrecarregar o banco com muitas conexões simultâneas
+    // Em produção com milhares de registros, usaríamos createMany, mas aqui precisamos da lógica de tags
+    for (const data of customers) {
+      try {
+        // 1. Verifica duplicidade (mesma lógica do create)
+        const existingCustomer = await prisma.customer.findUnique({
+          where: {
+            companyId_phone: {
+              companyId,
+              phone: data.phone,
+            },
+          },
+        });
+
+        if (existingCustomer) {
+          // Opcional: Atualizar se já existe ou apenas pular
+          failed++;
+          errors.push({ phone: data.phone, error: "Telefone já cadastrado" });
+          continue;
+        }
+
+        // 2. Salva tags no sistema
+        if (data.tags && data.tags.length > 0) {
+          await tagService.createOrGetMany(companyId, data.tags);
+        }
+
+        // 3. Detecta grupo
+        const isGroup = data.phone.includes("@g.us");
+
+        // 4. Cria cliente
+        await prisma.customer.create({
+          data: {
+            ...data,
+            companyId,
+            email: data.email || null,
+            tags: data.tags || [],
+            notes: data.notes || null,
+            isGroup,
+          },
+        });
+
+        success++;
+      } catch (error: any) {
+        failed++;
+        errors.push({ phone: data.phone, error: error.message });
+      }
+    }
+
+    return { success, failed, errors };
   }
 }
 
