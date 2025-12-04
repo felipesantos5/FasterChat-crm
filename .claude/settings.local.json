@@ -22,7 +22,14 @@
       "Bash(dir nul)",
       "Bash(del /F /Q \"\\?\\%CD%\\nul\")",
       "Bash(powershell -Command:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(dir:*)",
+      "Bash(npm run prisma:seed:*)",
+      "Bash(npm run seed:*)",
+      "Bash(npm run db:seed:*)",
+      "Bash(tasklist:*)",
+      "Bash(npm run db:generate:*)",
+      "Bash(del /F /Q query_engine-windows.dll.node)"
     ],
     "deny": [],
     "ask": []

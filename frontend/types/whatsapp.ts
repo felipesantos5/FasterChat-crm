@@ -7,11 +7,13 @@ export enum WhatsAppStatus {
 export interface WhatsAppInstance {
   id: string;
   companyId: string;
-  instanceName: string;
+  instanceName: string; // Nome técnico usado pela Evolution API
+  displayName?: string | null; // Nome amigável definido pelo usuário
   apiKey?: string | null;
   qrCode?: string | null;
   status: WhatsAppStatus;
   phoneNumber?: string | null;
+  connectedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

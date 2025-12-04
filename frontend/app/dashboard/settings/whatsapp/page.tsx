@@ -214,9 +214,9 @@ export default function WhatsAppSettingsPage() {
           <CardDescription>Conecte sua conta do WhatsApp para enviar e receber mensagens através do CRM</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={handleCreateInstance} disabled={creating || instances.some((i) => i.status === WhatsAppStatus.CONNECTED)}>
+          <Button onClick={handleCreateInstance} disabled={creating}>
             {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {instances.some((i) => i.status === WhatsAppStatus.CONNECTED) ? "WhatsApp Já Conectado" : "Conectar WhatsApp"}
+            Adicionar WhatsApp
           </Button>
         </CardContent>
       </Card>
@@ -242,10 +242,15 @@ export default function WhatsAppSettingsPage() {
                 <div key={instance.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium">{instance.instanceName}</p>
+                      <p className="font-medium">{instance.displayName || instance.instanceName}</p>
                       {getStatusBadge(instance.status)}
                     </div>
-                    {instance.phoneNumber && <p className="text-sm text-muted-foreground">Telefone: {instance.phoneNumber}</p>}
+                    {instance.phoneNumber && <p className="text-sm text-muted-foreground">Número: {instance.phoneNumber}</p>}
+                    {instance.connectedAt && (
+                      <p className="text-sm text-muted-foreground">
+                        Conectado desde: {new Date(instance.connectedAt).toLocaleString("pt-BR")}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">Criado em: {new Date(instance.createdAt).toLocaleString("pt-BR")}</p>
                   </div>
 
@@ -321,7 +326,7 @@ export default function WhatsAppSettingsPage() {
             setInstanceToAction(null);
           }}
           onConfirm={handleDisconnect}
-          instanceName={instanceToAction.instanceName}
+          instanceName={instanceToAction.displayName || instanceToAction.instanceName}
           phoneNumber={instanceToAction.phoneNumber}
           isDeleting={false}
         />
@@ -336,7 +341,7 @@ export default function WhatsAppSettingsPage() {
             setInstanceToAction(null);
           }}
           onConfirm={handleDelete}
-          instanceName={instanceToAction.instanceName}
+          instanceName={instanceToAction.displayName || instanceToAction.instanceName}
           phoneNumber={instanceToAction.phoneNumber}
           isDeleting={true}
         />

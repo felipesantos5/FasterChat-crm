@@ -98,4 +98,6 @@ export interface ConversationSummary {
   isGroup: boolean; // Identifica se é um grupo do WhatsApp
   assignedToId: string | null;
   assignedToName: string | null;
+  whatsappInstanceId: string; // ID da instância do WhatsApp
+  whatsappInstanceName: string; // Nome da instância
 }

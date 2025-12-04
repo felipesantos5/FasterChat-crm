@@ -21,6 +21,7 @@ import { MessageFeedbackComponent } from "@/components/chat/message-feedback";
 import { AudioPlayer } from "@/components/chat/audio-player";
 import { MessageText } from "@/components/chat/message-text";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { toast } from "sonner";
 
 interface ChatAreaProps {
   customerId: string;
@@ -220,7 +221,7 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
       setTimeout(loadMessages, 500);
     } catch (error: any) {
       console.error("Error sending message:", error);
-      alert(error.response?.data?.message || "Erro ao enviar mensagem");
+      toast.error(error.response?.data?.message || "Erro ao enviar mensagem");
       setInputValue(messageContent); // Restaura o texto
     } finally {
       setSending(false);
@@ -234,9 +235,10 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
       const newAiState = !conversation?.aiEnabled;
       await conversationApi.toggleAI(customerId, newAiState);
       await loadConversation();
+      toast.success(newAiState ? "IA ativada com sucesso!" : "IA desativada com sucesso!");
     } catch (error: any) {
       console.error("Error toggling AI:", error);
-      alert(error.response?.data?.message || "Erro ao alterar estado da IA");
+      toast.error(error.response?.data?.message || "Erro ao alterar estado da IA");
     } finally {
       setTogglingAi(false);
     }
@@ -259,17 +261,17 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
         // Remove marcação
         await conversationExampleApi.removeExample(conversation.id);
         setIsExample(false);
-        alert("Conversa desmarcada como exemplo");
+        toast.success("Conversa desmarcada como exemplo");
       } else {
         // Marca como exemplo
         await conversationExampleApi.markAsExample(conversation.id, exampleNotes);
         setIsExample(true);
         setShowExampleModal(false);
-        alert("Conversa marcada como exemplo com sucesso!");
+        toast.success("Conversa marcada como exemplo com sucesso!");
       }
     } catch (error: any) {
       console.error("Error marking as example:", error);
-      alert(error.response?.data?.message || "Erro ao marcar conversa como exemplo");
+      toast.error(error.response?.data?.message || "Erro ao marcar conversa como exemplo");
     } finally {
       setMarkingExample(false);
     }
@@ -284,9 +286,11 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
       setMessages((prevMessages) =>
         prevMessages.map((msg) => (msg.id === messageId ? { ...msg, feedback: feedback as any, feedbackNote: note || null } : msg))
       );
+
+      toast.success(feedback === "GOOD" ? "Feedback positivo registrado!" : "Feedback negativo registrado!");
     } catch (error: any) {
       console.error("Error submitting feedback:", error);
-      alert(error.response?.data?.message || "Erro ao enviar feedback");
+      toast.error(error.response?.data?.message || "Erro ao enviar feedback");
       throw error;
     }
   };

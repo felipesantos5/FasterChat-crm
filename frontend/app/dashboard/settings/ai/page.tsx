@@ -270,7 +270,7 @@ export default function AISettingsPage() {
               segundos de inatividade.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 p-8">
             {/* Sobre sua empresa */}
             <ExpandableTextarea
               id="companyInfo"
@@ -355,7 +355,7 @@ export default function AISettingsPage() {
             </CardTitle>
             <CardDescription>Ajuste fino do comportamento da IA e respostas automáticas</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 p-8">
             {/* Resposta Automática Habilitada */}
             <div className="flex items-center justify-between space-x-4 p-4 border rounded-lg">
               <div className="space-y-0.5">

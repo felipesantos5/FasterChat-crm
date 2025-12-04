@@ -18,6 +18,7 @@ import { MessageSquarePlus, Loader2, AlertCircle } from "lucide-react";
 import { customerApi } from "@/lib/customer";
 import { conversationApi } from "@/lib/conversation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 interface NewConversationDialogProps {
   trigger?: React.ReactNode;
@@ -127,8 +128,13 @@ export function NewConversationDialog({
 
       // Cria ou obtém a conversa para esse cliente
       console.log("Iniciando conversa para cliente:", customer.id);
-      await conversationApi.getConversation(customer.id, companyId);
+      const conversationResponse = await conversationApi.getConversation(customer.id, companyId);
       console.log("Conversa iniciada com sucesso!");
+
+      // Mostra toast de sucesso
+      toast.success("Conversa criada!", {
+        description: `Você pode enviar mensagens para ${formData.name.trim()}`,
+      });
 
       // Reseta o formulário
       setFormData({ name: "", phone: "" });
@@ -136,8 +142,10 @@ export function NewConversationDialog({
 
       // Callback ou navega para a conversa
       if (onConversationCreated) {
+        // Chama o callback passando o customerId
         onConversationCreated(customer.id);
       } else {
+        // Se não tem callback, navega diretamente
         router.push(`/dashboard/conversations?customer=${customer.id}`);
       }
     } catch (err: any) {

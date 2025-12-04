@@ -1,7 +1,7 @@
 import { User } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { hashPassword, comparePassword } from '../utils/password';
-import { generateToken } from '../utils/jwt';
+import { generateToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { SignupDTO, LoginDTO, AuthResponse, JWTPayload } from '../types/auth';
 
 export class AuthService {
@@ -52,6 +52,7 @@ export class AuthService {
     };
 
     const token = generateToken(jwtPayload);
+    const refreshToken = generateRefreshToken(jwtPayload);
 
     return {
       user: {
@@ -62,6 +63,7 @@ export class AuthService {
         companyId: result.user.companyId,
       },
       token,
+      refreshToken,
     };
   }
 
@@ -93,6 +95,7 @@ export class AuthService {
     };
 
     const token = generateToken(jwtPayload);
+    const refreshToken = generateRefreshToken(jwtPayload);
 
     return {
       user: {
@@ -103,7 +106,40 @@ export class AuthService {
         companyId: user.companyId,
       },
       token,
+      refreshToken,
     };
+  }
+
+  async refreshToken(refreshToken: string): Promise<{ token: string; refreshToken: string }> {
+    try {
+      // Verifica o refresh token
+      const payload = verifyRefreshToken(refreshToken);
+
+      // Busca o usuário para garantir que ainda existe
+      const user = await this.getUserById(payload.userId);
+
+      if (!user) {
+        throw new Error('Usuário não encontrado');
+      }
+
+      // Gera novos tokens
+      const jwtPayload: JWTPayload = {
+        userId: user.id,
+        email: user.email,
+        companyId: user.companyId,
+        role: user.role,
+      };
+
+      const newToken = generateToken(jwtPayload);
+      const newRefreshToken = generateRefreshToken(jwtPayload);
+
+      return {
+        token: newToken,
+        refreshToken: newRefreshToken,
+      };
+    } catch (error) {
+      throw new Error('Refresh token inválido ou expirado');
+    }
   }
 
   async getUserById(userId: string): Promise<User | null> {

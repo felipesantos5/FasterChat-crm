@@ -8,6 +8,13 @@ class DashboardController {
    */
   async getStats(req: Request, res: Response) {
     try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: "User not authenticated",
+        });
+      }
+
       const companyId = req.user.companyId;
       const period = (req.query.period as "today" | "week" | "month") || "today";
 

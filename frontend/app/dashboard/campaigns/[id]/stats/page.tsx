@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { campaignApi } from '@/lib/campaign';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, RefreshCw, CheckCircle2, XCircle, Clock } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { campaignApi } from "@/lib/campaign";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Loader2, RefreshCw, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface CampaignStats {
   total: number;
@@ -25,7 +25,7 @@ interface CampaignLog {
   id: string;
   customerName: string;
   customerPhone: string;
-  status: 'PENDING' | 'SENT' | 'FAILED';
+  status: "PENDING" | "SENT" | "FAILED";
   message: string;
   error?: string;
   sentAt?: string;
@@ -49,7 +49,7 @@ export default function CampaignStatsPage() {
       const statsData = await campaignApi.getStats(campaignId);
       setStats(statsData);
     } catch (error) {
-      console.error('Error loading stats:', error);
+      console.error("Error loading stats:", error);
     }
   };
 
@@ -60,7 +60,7 @@ export default function CampaignStatsPage() {
       setPage(logsData.page);
       setTotalPages(logsData.totalPages);
     } catch (error) {
-      console.error('Error loading logs:', error);
+      console.error("Error loading logs:", error);
     }
   };
 
@@ -81,7 +81,7 @@ export default function CampaignStatsPage() {
 
     // Auto-refresh a cada 5 segundos se a campanha estiver processando
     const interval = setInterval(() => {
-      if (stats?.status === 'PROCESSING') {
+      if (stats?.status === "PROCESSING") {
         loadStats();
       }
     }, 5000);
@@ -91,21 +91,21 @@ export default function CampaignStatsPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'SENT':
+      case "SENT":
         return (
           <Badge className="bg-green-500 hover:bg-green-600">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Enviada
           </Badge>
         );
-      case 'FAILED':
+      case "FAILED":
         return (
           <Badge variant="destructive">
             <XCircle className="h-3 w-3 mr-1" />
             Falhou
           </Badge>
         );
-      case 'PENDING':
+      case "PENDING":
         return (
           <Badge variant="secondary">
             <Clock className="h-3 w-3 mr-1" />
@@ -126,7 +126,7 @@ export default function CampaignStatsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -140,7 +140,7 @@ export default function CampaignStatsPage() {
           </div>
         </div>
         <Button onClick={handleRefresh} disabled={refreshing} variant="outline">
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
           Atualizar
         </Button>
       </div>
@@ -185,15 +185,15 @@ export default function CampaignStatsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Progresso</h3>
-              <Badge variant={stats.status === 'PROCESSING' ? 'default' : 'secondary'}>
-                {stats.status}
-              </Badge>
+              <Badge variant={stats.status === "PROCESSING" ? "default" : "secondary"}>{stats.status}</Badge>
             </div>
 
             {/* Progress Bar */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>Processadas: {stats.sent + stats.failed} de {stats.total}</span>
+                <span>
+                  Processadas: {stats.sent + stats.failed} de {stats.total}
+                </span>
                 <span>{Math.round(((stats.sent + stats.failed) / stats.total) * 100)}%</span>
               </div>
               <div className="w-full bg-secondary rounded-full h-2">
@@ -244,13 +244,9 @@ export default function CampaignStatsPage() {
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
                           {log.message.substring(0, 100)}
-                          {log.message.length > 100 ? '...' : ''}
+                          {log.message.length > 100 ? "..." : ""}
                         </p>
-                        {log.error && (
-                          <p className="text-sm text-red-600 mt-1">
-                            ❌ Erro: {log.error}
-                          </p>
-                        )}
+                        {log.error && <p className="text-sm text-red-600 mt-1">❌ Erro: {log.error}</p>}
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         {getStatusBadge(log.status)}
@@ -274,20 +270,10 @@ export default function CampaignStatsPage() {
                 Página {page} de {totalPages}
               </p>
               <div className="flex gap-2">
-                <Button
-                  onClick={() => loadLogs(page - 1)}
-                  disabled={page === 1}
-                  variant="outline"
-                  size="sm"
-                >
+                <Button onClick={() => loadLogs(page - 1)} disabled={page === 1} variant="outline" size="sm">
                   Anterior
                 </Button>
-                <Button
-                  onClick={() => loadLogs(page + 1)}
-                  disabled={page === totalPages}
-                  variant="outline"
-                  size="sm"
-                >
+                <Button onClick={() => loadLogs(page + 1)} disabled={page === totalPages} variant="outline" size="sm">
                   Próxima
                 </Button>
               </div>

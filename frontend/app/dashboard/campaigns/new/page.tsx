@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { campaignApi } from '@/lib/campaign';
-import { customerApi } from '@/lib/customer';
-import { CampaignType } from '@/types/campaign';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TagSelector } from '@/components/forms/tag-selector';
-import { ArrowLeft, Loader2, Users } from 'lucide-react';
-import { Tag } from '@/lib/tag';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { campaignApi } from "@/lib/campaign";
+import { customerApi } from "@/lib/customer";
+import { CampaignType } from "@/types/campaign";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TagSelector } from "@/components/forms/tag-selector";
+import { ArrowLeft, Loader2, Users } from "lucide-react";
+import { Tag } from "@/lib/tag";
 
 export default function NewCampaignPage() {
   const router = useRouter();
@@ -23,15 +23,15 @@ export default function NewCampaignPage() {
   const [loadingEstimate, setLoadingEstimate] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: '',
-    messageTemplate: '',
+    name: "",
+    messageTemplate: "",
     targetTags: [] as string[],
     type: CampaignType.MANUAL,
-    scheduledAt: '',
+    scheduledAt: "",
   });
 
   const getCompanyId = () => {
-    const user = localStorage.getItem('user');
+    const user = localStorage.getItem("user");
     if (user) {
       const userData = JSON.parse(user);
       return userData.companyId;
@@ -43,9 +43,9 @@ export default function NewCampaignPage() {
     try {
       const tags = await customerApi.getAllTags();
       setAvailableTags(tags);
-      console.log('[CampaignForm] Tags loaded:', tags);
+      console.log("[CampaignForm] Tags loaded:", tags);
     } catch (error) {
-      console.error('[CampaignForm] Error loading tags:', error);
+      console.error("[CampaignForm] Error loading tags:", error);
     }
   };
 
@@ -71,7 +71,7 @@ export default function NewCampaignPage() {
       const result = await campaignApi.estimateReach(companyId, formData.targetTags);
       setEstimate(result);
     } catch (error) {
-      console.error('Error loading estimate:', error);
+      console.error("Error loading estimate:", error);
     } finally {
       setLoadingEstimate(false);
     }
@@ -82,9 +82,7 @@ export default function NewCampaignPage() {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     if (minutes < 60) {
-      return remainingSeconds > 0
-        ? `${minutes} min ${remainingSeconds}s`
-        : `${minutes} minutos`;
+      return remainingSeconds > 0 ? `${minutes} min ${remainingSeconds}s` : `${minutes} minutos`;
     }
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
@@ -95,12 +93,12 @@ export default function NewCampaignPage() {
     e.preventDefault();
 
     if (!formData.name || !formData.messageTemplate || formData.targetTags.length === 0) {
-      alert('Por favor, preencha todos os campos obrigatórios');
+      alert("Por favor, preencha todos os campos obrigatórios");
       return;
     }
 
     if (formData.type === CampaignType.SCHEDULED && !formData.scheduledAt) {
-      alert('Por favor, defina a data e hora do agendamento');
+      alert("Por favor, defina a data e hora do agendamento");
       return;
     }
 
@@ -108,7 +106,7 @@ export default function NewCampaignPage() {
       setLoading(true);
       const companyId = getCompanyId();
       if (!companyId) {
-        alert('Empresa não encontrada');
+        alert("Empresa não encontrada");
         return;
       }
 
@@ -121,41 +119,31 @@ export default function NewCampaignPage() {
         scheduledAt: formData.scheduledAt || undefined,
       });
 
-      router.push('/dashboard/campaigns');
+      router.push("/dashboard/campaigns");
     } catch (error: any) {
-      console.error('Error creating campaign:', error);
-      alert(error.response?.data?.message || 'Erro ao criar campanha');
+      console.error("Error creating campaign:", error);
+      alert(error.response?.data?.message || "Erro ao criar campanha");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 p-8">
       <div>
-        <Button
-          variant="ghost"
-          onClick={() => router.back()}
-          className="mb-4"
-        >
+        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">Nova Campanha</h1>
-        <p className="text-muted-foreground">
-          Configure e crie uma nova campanha de disparo em massa
-        </p>
+        <p className="text-muted-foreground">Configure e crie uma nova campanha de disparo em massa</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Informações Básicas */}
         <Card>
           <CardHeader>
             <CardTitle>Informações Básicas</CardTitle>
-            <CardDescription>
-              Defina o nome e a mensagem da campanha
-            </CardDescription>
+            <CardDescription>Defina o nome e a mensagem da campanha</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -163,9 +151,7 @@ export default function NewCampaignPage() {
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Ex: Promoção Black Friday 2024"
                 required
               />
@@ -176,16 +162,12 @@ export default function NewCampaignPage() {
               <Textarea
                 id="message"
                 value={formData.messageTemplate}
-                onChange={(e) =>
-                  setFormData({ ...formData, messageTemplate: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, messageTemplate: e.target.value })}
                 placeholder="Digite a mensagem que será enviada para os clientes..."
                 rows={6}
                 required
               />
-              <p className="text-xs text-muted-foreground">
-                Caracteres: {formData.messageTemplate.length}
-              </p>
+              <p className="text-xs text-muted-foreground">Caracteres: {formData.messageTemplate.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -194,29 +176,23 @@ export default function NewCampaignPage() {
         <Card>
           <CardHeader>
             <CardTitle>Público Alvo</CardTitle>
-            <CardDescription>
-              Selecione as tags dos clientes que receberão a campanha
-            </CardDescription>
+            <CardDescription>Selecione as tags dos clientes que receberão a campanha</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Tags Alvo *</Label>
               <TagSelector
                 value={formData.targetTags}
-                onChange={(tags) =>
-                  setFormData({ ...formData, targetTags: tags })
-                }
+                onChange={(tags) => setFormData({ ...formData, targetTags: tags })}
                 availableTags={availableTags}
                 placeholder="Selecionar tags para segmentar clientes..."
                 onTagCreated={async (tag) => {
-                  console.log('[CampaignForm] Nova tag criada:', tag.name);
+                  console.log("[CampaignForm] Nova tag criada:", tag.name);
                   // Recarrega as tags disponíveis
                   await loadTags();
                 }}
               />
-              <p className="text-xs text-muted-foreground">
-                Clientes que possuírem pelo menos uma dessas tags receberão a mensagem
-              </p>
+              <p className="text-xs text-muted-foreground">Clientes que possuírem pelo menos uma dessas tags receberão a mensagem</p>
             </div>
 
             {/* Estimativa */}
@@ -233,11 +209,11 @@ export default function NewCampaignPage() {
                 </div>
                 <div className="space-y-1 text-sm">
                   <p>
-                    <span className="text-muted-foreground">Total de clientes:</span>{' '}
+                    <span className="text-muted-foreground">Total de clientes:</span>{" "}
                     <span className="font-semibold text-lg">{estimate.totalCustomers}</span>
                   </p>
                   <p>
-                    <span className="text-muted-foreground">Tempo estimado:</span>{' '}
+                    <span className="text-muted-foreground">Tempo estimado:</span>{" "}
                     <span className="font-medium">{formatDuration(estimate.estimatedDuration)}</span>
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
@@ -246,9 +222,7 @@ export default function NewCampaignPage() {
                 </div>
               </div>
             ) : formData.targetTags.length > 0 ? (
-              <div className="text-sm text-muted-foreground">
-                Nenhum cliente encontrado com essas tags
-              </div>
+              <div className="text-sm text-muted-foreground">Nenhum cliente encontrado com essas tags</div>
             ) : null}
           </CardContent>
         </Card>
@@ -257,29 +231,18 @@ export default function NewCampaignPage() {
         <Card>
           <CardHeader>
             <CardTitle>Tipo de Envio</CardTitle>
-            <CardDescription>
-              Escolha entre envio imediato ou agendado
-            </CardDescription>
+            <CardDescription>Escolha entre envio imediato ou agendado</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="type">Tipo *</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, type: value as CampaignType })
-                }
-              >
+              <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as CampaignType })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={CampaignType.MANUAL}>
-                    Envio Manual (Disparar quando quiser)
-                  </SelectItem>
-                  <SelectItem value={CampaignType.SCHEDULED}>
-                    Envio Agendado (Data e hora específica)
-                  </SelectItem>
+                  <SelectItem value={CampaignType.MANUAL}>Envio Manual (Disparar quando quiser)</SelectItem>
+                  <SelectItem value={CampaignType.SCHEDULED}>Envio Agendado (Data e hora específica)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -291,15 +254,12 @@ export default function NewCampaignPage() {
                   id="scheduledAt"
                   type="datetime-local"
                   value={formData.scheduledAt}
-                  onChange={(e) =>
-                    setFormData({ ...formData, scheduledAt: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
                   min={new Date().toISOString().slice(0, 16)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Nota: A funcionalidade de agendamento automático ainda não está implementada.
-                  Você precisará disparar manualmente na data escolhida.
+                  Nota: A funcionalidade de agendamento automático ainda não está implementada. Você precisará disparar manualmente na data escolhida.
                 </p>
               </div>
             )}
@@ -308,12 +268,7 @@ export default function NewCampaignPage() {
 
         {/* Actions */}
         <div className="flex justify-end gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={loading}
-          >
+          <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
             Cancelar
           </Button>
           <Button type="submit" disabled={loading}>

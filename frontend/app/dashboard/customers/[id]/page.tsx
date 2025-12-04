@@ -5,23 +5,9 @@ import { useRouter, useParams } from "next/navigation";
 import { customerApi } from "@/lib/customer";
 import { Customer } from "@/types/customer";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerFormModal } from "@/components/forms/customer-form-modal";
-import {
-  ArrowLeft,
-  Phone,
-  Mail,
-  Calendar,
-  Edit,
-  Trash,
-  FileText,
-} from "lucide-react";
+import { ArrowLeft, Phone, Mail, Calendar, Edit, Trash, FileText } from "lucide-react";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { Tag } from "@/lib/tag";
 import { format } from "date-fns";
@@ -92,23 +78,17 @@ export default function CustomerDetailPage() {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center">
         <p className="text-muted-foreground mb-4">Cliente não encontrado</p>
-        <Button onClick={() => router.push("/dashboard/customers")}>
-          Voltar para Clientes
-        </Button>
+        <Button onClick={() => router.push("/dashboard/customers")}>Voltar para Clientes</Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push("/dashboard/customers")}
-          >
+          <Button variant="ghost" size="icon" onClick={() => router.push("/dashboard/customers")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -178,12 +158,7 @@ export default function CustomerDetailPage() {
                 <p className="text-sm font-medium mb-2">Tags</p>
                 <div className="flex flex-wrap gap-2">
                   {customer.tags.map((tag) => (
-                    <TagBadge
-                      key={tag}
-                      tag={tag}
-                      tags={availableTags}
-                      variant="outline"
-                    />
+                    <TagBadge key={tag} tag={tag} tags={availableTags} variant="outline" />
                   ))}
                 </div>
               </div>
@@ -192,7 +167,7 @@ export default function CustomerDetailPage() {
         </Card>
 
         {/* Timeline / Quick Stats */}
-        <div className="space-y-6">
+        <div className="space-y-6 p-8">
           <Card>
             <CardHeader>
               <CardTitle>Estatísticas</CardTitle>
@@ -238,14 +213,10 @@ export default function CustomerDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle>Histórico de Atividades</CardTitle>
-          <CardDescription>
-            Conversas e interações com este cliente
-          </CardDescription>
+          <CardDescription>Conversas e interações com este cliente</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-            Nenhuma atividade registrada
-          </div>
+          <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">Nenhuma atividade registrada</div>
         </CardContent>
       </Card>
 

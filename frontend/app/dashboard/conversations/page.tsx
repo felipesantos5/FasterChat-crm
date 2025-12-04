@@ -9,8 +9,10 @@ import { AdvancedFilters, AdvancedFilters as AdvancedFiltersType } from "@/compo
 import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
 import { useConversations } from "@/hooks/use-conversations";
 import { customerApi } from "@/lib/customer";
+import { whatsappApi } from "@/lib/whatsapp";
 import { Customer } from "@/types/customer";
-import { Loader2, MessageSquare, Search, X, Bot, User, ChevronRight, HelpCircle, MessageSquarePlus } from "lucide-react";
+import { WhatsAppInstance } from "@/types/whatsapp";
+import { Loader2, MessageSquare, Search, X, Bot, User, ChevronRight, HelpCircle, MessageSquarePlus, Smartphone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,8 @@ export default function ConversationsPage() {
   const searchParams = useSearchParams();
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
 
   // Filtros e busca
   const [searchTerm, setSearchTerm] = useState("");
@@ -39,7 +43,7 @@ export default function ConversationsPage() {
 
   // Layout
   const [showSidebar, setShowSidebar] = useState(true);
-  const [showCustomerDetails, setShowCustomerDetails] = useState(true);
+  const [showCustomerDetails, setShowCustomerDetails] = useState(false);
   const sidebarWidth = 360;
 
   // Obtém o companyId do usuário logado
@@ -67,9 +71,21 @@ export default function ConversationsPage() {
     }
   };
 
+  // Carrega instâncias do WhatsApp
+  const loadInstances = async () => {
+    if (!companyId) return;
+    try {
+      const response = await whatsappApi.getInstances(companyId);
+      setInstances(response.data);
+    } catch (err: any) {
+      console.error("Error loading instances:", err);
+    }
+  };
+
   useEffect(() => {
     loadCustomers();
-  }, []);
+    loadInstances();
+  }, [companyId]);
 
   // Seleciona a primeira conversa no carregamento inicial
   useEffect(() => {
@@ -87,85 +103,96 @@ export default function ConversationsPage() {
   }, [searchParams]);
 
   // Filtra e ordena conversas com useMemo para otimização
-  const filteredConversations = useMemo(() => conversations
-    .filter((conv) => {
-      // Filtro de busca
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-          conv.customerName.toLowerCase().includes(searchLower) ||
-          conv.customerPhone.includes(searchLower) ||
-          conv.lastMessage?.toLowerCase().includes(searchLower)
-        );
-      }
-      return true;
-    })
-    .filter((conv) => {
-      // Filtro por tipo
-      if (filterType === "ai") {
-        return conv.aiEnabled;
-      }
-      if (filterType === "human") {
-        return !conv.aiEnabled;
-      }
-      if (filterType === "unread") {
-        return conv.unreadCount && conv.unreadCount > 0;
-      }
-      if (filterType === "needsHelp") {
-        return conv.needsHelp;
-      }
-      return true;
-    })
-    .filter((conv) => {
-      // Filtro avançado: Excluir grupos
-      if (advancedFilters.excludeGroups) {
-        // Debug: verificar grupos
-        const hasGroupPattern = conv.customerPhone.includes('@g.us');
-        if (hasGroupPattern || conv.isGroup) {
-          console.log(`[Filtro] Grupo excluído: ${conv.customerName} (isGroup: ${conv.isGroup}, phone: ${conv.customerPhone})`);
-          return false;
-        }
-      }
-      return true;
-    })
-    .filter((conv) => {
-      // Filtro avançado: Filtrar por tags
-      if (advancedFilters.selectedTags.length > 0) {
-        const customer = customers.find((c) => c.id === conv.customerId);
-        if (!customer) return false;
+  const filteredConversations = useMemo(
+    () =>
+      conversations
+        .filter((conv) => {
+          // Filtro de busca
+          if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            return (
+              conv.customerName.toLowerCase().includes(searchLower) ||
+              conv.customerPhone.includes(searchLower) ||
+              conv.lastMessage?.toLowerCase().includes(searchLower)
+            );
+          }
+          return true;
+        })
+        .filter((conv) => {
+          // Filtro por tipo
+          if (filterType === "ai") {
+            return conv.aiEnabled;
+          }
+          if (filterType === "human") {
+            return !conv.aiEnabled;
+          }
+          if (filterType === "unread") {
+            return conv.unreadCount && conv.unreadCount > 0;
+          }
+          if (filterType === "needsHelp") {
+            return conv.needsHelp;
+          }
+          return true;
+        })
+        .filter((conv) => {
+          // Filtro avançado: Excluir grupos
+          if (advancedFilters.excludeGroups) {
+            // Debug: verificar grupos
+            const hasGroupPattern = conv.customerPhone.includes("@g.us");
+            if (hasGroupPattern || conv.isGroup) {
+              console.log(`[Filtro] Grupo excluído: ${conv.customerName} (isGroup: ${conv.isGroup}, phone: ${conv.customerPhone})`);
+              return false;
+            }
+          }
+          return true;
+        })
+        .filter((conv) => {
+          // Filtro avançado: Filtrar por tags
+          if (advancedFilters.selectedTags.length > 0) {
+            const customer = customers.find((c) => c.id === conv.customerId);
+            if (!customer) return false;
 
-        // Verifica se o cliente tem pelo menos uma das tags selecionadas
-        return advancedFilters.selectedTags.some((tag) => customer.tags.includes(tag));
-      }
-      return true;
-    })
-    .filter((conv) => {
-      // Filtro avançado: Apenas conversas que precisam de ajuda
-      if (advancedFilters.onlyNeedsHelp) {
-        return conv.needsHelp === true;
-      }
-      return true;
-    })
-    .filter((conv) => {
-      // Filtro avançado: Apenas conversas com IA ativa
-      if (advancedFilters.onlyAiEnabled) {
-        return conv.aiEnabled === true;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      // Ordenação
-      if (sortType === "recent") {
-        return new Date(b.lastMessageTimestamp).getTime() - new Date(a.lastMessageTimestamp).getTime();
-      }
-      if (sortType === "oldest") {
-        return new Date(a.lastMessageTimestamp).getTime() - new Date(b.lastMessageTimestamp).getTime();
-      }
-      if (sortType === "name") {
-        return a.customerName.localeCompare(b.customerName);
-      }
-      return 0;
-    }), [conversations, searchTerm, filterType, sortType, advancedFilters, customers]);
+            // Verifica se o cliente tem pelo menos uma das tags selecionadas
+            return advancedFilters.selectedTags.some((tag) => customer.tags.includes(tag));
+          }
+          return true;
+        })
+        .filter((conv) => {
+          // Filtro avançado: Apenas conversas que precisam de ajuda
+          if (advancedFilters.onlyNeedsHelp) {
+            return conv.needsHelp === true;
+          }
+          return true;
+        })
+        .filter((conv) => {
+          // Filtro avançado: Apenas conversas com IA ativa
+          if (advancedFilters.onlyAiEnabled) {
+            return conv.aiEnabled === true;
+          }
+          return true;
+        })
+        .filter((conv) => {
+          // Filtro por instância do WhatsApp
+          if (selectedInstanceId) {
+            return conv.whatsappInstanceId === selectedInstanceId;
+          }
+          return true;
+        })
+        .sort((a, b) => {
+          // Ordenação
+          if (sortType === "recent") {
+            return new Date(b.lastMessageTimestamp).getTime() - new Date(a.lastMessageTimestamp).getTime();
+          }
+          if (sortType === "oldest") {
+            return new Date(a.lastMessageTimestamp).getTime() - new Date(b.lastMessageTimestamp).getTime();
+          }
+          if (sortType === "name") {
+            return a.customerName.localeCompare(b.customerName);
+          }
+          return 0;
+        }),
+    [conversations, searchTerm, filterType, sortType, advancedFilters, customers, selectedInstanceId]
+  );
 
   // Encontra a conversa selecionada
   const selectedConversation = conversations.find((c) => c.customerId === selectedCustomerId);
@@ -223,9 +250,23 @@ export default function ConversationsPage() {
                       <MessageSquarePlus className="h-4 w-4" />
                     </Button>
                   }
-                  onConversationCreated={(customerId) => {
+                  onConversationCreated={async (customerId) => {
+                    console.log('[Conversations] New conversation created, customer ID:', customerId);
+
+                    // Primeiro, seleciona o cliente
                     setSelectedCustomerId(customerId);
-                    mutate();
+                    console.log('[Conversations] Customer selected:', customerId);
+
+                    // Aguarda um pouco para WebSocket processar
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    // Recarrega a lista de conversas para garantir que está atualizada
+                    await mutate();
+                    console.log('[Conversations] Conversations reloaded');
+
+                    // Garante que o cliente ainda está selecionado após o reload
+                    setSelectedCustomerId(customerId);
+                    console.log('[Conversations] Chat confirmed open for customer:', customerId);
                   }}
                 />
               </div>
@@ -234,6 +275,44 @@ export default function ConversationsPage() {
               <div>
                 <AdvancedFilters filters={advancedFilters} onFiltersChange={setAdvancedFilters} />
               </div>
+
+              {/* Seletor de Instância */}
+              {instances.length > 0 && (
+                <div>
+                  <Select value={selectedInstanceId || "all"} onValueChange={(value) => setSelectedInstanceId(value === "all" ? null : value)}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="h-3 w-3" />
+                        <SelectValue placeholder="Todas as instâncias" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                          <Smartphone className="h-3 w-3" />
+                          <span>Todas as instâncias</span>
+                        </div>
+                      </SelectItem>
+                      {instances.map((instance) => (
+                        <SelectItem key={instance.id} value={instance.id}>
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="h-3 w-3" />
+                            <span>
+                              {instance.displayName || instance.instanceName}
+                              {instance.phoneNumber && ` (${instance.phoneNumber})`}
+                            </span>
+                            {instance.status === "CONNECTED" && (
+                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                Conectada
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Busca */}
               <div className="relative">

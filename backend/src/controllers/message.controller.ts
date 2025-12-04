@@ -137,7 +137,7 @@ class MessageController {
    */
   async sendMessage(req: Request, res: Response) {
     try {
-      const { customerId, content, sentBy } = req.body;
+      const { customerId, content, sentBy, whatsappInstanceId } = req.body;
 
       if (!customerId || !content) {
         return res.status(400).json({
@@ -149,7 +149,8 @@ class MessageController {
       const result = await messageService.sendMessage(
         customerId,
         content,
-        sentBy || 'HUMAN'
+        sentBy || 'HUMAN',
+        whatsappInstanceId
       );
 
       return res.status(200).json({

@@ -8,6 +8,7 @@ export interface WhatsAppInstanceData {
   qrCode?: string | null;
   status: WhatsAppStatus;
   phoneNumber?: string | null;
+  connectedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

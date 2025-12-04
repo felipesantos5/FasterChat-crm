@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { ConversationSummary, MessageDirection } from '@/types/message';
-import { Badge } from '@/components/ui/badge';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { MessageSquare, AlertCircle, Users } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ConversationSummary, MessageDirection } from "@/types/message";
+import { Badge } from "@/components/ui/badge";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { MessageSquare, AlertCircle, Users, Smartphone } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ConversationListProps {
   conversations: ConversationSummary[];
@@ -13,14 +13,10 @@ interface ConversationListProps {
   onSelectConversation: (customerId: string) => void;
 }
 
-export function ConversationList({
-  conversations,
-  selectedCustomerId,
-  onSelectConversation,
-}: ConversationListProps) {
+export function ConversationList({ conversations, selectedCustomerId, onSelectConversation }: ConversationListProps) {
   const truncate = (text: string, maxLength = 30) => {
     if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
+    return text.substring(0, maxLength) + "...";
   };
 
   const formatTime = (timestamp: string) => {
@@ -30,7 +26,7 @@ export function ConversationList({
         locale: ptBR,
       });
     } catch {
-      return '';
+      return "";
     }
   };
 
@@ -38,9 +34,7 @@ export function ConversationList({
     return (
       <div className="flex flex-col items-center justify-center h-full p-4 text-center">
         <MessageSquare className="h-12 w-12 text-muted-foreground mb-2" />
-        <p className="text-sm text-muted-foreground">
-          Nenhuma conversa
-        </p>
+        <p className="text-sm text-muted-foreground">Nenhuma conversa</p>
       </div>
     );
   }
@@ -57,17 +51,17 @@ export function ConversationList({
             key={conversation.customerId}
             onClick={() => onSelectConversation(conversation.customerId)}
             className={cn(
-              'flex items-start gap-3 p-3 border-b cursor-pointer transition-colors hover:bg-accent',
-              selectedCustomerId === conversation.customerId && 'bg-accent',
-              needsHelp && 'bg-yellow-50 dark:bg-yellow-900/10 border-l-4 border-l-yellow-500',
-              isGroup && 'bg-blue-50/50 dark:bg-blue-900/10 border-l-4 border-l-blue-500'
+              "flex items-start gap-3 p-3 border-b cursor-pointer transition-colors hover:bg-accent",
+              selectedCustomerId === conversation.customerId && "bg-accent",
+              needsHelp && "bg-yellow-50 dark:bg-yellow-900/10 border-l-4 border-l-yellow-500",
+              isGroup && "bg-blue-50/50 dark:bg-blue-900/10 border-l-4 border-l-blue-500"
             )}
           >
             {/* Avatar */}
             <div
               className={cn(
-                'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1',
-                needsHelp ? 'bg-yellow-100 dark:bg-yellow-900/30' : isGroup ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-primary/10'
+                "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1",
+                needsHelp ? "bg-yellow-100 dark:bg-yellow-900/30" : isGroup ? "bg-blue-100 dark:bg-blue-900/30" : "bg-primary/10"
               )}
             >
               {needsHelp ? (
@@ -83,9 +77,7 @@ export function ConversationList({
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm truncate">
-                    {conversation.customerName}
-                  </h3>
+                  <h3 className="font-semibold text-sm truncate">{conversation.customerName}</h3>
                   {isGroup && (
                     <Badge className="bg-blue-500 hover:bg-blue-600 text-white text-xs h-5 px-2 flex-shrink-0">
                       <Users className="h-3 w-3 mr-1" />
@@ -100,25 +92,27 @@ export function ConversationList({
                   )}
                 </div>
                 {conversation.unreadCount > 0 && (
-                  <Badge className="ml-2 h-5 w-5 flex items-center justify-center p-0 text-xs flex-shrink-0">
-                    {conversation.unreadCount}
-                  </Badge>
+                  <Badge className="ml-2 h-5 w-5 flex items-center justify-center p-0 text-xs flex-shrink-0">{conversation.unreadCount}</Badge>
                 )}
               </div>
 
-              <p className="text-xs text-muted-foreground mb-1 truncate">
-                {truncate(conversation.lastMessage, 35)}
-              </p>
+              <p className="text-xs text-muted-foreground mb-1 truncate">{truncate(conversation.lastMessage, 35)}</p>
 
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {formatTime(conversation.lastMessageTimestamp)}
-                </span>
-                {conversation.direction === MessageDirection.INBOUND && (
-                  <Badge variant="secondary" className="text-xs h-4 px-1">
-                    Cliente
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">{formatTime(conversation.lastMessageTimestamp)}</span>
+                  {conversation.direction === MessageDirection.INBOUND && (
+                    <Badge variant="secondary" className="text-xs h-4 px-1">
+                      Cliente
+                    </Badge>
+                  )}
+                </div>
+                {/* {conversation.whatsappInstanceName && (
+                  <Badge variant="outline" className="text-xs h-5 px-1.5 flex items-center gap-1 flex-shrink-0">
+                    <Smartphone className="h-2.5 w-2.5" />
+                    {conversation.whatsappInstanceName}
                   </Badge>
-                )}
+                )} */}
               </div>
             </div>
           </div>

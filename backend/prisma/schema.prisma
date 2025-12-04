@@ -61,6 +61,7 @@ model User {
 
   company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   conversations   Conversation[]
+  customerNotes   CustomerNote[]
 
   @@index([companyId])
   @@index([email])
@@ -85,6 +86,7 @@ model Customer {
   messages       Message[]
   conversations  Conversation[]
   appointments   Appointment[]
+  customerNotes  CustomerNote[]
 
   @@unique([companyId, phone])
   @@index([companyId])
@@ -93,6 +95,23 @@ model Customer {
   @@index([isGroup])
   @@index([pipelineStageId])
   @@map("customers")
+}
+
+model CustomerNote {
+  id         String   @id @default(uuid())
+  customerId String   @map("customer_id")
+  userId     String   @map("user_id")
+  note       String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("customer_notes")
 }
 
 enum WhatsAppStatus {
@@ -104,11 +123,13 @@ enum WhatsAppStatus {
 model WhatsAppInstance {
   id            String         @id @default(uuid())
   companyId     String         @map("company_id")
-  instanceName  String         @map("instance_name")
+  instanceName  String         @map("instance_name") // Nome técnico usado pela Evolution API
+  displayName   String?        @map("display_name") // Nome amigável definido pelo usuário
   apiKey        String?        @map("api_key")
   qrCode        String?        @map("qr_code") @db.Text
   status        WhatsAppStatus @default(DISCONNECTED)
   phoneNumber   String?        @map("phone_number")
+  connectedAt   DateTime?      @map("connected_at") // Data/hora em que conectou
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 

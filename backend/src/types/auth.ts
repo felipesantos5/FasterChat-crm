@@ -26,4 +26,5 @@ export interface AuthResponse {
     companyId: string;
   };
   token: string;
+  refreshToken?: string;
 }

@@ -31,4 +31,7 @@ router.post('/disconnect/:instanceId', whatsappController.disconnectInstance);
 // POST /api/whatsapp/sync/:instanceId - Sincroniza status manualmente
 router.post('/sync/:instanceId', whatsappController.syncStatus);
 
+// PATCH /api/whatsapp/instance/:instanceId/name - Atualiza nome da instância
+router.patch('/instance/:instanceId/name', whatsappController.updateInstanceName);
+
 export default router;

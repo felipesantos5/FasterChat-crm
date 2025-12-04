@@ -39,16 +39,6 @@ class WhatsAppService {
     try {
       const { companyId, instanceName } = data;
 
-      // Verifica se já existe uma instância para essa empresa
-      const existingInstance = await prisma.whatsAppInstance.findFirst({
-        where: { companyId },
-      });
-
-      if (existingInstance) {
-        // Se já existe, retorna a instância existente
-        return existingInstance;
-      }
-
       // Gera um nome único para a instância se não foi fornecido
       const finalInstanceName = instanceName || `instance_${companyId}_${Date.now()}`;
 
@@ -268,6 +258,8 @@ class WhatsAppService {
           status,
           // Limpa o QR Code se conectado ou desconectado
           qrCode: status === WhatsAppStatus.CONNECTED || status === WhatsAppStatus.DISCONNECTED ? null : instance.qrCode,
+          // Define connectedAt quando conectar pela primeira vez
+          connectedAt: status === WhatsAppStatus.CONNECTED && !instance.connectedAt ? new Date() : instance.connectedAt,
           // Atualiza o updatedAt para servir como cache
         },
       });
@@ -307,6 +299,8 @@ class WhatsAppService {
           status,
           phoneNumber: phoneNumber || instance.phoneNumber,
           qrCode: status === WhatsAppStatus.CONNECTED || status === WhatsAppStatus.DISCONNECTED ? null : instance.qrCode,
+          // Define connectedAt quando conectar pela primeira vez
+          connectedAt: status === WhatsAppStatus.CONNECTED && !instance.connectedAt ? new Date() : instance.connectedAt,
         },
       });
 
@@ -440,6 +434,7 @@ class WhatsAppService {
           status: WhatsAppStatus.DISCONNECTED,
           qrCode: null,
           phoneNumber: null,
+          connectedAt: null, // Limpa a data de conexão ao desconectar
         },
       });
 
@@ -527,6 +522,26 @@ class WhatsAppService {
       console.log(`✅ Webhook configured successfully: ${instanceName}`);
     } catch (error: any) {
       console.error("✗ Error configuring webhook:", error.response?.data || error.message);
+    }
+  }
+
+  /**
+   * Atualiza o nome amigável (displayName) de uma instância
+   * O instanceName técnico permanece o mesmo para não quebrar a integração com Evolution API
+   */
+  async updateInstanceName(instanceId: string, displayName: string): Promise<void> {
+    try {
+      console.log(`[WhatsApp Service] Updating instance display name: ${instanceId} -> ${displayName}`);
+
+      await prisma.whatsAppInstance.update({
+        where: { id: instanceId },
+        data: { displayName },
+      });
+
+      console.log(`✅ Instance display name updated successfully: ${displayName}`);
+    } catch (error: any) {
+      console.error("✗ Error updating instance display name:", error);
+      throw new Error(`Failed to update instance display name: ${error.message}`);
     }
   }
 }

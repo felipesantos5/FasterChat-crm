@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '@/types/auth';
-import { authApi, setAuthToken, removeAuthToken, setUser, getUser, getAuthToken } from '@/lib/auth';
+import { authApi, setAuthToken, setRefreshToken, removeAuthToken, setUser, getUser, getAuthToken } from '@/lib/auth';
 
 interface AuthState {
   user: User | null;
@@ -28,6 +28,9 @@ export const useAuthStore = create<AuthState>((set) => {
       const response = await authApi.login({ email, password });
       console.log('[AUTH] Login bem-sucedido:', response);
       setAuthToken(response.token);
+      if (response.refreshToken) {
+        setRefreshToken(response.refreshToken);
+      }
       setUser(response.user);
       set({
         user: response.user,
@@ -48,6 +51,9 @@ export const useAuthStore = create<AuthState>((set) => {
     try {
       const response = await authApi.signup({ name, email, password, companyName });
       setAuthToken(response.token);
+      if (response.refreshToken) {
+        setRefreshToken(response.refreshToken);
+      }
       setUser(response.user);
       set({
         user: response.user,

@@ -21,8 +21,8 @@ export default function Home() {
       console.log('[PAGE] Redirecionando para /dashboard');
       router.push("/dashboard");
     } else {
-      console.log('[PAGE] Redirecionando para /login');
-      router.push("/login");
+      console.log('[PAGE] Redirecionando para /auth/login');
+      router.push("/auth/login");
     }
   }, [isAuthenticated, isLoading, router]);
 

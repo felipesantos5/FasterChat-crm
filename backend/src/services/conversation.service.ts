@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma';
+import { websocketService } from './websocket.service';
 
 class ConversationService {
   /**
@@ -22,6 +23,7 @@ class ConversationService {
       });
 
       // Se não existe, cria uma nova com IA ativada
+      const isNewConversation = !conversation;
       if (!conversation) {
         conversation = await prisma.conversation.create({
           data: {
@@ -41,7 +43,10 @@ class ConversationService {
           },
         });
 
-        console.log(`New conversation created for customer ${customerId}`);
+        console.log(`✨ New conversation created for customer ${customerId}`);
+
+        // 🔥 EMITE EVENTO VIA WEBSOCKET PARA ATUALIZAR LISTA DE CONVERSAS
+        websocketService.emitNewConversation(companyId, conversation);
       }
 
       return conversation;

@@ -267,6 +267,44 @@ class WhatsAppController {
       });
     }
   }
+
+  /**
+   * PATCH /api/whatsapp/instance/:instanceId/name
+   * Atualiza o nome de uma instância
+   */
+  async updateInstanceName(req: Request, res: Response) {
+    try {
+      const { instanceId } = req.params;
+      const { instanceName } = req.body;
+
+      if (!instanceId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Instance ID is required',
+        });
+      }
+
+      if (!instanceName || !instanceName.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Instance name is required',
+        });
+      }
+
+      await whatsappService.updateInstanceName(instanceId, instanceName.trim());
+
+      return res.status(200).json({
+        success: true,
+        message: 'Instance name updated successfully',
+      });
+    } catch (error: any) {
+      console.error('Error in updateInstanceName controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to update instance name',
+      });
+    }
+  }
 }
 
 export default new WhatsAppController();

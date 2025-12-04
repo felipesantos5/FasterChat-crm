@@ -14,6 +14,7 @@ import pipelineRoutes from "./pipeline.routes";
 import googleCalendarRoutes from "./google-calendar.routes";
 import appointmentRoutes from "./appointment.routes";
 import whatsappLinkRoutes from "./whatsapp-link.routes";
+import customerNoteRoutes from "./customer-note.routes";
 import conversationExampleController from "../controllers/conversation-example.controller";
 import { authenticate } from "../middlewares/auth";
 
@@ -34,6 +35,7 @@ router.use("/pipeline", pipelineRoutes);
 router.use("/google", googleCalendarRoutes);
 router.use("/appointments", appointmentRoutes);
 router.use("/whatsapp-links", whatsappLinkRoutes);
+router.use("/customer-notes", customerNoteRoutes);
 
 // Rotas públicas (sem /api prefix) - devem ser registradas no server.ts
 // router.use('/l', linkRedirectRoutes);

@@ -172,6 +172,21 @@ class WebSocketService {
   }
 
   /**
+   * Emite evento de nova conversa criada
+   */
+  emitNewConversation(companyId: string, conversation: any) {
+    if (!this.io) return;
+
+    console.log(`📤 Emitting new conversation to company ${companyId}:`, {
+      conversationId: conversation.id,
+      customerId: conversation.customerId,
+      customerName: conversation.customer?.name,
+    });
+
+    this.io.to(`company:${companyId}`).emit('new_conversation', conversation);
+  }
+
+  /**
    * Emite estatísticas atualizadas
    */
   emitStatsUpdate(companyId: string, stats: any) {

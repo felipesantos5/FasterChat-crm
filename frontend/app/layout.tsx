@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { ProgressBarProvider } from "@/components/providers/progress-bar-provider";
 import { SWRProvider } from "@/components/providers/swr-provider";
+import { Toaster } from "sonner";
 import { Suspense } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -27,6 +28,7 @@ export default function RootLayout({
               <ProgressBarProvider />
             </Suspense>
             {children}
+            <Toaster position="top-right" richColors closeButton />
           </AuthProvider>
         </SWRProvider>
       </body>

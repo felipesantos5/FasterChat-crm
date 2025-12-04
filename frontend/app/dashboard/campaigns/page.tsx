@@ -10,12 +10,16 @@ import { useRouter } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { buttons, cards, typography, spacing, icons } from "@/lib/design-system";
+import { toast } from "sonner";
+import { EditCampaignDialog } from '@/components/campaigns/edit-campaign-dialog';
 
 export default function CampaignsPage() {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendingCampaignId, setSendingCampaignId] = useState<string | null>(null);
+  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const getCompanyId = () => {
     const user = localStorage.getItem('user');
@@ -49,21 +53,24 @@ export default function CampaignsPage() {
   }, []);
 
   const handleExecute = async (campaignId: string) => {
-    if (!confirm('Deseja disparar esta campanha agora? As mensagens serão enviadas com throttling para evitar bloqueios.')) {
-      return;
-    }
+    setSendingCampaignId(campaignId);
 
-    try {
-      setSendingCampaignId(campaignId);
-      await campaignApi.execute(campaignId);
-      alert('🚀 Campanha em execução! As mensagens estão sendo enviadas em fila com delays inteligentes.');
-      await loadCampaigns();
-    } catch (error: any) {
-      console.error('Error executing campaign:', error);
-      alert(error.response?.data?.message || 'Erro ao disparar campanha');
-    } finally {
+    toast.promise(
+      campaignApi.execute(campaignId),
+      {
+        loading: 'Disparando campanha...',
+        success: () => {
+          loadCampaigns();
+          return '🚀 Campanha em execução! As mensagens estão sendo enviadas em fila com delays inteligentes.';
+        },
+        error: (error: any) => {
+          console.error('Error executing campaign:', error);
+          return error.response?.data?.message || 'Erro ao disparar campanha';
+        },
+      }
+    ).finally(() => {
       setSendingCampaignId(null);
-    }
+    });
   };
 
   const handleSchedule = async (campaignId: string) => {
@@ -74,21 +81,21 @@ export default function CampaignsPage() {
     try {
       const scheduledDate = new Date(dateStr);
       if (isNaN(scheduledDate.getTime())) {
-        alert('Data inválida! Use o formato: YYYY-MM-DD HH:mm');
+        toast.error('Data inválida! Use o formato: YYYY-MM-DD HH:mm');
         return;
       }
 
       if (scheduledDate <= new Date()) {
-        alert('A data deve ser no futuro!');
+        toast.error('A data deve ser no futuro!');
         return;
       }
 
       await campaignApi.schedule(campaignId, scheduledDate.toISOString());
-      alert(`📅 Campanha agendada para ${format(scheduledDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`);
+      toast.success(`📅 Campanha agendada para ${format(scheduledDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`);
       await loadCampaigns();
     } catch (error: any) {
       console.error('Error scheduling campaign:', error);
-      alert(error.response?.data?.message || 'Erro ao agendar campanha');
+      toast.error(error.response?.data?.message || 'Erro ao agendar campanha');
     }
   };
 
@@ -97,32 +104,46 @@ export default function CampaignsPage() {
   };
 
   const handleDelete = async (campaignId: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta campanha?')) {
-      return;
-    }
-
-    try {
-      await campaignApi.delete(campaignId);
-      await loadCampaigns();
-    } catch (error: any) {
-      console.error('Error deleting campaign:', error);
-      alert(error.response?.data?.message || 'Erro ao excluir campanha');
-    }
+    toast.promise(
+      campaignApi.delete(campaignId),
+      {
+        loading: 'Excluindo campanha...',
+        success: () => {
+          loadCampaigns();
+          return 'Campanha excluída com sucesso!';
+        },
+        error: (error: any) => {
+          console.error('Error deleting campaign:', error);
+          return error.response?.data?.message || 'Erro ao excluir campanha';
+        },
+      }
+    );
   };
 
   const handleCancelExecution = async (campaignId: string) => {
-    if (!confirm('Deseja cancelar a execução desta campanha? Mensagens já enviadas não serão afetadas.')) {
-      return;
-    }
+    toast.promise(
+      campaignApi.cancelExecution(campaignId),
+      {
+        loading: 'Cancelando execução...',
+        success: () => {
+          loadCampaigns();
+          return 'Execução cancelada! Mensagens já enviadas não foram afetadas.';
+        },
+        error: (error: any) => {
+          console.error('Error canceling campaign:', error);
+          return error.response?.data?.message || 'Erro ao cancelar campanha';
+        },
+      }
+    );
+  };
 
-    try {
-      await campaignApi.cancelExecution(campaignId);
-      alert('Execução cancelada!');
-      await loadCampaigns();
-    } catch (error: any) {
-      console.error('Error canceling campaign:', error);
-      alert(error.response?.data?.message || 'Erro ao cancelar campanha');
-    }
+  const handleEdit = (campaign: Campaign) => {
+    setEditingCampaign(campaign);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSuccess = () => {
+    loadCampaigns();
   };
 
   const getStatusBadge = (status: CampaignStatus) => {
@@ -274,7 +295,7 @@ export default function CampaignsPage() {
                   {campaign.status === CampaignStatus.DRAFT && (
                     <>
                       <Button
-                        onClick={() => router.push(`/dashboard/campaigns/${campaign.id}/edit`)}
+                        onClick={() => handleEdit(campaign)}
                         variant="outline"
                         size="sm"
                       >
@@ -379,6 +400,17 @@ export default function CampaignsPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Campaign Dialog */}
+      <EditCampaignDialog
+        campaign={editingCampaign}
+        isOpen={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false);
+          setEditingCampaign(null);
+        }}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   );
 }

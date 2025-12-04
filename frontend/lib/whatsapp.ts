@@ -76,4 +76,14 @@ export const whatsappApi = {
     const response = await api.post(`/whatsapp/sync/${instanceId}`);
     return response.data;
   },
+
+  /**
+   * Atualiza o nome de uma instância
+   */
+  async updateInstanceName(instanceId: string, instanceName: string): Promise<{ success: boolean }> {
+    const response = await api.patch(`/whatsapp/instance/${instanceId}/name`, {
+      instanceName,
+    });
+    return response.data;
+  },
 };

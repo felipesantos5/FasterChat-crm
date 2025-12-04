@@ -337,8 +337,8 @@ class CampaignExecutionService {
         throw new Error('No connected WhatsApp instance found');
       }
 
-      // Envia mensagem via messageService
-      await messageService.sendMessage(customerId, message, 'HUMAN');
+      // Envia mensagem via messageService com whatsappInstanceId
+      await messageService.sendMessage(customerId, message, 'HUMAN', whatsappInstance.id);
 
       // Atualiza log como SENT
       await prisma.campaignLog.updateMany({

@@ -183,6 +183,12 @@ class MessageService {
         },
         include: {
           customer: true,
+          whatsappInstance: {
+            select: {
+              id: true,
+              instanceName: true,
+            },
+          },
         },
         orderBy: {
           timestamp: "desc",
@@ -205,14 +211,17 @@ class MessageService {
       // Cria um mapa de conversações para acesso rápido
       const conversationMap = new Map(conversations.map((c) => [c.customerId, c]));
 
-      // Agrupa por customer e pega a última mensagem de cada um
+      // Agrupa por customer E instância e pega a última mensagem de cada combinação
       const conversationsMap = new Map<string, ConversationSummary>();
 
       for (const message of messages) {
-        if (!conversationsMap.has(message.customerId)) {
+        // Cria chave única combinando customerId e whatsappInstanceId
+        const conversationKey = `${message.customerId}-${message.whatsappInstanceId}`;
+
+        if (!conversationsMap.has(conversationKey)) {
           const conversation = conversationMap.get(message.customerId);
 
-          conversationsMap.set(message.customerId, {
+          conversationsMap.set(conversationKey, {
             customerId: message.customerId,
             customerName: message.customer.name,
             customerPhone: message.customer.phone,
@@ -225,6 +234,8 @@ class MessageService {
             isGroup: message.customer.isGroup ?? false, // Identifica se é um grupo do WhatsApp
             assignedToId: conversation?.assignedToId ?? null,
             assignedToName: conversation?.assignedTo?.name ?? null,
+            whatsappInstanceId: message.whatsappInstanceId,
+            whatsappInstanceName: message.whatsappInstance.instanceName,
           });
         }
       }
@@ -485,7 +496,7 @@ class MessageService {
   /**
    * Envia uma mensagem para um customer via WhatsApp
    */
-  async sendMessage(customerId: string, content: string, sentBy: "HUMAN" | "AI" = "HUMAN") {
+  async sendMessage(customerId: string, content: string, sentBy: "HUMAN" | "AI" = "HUMAN", whatsappInstanceId?: string) {
     try {
       // Busca o customer com sua empresa e TODAS as instâncias (sem filtrar status no banco)
       const customer = await prisma.customer.findUnique({
@@ -507,14 +518,44 @@ class MessageService {
         throw new Error("Customer not found");
       }
 
-      // Tenta encontrar uma instância CONECTADA
-      let whatsappInstance = customer.company.whatsappInstances.find((i) => i.status === "CONNECTED");
+      let whatsappInstance;
 
-      // FALLBACK: Se não achar conectada, pega a última que foi criada/atualizada
-      // Isso resolve o caso onde o status ainda é "CONNECTING" no banco mas já está funcionando
-      if (!whatsappInstance && customer.company.whatsappInstances.length > 0) {
-        whatsappInstance = customer.company.whatsappInstances[0];
-        console.warn(`⚠️ Usando instância com status ${whatsappInstance.status} como fallback.`);
+      // Se foi especificada uma instância, usa ela
+      if (whatsappInstanceId) {
+        whatsappInstance = customer.company.whatsappInstances.find((i) => i.id === whatsappInstanceId);
+        if (!whatsappInstance) {
+          throw new Error("Specified WhatsApp instance not found");
+        }
+      } else {
+        // Busca a última mensagem do cliente para descobrir qual instância usar
+        const lastMessage = await prisma.message.findFirst({
+          where: {
+            customerId: customer.id,
+            direction: MessageDirection.INBOUND,
+          },
+          orderBy: {
+            timestamp: "desc",
+          },
+          include: {
+            whatsappInstance: true,
+          },
+        });
+
+        // Se encontrou mensagem anterior, usa a mesma instância
+        if (lastMessage) {
+          whatsappInstance = customer.company.whatsappInstances.find((i) => i.id === lastMessage.whatsappInstanceId);
+        }
+
+        // Se ainda não tem instância, tenta encontrar uma CONECTADA
+        if (!whatsappInstance) {
+          whatsappInstance = customer.company.whatsappInstances.find((i) => i.status === "CONNECTED");
+        }
+
+        // FALLBACK: Se não achar conectada, pega a última que foi criada/atualizada
+        if (!whatsappInstance && customer.company.whatsappInstances.length > 0) {
+          whatsappInstance = customer.company.whatsappInstances[0];
+          console.warn(`⚠️ Usando instância com status ${whatsappInstance.status} como fallback.`);
+        }
       }
 
       if (!whatsappInstance) {

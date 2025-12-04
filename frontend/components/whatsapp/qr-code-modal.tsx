@@ -3,9 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { whatsappApi } from '@/lib/whatsapp';
 import { WhatsAppStatus } from '@/types/whatsapp';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -19,6 +22,8 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
   const [status, setStatus] = useState<WhatsAppStatus>(WhatsAppStatus.CONNECTING);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [instanceName, setInstanceName] = useState<string>('');
+  const [savingName, setSavingName] = useState(false);
 
   // Função para buscar o QR Code
   const fetchQRCode = async () => {
@@ -104,27 +109,22 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
     if (isOpen && instanceId) {
       setLoading(true);
       setError(null);
+      setInstanceName('');
       attemptsRef.current = 0; // Reset contador
       hasCalledSuccessRef.current = false; // Reset flag de sucesso
       fetchQRCode();
     }
   }, [isOpen, instanceId]);
 
-  // Fecha o modal automaticamente quando conectar
+  // Chama onSuccess quando conectar mas NÃO fecha o modal automaticamente
   useEffect(() => {
     if (status === WhatsAppStatus.CONNECTED && isOpen && !hasCalledSuccessRef.current) {
-      console.log('[QR Code Modal] ✓ Connected! Closing modal in 2 seconds...');
+      console.log('[QR Code Modal] ✓ Connected! Showing name input...');
       hasCalledSuccessRef.current = true; // Marca como chamado
       onSuccess?.();
-      
-      const timeout = setTimeout(() => {
-        onClose();
-      }, 2000);
-
-      return () => clearTimeout(timeout);
     }
     return undefined;
-  }, [status, isOpen, onSuccess, onClose]);
+  }, [status, isOpen, onSuccess]);
 
   // Polling: verifica o status a cada 2 segundos
   useEffect(() => {
@@ -162,12 +162,43 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
     };
   }, [isOpen, status]);
 
-  const handleClose = () => {
+  const handleSaveName = async () => {
+    if (!instanceName.trim()) {
+      toast.error('Por favor, insira um nome para a instância');
+      return;
+    }
+
+    try {
+      setSavingName(true);
+      await whatsappApi.updateInstanceName(instanceId, instanceName.trim());
+      toast.success('Nome da instância atualizado com sucesso!');
+      // Força fechamento do modal
+      forceClose();
+    } catch (err: any) {
+      console.error('[QR Code Modal] Error saving name:', err);
+      toast.error(err.response?.data?.message || 'Erro ao salvar nome da instância');
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const forceClose = () => {
     setQrCode(null);
     setStatus(WhatsAppStatus.CONNECTING);
     setLoading(true);
     setError(null);
+    setInstanceName('');
     onClose();
+  };
+
+  const handleClose = () => {
+    // Só permite fechar se não estiver conectado (ainda não precisa do nome)
+    if (status === WhatsAppStatus.CONNECTED) {
+      toast.warning('Por favor, defina um nome para a instância antes de continuar');
+      return;
+    }
+
+    forceClose();
   };
 
   return (
@@ -202,16 +233,46 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
 
           {/* Connected State */}
           {status === WhatsAppStatus.CONNECTED && !loading && (
-            <div className="flex flex-col items-center justify-center py-8 space-y-4">
+            <div className="flex flex-col items-center justify-center py-8 space-y-6">
               <CheckCircle2 className="h-12 w-12 text-green-500" />
               <div className="text-center space-y-2">
                 <p className="text-sm font-medium text-green-600">
                   WhatsApp Conectado com Sucesso!
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Você já pode começar a enviar mensagens
+                  Agora defina um nome para esta instância
                 </p>
               </div>
+
+              <div className="w-full space-y-2">
+                <Label htmlFor="instanceName">Nome da Instância</Label>
+                <Input
+                  id="instanceName"
+                  type="text"
+                  placeholder="Ex: Suporte, Vendas, Comercial..."
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && instanceName.trim()) {
+                      handleSaveName();
+                    }
+                  }}
+                  disabled={savingName}
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este nome ajudará a identificar esta conexão do WhatsApp
+                </p>
+              </div>
+
+              <Button
+                onClick={handleSaveName}
+                disabled={savingName || !instanceName.trim()}
+                className="w-full"
+              >
+                {savingName && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Salvar e Continuar
+              </Button>
             </div>
           )}
 
@@ -246,11 +307,14 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
             </div>
           )}
 
-          <div className="flex justify-end">
-            <Button onClick={handleClose} variant="outline">
-              Fechar
-            </Button>
-          </div>
+          {/* Botão de fechar só aparece se não estiver conectado */}
+          {status !== WhatsAppStatus.CONNECTED && (
+            <div className="flex justify-end">
+              <Button onClick={handleClose} variant="outline">
+                Fechar
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

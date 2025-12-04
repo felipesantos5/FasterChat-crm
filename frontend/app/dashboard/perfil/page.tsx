@@ -1,24 +1,16 @@
 "use client";
 
 import { useAuthStore } from "@/lib/store/auth.store";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function PerfilPage() {
   const { user } = useAuthStore();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Perfil</h1>
-        <p className="text-muted-foreground">
-          Visualize e edite suas informações pessoais
-        </p>
+        <p className="text-muted-foreground">Visualize e edite suas informações pessoais</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -50,9 +42,7 @@ export default function PerfilPage() {
           </CardHeader>
           <CardContent>
             <div className="rounded-lg border border-dashed p-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Funcionalidade de alteração de senha em desenvolvimento
-              </p>
+              <p className="text-sm text-muted-foreground">Funcionalidade de alteração de senha em desenvolvimento</p>
             </div>
           </CardContent>
         </Card>

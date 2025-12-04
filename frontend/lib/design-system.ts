@@ -1,11 +1,11 @@
 // Design System - Padronização de UI/UX
 
 export const spacing = {
-  page: "p-8",           // Padding das páginas
-  section: "space-y-6",  // Espaçamento entre seções
-  card: "p-6",           // Padding dos cards
-  cardGap: "gap-6",      // Gap entre cards
-  element: "space-y-4",  // Espaçamento entre elementos
+  page: "p-8", // Padding das páginas
+  section: "space-y-6", // Espaçamento entre seções
+  card: "p-6", // Padding dos cards
+  cardGap: "gap-6", // Gap entre cards
+  element: "space-y-4", // Espaçamento entre elementos
 };
 
 export const colors = {
@@ -29,9 +29,12 @@ export const buttons = {
   large: "px-8 py-3 text-lg font-medium rounded-lg transition-all duration-200",
 
   // Variantes
-  primary: "px-6 py-2.5 text-base font-medium rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-all duration-200 shadow-sm hover:shadow-md",
-  secondary: "px-6 py-2.5 text-base font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-300 transition-all duration-200",
-  success: "px-6 py-2.5 text-base font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white transition-all duration-200 shadow-sm hover:shadow-md",
+  primary:
+    "px-6 py-2.5 text-base font-medium rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-all duration-200 shadow-sm hover:shadow-md h-10",
+  secondary:
+    "px-6 py-2.5 text-base font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-300 transition-all duration-200",
+  success:
+    "px-6 py-2.5 text-base font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white transition-all duration-200 shadow-sm hover:shadow-md",
   danger: "px-6 py-2.5 text-base font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all duration-200 shadow-sm hover:shadow-md",
   outline: "px-6 py-2.5 text-base font-medium rounded-lg border-2 border-purple-600 text-purple-600 hover:bg-purple-50 transition-all duration-200",
   ghost: "px-6 py-2.5 text-base font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition-all duration-200",
@@ -63,8 +66,10 @@ export const forms = {
   input: "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all",
   label: "block text-sm font-medium text-gray-700 mb-2",
   error: "text-sm text-red-600 mt-1",
-  select: "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white",
-  textarea: "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none",
+  select:
+    "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white",
+  textarea:
+    "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none",
 };
 
 export const badges = {

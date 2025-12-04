@@ -22,12 +22,21 @@ export const setAuthToken = (token: string) => {
   localStorage.setItem('token', token);
 };
 
+export const setRefreshToken = (refreshToken: string) => {
+  localStorage.setItem('refreshToken', refreshToken);
+};
+
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('token');
 };
 
+export const getRefreshToken = (): string | null => {
+  return localStorage.getItem('refreshToken');
+};
+
 export const removeAuthToken = () => {
   localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
 };
 
