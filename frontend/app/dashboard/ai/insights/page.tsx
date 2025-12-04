@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, BarChart3 } from 'lucide-react';
-import { messageApi } from '@/lib/message';
-import { Message } from '@/types/message';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, BarChart3 } from "lucide-react";
+import { messageApi } from "@/lib/message";
+import { Message } from "@/types/message";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function AIInsightsPage() {
   const [stats, setStats] = useState<{
@@ -23,7 +23,7 @@ export default function AIInsightsPage() {
 
   // Obtém companyId do usuário logado
   const getCompanyId = () => {
-    const user = localStorage.getItem('user');
+    const user = localStorage.getItem("user");
     if (user) {
       const userData = JSON.parse(user);
       return userData.companyId;
@@ -36,14 +36,14 @@ export default function AIInsightsPage() {
     try {
       const companyId = getCompanyId();
       if (!companyId) {
-        console.error('Company ID not found');
+        console.error("Company ID not found");
         return;
       }
 
       const response = await messageApi.getFeedbackStats(companyId);
       setStats(response.data);
     } catch (error) {
-      console.error('Error loading stats:', error);
+      console.error("Error loading stats:", error);
     } finally {
       setLoading(false);
     }
@@ -54,14 +54,14 @@ export default function AIInsightsPage() {
     try {
       const companyId = getCompanyId();
       if (!companyId) {
-        console.error('Company ID not found');
+        console.error("Company ID not found");
         return;
       }
 
       const response = await messageApi.getMessagesWithBadFeedback(companyId, 50, 0);
       setBadMessages(response.data.messages);
     } catch (error) {
-      console.error('Error loading bad messages:', error);
+      console.error("Error loading bad messages:", error);
     } finally {
       setLoadingBadMessages(false);
     }
@@ -77,7 +77,7 @@ export default function AIInsightsPage() {
     try {
       return format(new Date(timestamp), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     } catch {
-      return '';
+      return "";
     }
   };
 
@@ -90,13 +90,11 @@ export default function AIInsightsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Insights da IA</h1>
-        <p className="text-muted-foreground mt-1">
-          Analise o desempenho e feedback das respostas automáticas da IA
-        </p>
+        <p className="text-muted-foreground mt-1">Analise o desempenho e feedback das respostas automáticas da IA</p>
       </div>
 
       {/* Cards de Estatísticas */}
@@ -109,9 +107,7 @@ export default function AIInsightsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.totalAiMessages || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Mensagens enviadas automaticamente
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Mensagens enviadas automaticamente</p>
           </CardContent>
         </Card>
 
@@ -123,9 +119,7 @@ export default function AIInsightsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{stats?.goodFeedback || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats?.goodPercentage.toFixed(1)}% das avaliações
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">{stats?.goodPercentage.toFixed(1)}% das avaliações</p>
           </CardContent>
         </Card>
 
@@ -137,9 +131,7 @@ export default function AIInsightsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{stats?.badFeedback || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Requer atenção e revisão
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Requer atenção e revisão</p>
           </CardContent>
         </Card>
 
@@ -151,9 +143,7 @@ export default function AIInsightsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.noFeedback || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Aguardando avaliação
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Aguardando avaliação</p>
           </CardContent>
         </Card>
       </div>
@@ -165,9 +155,7 @@ export default function AIInsightsPage() {
             <TrendingUp className="h-5 w-5" />
             Taxa de Aprovação
           </CardTitle>
-          <CardDescription>
-            Percentual de respostas com feedback positivo
-          </CardDescription>
+          <CardDescription>Percentual de respostas com feedback positivo</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -178,9 +166,7 @@ export default function AIInsightsPage() {
                 style={{ width: `${stats?.goodPercentage || 0}%` }}
               />
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-semibold text-white drop-shadow-md">
-                  {stats?.goodPercentage.toFixed(1)}%
-                </span>
+                <span className="text-sm font-semibold text-white drop-shadow-md">{stats?.goodPercentage.toFixed(1)}%</span>
               </div>
             </div>
 
@@ -228,31 +214,18 @@ export default function AIInsightsPage() {
           ) : (
             <div className="space-y-4">
               {badMessages.map((message) => (
-                <div
-                  key={message.id}
-                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
-                >
+                <div key={message.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline">
-                          {message.customer?.name || 'Cliente'}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {formatMessageTime(message.timestamp)}
-                        </span>
+                        <Badge variant="outline">{message.customer?.name || "Cliente"}</Badge>
+                        <span className="text-xs text-muted-foreground">{formatMessageTime(message.timestamp)}</span>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap break-words">
-                        {message.content}
-                      </p>
+                      <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                       {message.feedbackNote && (
                         <div className="bg-muted/50 rounded p-3 mt-2">
-                          <p className="text-xs font-semibold text-muted-foreground mb-1">
-                            Nota do Feedback:
-                          </p>
-                          <p className="text-sm text-muted-foreground italic">
-                            {message.feedbackNote}
-                          </p>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">Nota do Feedback:</p>
+                          <p className="text-sm text-muted-foreground italic">{message.feedbackNote}</p>
                         </div>
                       )}
                     </div>
@@ -269,9 +242,7 @@ export default function AIInsightsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Sugestões de Melhoria</CardTitle>
-          <CardDescription>
-            Recomendações baseadas nos padrões de feedback
-          </CardDescription>
+          <CardDescription>Recomendações baseadas nos padrões de feedback</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -283,8 +254,8 @@ export default function AIInsightsPage() {
                 <div className="flex-1">
                   <p className="text-sm font-medium">Revisar respostas com feedback negativo</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Existem {stats.badFeedback} mensagens que receberam feedback negativo.
-                    Revise essas respostas para identificar padrões e ajustar a base de conhecimento da IA.
+                    Existem {stats.badFeedback} mensagens que receberam feedback negativo. Revise essas respostas para identificar padrões e ajustar a
+                    base de conhecimento da IA.
                   </p>
                 </div>
               </div>
@@ -298,8 +269,8 @@ export default function AIInsightsPage() {
                 <div className="flex-1">
                   <p className="text-sm font-medium">Ótimo desempenho!</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    A IA está com {stats.goodPercentage.toFixed(1)}% de aprovação.
-                    Continue monitorando e marcando conversas exemplares para manter esse padrão.
+                    A IA está com {stats.goodPercentage.toFixed(1)}% de aprovação. Continue monitorando e marcando conversas exemplares para manter
+                    esse padrão.
                   </p>
                 </div>
               </div>
@@ -313,8 +284,8 @@ export default function AIInsightsPage() {
                 <div className="flex-1">
                   <p className="text-sm font-medium">Taxa de aprovação baixa</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    A IA está com apenas {stats.goodPercentage.toFixed(1)}% de aprovação.
-                    Considere revisar as configurações da IA, adicionar mais exemplos de conversas e ajustar a base de conhecimento.
+                    A IA está com apenas {stats.goodPercentage.toFixed(1)}% de aprovação. Considere revisar as configurações da IA, adicionar mais
+                    exemplos de conversas e ajustar a base de conhecimento.
                   </p>
                 </div>
               </div>
@@ -327,8 +298,8 @@ export default function AIInsightsPage() {
               <div className="flex-1">
                 <p className="text-sm font-medium">Colete mais feedback</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Incentive sua equipe a avaliar as respostas da IA usando os botões de feedback.
-                  Quanto mais dados coletados, melhor será o fine-tuning futuro.
+                  Incentive sua equipe a avaliar as respostas da IA usando os botões de feedback. Quanto mais dados coletados, melhor será o
+                  fine-tuning futuro.
                 </p>
               </div>
             </div>

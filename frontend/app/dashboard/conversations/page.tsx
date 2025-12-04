@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { ChatArea } from "@/components/chat/chat-area";
 import { CustomerDetails } from "@/components/chat/customer-details";
 import { AdvancedFilters, AdvancedFilters as AdvancedFiltersType } from "@/components/chat/advanced-filters";
 import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
-import { messageApi } from "@/lib/message";
+import { useConversations } from "@/hooks/use-conversations";
 import { customerApi } from "@/lib/customer";
-import { ConversationSummary } from "@/types/message";
 import { Customer } from "@/types/customer";
-import { Loader2, MessageSquare, Search, X, Bot, User, ChevronLeft, ChevronRight, HelpCircle, MessageSquarePlus } from "lucide-react";
+import { Loader2, MessageSquare, Search, X, Bot, User, ChevronRight, HelpCircle, MessageSquarePlus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,11 +23,8 @@ type SortType = "recent" | "oldest" | "name";
 
 export default function ConversationsPage() {
   const searchParams = useSearchParams();
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
   // Filtros e busca
   const [searchTerm, setSearchTerm] = useState("");
@@ -56,37 +52,10 @@ export default function ConversationsPage() {
     return null;
   };
 
-  // Carrega as conversas
-  const loadConversations = async (isInitialLoad = false) => {
-    try {
-      setError(null);
-      const companyId = getCompanyId();
+  const companyId = getCompanyId();
 
-      if (!companyId) {
-        setError("Empresa não encontrada");
-        return;
-      }
-
-      const response = await messageApi.getConversations(companyId);
-
-      // Debug: verificar grupos nas conversas
-      const grupos = response.data.filter(c => c.isGroup || c.customerPhone.includes('@g.us'));
-      console.log(`[Conversas] Total: ${response.data.length}, Grupos: ${grupos.length}`);
-      grupos.forEach(g => console.log(`[Grupo] ${g.customerName}: isGroup=${g.isGroup}, phone=${g.customerPhone}`));
-
-      setConversations(response.data);
-
-      // Se não há conversa selecionada e há conversas, seleciona a primeira APENAS no carregamento inicial
-      if (isInitialLoad && !selectedCustomerId && response.data.length > 0) {
-        setSelectedCustomerId(response.data[0].customerId);
-      }
-    } catch (err: any) {
-      console.error("Error loading conversations:", err);
-      setError(err.response?.data?.message || "Erro ao carregar conversas");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Usa SWR para gerenciar conversas com cache automático
+  const { conversations, isLoading, isError, mutate } = useConversations(companyId);
 
   // Carrega os clientes para filtrar por tags
   const loadCustomers = async () => {
@@ -99,16 +68,15 @@ export default function ConversationsPage() {
   };
 
   useEffect(() => {
-    loadConversations(true);
     loadCustomers();
-
-    // Polling: atualiza a cada 5 segundos
-    const interval = setInterval(() => {
-      loadConversations(false);
-    }, 5000);
-
-    return () => clearInterval(interval);
   }, []);
+
+  // Seleciona a primeira conversa no carregamento inicial
+  useEffect(() => {
+    if (!selectedCustomerId && conversations.length > 0) {
+      setSelectedCustomerId(conversations[0].customerId);
+    }
+  }, [conversations]);
 
   // Efeito para selecionar conversa via query parameter
   useEffect(() => {
@@ -118,8 +86,8 @@ export default function ConversationsPage() {
     }
   }, [searchParams]);
 
-  // Filtra e ordena conversas
-  const filteredConversations = conversations
+  // Filtra e ordena conversas com useMemo para otimização
+  const filteredConversations = useMemo(() => conversations
     .filter((conv) => {
       // Filtro de busca
       if (searchTerm) {
@@ -197,7 +165,7 @@ export default function ConversationsPage() {
         return a.customerName.localeCompare(b.customerName);
       }
       return 0;
-    });
+    }), [conversations, searchTerm, filterType, sortType, advancedFilters, customers]);
 
   // Encontra a conversa selecionada
   const selectedConversation = conversations.find((c) => c.customerId === selectedCustomerId);
@@ -211,7 +179,7 @@ export default function ConversationsPage() {
     needsHelp: conversations.filter((c) => c.needsHelp).length,
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -219,12 +187,12 @@ export default function ConversationsPage() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="p-6">
         <Card className="border-destructive">
           <CardContent className="pt-6">
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-sm text-destructive">Erro ao carregar conversas</p>
           </CardContent>
         </Card>
       </div>
@@ -257,7 +225,7 @@ export default function ConversationsPage() {
                   }
                   onConversationCreated={(customerId) => {
                     setSelectedCustomerId(customerId);
-                    loadConversations(false);
+                    mutate();
                   }}
                 />
               </div>

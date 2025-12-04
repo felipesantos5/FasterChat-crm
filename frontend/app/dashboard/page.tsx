@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth.store";
+import { useDashboardStats } from "@/hooks/use-dashboard";
 import {
   Card,
   CardContent,
@@ -11,37 +12,18 @@ import {
 } from "@/components/ui/card";
 import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
 import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
-import { dashboardApi, DashboardStats } from "@/lib/dashboard";
 import { Users, MessageSquare, Bot, Activity, Loader2, LayoutDashboard } from "lucide-react";
-import { buttons, cards, typography, spacing, icons } from "@/lib/design-system";
+import { cards, typography, spacing, icons } from "@/lib/design-system";
 
 type PeriodType = "today" | "week" | "month";
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const [period, setPeriod] = useState<PeriodType>("today");
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [period] = useState<PeriodType>("week");
 
-  const loadStats = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await dashboardApi.getStats(period);
-      setStats(data);
-    } catch (err: any) {
-      console.error("Error loading dashboard stats:", err);
-      setError(err.response?.data?.message || "Erro ao carregar estatísticas");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadStats();
-  }, [period]);
+  // Usa SWR para gerenciar stats com cache e refresh automático
+  const { stats, isLoading } = useDashboardStats(period);
 
   // Transforma o objeto stats em um array para renderização
   const statCards = stats
@@ -100,7 +82,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Grid */}
-        {loading && !stats ? (
+        {isLoading && !stats ? (
           <div className={`${cards.default} text-center py-16`}>
             <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto" />
             <p className={`${typography.body} mt-4 text-gray-600`}>Carregando estatísticas...</p>

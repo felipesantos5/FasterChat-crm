@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { customerApi } from "@/lib/customer";
+import { useCustomers, useCustomerTags } from "@/hooks/use-customers";
 import { Customer } from "@/types/customer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { CustomerFormModal } from "@/components/forms/customer-form-modal";
 import { Plus, Search, Phone, Mail, MoreVertical, Edit, Trash, Users } from "lucide-react";
 import { TagBadge } from "@/components/ui/tag-badge";
-import { Tag } from "@/lib/tag";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -19,61 +19,46 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { buttons, cards, typography, spacing, icons, forms } from "@/lib/design-system";
+import { buttons, cards, typography, spacing, icons } from "@/lib/design-system";
 
 export default function CustomersPage() {
   const router = useRouter();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
-  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  const loadCustomers = async () => {
-    try {
-      setLoading(true);
-      const response = await customerApi.getAll({
-        search: search || undefined,
-        tags: selectedTags.length > 0 ? selectedTags : undefined,
-      });
-      setCustomers(response.customers);
-    } catch (error) {
-      console.error("Error loading customers:", error);
-    } finally {
-      setLoading(false);
+  // Obtém o companyId do usuário logado
+  const getCompanyId = () => {
+    if (typeof window === 'undefined') return null;
+    const user = localStorage.getItem("user");
+    if (user) {
+      const userData = JSON.parse(user);
+      return userData.companyId;
     }
+    return null;
   };
 
-  const loadTags = async () => {
-    try {
-      const tags = await customerApi.getAllTags();
-      setAvailableTags(tags);
-    } catch (error) {
-      console.error("Error loading tags:", error);
-    }
-  };
+  const companyId = getCompanyId();
 
-  useEffect(() => {
-    loadCustomers();
-  }, [search, selectedTags]);
+  // Usa SWR para gerenciar customers com cache automático
+  const { customers, isLoading, mutate } = useCustomers(companyId, {
+    search,
+    selectedTags,
+  });
 
-  useEffect(() => {
-    loadTags();
-  }, []);
+  // Usa SWR para tags
+  const { tags: availableTags } = useCustomerTags(companyId);
 
   const handleCreate = async (data: any) => {
     await customerApi.create(data);
-    await loadCustomers();
-    await loadTags();
+    mutate();
   };
 
   const handleUpdate = async (data: any) => {
     if (editingCustomer) {
       await customerApi.update(editingCustomer.id, data);
-      await loadCustomers();
-      await loadTags();
+      mutate();
     }
   };
 
@@ -81,7 +66,7 @@ export default function CustomersPage() {
     if (confirm("Tem certeza que deseja excluir este cliente?")) {
       try {
         await customerApi.delete(id);
-        await loadCustomers();
+        mutate();
       } catch (error) {
         console.error("Error deleting customer:", error);
       }
@@ -174,7 +159,7 @@ export default function CustomersPage() {
       )}
 
       {/* Customer List */}
-      {loading ? (
+      {isLoading ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">Carregando clientes...</p>
         </div>

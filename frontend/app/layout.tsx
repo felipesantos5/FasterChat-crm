@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { ProgressBarProvider } from "@/components/providers/progress-bar-provider";
+import { SWRProvider } from "@/components/providers/swr-provider";
 import { Suspense } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -20,12 +21,14 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        <AuthProvider>
-          <Suspense fallback={null}>
-            <ProgressBarProvider />
-          </Suspense>
-          {children}
-        </AuthProvider>
+        <SWRProvider>
+          <AuthProvider>
+            <Suspense fallback={null}>
+              <ProgressBarProvider />
+            </Suspense>
+            {children}
+          </AuthProvider>
+        </SWRProvider>
       </body>
     </html>
   );

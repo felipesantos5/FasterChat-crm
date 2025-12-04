@@ -15,8 +15,6 @@ import {
   Copy,
 } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
   LineChart,
   Line,
   PieChart,
@@ -26,7 +24,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 import { whatsappLinkService, WhatsAppLink, LinkAnalytics } from '@/lib/whatsapp-link';
@@ -253,7 +250,7 @@ export default function LinkAnalyticsPage() {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {deviceData.map((entry, index) => (
+                  {deviceData.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

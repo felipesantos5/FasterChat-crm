@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { X, Link, Phone, MessageSquare, Hash, Sparkles } from 'lucide-react';
-import { whatsappLinkService, WhatsAppLink } from '@/lib/whatsapp-link';
-import { toast } from 'react-hot-toast';
+import { useState, useEffect } from "react";
+import { X, Link, Phone, MessageSquare } from "lucide-react";
+import { whatsappLinkService, WhatsAppLink } from "@/lib/whatsapp-link";
+import { toast } from "react-hot-toast";
 
 interface CreateLinkModalProps {
   link?: WhatsAppLink | null;
@@ -11,22 +11,17 @@ interface CreateLinkModalProps {
   onSuccess: () => void;
 }
 
-export default function CreateLinkModal({
-  link,
-  onClose,
-  onSuccess,
-}: CreateLinkModalProps) {
+export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLinkModalProps) {
   const isEditing = !!link;
 
   const [formData, setFormData] = useState({
-    name: link?.name || '',
-    slug: link?.slug || '',
-    phoneNumber: link?.phoneNumber || '',
-    message: link?.message || '',
+    name: link?.name || "",
+    slug: link?.slug || "",
+    phoneNumber: link?.phoneNumber || "",
+    message: link?.message || "",
   });
 
   const [loading, setLoading] = useState(false);
-  const [generatingSlug, setGeneratingSlug] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -35,46 +30,28 @@ export default function CreateLinkModal({
         name: link.name,
         slug: link.slug,
         phoneNumber: link.phoneNumber,
-        message: link.message || '',
+        message: link.message || "",
       });
     }
   }, [link]);
-
-  const handleGenerateSlug = async () => {
-    if (!formData.name) {
-      toast.error('Digite um nome primeiro');
-      return;
-    }
-
-    try {
-      setGeneratingSlug(true);
-      const slug = await whatsappLinkService.generateSlug(formData.name);
-      setFormData({ ...formData, slug });
-      setErrors({ ...errors, slug: '' });
-    } catch (error) {
-      toast.error('Erro ao gerar slug');
-    } finally {
-      setGeneratingSlug(false);
-    }
-  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Nome é obrigatório';
+      newErrors.name = "Nome é obrigatório";
     }
 
     if (!formData.slug.trim()) {
-      newErrors.slug = 'Slug é obrigatório';
+      newErrors.slug = "Slug é obrigatório";
     } else if (!/^[a-z0-9-]+$/.test(formData.slug)) {
-      newErrors.slug = 'Slug deve conter apenas letras minúsculas, números e hífens';
+      newErrors.slug = "Slug deve conter apenas letras minúsculas, números e hífens";
     }
 
     if (!formData.phoneNumber.trim()) {
-      newErrors.phoneNumber = 'Número é obrigatório';
+      newErrors.phoneNumber = "Número é obrigatório";
     } else if (!/^\d{10,15}$/.test(formData.phoneNumber)) {
-      newErrors.phoneNumber = 'Número inválido (apenas dígitos, 10-15 caracteres)';
+      newErrors.phoneNumber = "Número inválido (apenas dígitos, 10-15 caracteres)";
     }
 
     setErrors(newErrors);
@@ -93,16 +70,16 @@ export default function CreateLinkModal({
 
       if (isEditing && link) {
         await whatsappLinkService.update(link.id, formData);
-        toast.success('Link atualizado com sucesso!');
+        toast.success("Link atualizado com sucesso!");
       } else {
         await whatsappLinkService.create(formData);
-        toast.success('Link criado com sucesso!');
+        toast.success("Link criado com sucesso!");
       }
 
       onSuccess();
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message;
-      toast.error(errorMessage || 'Erro ao salvar link');
+      toast.error(errorMessage || "Erro ao salvar link");
     } finally {
       setLoading(false);
     }
@@ -111,7 +88,7 @@ export default function CreateLinkModal({
   const handleChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
     if (errors[field]) {
-      setErrors({ ...errors, [field]: '' });
+      setErrors({ ...errors, [field]: "" });
     }
   };
 
@@ -130,18 +107,13 @@ export default function CreateLinkModal({
           <div>
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Link className="h-5 w-5 text-purple-600" />
-              {isEditing ? 'Editar Link' : 'Criar Novo Link'}
+              {isEditing ? "Editar Link" : "Criar Novo Link"}
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              {isEditing
-                ? 'Atualize as informações do seu link'
-                : 'Crie um link rastreável para WhatsApp'}
+              {isEditing ? "Atualize as informações do seu link" : "Crie um link rastreável para WhatsApp"}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X className="h-6 w-6" />
           </button>
         </div>
@@ -150,136 +122,87 @@ export default function CreateLinkModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Nome do Link */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nome do Link *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Link *</label>
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
+              onChange={(e) => handleChange("name", e.target.value)}
               placeholder="Ex: Instagram Bio, Campanha Black Friday"
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
+                errors.name ? "border-red-500" : "border-gray-300"
               }`}
             />
-            {errors.name && (
-              <p className="text-red-500 text-sm mt-1">{errors.name}</p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">
-              Nome descritivo para identificar o link internamente
-            </p>
+            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+            <p className="text-xs text-gray-500 mt-1">Nome descritivo para identificar o link internamente</p>
           </div>
 
           {/* Slug */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Slug (URL) *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Slug (URL) *</label>
             <div className="flex gap-2">
               <div className="flex-1">
                 <div className="flex items-center">
-                  <span className="inline-flex items-center px-3 py-2 border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm rounded-l-lg">
-                    /l/
+                  <span className="inline-flex items-center px-3 py-[10px] border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm rounded-l-lg">
+                    /
                   </span>
                   <input
                     type="text"
                     value={formData.slug}
-                    onChange={(e) =>
-                      handleChange('slug', e.target.value.toLowerCase())
-                    }
+                    onChange={(e) => handleChange("slug", e.target.value.toLowerCase())}
                     placeholder="meu-link"
                     className={`flex-1 px-4 py-2 border rounded-r-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.slug ? 'border-red-500' : 'border-gray-300'
+                      errors.slug ? "border-red-500" : "border-gray-300"
                     }`}
                   />
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleGenerateSlug}
-                disabled={generatingSlug || !formData.name}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Sparkles className="h-4 w-4" />
-                {generatingSlug ? 'Gerando...' : 'Gerar'}
-              </button>
             </div>
-            {errors.slug && (
-              <p className="text-red-500 text-sm mt-1">{errors.slug}</p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">
-              URL curta para compartilhar (apenas letras minúsculas, números e
-              hífens)
-            </p>
+            {errors.slug && <p className="text-red-500 text-sm mt-1">{errors.slug}</p>}
+            <p className="text-xs text-gray-500 mt-1">URL curta para compartilhar (apenas letras minúsculas, números e hífens)</p>
           </div>
 
           {/* Número do WhatsApp */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
               <Phone className="h-4 w-4" />
               Número do WhatsApp *
             </label>
             <input
               type="text"
               value={formData.phoneNumber}
-              onChange={(e) =>
-                handleChange('phoneNumber', e.target.value.replace(/\D/g, ''))
-              }
+              onChange={(e) => handleChange("phoneNumber", e.target.value.replace(/\D/g, ""))}
               placeholder="5511999999999"
               maxLength={15}
               className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
+                errors.phoneNumber ? "border-red-500" : "border-gray-300"
               }`}
             />
-            {errors.phoneNumber && (
-              <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>
-            )}
+            {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>}
             {formData.phoneNumber && !errors.phoneNumber && (
-              <p className="text-green-600 text-sm mt-1">
-                ✓ {formatPhonePreview(formData.phoneNumber)}
-              </p>
+              <p className="text-green-600 text-sm mt-1">✓ {formatPhonePreview(formData.phoneNumber)}</p>
             )}
-            <p className="text-xs text-gray-500 mt-1">
-              Formato: código do país + DDD + número (apenas números, sem
-              espaços)
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Formato: código do país + DDD + número (apenas números, sem espaços)</p>
           </div>
 
           {/* Mensagem Pré-preenchida */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
               Mensagem Pré-preenchida (Opcional)
             </label>
             <textarea
               value={formData.message}
-              onChange={(e) => handleChange('message', e.target.value)}
+              onChange={(e) => handleChange("message", e.target.value)}
               placeholder="Olá! Vim através do link..."
               rows={3}
               maxLength={1000}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
             <div className="flex items-center justify-between mt-1">
-              <p className="text-xs text-gray-500">
-                Mensagem que aparecerá automaticamente no WhatsApp
-              </p>
-              <span className="text-xs text-gray-500">
-                {formData.message.length}/1000
-              </span>
+              <p className="text-xs text-gray-500">Mensagem que aparecerá automaticamente no WhatsApp</p>
+              <span className="text-xs text-gray-500">{formData.message.length}/1000</span>
             </div>
           </div>
-
-          {/* Preview */}
-          {formData.slug && (
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <p className="text-sm font-medium text-purple-900 mb-2">
-                Preview do Link:
-              </p>
-              <code className="text-sm text-purple-700 bg-white px-3 py-2 rounded border border-purple-200 block break-all">
-                {typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/l/{formData.slug}
-              </code>
-            </div>
-          )}
 
           {/* Buttons */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
@@ -301,7 +224,7 @@ export default function CreateLinkModal({
                   Salvando...
                 </>
               ) : (
-                <>{isEditing ? 'Atualizar Link' : 'Criar Link'}</>
+                <>{isEditing ? "Atualizar Link" : "Criar Link"}</>
               )}
             </button>
           </div>

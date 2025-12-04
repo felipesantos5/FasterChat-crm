@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { QRCodeModal } from '@/components/whatsapp/qr-code-modal';
-import { DisconnectConfirmDialog } from '@/components/whatsapp/disconnect-confirm-dialog';
-import { whatsappApi } from '@/lib/whatsapp';
-import { WhatsAppInstance, WhatsAppStatus } from '@/types/whatsapp';
-import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { QRCodeModal } from "@/components/whatsapp/qr-code-modal";
+import { DisconnectConfirmDialog } from "@/components/whatsapp/disconnect-confirm-dialog";
+import { whatsappApi } from "@/lib/whatsapp";
+import { WhatsAppInstance, WhatsAppStatus } from "@/types/whatsapp";
+import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle, Trash2, RefreshCw } from "lucide-react";
 
 import { buttons, cards, typography, spacing, icons } from "@/lib/design-system";
 export default function WhatsAppSettingsPage() {
@@ -27,7 +27,7 @@ export default function WhatsAppSettingsPage() {
 
   // Obtém o companyId do usuário logado (você pode ajustar conforme sua implementação)
   const getCompanyId = () => {
-    const user = localStorage.getItem('user');
+    const user = localStorage.getItem("user");
     if (user) {
       const userData = JSON.parse(user);
       return userData.companyId;
@@ -41,15 +41,15 @@ export default function WhatsAppSettingsPage() {
       setError(null);
       const companyId = getCompanyId();
       if (!companyId) {
-        setError('Empresa não encontrada');
+        setError("Empresa não encontrada");
         return;
       }
 
       const response = await whatsappApi.getInstances(companyId);
       setInstances(response.data);
     } catch (err: any) {
-      console.error('Error loading instances:', err);
-      setError(err.response?.data?.message || 'Erro ao carregar instâncias');
+      console.error("Error loading instances:", err);
+      setError(err.response?.data?.message || "Erro ao carregar instâncias");
     } finally {
       setLoading(false);
     }
@@ -64,10 +64,10 @@ export default function WhatsAppSettingsPage() {
     const interval = setInterval(() => {
       // Só faz polling se o modal NÃO estiver aberto
       if (!qrModalOpen) {
-        console.log('[WhatsApp Settings] Polling instances status...');
+        console.log("[WhatsApp Settings] Polling instances status...");
         loadInstances();
       } else {
-        console.log('[WhatsApp Settings] Modal aberto, pulando polling');
+        console.log("[WhatsApp Settings] Modal aberto, pulando polling");
       }
     }, 10000); // Aumentado de 5s para 10s
 
@@ -82,7 +82,7 @@ export default function WhatsAppSettingsPage() {
 
       const companyId = getCompanyId();
       if (!companyId) {
-        setError('Empresa não encontrada');
+        setError("Empresa não encontrada");
         return;
       }
 
@@ -93,8 +93,8 @@ export default function WhatsAppSettingsPage() {
       // Recarrega a lista
       await loadInstances();
     } catch (err: any) {
-      console.error('Error creating instance:', err);
-      setError(err.response?.data?.message || 'Erro ao criar instância');
+      console.error("Error creating instance:", err);
+      setError(err.response?.data?.message || "Erro ao criar instância");
     } finally {
       setCreating(false);
     }
@@ -114,8 +114,8 @@ export default function WhatsAppSettingsPage() {
       await whatsappApi.disconnectInstance(instanceToAction.id);
       await loadInstances();
     } catch (err: any) {
-      console.error('Error disconnecting:', err);
-      setError(err.response?.data?.message || 'Erro ao desconectar');
+      console.error("Error disconnecting:", err);
+      setError(err.response?.data?.message || "Erro ao desconectar");
     }
   };
 
@@ -133,8 +133,8 @@ export default function WhatsAppSettingsPage() {
       await whatsappApi.deleteInstance(instanceToAction.id);
       await loadInstances();
     } catch (err: any) {
-      console.error('Error deleting:', err);
-      setError(err.response?.data?.message || 'Erro ao deletar instância');
+      console.error("Error deleting:", err);
+      setError(err.response?.data?.message || "Erro ao deletar instância");
     }
   };
 
@@ -146,15 +146,15 @@ export default function WhatsAppSettingsPage() {
 
   // Sincroniza status manualmente com Evolution API
   const handleSyncStatus = async (instanceId: string) => {
-    setSyncing(prev => ({ ...prev, [instanceId]: true }));
+    setSyncing((prev) => ({ ...prev, [instanceId]: true }));
     try {
       await whatsappApi.syncStatus(instanceId);
       await loadInstances();
     } catch (err: any) {
-      console.error('Error syncing status:', err);
-      alert(err.response?.data?.message || 'Erro ao sincronizar status');
+      console.error("Error syncing status:", err);
+      alert(err.response?.data?.message || "Erro ao sincronizar status");
     } finally {
-      setSyncing(prev => ({ ...prev, [instanceId]: false }));
+      setSyncing((prev) => ({ ...prev, [instanceId]: false }));
     }
   };
 
@@ -186,12 +186,10 @@ export default function WhatsAppSettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">WhatsApp</h1>
-        <p className="text-muted-foreground">
-          Configure e gerencie suas conexões do WhatsApp
-        </p>
+        <p className="text-muted-foreground">Configure e gerencie suas conexões do WhatsApp</p>
       </div>
 
       {/* Error Message */}
@@ -213,19 +211,12 @@ export default function WhatsAppSettingsPage() {
             <Smartphone className="h-5 w-5" />
             Conectar WhatsApp
           </CardTitle>
-          <CardDescription>
-            Conecte sua conta do WhatsApp para enviar e receber mensagens através do CRM
-          </CardDescription>
+          <CardDescription>Conecte sua conta do WhatsApp para enviar e receber mensagens através do CRM</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button
-            onClick={handleCreateInstance}
-            disabled={creating || instances.some(i => i.status === WhatsAppStatus.CONNECTED)}
-          >
+          <Button onClick={handleCreateInstance} disabled={creating || instances.some((i) => i.status === WhatsAppStatus.CONNECTED)}>
             {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {instances.some(i => i.status === WhatsAppStatus.CONNECTED)
-              ? 'WhatsApp Já Conectado'
-              : 'Conectar WhatsApp'}
+            {instances.some((i) => i.status === WhatsAppStatus.CONNECTED) ? "WhatsApp Já Conectado" : "Conectar WhatsApp"}
           </Button>
         </CardContent>
       </Card>
@@ -243,30 +234,19 @@ export default function WhatsAppSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Conexões Ativas</CardTitle>
-            <CardDescription>
-              Gerencie suas instâncias conectadas do WhatsApp
-            </CardDescription>
+            <CardDescription>Gerencie suas instâncias conectadas do WhatsApp</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {instances.map((instance) => (
-                <div
-                  key={instance.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
+                <div key={instance.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{instance.instanceName}</p>
                       {getStatusBadge(instance.status)}
                     </div>
-                    {instance.phoneNumber && (
-                      <p className="text-sm text-muted-foreground">
-                        Telefone: {instance.phoneNumber}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Criado em: {new Date(instance.createdAt).toLocaleString('pt-BR')}
-                    </p>
+                    {instance.phoneNumber && <p className="text-sm text-muted-foreground">Telefone: {instance.phoneNumber}</p>}
+                    <p className="text-xs text-muted-foreground">Criado em: {new Date(instance.createdAt).toLocaleString("pt-BR")}</p>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -278,44 +258,28 @@ export default function WhatsAppSettingsPage() {
                       disabled={syncing[instance.id]}
                       title="Sincronizar status com Evolution API"
                     >
-                      <RefreshCw className={`h-4 w-4 ${syncing[instance.id] ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`h-4 w-4 ${syncing[instance.id] ? "animate-spin" : ""}`} />
                     </Button>
 
                     {instance.status === WhatsAppStatus.CONNECTED && (
-                      <Button
-                        onClick={() => openDisconnectDialog(instance)}
-                        variant="outline"
-                        size="sm"
-                      >
+                      <Button onClick={() => openDisconnectDialog(instance)} variant="outline" size="sm">
                         Desconectar
                       </Button>
                     )}
 
                     {instance.status === WhatsAppStatus.DISCONNECTED && (
-                      <Button
-                        onClick={() => handleReconnect(instance.id)}
-                        variant="outline"
-                        size="sm"
-                      >
+                      <Button onClick={() => handleReconnect(instance.id)} variant="outline" size="sm">
                         Reconectar
                       </Button>
                     )}
 
                     {instance.status === WhatsAppStatus.CONNECTING && (
-                      <Button
-                        onClick={() => handleReconnect(instance.id)}
-                        variant="outline"
-                        size="sm"
-                      >
+                      <Button onClick={() => handleReconnect(instance.id)} variant="outline" size="sm">
                         Ver QR Code
                       </Button>
                     )}
 
-                    <Button
-                      onClick={() => openDeleteDialog(instance)}
-                      variant="destructive"
-                      size="sm"
-                    >
+                    <Button onClick={() => openDeleteDialog(instance)} variant="destructive" size="sm">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -329,9 +293,7 @@ export default function WhatsAppSettingsPage() {
           <CardContent className="pt-6">
             <div className="text-center py-8">
               <Smartphone className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                Nenhuma instância conectada ainda
-              </p>
+              <p className="text-muted-foreground">Nenhuma instância conectada ainda</p>
             </div>
           </CardContent>
         </Card>

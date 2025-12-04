@@ -16,9 +16,8 @@ import {
   AppointmentTypeLabels,
 } from "@/types/appointment";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AppointmentModal } from "@/components/appointments/AppointmentModal";
 import { EditAppointmentModal } from "@/components/appointments/EditAppointmentModal";
 import { GoogleCalendarModal } from "@/components/appointments/GoogleCalendarModal";
@@ -62,7 +61,7 @@ export default function CalendarioPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [googleStatus, setGoogleStatus] = useState<GoogleCalendarStatus | null>(null);
-  const [view, setView] = useState<View>("month");
+  const [view, setView] = useState<View>("week");
   const [date, setDate] = useState(new Date());
   const [showNewAppointment, setShowNewAppointment] = useState(false);
   const [showEditAppointment, setShowEditAppointment] = useState(false);
@@ -110,6 +109,7 @@ export default function CalendarioPage() {
             status: event.status === "cancelled" ? AppointmentStatus.CANCELLED : AppointmentStatus.SCHEDULED,
             startTime: event.start.dateTime || event.start.date || new Date().toISOString(),
             endTime: event.end.dateTime || event.end.date || new Date().toISOString(),
+            duration: 60,
             location: event.location || "",
             notes: `Evento do Google Calendar${event.htmlLink ? `\n${event.htmlLink}` : ""}`,
             googleEventId: event.id,
@@ -202,7 +202,7 @@ export default function CalendarioPage() {
     setShowEventDetails(true);
   }, []);
 
-  const handleSelectSlot = useCallback(({ start, end }: { start: Date; end: Date }) => {
+  const handleSelectSlot = useCallback(() => {
     setShowNewAppointment(true);
   }, []);
 

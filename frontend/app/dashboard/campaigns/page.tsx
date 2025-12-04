@@ -4,13 +4,12 @@ import { useEffect, useState } from 'react';
 import { campaignApi } from '@/lib/campaign';
 import { Campaign, CampaignStatus, CampaignType } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Send, Edit, Trash, XCircle, Loader2, Calendar, BarChart3, Clock, Megaphone } from 'lucide-react';
+import { Plus, Send, Edit, Trash, XCircle, Loader2, Calendar, BarChart3, Megaphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { buttons, cards, typography, spacing, badges, icons } from "@/lib/design-system";
+import { buttons, cards, typography, spacing, icons } from "@/lib/design-system";
 
 export default function CampaignsPage() {
   const router = useRouter();

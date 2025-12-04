@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { pipelineApi } from "@/lib/pipeline";
-import { PipelineBoard, PipelineStage, StageWithCustomers } from "@/types/pipeline";
+import { PipelineBoard } from "@/types/pipeline";
 import { Customer } from "@/types/customer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Settings2, Mail, Phone, Tag } from "lucide-react";
+import { Loader2, Settings2, Mail, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
@@ -17,7 +17,7 @@ export default function PipelinePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draggedCustomer, setDraggedCustomer] = useState<Customer | null>(null);
-  const [draggedFromStage, setDraggedFromStage] = useState<string | null>(null);
+  const [, setDraggedFromStage] = useState<string | null>(null);
 
   const getCompanyId = () => {
     const user = localStorage.getItem("user");
