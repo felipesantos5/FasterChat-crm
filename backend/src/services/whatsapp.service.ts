@@ -35,9 +35,20 @@ class WhatsAppService {
   /**
    * Cria uma nova instância do WhatsApp na Evolution API
    */
+
   async createInstance(data: CreateInstanceRequest) {
+    const INSTANCE_LIMIT = 5;
+
     try {
       const { companyId, instanceName } = data;
+
+      const currentInstances = await prisma.whatsAppInstance.count({
+        where: { companyId },
+      });
+
+      if (currentInstances >= INSTANCE_LIMIT) {
+        throw new Error("Limite atingido: Sua empresa já possui o máximo de 5 conexões de WhatsApp.");
+      }
 
       // Gera um nome único para a instância se não foi fornecido
       const finalInstanceName = instanceName || `instance_${companyId}_${Date.now()}`;
@@ -466,17 +477,17 @@ class WhatsAppService {
       const base64Data = response.data?.base64;
 
       if (!base64Data) {
-        throw new Error('No base64 data in response');
+        throw new Error("No base64 data in response");
       }
 
       console.log(`[WhatsApp Service] ✅ Media base64 received: ${(base64Data.length / 1024).toFixed(2)} KB`);
 
       // Converte base64 para Buffer
-      const mediaBuffer = Buffer.from(base64Data, 'base64');
+      const mediaBuffer = Buffer.from(base64Data, "base64");
 
       return mediaBuffer;
     } catch (error: any) {
-      console.error('[WhatsApp Service] ❌ Error downloading media:', error.response?.data || error.message);
+      console.error("[WhatsApp Service] ❌ Error downloading media:", error.response?.data || error.message);
       throw new Error(`Failed to download media: ${error.response?.data?.message || error.message}`);
     }
   }
