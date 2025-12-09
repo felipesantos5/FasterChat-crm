@@ -1,7 +1,8 @@
-import { Request, Response } from 'express';
-import { authService } from '../services/auth.service';
-import { validateSignup, validateLogin } from '../utils/validation';
-import { ZodError } from 'zod';
+import { Request, Response } from "express";
+import { authService } from "../services/auth.service";
+import { validateSignup, validateLogin } from "../utils/validation";
+import { ZodError } from "zod";
+import { prisma } from "@/utils/prisma";
 
 export class AuthController {
   async signup(req: Request, res: Response): Promise<void> {
@@ -14,16 +15,16 @@ export class AuthController {
 
       res.status(201).json({
         success: true,
-        message: 'Usuário criado com sucesso',
+        message: "Usuário criado com sucesso",
         data: result,
       });
     } catch (error) {
       if (error instanceof ZodError) {
         res.status(400).json({
           success: false,
-          message: 'Dados inválidos',
+          message: "Dados inválidos",
           errors: error.errors.map((err) => ({
-            field: err.path.join('.'),
+            field: err.path.join("."),
             message: err.message,
           })),
         });
@@ -40,7 +41,7 @@ export class AuthController {
 
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor',
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -55,16 +56,16 @@ export class AuthController {
 
       res.status(200).json({
         success: true,
-        message: 'Login realizado com sucesso',
+        message: "Login realizado com sucesso",
         data: result,
       });
     } catch (error) {
       if (error instanceof ZodError) {
         res.status(400).json({
           success: false,
-          message: 'Dados inválidos',
+          message: "Dados inválidos",
           errors: error.errors.map((err) => ({
-            field: err.path.join('.'),
+            field: err.path.join("."),
             message: err.message,
           })),
         });
@@ -81,7 +82,7 @@ export class AuthController {
 
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor',
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -91,7 +92,7 @@ export class AuthController {
       if (!req.user) {
         res.status(401).json({
           success: false,
-          message: 'Não autenticado',
+          message: "Não autenticado",
         });
         return;
       }
@@ -101,7 +102,7 @@ export class AuthController {
       if (!user) {
         res.status(404).json({
           success: false,
-          message: 'Usuário não encontrado',
+          message: "Usuário não encontrado",
         });
         return;
       }
@@ -119,7 +120,7 @@ export class AuthController {
     } catch (error) {
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor',
+        message: "Erro interno do servidor",
       });
     }
   }
@@ -131,7 +132,7 @@ export class AuthController {
       if (!refreshToken) {
         res.status(400).json({
           success: false,
-          message: 'Refresh token não fornecido',
+          message: "Refresh token não fornecido",
         });
         return;
       }
@@ -140,7 +141,7 @@ export class AuthController {
 
       res.status(200).json({
         success: true,
-        message: 'Token renovado com sucesso',
+        message: "Token renovado com sucesso",
         data: result,
       });
     } catch (error) {
@@ -154,8 +155,46 @@ export class AuthController {
 
       res.status(500).json({
         success: false,
-        message: 'Erro interno do servidor',
+        message: "Erro interno do servidor",
       });
+    }
+  }
+
+  async updateProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      const { name, email, companyName } = req.body;
+
+      if (!userId) {
+        res.status(401).json({ success: false, message: "Não autenticado" });
+        return;
+      }
+
+      // Atualiza usuário e empresa em uma transação
+      const updatedUser = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.update({
+          where: { id: userId },
+          data: { name, email },
+        });
+
+        if (companyName && user.companyId) {
+          await tx.company.update({
+            where: { id: user.companyId },
+            data: { name: companyName },
+          });
+        }
+
+        return user;
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Perfil atualizado com sucesso",
+        data: updatedUser,
+      });
+    } catch (error: any) {
+      console.error("Update profile error:", error);
+      res.status(500).json({ success: false, message: "Erro ao atualizar perfil" });
     }
   }
 }

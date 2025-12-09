@@ -581,6 +581,46 @@ class CampaignExecutionService {
       totalPages: Math.ceil(total / limit),
     };
   }
+
+  /**
+   * Reexecuta uma campanha (reseta contadores e executa novamente)
+   */
+  async reexecuteCampaign(campaignId: string): Promise<void> {
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!campaign) {
+      throw new Error('Campaign not found');
+    }
+
+    if (campaign.status === CampaignStatus.PROCESSING) {
+      throw new Error('Campaign is currently processing');
+    }
+
+    // Deleta logs antigos da campanha
+    await prisma.campaignLog.deleteMany({
+      where: { campaignId },
+    });
+
+    // Reseta contadores e status da campanha
+    await prisma.campaign.update({
+      where: { id: campaignId },
+      data: {
+        status: CampaignStatus.DRAFT,
+        sentCount: 0,
+        failedCount: 0,
+        totalTarget: 0,
+        startedAt: null,
+        completedAt: null,
+      },
+    });
+
+    console.log(`🔄 Campaign ${campaignId} reset for reexecution`);
+
+    // Executa a campanha novamente
+    await this.executeCampaign(campaignId);
+  }
 }
 
 export default new CampaignExecutionService();

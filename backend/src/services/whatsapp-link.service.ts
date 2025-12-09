@@ -7,6 +7,7 @@ export interface CreateWhatsAppLinkDTO {
   slug: string;
   phoneNumber: string;
   message?: string;
+  autoTag?: string;
 }
 
 export interface UpdateWhatsAppLinkDTO {
@@ -14,6 +15,7 @@ export interface UpdateWhatsAppLinkDTO {
   slug?: string;
   phoneNumber?: string;
   message?: string;
+  autoTag?: string | null;
   isActive?: boolean;
 }
 
@@ -37,10 +39,6 @@ class WhatsAppLinkService {
    * Cria um novo link de WhatsApp
    */
   async create(companyId: string, data: CreateWhatsAppLinkDTO): Promise<WhatsAppLink> {
-    console.log('[WhatsAppLink] Criando novo link...');
-    console.log('[WhatsAppLink] Company ID:', companyId);
-    console.log('[WhatsAppLink] Slug:', data.slug);
-
     // Verifica se o slug já existe
     const existingLink = await prisma.whatsAppLink.findUnique({
       where: { slug: data.slug },
@@ -62,12 +60,9 @@ class WhatsAppLinkService {
         slug: data.slug,
         phoneNumber: data.phoneNumber,
         message: data.message,
+        autoTag: data.autoTag,
       },
     });
-
-    console.log('[WhatsAppLink] ✅ Link criado com sucesso!');
-    console.log('[WhatsAppLink] Link ID:', link.id);
-    console.log('[WhatsAppLink] URL:', `${process.env.FRONTEND_URL || 'http://localhost:3000'}/l/${link.slug}`);
 
     return link;
   }
@@ -109,8 +104,6 @@ class WhatsAppLinkService {
    * Atualiza um link
    */
   async update(id: string, companyId: string, data: UpdateWhatsAppLinkDTO): Promise<WhatsAppLink> {
-    console.log('[WhatsAppLink] Atualizando link:', id);
-
     // Verifica se o link pertence à empresa
     const link = await this.findById(id, companyId);
     if (!link) {
@@ -151,16 +144,12 @@ class WhatsAppLinkService {
     await prisma.whatsAppLink.delete({
       where: { id },
     });
-
-    console.log('[WhatsAppLink] ✅ Link deletado:', id);
   }
 
   /**
    * Registra um clique no link
    */
   async trackClick(linkId: string, data: TrackClickDTO): Promise<LinkClick> {
-    console.log('[WhatsAppLink] Registrando clique no link:', linkId);
-
     // Parse do User-Agent para extrair informações do dispositivo
     let deviceInfo: {
       deviceType?: string;
@@ -192,7 +181,7 @@ class WhatsAppLinkService {
       try {
         geoData = await this.getGeoLocation(data.ipAddress);
       } catch (error) {
-        console.warn('[WhatsAppLink] Erro ao obter geolocalização:', error);
+        // Silently ignore geolocation errors
       }
     }
 
@@ -206,11 +195,6 @@ class WhatsAppLinkService {
         ...geoData,
       },
     });
-
-    console.log('[WhatsAppLink] ✅ Clique registrado:', click.id);
-    if (geoData.city) {
-      console.log('[WhatsAppLink] Localização:', `${geoData.city}, ${geoData.region}, ${geoData.country}`);
-    }
 
     return click;
   }

@@ -12,7 +12,7 @@ import { customerApi } from "@/lib/customer";
 import { whatsappApi } from "@/lib/whatsapp";
 import { Customer } from "@/types/customer";
 import { WhatsAppInstance } from "@/types/whatsapp";
-import { Loader2, MessageSquare, Search, X, Bot, User, ChevronRight, HelpCircle, MessageSquarePlus, Smartphone } from "lucide-react";
+import { Loader2, MessageSquare, Search, X, Bot, User, ChevronRight, MessageSquarePlus, Smartphone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,28 +23,63 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type FilterType = "all" | "ai" | "human" | "unread" | "needsHelp";
 type SortType = "recent" | "oldest" | "name";
 
+// Tipo para conversa pendente (cliente sem mensagens ainda)
+interface PendingConversation {
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  customerProfilePic: string | null;
+}
+
 export default function ConversationsPage() {
   const searchParams = useSearchParams();
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [pendingConversation, setPendingConversation] = useState<PendingConversation | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
 
-  // Filtros e busca
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState<FilterType>("all");
-  const [sortType, setSortType] = useState<SortType>("recent");
-  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersType>({
-    excludeGroups: false,
-    selectedTags: [],
-    onlyNeedsHelp: false,
-    onlyAiEnabled: false,
+  // Filtros e busca - carrega do localStorage se disponível
+  const [searchTerm, setSearchTerm] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("conversations_filter_search") || "";
+    }
+    return "";
+  });
+  const [filterType, setFilterType] = useState<FilterType>(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("conversations_filter_type") as FilterType) || "all";
+    }
+    return "all";
+  });
+  const [sortType, setSortType] = useState<SortType>(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("conversations_sort_type") as SortType) || "recent";
+    }
+    return "recent";
+  });
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersType>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("conversations_advanced_filters");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (error) {
+          console.error("Erro ao carregar filtros avançados:", error);
+        }
+      }
+    }
+    return {
+      excludeGroups: false,
+      selectedTags: [],
+      onlyNeedsHelp: false,
+      onlyAiEnabled: false,
+    };
   });
 
   // Layout
   const [showSidebar, setShowSidebar] = useState(true);
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
-  const sidebarWidth = 360;
 
   // Obtém o companyId do usuário logado
   const getCompanyId = () => {
@@ -87,6 +122,31 @@ export default function ConversationsPage() {
     loadInstances();
   }, [companyId]);
 
+  // Salva filtros no localStorage quando mudam
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("conversations_filter_search", searchTerm);
+    }
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("conversations_filter_type", filterType);
+    }
+  }, [filterType]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("conversations_sort_type", sortType);
+    }
+  }, [sortType]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("conversations_advanced_filters", JSON.stringify(advancedFilters));
+    }
+  }, [advancedFilters]);
+
   // Seleciona a primeira conversa no carregamento inicial
   useEffect(() => {
     if (!selectedCustomerId && conversations.length > 0) {
@@ -101,6 +161,16 @@ export default function ConversationsPage() {
       setSelectedCustomerId(customerId);
     }
   }, [searchParams]);
+
+  // Limpa a conversa pendente quando ela aparecer na lista de conversas
+  useEffect(() => {
+    if (pendingConversation) {
+      const existsInList = conversations.some((c) => c.customerId === pendingConversation.customerId);
+      if (existsInList) {
+        setPendingConversation(null);
+      }
+    }
+  }, [conversations, pendingConversation]);
 
   // Filtra e ordena conversas com useMemo para otimização
   const filteredConversations = useMemo(
@@ -140,7 +210,6 @@ export default function ConversationsPage() {
             // Debug: verificar grupos
             const hasGroupPattern = conv.customerPhone.includes("@g.us");
             if (hasGroupPattern || conv.isGroup) {
-              console.log(`[Filtro] Grupo excluído: ${conv.customerName} (isGroup: ${conv.isGroup}, phone: ${conv.customerPhone})`);
               return false;
             }
           }
@@ -195,7 +264,25 @@ export default function ConversationsPage() {
   );
 
   // Encontra a conversa selecionada
-  const selectedConversation = conversations.find((c) => c.customerId === selectedCustomerId);
+  // Encontra a conversa selecionada na lista OU usa a conversa pendente
+  const existingConversation = conversations.find((c) => c.customerId === selectedCustomerId);
+  const selectedConversation = existingConversation || (pendingConversation && pendingConversation.customerId === selectedCustomerId ? {
+    customerId: pendingConversation.customerId,
+    customerName: pendingConversation.customerName,
+    customerPhone: pendingConversation.customerPhone,
+    customerProfilePic: pendingConversation.customerProfilePic,
+    lastMessage: "",
+    lastMessageTimestamp: new Date().toISOString(),
+    unreadCount: 0,
+    direction: "OUTBOUND" as const,
+    aiEnabled: false,
+    needsHelp: false,
+    isGroup: false,
+    assignedToId: null,
+    assignedToName: null,
+    whatsappInstanceId: instances[0]?.id || "",
+    whatsappInstanceName: instances[0]?.instanceName || "",
+  } : null);
 
   // Estatísticas
   const stats = {
@@ -230,175 +317,114 @@ export default function ConversationsPage() {
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-muted/30">
       {/* Sidebar Esquerda: Lista de Conversas */}
       <div
-        className={cn("border-r bg-background transition-all duration-300 flex flex-col", showSidebar ? "w-[360px]" : "w-0")}
-        style={{ width: showSidebar ? `${sidebarWidth}px` : 0 }}
+        className={cn("border-r bg-background transition-all duration-300 flex flex-col", showSidebar ? "w-[320px]" : "w-0")}
+        style={{ width: showSidebar ? "320px" : 0 }}
       >
         {showSidebar && (
           <>
             {/* Header da Sidebar */}
-            <div className="p-4 border-b space-y-3">
+            <div className="p-3 border-b space-y-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="font-semibold text-base">Conversas</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {filteredConversations.length} de {conversations.length}
-                  </p>
-                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {filteredConversations.length} de {conversations.length}
+                </Badge>
                 <NewConversationDialog
                   trigger={
                     <Button size="sm" variant="default">
                       <MessageSquarePlus className="h-4 w-4" />
                     </Button>
                   }
-                  onConversationCreated={async (customerId) => {
-                    console.log('[Conversations] New conversation created, customer ID:', customerId);
+                  onConversationCreated={async (customer) => {
+                    console.log("[Conversations] New conversation created for customer:", customer);
 
-                    // Primeiro, seleciona o cliente
-                    setSelectedCustomerId(customerId);
-                    console.log('[Conversations] Customer selected:', customerId);
+                    // Define a conversa pendente (cliente sem mensagens ainda)
+                    setPendingConversation({
+                      customerId: customer.id,
+                      customerName: customer.name,
+                      customerPhone: customer.phone,
+                      customerProfilePic: customer.profilePicUrl || null,
+                    });
 
-                    // Aguarda um pouco para WebSocket processar
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    // Seleciona o cliente
+                    setSelectedCustomerId(customer.id);
+                    console.log("[Conversations] Customer selected:", customer.id);
 
-                    // Recarrega a lista de conversas para garantir que está atualizada
-                    await mutate();
-                    console.log('[Conversations] Conversations reloaded');
-
-                    // Garante que o cliente ainda está selecionado após o reload
-                    setSelectedCustomerId(customerId);
-                    console.log('[Conversations] Chat confirmed open for customer:', customerId);
+                    // Recarrega a lista de conversas em background
+                    mutate();
                   }}
                 />
               </div>
 
-              {/* Filtros Avançados */}
-              <div>
+              {/* Filtros e Instância em linha */}
+              <div className="flex items-center gap-2">
                 <AdvancedFilters filters={advancedFilters} onFiltersChange={setAdvancedFilters} />
-              </div>
-
-              {/* Seletor de Instância */}
-              {instances.length > 0 && (
-                <div>
+                {instances.length > 1 && (
                   <Select value={selectedInstanceId || "all"} onValueChange={(value) => setSelectedInstanceId(value === "all" ? null : value)}>
-                    <SelectTrigger className="h-9 text-xs">
-                      <div className="flex items-center gap-2">
+                    <SelectTrigger className="h-8 text-xs flex-1">
+                      <div className="flex items-center gap-1.5">
                         <Smartphone className="h-3 w-3" />
-                        <SelectValue placeholder="Todas as instâncias" />
+                        <SelectValue placeholder="Todas" />
                       </div>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">
-                        <div className="flex items-center gap-2">
-                          <Smartphone className="h-3 w-3" />
-                          <span>Todas as instâncias</span>
-                        </div>
-                      </SelectItem>
+                      <SelectItem value="all">Todas as instâncias</SelectItem>
                       {instances.map((instance) => (
                         <SelectItem key={instance.id} value={instance.id}>
-                          <div className="flex items-center gap-2">
-                            <Smartphone className="h-3 w-3" />
-                            <span>
-                              {instance.displayName || instance.instanceName}
-                              {instance.phoneNumber && ` (${instance.phoneNumber})`}
-                            </span>
-                            {instance.status === "CONNECTED" && (
-                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                                Conectada
-                              </Badge>
-                            )}
-                          </div>
+                          {instance.displayName || instance.instanceName}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Busca */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar conversas..."
+                  placeholder="Buscar..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 pr-9 h-9"
+                  className="pl-8 pr-8 h-8 text-sm"
                 />
                 {searchTerm && (
-                  <Button variant="ghost" size="icon" onClick={() => setSearchTerm("")} className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7">
+                  <Button variant="ghost" size="icon" onClick={() => setSearchTerm("")} className="absolute right-0.5 top-1/2 -translate-y-1/2 h-7 w-7">
                     <X className="h-3 w-3" />
                   </Button>
                 )}
               </div>
 
               {/* Filtros Rápidos */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button variant={filterType === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterType("all")} className="h-7 text-xs">
-                  Todas
-                  <Badge variant="secondary" className="ml-1.5 text-xs">
-                    {stats.total}
-                  </Badge>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Button variant={filterType === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterType("all")} className="h-6 text-xs px-2">
+                  Todas {stats.total}
                 </Button>
-                <Button variant={filterType === "ai" ? "default" : "outline"} size="sm" onClick={() => setFilterType("ai")} className="h-7 text-xs">
+                <Button variant={filterType === "ai" ? "default" : "outline"} size="sm" onClick={() => setFilterType("ai")} className="h-6 text-xs px-2">
                   <Bot className="h-3 w-3 mr-1" />
-                  IA
-                  <Badge variant="secondary" className="ml-1.5 text-xs">
-                    {stats.ai}
-                  </Badge>
+                  IA {stats.ai}
                 </Button>
-                <Button
-                  variant={filterType === "human" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterType("human")}
-                  className="h-7 text-xs"
-                >
+                <Button variant={filterType === "human" ? "default" : "outline"} size="sm" onClick={() => setFilterType("human")} className="h-6 text-xs px-2">
                   <User className="h-3 w-3 mr-1" />
-                  Humano
-                  <Badge variant="secondary" className="ml-1.5 text-xs">
-                    {stats.human}
-                  </Badge>
+                  Humano {stats.human}
                 </Button>
                 {stats.unread > 0 && (
-                  <Button
-                    variant={filterType === "unread" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilterType("unread")}
-                    className="h-7 text-xs"
-                  >
-                    Não lidas
-                    <Badge variant="destructive" className="ml-1.5 text-xs">
-                      {stats.unread}
-                    </Badge>
-                  </Button>
-                )}
-                {stats.needsHelp > 0 && (
-                  <Button
-                    variant={filterType === "needsHelp" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilterType("needsHelp")}
-                    className="h-7 text-xs"
-                  >
-                    <HelpCircle className="h-3 w-3 mr-1" />
-                    Ajuda
-                    <Badge variant="secondary" className="ml-1.5 text-xs bg-yellow-100 text-yellow-800">
-                      {stats.needsHelp}
-                    </Badge>
+                  <Button variant={filterType === "unread" ? "default" : "outline"} size="sm" onClick={() => setFilterType("unread")} className="h-6 text-xs px-2">
+                    <Badge variant="destructive" className="text-[10px] h-4 px-1">{stats.unread}</Badge>
                   </Button>
                 )}
               </div>
 
               {/* Ordenação */}
-              <div className="flex items-center gap-2">
-                <Select value={sortType} onValueChange={(value: SortType) => setSortType(value)}>
-                  <SelectTrigger className="h-8 text-xs flex-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="recent">Mais recentes</SelectItem>
-                    <SelectItem value="oldest">Mais antigas</SelectItem>
-                    <SelectItem value="name">Nome (A-Z)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={sortType} onValueChange={(value: SortType) => setSortType(value)}>
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Mais recentes</SelectItem>
+                  <SelectItem value="oldest">Mais antigas</SelectItem>
+                  <SelectItem value="name">Nome (A-Z)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Lista de Conversas */}
@@ -435,46 +461,13 @@ export default function ConversationsPage() {
       {/* Área Central: Chat */}
       <div className="flex-1 bg-background overflow-hidden flex flex-col">
         {selectedConversation ? (
-          <>
-            {/* Header do Chat */}
-            <div className="h-16 border-b px-6 flex items-center justify-between bg-background">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm">{selectedConversation.customerName}</h3>
-                  <p className="text-xs text-muted-foreground">{selectedConversation.customerPhone}</p>
-                </div>
-                {selectedConversation.aiEnabled ? (
-                  <Badge variant="outline" className="text-xs">
-                    <Bot className="h-3 w-3 mr-1" />
-                    IA Ativa
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="text-xs">
-                    <User className="h-3 w-3 mr-1" />
-                    Atendimento Humano
-                  </Badge>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowCustomerDetails(!showCustomerDetails)}>
-                  {showCustomerDetails ? "Ocultar" : "Mostrar"} Detalhes
-                </Button>
-              </div>
-            </div>
-
-            {/* Área de Mensagens */}
-            <div className="flex-1 overflow-hidden">
-              <ChatArea
-                customerId={selectedConversation.customerId}
-                customerName={selectedConversation.customerName}
-                customerPhone={selectedConversation.customerPhone}
-              />
-            </div>
-          </>
+          <ChatArea
+            customerId={selectedConversation.customerId}
+            customerName={selectedConversation.customerName}
+            customerPhone={selectedConversation.customerPhone}
+            onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
+            showDetailsButton={true}
+          />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-6">
             <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-4">

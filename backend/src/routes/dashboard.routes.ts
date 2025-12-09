@@ -12,5 +12,7 @@ router.use(authenticate);
  * Obtém estatísticas do dashboard com comparação temporal
  */
 router.get("/stats", dashboardController.getStats.bind(dashboardController));
+router.get("/onboarding", dashboardController.getOnboardingStatus.bind(dashboardController));
+router.get("/charts", dashboardController.getChartsData.bind(dashboardController));
 
 export default router;

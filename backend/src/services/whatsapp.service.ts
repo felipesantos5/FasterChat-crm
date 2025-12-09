@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 import { prisma } from "../utils/prisma";
 import { WhatsAppStatus } from "@prisma/client";
+import { Errors, AppError } from "../utils/errors";
 import {
   CreateInstanceRequest,
   SendMessageRequest,
@@ -333,7 +334,7 @@ class WhatsAppService {
       });
 
       if (!instance) {
-        throw new Error("WhatsApp instance not found");
+        throw Errors.whatsappInstanceNotFound();
       }
 
       // Verificação de status com tolerância para 'CONNECTING'
@@ -342,17 +343,21 @@ class WhatsAppService {
 
         const statusResult = await this.getStatus(instanceId);
 
-        // ALTERAÇÃO AQUI: Aceitamos CONNECTED ou CONNECTING
-        // A Evolution V2 frequentemente permite envio mesmo em estado 'connecting'
+        // Aceitamos CONNECTED ou CONNECTING
         if (statusResult.status !== WhatsAppStatus.CONNECTED && statusResult.status !== WhatsAppStatus.CONNECTING) {
-          throw new Error(`Cannot send: Instance is ${statusResult.status}`);
+          console.log(`[WhatsApp Service] Instance ${instance.displayName || instance.instanceName} is ${statusResult.status}`);
+          throw Errors.whatsappDisconnected(instance.displayName || instance.instanceName);
         }
 
         console.log("[WhatsApp Service] Connection valid (Open or Connecting). Sending message...");
       }
 
-      // ... (resto do código de formatação do número e envio permanece igual)
+      // Valida o número de telefone
       const formattedNumber = to.replace(/\D/g, "");
+      if (formattedNumber.length < 10) {
+        throw Errors.whatsappInvalidNumber(to);
+      }
+
       const remoteJid = `${formattedNumber}@s.whatsapp.net`;
 
       const response = await this.axiosInstance.post<EvolutionApiSendMessageResponse>(`/message/sendText/${instance!.instanceName}`, {
@@ -366,9 +371,26 @@ class WhatsAppService {
         timestamp: response.data.messageTimestamp,
       };
     } catch (error: any) {
-      // ... (catch permanece igual)
-      console.error("Error sending message:", error.response?.data || error.message);
-      throw new Error(`Failed to send message: ${error.response?.data?.message || error.message}`);
+      // Se já é um AppError, repassa
+      if (error instanceof AppError) {
+        throw error;
+      }
+
+      // Log detalhado para debug
+      console.error("[WhatsApp Service] Erro ao enviar mensagem:");
+      console.error("  - Status:", error.response?.status);
+      console.error("  - Data:", JSON.stringify(error.response?.data, null, 2));
+      console.error("  - Message:", error.message);
+
+      // Extrai a mensagem de erro da Evolution API
+      const evolutionError = error.response?.data?.message
+        || error.response?.data?.error
+        || error.response?.data?.response?.message
+        || error.message
+        || "";
+
+      // Usa a análise inteligente para retornar o erro apropriado
+      throw Errors.whatsappSendFailed(evolutionError);
     }
   }
 
@@ -533,6 +555,38 @@ class WhatsAppService {
       console.log(`✅ Webhook configured successfully: ${instanceName}`);
     } catch (error: any) {
       console.error("✗ Error configuring webhook:", error.response?.data || error.message);
+    }
+  }
+
+  /**
+   * Busca a foto de perfil de um contato via Evolution API
+   * Documentação: https://doc.evolution-api.com/v2/api-reference/chat-controller/fetch-profile-picture-url
+   */
+  async getProfilePicture(instanceName: string, phone: string): Promise<string | null> {
+    try {
+      // Formata o número para o formato do WhatsApp
+      const formattedNumber = phone.replace(/\D/g, "");
+      const remoteJid = formattedNumber.includes("@") ? formattedNumber : `${formattedNumber}@s.whatsapp.net`;
+
+      console.log(`[WhatsApp Service] 📷 Fetching profile picture for ${remoteJid}...`);
+
+      const response = await this.axiosInstance.post(`/chat/fetchProfilePictureUrl/${instanceName}`, {
+        number: remoteJid,
+      });
+
+      const profilePicUrl = response.data?.profilePictureUrl || response.data?.picture || response.data?.url;
+
+      if (profilePicUrl) {
+        console.log(`[WhatsApp Service] ✅ Profile picture found for ${phone}`);
+        return profilePicUrl;
+      }
+
+      console.log(`[WhatsApp Service] ⚠️ No profile picture for ${phone}`);
+      return null;
+    } catch (error: any) {
+      // Não loga erro pois é comum não ter foto de perfil
+      console.log(`[WhatsApp Service] 📷 Could not fetch profile picture for ${phone}: ${error.response?.data?.message || error.message}`);
+      return null;
     }
   }
 

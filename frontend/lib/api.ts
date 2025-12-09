@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3031";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030";
 
 export const api = axios.create({
   baseURL: `${API_URL}/api`,
@@ -10,7 +10,6 @@ export const api = axios.create({
 });
 
 // Flag para evitar loops de redirect
-let isRefreshing = false;
 let isRedirecting = false;
 
 // Add token to requests
@@ -24,9 +23,6 @@ api.interceptors.request.use(
       const token = localStorage.getItem("token");
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log(`[API] Request to ${config.url} with token`);
-      } else {
-        console.warn(`[API] No token found for request to ${config.url}`);
       }
     }
     return config;
@@ -51,14 +47,8 @@ api.interceptors.response.use(
 
     // Se é erro 401 e não é uma rota pública
     if (error.response?.status === 401 && !isPublicRoute) {
-      const errorData = error.response.data as any;
-
-      console.log(`[API] ⚠️ 401 Error on ${originalRequest.url}:`, errorData?.message || 'Unauthorized');
-      console.log(`[API] Error code:`, errorData?.code);
-
       // Evita loops de retry
       if (originalRequest._retry) {
-        console.error('[API] ❌ Retry já tentado anteriormente, fazendo logout');
         handleLogout();
         return Promise.reject(error);
       }
@@ -69,7 +59,6 @@ api.interceptors.response.use(
       // Verifica se tem refresh token disponível
       const refreshToken = localStorage.getItem("refreshToken");
       if (!refreshToken) {
-        console.error('[API] ❌ No refresh token available, fazendo logout');
         handleLogout();
         return Promise.reject(error);
       }
@@ -77,15 +66,12 @@ api.interceptors.response.use(
       try {
         // Se já está refreshing, aguarda o refresh atual
         if (refreshTokenPromise) {
-          console.log('[API] ⏳ Aguardando refresh token em andamento...');
           const newToken = await refreshTokenPromise;
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          console.log('[API] ✅ Token atualizado, retrying request');
           return api(originalRequest);
         }
 
         // Inicia novo refresh
-        console.log('[API] 🔄 Iniciando refresh token...');
         refreshTokenPromise = (async () => {
           try {
             const response = await axios.post(`${API_URL}/api/auth/refresh`, {
@@ -100,7 +86,6 @@ api.interceptors.response.use(
               localStorage.setItem("refreshToken", newRefreshToken);
             }
 
-            console.log('[API] ✅ Token refreshed successfully!');
             return newToken;
           } finally {
             // Limpa a promise para permitir novos refreshes no futuro
@@ -113,12 +98,11 @@ api.interceptors.response.use(
         // Atualiza header do request original
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
 
-        console.log('[API] ♻️ Retrying original request with new token');
         // Retry a requisição original
         return api(originalRequest);
 
       } catch (refreshError: any) {
-        console.error('[API] ❌ Refresh token failed:', refreshError?.response?.data || refreshError.message);
+        console.error('[API] Refresh token failed');
         refreshTokenPromise = null;
         handleLogout();
         return Promise.reject(refreshError);
@@ -134,7 +118,6 @@ function handleLogout() {
   if (isRedirecting) return; // Evita múltiplos redirects
 
   isRedirecting = true;
-  console.log('[API] Clearing session and redirecting to login');
 
   localStorage.removeItem("token");
   localStorage.removeItem("refreshToken");
@@ -147,3 +130,4 @@ function handleLogout() {
 }
 
 export default api;
+

@@ -1,62 +1,110 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { customerApi } from "@/lib/customer";
-import { useCustomers, useCustomerTags } from "@/hooks/use-customers";
-import { Customer } from "@/types/customer";
+import { Customer, CustomerListResponse } from "@/types/customer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CustomerFormModal } from "@/components/forms/customer-form-modal";
-import { Plus, Search, Phone, Mail, MoreVertical, Edit, Trash, Users } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Phone,
+  Mail,
+  MoreVertical,
+  Edit,
+  Trash,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  MessageSquare,
+  Upload,
+  X,
+  Filter,
+} from "lucide-react";
 import { TagBadge } from "@/components/ui/tag-badge";
-import { cn } from "@/lib/utils";
+import { cn, formatPhoneNumber } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { buttons, cards, typography, spacing, icons } from "@/lib/design-system";
 import { ImportCustomersDialog } from "@/components/customers/import-customers-dialog";
-import { Upload } from "lucide-react";
+import { Tag } from "@/lib/tag";
+import { tagApi } from "@/lib/tag";
+import { Card } from "@/components/ui/card";
 
 export default function CustomersPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Obtém o companyId do usuário logado
-  const getCompanyId = () => {
-    if (typeof window === "undefined") return null;
-    const user = localStorage.getItem("user");
-    if (user) {
-      const userData = JSON.parse(user);
-      return userData.companyId;
+  // Paginação
+  const [page, setPage] = useState(1);
+  const [limit] = useState(50);
+
+  // Data
+  const [data, setData] = useState<CustomerListResponse | null>(null);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset page on search
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Load tags
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        const tags = await tagApi.getAll();
+        setAvailableTags(tags);
+      } catch (error) {
+        console.error("Error loading tags:", error);
+      }
+    };
+    loadTags();
+  }, []);
+
+  // Load customers
+  const loadCustomers = async () => {
+    setIsLoading(true);
+    try {
+      const response = await customerApi.getAll({
+        search: debouncedSearch || undefined,
+        tags: selectedTags.length > 0 ? selectedTags : undefined,
+        page,
+        limit,
+      });
+      setData(response);
+    } catch (error) {
+      console.error("Error loading customers:", error);
+    } finally {
+      setIsLoading(false);
     }
-    return null;
   };
 
-  const companyId = getCompanyId();
+  useEffect(() => {
+    loadCustomers();
+  }, [debouncedSearch, selectedTags, page, limit]);
 
-  // Usa SWR para gerenciar customers com cache automático
-  const { customers, isLoading, mutate } = useCustomers(companyId, {
-    search,
-    selectedTags,
-  });
-
-  // Usa SWR para tags
-  const { tags: availableTags } = useCustomerTags(companyId);
-
-  const handleCreate = async (data: any) => {
-    await customerApi.create(data);
-    mutate();
+  const handleCreate = async (customerData: any) => {
+    await customerApi.create(customerData);
+    loadCustomers();
   };
 
-  const handleUpdate = async (data: any) => {
+  const handleUpdate = async (customerData: any) => {
     if (editingCustomer) {
-      await customerApi.update(editingCustomer.id, data);
-      mutate();
+      await customerApi.update(editingCustomer.id, customerData);
+      loadCustomers();
     }
   };
 
@@ -64,7 +112,7 @@ export default function CustomersPage() {
     if (confirm("Tem certeza que deseja excluir este cliente?")) {
       try {
         await customerApi.delete(id);
-        mutate();
+        loadCustomers();
       } catch (error) {
         console.error("Error deleting customer:", error);
       }
@@ -73,68 +121,89 @@ export default function CustomersPage() {
 
   const toggleTagFilter = (tag: string) => {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+    setPage(1);
   };
 
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedTags([]);
+    setPage(1);
+  };
+
+  // Paginação
+  const totalPages = data ? Math.ceil(data.total / limit) : 0;
+  const customers = data?.customers || [];
+  const total = data?.total || 0;
+
+  const hasActiveFilters = search || selectedTags.length > 0;
+
   return (
-    <div className={spacing.page}>
-      <div className={spacing.section}>
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className={`${typography.pageTitle} flex items-center gap-3`}>
-              <Users className={`${icons.large} text-purple-600`} />
-              Clientes
-            </h1>
-            <p className={typography.pageSubtitle}>Gerencie seus clientes e contatos</p>
-          </div>
-          <button
-            onClick={() => {
-              setEditingCustomer(undefined);
-              setModalOpen(true);
-            }}
-            className={buttons.primary}
-          >
-            <Plus className={`${icons.default} inline-block mr-2`} />
-            Novo Cliente
-          </button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setImportModalOpen(true)} className="hidden sm:flex">
-              <Upload className="mr-2 h-4 w-4" />
+    <div className="flex flex-col h-full">
+      {/* Header compacto */}
+      <div className="flex-shrink-0 border-b bg-background p-4">
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            {total} cliente{total !== 1 ? "s" : ""}
+            {hasActiveFilters && " (filtrado)"}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)}>
+              <Upload className="h-4 w-4 mr-1" />
               Importar
             </Button>
-            <button
+            <Button
+              size="sm"
               onClick={() => {
                 setEditingCustomer(undefined);
                 setModalOpen(true);
               }}
-              className={buttons.primary}
             >
-              <Plus className={`${icons.default} inline-block mr-2`} />
-              Novo Cliente
-            </button>
+              <Plus className="h-4 w-4 mr-1" />
+              Novo
+            </Button>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className={`${cards.default} mb-6`}>
-          <div className="relative">
-            <Search className={`absolute left-4 top-1/2 ${icons.default} -translate-y-1/2 text-gray-400`} />
-            <Input placeholder="Buscar por nome, telefone ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-12" />
+        {/* Barra de busca e filtros */}
+        <div className="flex items-center gap-2 mt-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Buscar nome, telefone ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
+
+          <Button variant={showFilters ? "secondary" : "outline"} size="sm" onClick={() => setShowFilters(!showFilters)} className="h-9">
+            <Filter className="h-4 w-4 mr-1" />
+            Filtros
+            {selectedTags.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                {selectedTags.length}
+              </Badge>
+            )}
+          </Button>
+
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
+              Limpar
+            </Button>
+          )}
         </div>
 
-        {/* Tag Filters */}
-        {availableTags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            <span className="text-sm text-muted-foreground">Filtrar por:</span>
+        {/* Filtros de tags */}
+        {showFilters && availableTags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
             {availableTags.map((tag) => (
               <Badge
                 key={tag.id}
                 className={cn(
-                  "cursor-pointer border transition-all text-white",
-                  selectedTags.includes(tag.name) ? "" : "bg-background text-muted-foreground hover:bg-accent"
+                  "cursor-pointer transition-all",
+                  selectedTags.includes(tag.name) ? "text-white" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 )}
-                variant="outline"
                 style={
                   selectedTags.includes(tag.name)
                     ? {
@@ -148,49 +217,111 @@ export default function CustomersPage() {
                 {tag.name}
               </Badge>
             ))}
-            {selectedTags.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setSelectedTags([])} className="h-6 px-2 text-xs">
-                Limpar filtros
+          </div>
+        )}
+      </div>
+
+      {/* Grid de clientes */}
+      <div className="flex-1 overflow-auto p-4">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-muted-foreground">Carregando...</div>
+          </div>
+        ) : customers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <Users className="h-12 w-12 text-muted-foreground/50 mb-3" />
+            <p className="text-muted-foreground mb-2">{hasActiveFilters ? "Nenhum cliente encontrado" : "Nenhum cliente cadastrado"}</p>
+            {!hasActiveFilters && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingCustomer(undefined);
+                  setModalOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Adicionar cliente
               </Button>
             )}
           </div>
-        )}
-
-        {/* Customer List */}
-        {isLoading ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Carregando clientes...</p>
-          </div>
-        ) : customers.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <p className="text-muted-foreground mb-4">
-                {search || selectedTags.length > 0 ? "Nenhum cliente encontrado" : "Nenhum cliente cadastrado"}
-              </p>
-              {!search && selectedTags.length === 0 && (
-                <Button onClick={() => setModalOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar primeiro cliente
-                </Button>
-              )}
-            </CardContent>
-          </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-3 gap-4">
             {customers.map((customer) => (
-              <Card key={customer.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                  <CardTitle className="text-lg font-semibold">{customer.name}</CardTitle>
+              <Card
+                key={customer.id}
+                className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => router.push(`/dashboard/conversations?customer=${customer.id}`)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    {/* Nome e badge de grupo */}
+                    <div className="flex items-center gap-2 mb-2">
+                      {customer.isGroup && (
+                        <Badge variant="outline" className="text-xs px-1 flex-shrink-0">
+                          Grupo
+                        </Badge>
+                      )}
+                      <span className="font-medium truncate">{customer.name}</span>
+                    </div>
+
+                    {/* Telefone */}
+                    <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                      <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="text-sm">{formatPhoneNumber(customer.phone)}</span>
+                    </div>
+
+                    {/* Email */}
+                    {customer.email && (
+                      <div className="flex items-center gap-1.5 text-muted-foreground mb-2">
+                        <Mail className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="text-sm truncate">{customer.email}</span>
+                      </div>
+                    )}
+
+                    {/* Tags */}
+                    {customer.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {customer.tags.slice(0, 3).map((tag) => (
+                          <TagBadge key={tag} tag={tag} tags={availableTags} className="text-xs" />
+                        ))}
+                        {customer.tags.length > 3 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{customer.tags.length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Menu de ações */}
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => router.push(`/dashboard/customers/${customer.id}`)}>Ver detalhes</DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/dashboard/customers/${customer.id}`);
+                        }}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver detalhes
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/dashboard/conversations?customer=${customer.id}`);
+                        }}
+                      >
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        Ver conversas
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setEditingCustomer(customer);
                           setModalOpen(true);
                         }}
@@ -198,57 +329,89 @@ export default function CustomersPage() {
                         <Edit className="mr-2 h-4 w-4" />
                         Editar
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(customer.id)} className="text-destructive">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(customer.id);
+                        }}
+                        className="text-destructive"
+                      >
                         <Trash className="mr-2 h-4 w-4" />
                         Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="h-4 w-4" />
-                    <span>{customer.phone}</span>
-                  </div>
-                  {customer.email && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mail className="h-4 w-4" />
-                      <span className="truncate">{customer.email}</span>
-                    </div>
-                  )}
-                  {customer.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {customer.tags.map((tag) => (
-                        <TagBadge key={tag} tag={tag} tags={availableTags} variant="outline" className="text-xs" />
-                      ))}
-                    </div>
-                  )}
-                  {customer.notes && <p className="text-sm text-muted-foreground line-clamp-2">{customer.notes}</p>}
-                </CardContent>
+                </div>
               </Card>
             ))}
           </div>
         )}
-
-        {/* Modal */}
-        <CustomerFormModal
-          open={modalOpen}
-          onClose={() => {
-            setModalOpen(false);
-            setEditingCustomer(undefined);
-          }}
-          onSubmit={editingCustomer ? handleUpdate : handleCreate}
-          customer={editingCustomer}
-          availableTags={availableTags}
-        />
-        <ImportCustomersDialog
-          isOpen={importModalOpen}
-          onClose={() => setImportModalOpen(false)}
-          onSuccess={() => {
-            mutate();
-          }}
-        />
       </div>
+
+      {/* Paginação */}
+      {totalPages > 1 && (
+        <div className="flex-shrink-0 border-t bg-background px-4 py-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Mostrando {(page - 1) * limit + 1} a {Math.min(page * limit, total)} de {total} clientes
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (page <= 3) {
+                    pageNum = i + 1;
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = page - 2 + i;
+                  }
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={page === pageNum ? "default" : "outline"}
+                      size="sm"
+                      className="w-8 h-8 p-0"
+                      onClick={() => setPage(pageNum)}
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                Próximo
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modais */}
+      <CustomerFormModal
+        open={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setEditingCustomer(undefined);
+        }}
+        onSubmit={editingCustomer ? handleUpdate : handleCreate}
+        customer={editingCustomer}
+        availableTags={availableTags}
+      />
+      <ImportCustomersDialog
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          loadCustomers();
+        }}
+      />
     </div>
   );
 }

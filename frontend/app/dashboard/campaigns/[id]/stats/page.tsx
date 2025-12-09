@@ -6,7 +6,7 @@ import { campaignApi } from "@/lib/campaign";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, RefreshCw, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw, CheckCircle2, XCircle, Clock, Play } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -41,6 +41,7 @@ export default function CampaignStatsPage() {
   const [logs, setLogs] = useState<CampaignLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [reexecuting, setReexecuting] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -74,6 +75,23 @@ export default function CampaignStatsPage() {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
+  };
+
+  const handleReexecute = async () => {
+    if (!confirm("Tem certeza que deseja reexecutar esta campanha? Os logs anteriores serão apagados.")) {
+      return;
+    }
+
+    setReexecuting(true);
+    try {
+      await campaignApi.reexecute(campaignId);
+      await loadData();
+    } catch (error) {
+      console.error("Error reexecuting campaign:", error);
+      alert("Erro ao reexecutar campanha. Tente novamente.");
+    } finally {
+      setReexecuting(false);
+    }
   };
 
   useEffect(() => {
@@ -139,10 +157,24 @@ export default function CampaignStatsPage() {
             <p className="text-muted-foreground">Monitoramento em tempo real</p>
           </div>
         </div>
-        <Button onClick={handleRefresh} disabled={refreshing} variant="outline">
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-          Atualizar
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleReexecute}
+            disabled={reexecuting || stats?.status === "PROCESSING"}
+            variant="default"
+          >
+            {reexecuting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
+            Reexecutar
+          </Button>
+          <Button onClick={handleRefresh} disabled={refreshing} variant="outline">
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}

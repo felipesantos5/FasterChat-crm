@@ -109,19 +109,10 @@ export default function LinksPage() {
   }
 
   return (
-    <div className={spacing.page}>
+    <div className="p-6">
       <div className={spacing.section}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className={`${typography.pageTitle} flex items-center gap-3`}>
-              <LinkIcon className={`${icons.large} text-purple-600`} />
-              Links de WhatsApp
-            </h1>
-            <p className={typography.pageSubtitle}>
-              Crie e gerencie links rastreáveis para WhatsApp
-            </p>
-          </div>
+        <div className="flex items-center justify-end mb-6">
           <button
             onClick={() => setShowCreateModal(true)}
             className={buttons.primary}

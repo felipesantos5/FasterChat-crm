@@ -90,13 +90,7 @@ export default function AIInsightsPage() {
   }
 
   return (
-    <div className="space-y-6 p-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Insights da IA</h1>
-        <p className="text-muted-foreground mt-1">Analise o desempenho e feedback das respostas automáticas da IA</p>
-      </div>
-
+    <div className="space-y-6 p-6">
       {/* Cards de Estatísticas */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {/* Total de Mensagens */}

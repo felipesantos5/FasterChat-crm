@@ -268,42 +268,31 @@ export default function CalendarioPage() {
   );
 
   return (
-    <div className={spacing.page}>
+    <div className="p-6">
       <div className={spacing.section}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className={`${typography.pageTitle} flex items-center gap-3`}>
-              <Calendar className={`${icons.large} text-purple-600`} />
-              Calendário
-            </h1>
-            <p className={typography.pageSubtitle}>
-              Visualização completa dos seus agendamentos
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            {googleStatus?.connected ? (
-              <button
-                onClick={() => setShowGoogleCalendar(true)}
-                className={badges.success + " cursor-pointer hover:shadow-sm transition-all"}
-              >
-                <CheckCircle className={`${icons.small} mr-1`} />
-                Google Calendar Conectado
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowGoogleCalendar(true)}
-                className={badges.warning + " cursor-pointer hover:shadow-sm transition-all"}
-              >
-                <Settings className={`${icons.small} mr-1`} />
-                Conectar Google Calendar
-              </button>
-            )}
-            <button onClick={() => setShowNewAppointment(true)} className={buttons.primary}>
-              <Plus className={`${icons.default} inline-block mr-2`} />
-              Novo Agendamento
+        <div className="flex items-center justify-end gap-4 mb-6">
+          {googleStatus?.connected ? (
+            <button
+              onClick={() => setShowGoogleCalendar(true)}
+              className={badges.success + " cursor-pointer hover:shadow-sm transition-all"}
+            >
+              <CheckCircle className={`${icons.small} mr-1`} />
+              Google Calendar Conectado
             </button>
-          </div>
+          ) : (
+            <button
+              onClick={() => setShowGoogleCalendar(true)}
+              className={badges.warning + " cursor-pointer hover:shadow-sm transition-all"}
+            >
+              <Settings className={`${icons.small} mr-1`} />
+              Conectar Google Calendar
+            </button>
+          )}
+          <button onClick={() => setShowNewAppointment(true)} className={buttons.primary}>
+            <Plus className={`${icons.default} inline-block mr-2`} />
+            Novo Agendamento
+          </button>
         </div>
 
         {/* Metrics Cards */}

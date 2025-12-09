@@ -76,6 +76,7 @@ model Customer {
   email           String?
   tags            String[]       @default([])
   notes           String?
+  profilePicUrl   String?        @map("profile_pic_url") // URL da foto de perfil do WhatsApp
   isGroup         Boolean        @default(false) @map("is_group") // Identifica se é um grupo do WhatsApp
   pipelineStageId String?        @map("pipeline_stage_id") // Estágio atual no funil de vendas
   createdAt       DateTime       @default(now()) @map("created_at")
@@ -415,6 +416,7 @@ model WhatsAppLink {
   slug           String   @unique // Slug único para o link (ex: "black-friday-2024")
   phoneNumber    String   @map("phone_number") // Número do WhatsApp (com código do país, ex: "5511999999999")
   message        String?  @db.Text // Mensagem pré-preenchida opcional
+  autoTag        String?  @map("auto_tag") // Tag automática para aplicar quando o cliente enviar mensagem
   isActive       Boolean  @default(true) @map("is_active") // Link ativo ou desativado
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -449,6 +451,11 @@ model LinkClick {
   browser        String?
   os             String?
 
+  // Conversão (quando o cliente realmente envia mensagem)
+  converted      Boolean  @default(false) // Se o cliente enviou mensagem
+  convertedAt    DateTime? @map("converted_at") // Quando converteu
+  customerId     String?  @map("customer_id") // Cliente que converteu (se identificado)
+
   // Timestamp
   clickedAt      DateTime @default(now()) @map("clicked_at")
 
@@ -458,6 +465,7 @@ model LinkClick {
   @@index([clickedAt])
   @@index([country])
   @@index([deviceType])
+  @@index([converted])
   @@map("link_clicks")
 }
 

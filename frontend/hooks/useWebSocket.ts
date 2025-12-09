@@ -26,11 +26,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   const connect = useCallback(() => {
     if (socketRef.current?.connected) {
-      console.log('[WebSocket] Already connected');
       return;
     }
-
-    console.log('[WebSocket] Connecting to', BACKEND_URL);
 
     const socket = io(BACKEND_URL, {
       transports: ['websocket', 'polling'],
@@ -40,7 +37,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     });
 
     socket.on('connect', () => {
-      console.log('✅ [WebSocket] Connected:', socket.id);
       setIsConnected(true);
 
       // Autentica automaticamente se houver token
@@ -50,24 +46,21 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       }
     });
 
-    socket.on('authenticated', (data) => {
-      console.log('✅ [WebSocket] Authenticated:', data);
+    socket.on('authenticated', () => {
       setIsAuthenticated(true);
     });
 
-    socket.on('auth_error', (error) => {
-      console.error('❌ [WebSocket] Authentication error:', error);
+    socket.on('auth_error', () => {
       setIsAuthenticated(false);
     });
 
     socket.on('disconnect', () => {
-      console.log('🔌 [WebSocket] Disconnected');
       setIsConnected(false);
       setIsAuthenticated(false);
     });
 
     socket.on('connect_error', (error) => {
-      console.error('❌ [WebSocket] Connection error:', error);
+      console.error('[WebSocket] Connection error:', error.message);
     });
 
     // Event listeners personalizados
@@ -92,7 +85,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {
-      console.log('[WebSocket] Disconnecting...');
       socketRef.current.disconnect();
       socketRef.current = null;
       setIsConnected(false);
@@ -102,14 +94,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   const subscribeToConversation = useCallback((customerId: string) => {
     if (socketRef.current && isAuthenticated) {
-      console.log('[WebSocket] Subscribing to conversation:', customerId);
       socketRef.current.emit('subscribe_conversation', customerId);
     }
   }, [isAuthenticated]);
 
   const unsubscribeFromConversation = useCallback((customerId: string) => {
     if (socketRef.current && isAuthenticated) {
-      console.log('[WebSocket] Unsubscribing from conversation:', customerId);
       socketRef.current.emit('unsubscribe_conversation', customerId);
     }
   }, [isAuthenticated]);
@@ -177,3 +167,4 @@ export function useConversationMessages(customerId: string | null) {
     setMessages, // Para permitir inicialização com mensagens existentes
   };
 }
+

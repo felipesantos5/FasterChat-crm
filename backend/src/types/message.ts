@@ -89,6 +89,7 @@ export interface ConversationSummary {
   customerId: string;
   customerName: string;
   customerPhone: string;
+  customerProfilePic: string | null; // URL da foto de perfil do WhatsApp
   lastMessage: string;
   lastMessageTimestamp: Date;
   unreadCount: number;

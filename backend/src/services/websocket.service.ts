@@ -25,7 +25,6 @@ class WebSocketService {
     });
 
     this.setupEventHandlers();
-    console.log('✅ WebSocket Server initialized');
   }
 
   /**
@@ -35,8 +34,6 @@ class WebSocketService {
     if (!this.io) return;
 
     this.io.on('connection', (socket: AuthenticatedSocket) => {
-      console.log(`🔌 Client connected: ${socket.id}`);
-
       // Autenticação via token JWT
       socket.on('authenticate', (token: string) => {
         try {
@@ -55,10 +52,9 @@ class WebSocketService {
           // Entra em sala específica da empresa
           socket.join(`company:${socket.companyId}`);
 
-          console.log(`✅ User authenticated: ${socket.userId} (Company: ${socket.companyId})`);
           socket.emit('authenticated', { userId: socket.userId, companyId: socket.companyId });
         } catch (error) {
-          console.error('❌ Authentication failed:', error);
+          console.error('[WebSocket] Authentication failed');
           socket.emit('auth_error', { message: 'Invalid token' });
           socket.disconnect();
         }
@@ -72,13 +68,11 @@ class WebSocketService {
         }
 
         socket.join(`conversation:${customerId}`);
-        console.log(`📱 User ${socket.userId} subscribed to conversation ${customerId}`);
       });
 
       // Cliente quer parar de receber atualizações de uma conversa
       socket.on('unsubscribe_conversation', (customerId: string) => {
         socket.leave(`conversation:${customerId}`);
-        console.log(`📱 User ${socket.userId} unsubscribed from conversation ${customerId}`);
       });
 
       // Desconexão
@@ -92,7 +86,6 @@ class WebSocketService {
             }
           }
         }
-        console.log(`🔌 Client disconnected: ${socket.id}`);
       });
     });
   }
@@ -103,7 +96,6 @@ class WebSocketService {
   emitNewMessage(companyId: string, message: any) {
     if (!this.io) return;
 
-    console.log(`📤 Emitting new message to company ${companyId}`);
     this.io.to(`company:${companyId}`).emit('new_message', message);
 
     // Também emite para sala específica da conversa
@@ -131,7 +123,6 @@ class WebSocketService {
   emitConversationUpdate(companyId: string, customerId: string, update: any) {
     if (!this.io) return;
 
-    console.log(`📤 Emitting conversation update for ${customerId}`);
     this.io.to(`company:${companyId}`).emit('conversation_update', {
       customerId,
       ...update,
@@ -167,7 +158,6 @@ class WebSocketService {
   emitNewCustomer(companyId: string, customer: any) {
     if (!this.io) return;
 
-    console.log(`📤 Emitting new customer to company ${companyId}`);
     this.io.to(`company:${companyId}`).emit('new_customer', customer);
   }
 
@@ -176,12 +166,6 @@ class WebSocketService {
    */
   emitNewConversation(companyId: string, conversation: any) {
     if (!this.io) return;
-
-    console.log(`📤 Emitting new conversation to company ${companyId}:`, {
-      conversationId: conversation.id,
-      customerId: conversation.customerId,
-      customerName: conversation.customer?.name,
-    });
 
     this.io.to(`company:${companyId}`).emit('new_conversation', conversation);
   }
@@ -211,3 +195,4 @@ class WebSocketService {
 }
 
 export const websocketService = new WebSocketService();
+

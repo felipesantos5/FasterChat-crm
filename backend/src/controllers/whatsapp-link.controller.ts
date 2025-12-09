@@ -14,6 +14,7 @@ const createLinkSchema = z.object({
     .string()
     .regex(/^\d{10,15}$/, 'Número deve conter apenas dígitos (10-15 caracteres)'),
   message: z.string().max(1000, 'Mensagem muito longa').optional(),
+  autoTag: z.string().max(50, 'Tag muito longa').optional(),
 });
 
 const updateLinkSchema = z.object({
@@ -26,6 +27,7 @@ const updateLinkSchema = z.object({
     .optional(),
   phoneNumber: z.string().regex(/^\d{10,15}$/, 'Número inválido').optional(),
   message: z.string().max(1000).optional(),
+  autoTag: z.string().max(50).optional().nullable(),
   isActive: z.boolean().optional(),
 });
 

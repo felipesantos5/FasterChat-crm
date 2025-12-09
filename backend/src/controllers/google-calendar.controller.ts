@@ -43,13 +43,13 @@ class GoogleCalendarController {
 
       if (!code || typeof code !== 'string') {
         return res.redirect(
-          `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/agenda?google_error=${encodeURIComponent('Código de autorização não fornecido')}`
+          `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/calendario?google_error=${encodeURIComponent('Código de autorização não fornecido')}`
         );
       }
 
       if (!companyId) {
         return res.redirect(
-          `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/agenda?google_error=${encodeURIComponent('Company ID não fornecido')}`
+          `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/calendario?google_error=${encodeURIComponent('Company ID não fornecido')}`
         );
       }
 
@@ -61,12 +61,12 @@ class GoogleCalendarController {
 
       // Redireciona para o frontend com sucesso
       return res.redirect(
-        `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/agenda?google_connected=true`
+        `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/calendario?google_connected=true`
       );
     } catch (error: any) {
       console.error('Error handling OAuth callback:', error);
       return res.redirect(
-        `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/agenda?google_error=${encodeURIComponent(error.message)}`
+        `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/calendario?google_error=${encodeURIComponent(error.message)}`
       );
     }
   }

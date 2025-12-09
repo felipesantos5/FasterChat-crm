@@ -29,11 +29,23 @@ export class CustomerService {
     // Grupos do WhatsApp sempre contêm "@g.us" no número
     const isGroup = data.phone.includes("@g.us");
 
+    // Busca o primeiro estágio do pipeline (Novo Lead) para atribuir automaticamente
+    // Apenas para clientes individuais, não para grupos
+    let pipelineStageId: string | null = null;
+    if (!isGroup) {
+      const firstStage = await prisma.pipelineStage.findFirst({
+        where: { companyId },
+        orderBy: { order: 'asc' },
+      });
+      pipelineStageId = firstStage?.id || null;
+    }
+
     console.log("[Customer Service] Creating customer with data:", {
       companyId,
       name: data.name,
       tags: data.tags,
       isGroup,
+      pipelineStageId,
     });
 
     return prisma.customer.create({
@@ -44,12 +56,13 @@ export class CustomerService {
         tags: data.tags || [],
         notes: data.notes || null,
         isGroup,
+        pipelineStageId,
       },
     });
   }
 
   async findAll(companyId: string, filters: CustomerFilters): Promise<{ customers: Customer[]; total: number; page: number; limit: number }> {
-    const { search, tags, page = 1, limit = 10 } = filters;
+    const { search, tags, page = 1, limit = 50 } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {
@@ -212,6 +225,13 @@ export class CustomerService {
     let failed = 0;
     const errors: any[] = [];
 
+    // Busca o primeiro estágio do pipeline para atribuir aos novos clientes
+    const firstStage = await prisma.pipelineStage.findFirst({
+      where: { companyId },
+      orderBy: { order: 'asc' },
+    });
+    const defaultPipelineStageId = firstStage?.id || null;
+
     // Processa em série para não sobrecarregar o banco com muitas conexões simultâneas
     // Em produção com milhares de registros, usaríamos createMany, mas aqui precisamos da lógica de tags
     for (const data of customers) {
@@ -241,7 +261,7 @@ export class CustomerService {
         // 3. Detecta grupo
         const isGroup = data.phone.includes("@g.us");
 
-        // 4. Cria cliente
+        // 4. Cria cliente (atribui ao primeiro estágio se não for grupo)
         await prisma.customer.create({
           data: {
             ...data,
@@ -250,6 +270,7 @@ export class CustomerService {
             tags: data.tags || [],
             notes: data.notes || null,
             isGroup,
+            pipelineStageId: isGroup ? null : defaultPipelineStageId,
           },
         });
 

@@ -11,6 +11,7 @@ import { CustomerNote } from "@/types/customer-note";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { formatPhoneNumber } from "@/lib/utils";
 
 interface CustomerDetailsProps {
   customerId: string;
@@ -126,7 +127,7 @@ export function CustomerDetails({ customerId, customerName, customerPhone, custo
   const currentUserId = getUserId();
 
   return (
-    <div className="flex flex-col h-full p-4 space-y-4 overflow-y-auto">
+    <div className="flex flex-col h-full p-4 space-y-4 overflow-y-auto overflow-x-hidden">
       {/* Customer Info */}
       <Card>
         <CardHeader>
@@ -142,10 +143,10 @@ export function CustomerDetails({ customerId, customerName, customerPhone, custo
           </div>
 
           <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-muted-foreground" />
+            <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-xs text-muted-foreground">Telefone</p>
-              <p className="text-sm font-medium">{customerPhone}</p>
+              <p className="text-sm font-medium truncate">{formatPhoneNumber(customerPhone)}</p>
             </div>
           </div>
 

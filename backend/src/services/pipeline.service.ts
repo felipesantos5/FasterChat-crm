@@ -119,7 +119,7 @@ export class PipelineService {
   /**
    * Reordena os estágios
    */
-  async reorder(companyId: string, stageIds: string[]): Promise<PipelineStage[]> {
+  async reorder(_companyId: string, stageIds: string[]): Promise<PipelineStage[]> {
     const updates: Promise<PipelineStage>[] = [];
 
     for (let i = 0; i < stageIds.length; i++) {

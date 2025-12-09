@@ -53,9 +53,7 @@ export function TagSelector({
       if (createInDatabase && !tagExists) {
         try {
           setCreating(true);
-          console.log('[TagSelector] Creating tag in database:', trimmedTag, color);
           const createdTag = await tagApi.create(trimmedTag, color || newTagColor);
-          console.log('[TagSelector] Tag created successfully');
           onTagCreated?.(createdTag);
         } catch (error) {
           console.error('[TagSelector] Error creating tag:', error);
@@ -159,14 +157,19 @@ export function TagSelector({
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-full p-0" align="start">
-            <Command>
+          <PopoverContent 
+            className="w-[var(--radix-popover-trigger-width)] p-0" 
+            align="start"
+            sideOffset={4}
+            style={{ maxHeight: '350px' }}
+          >
+            <Command className="flex flex-col max-h-[350px]">
               <CommandInput
                 placeholder="Buscar ou adicionar tag..."
                 value={searchValue}
                 onValueChange={setSearchValue}
               />
-              <CommandList>
+              <CommandList className="max-h-[180px] overflow-y-auto">
                 {/* Tags Existentes */}
                 {filteredTags.length > 0 && (
                   <CommandGroup heading="Tags Existentes">
@@ -234,15 +237,15 @@ export function TagSelector({
               </CommandList>
 
               {/* Input Manual para Nova Tag */}
-              <div className="border-t p-3">
-                <div className="space-y-3">
+              <div className="border-t p-3 flex-shrink-0">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Input
                       placeholder="Digite uma nova tag..."
                       value={newTagValue}
                       onChange={(e) => setNewTagValue(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      className="flex-1"
+                      className="flex-1 h-8 text-sm"
                       disabled={creating}
                     />
                     <Button
@@ -250,18 +253,19 @@ export function TagSelector({
                       size="sm"
                       onClick={handleAddNewTag}
                       disabled={!newTagValue.trim() || creating}
+                      className="h-8 w-8 p-0"
                     >
                       {creating ? (
-                        <span className="animate-spin">⏳</span>
+                        <span className="animate-spin text-xs">⏳</span>
                       ) : (
                         <Plus className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
                   {newTagValue.trim() && (
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       <p className="text-xs font-medium text-gray-700">
-                        Escolha uma cor para a tag:
+                        Escolha uma cor:
                       </p>
                       <ColorPicker
                         value={newTagColor}
@@ -271,7 +275,7 @@ export function TagSelector({
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    {creating ? 'Criando tag...' : 'Digite o nome, escolha a cor e pressione Enter ou clique em + para adicionar'}
+                    {creating ? 'Criando tag...' : 'Enter ou + para adicionar'}
                   </p>
                 </div>
               </div>

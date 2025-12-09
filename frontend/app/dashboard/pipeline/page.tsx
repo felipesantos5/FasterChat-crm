@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { pipelineApi } from "@/lib/pipeline";
-import { PipelineBoard } from "@/types/pipeline";
+import { PipelineBoard, PipelineStage } from "@/types/pipeline";
 import { Customer } from "@/types/customer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Settings2, Mail, Phone } from "lucide-react";
+import { ManageStagesModal } from "@/components/pipeline/manage-stages-modal";
+import { Loader2, Settings2, GripVertical, Phone, Calendar, Users, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function PipelinePage() {
   const router = useRouter();
@@ -18,6 +20,9 @@ export default function PipelinePage() {
   const [error, setError] = useState<string | null>(null);
   const [draggedCustomer, setDraggedCustomer] = useState<Customer | null>(null);
   const [, setDraggedFromStage] = useState<string | null>(null);
+  const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
+  const [manageStagesOpen, setManageStagesOpen] = useState(false);
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
   const getCompanyId = () => {
     const user = localStorage.getItem("user");
@@ -31,20 +36,19 @@ export default function PipelinePage() {
   const loadBoard = async () => {
     try {
       setError(null);
-      const companyId = getCompanyId();
+      const cId = getCompanyId();
+      setCompanyId(cId);
 
-      if (!companyId) {
+      if (!cId) {
         setError("Empresa não encontrada");
         return;
       }
 
-      const data = await pipelineApi.getBoard(companyId);
+      const data = await pipelineApi.getBoard(cId);
 
-      // Se não tem estágios, inicializa com estágios padrão
       if (data.stages.length === 0) {
-        console.log("Inicializando pipeline com estágios padrão...");
-        await pipelineApi.initPipeline(companyId);
-        const newData = await pipelineApi.getBoard(companyId);
+        await pipelineApi.initPipeline(cId);
+        const newData = await pipelineApi.getBoard(cId);
         setBoard(newData);
       } else {
         setBoard(data);
@@ -61,27 +65,55 @@ export default function PipelinePage() {
     loadBoard();
   }, []);
 
+  // Calcula estatísticas do pipeline
+  const stats = useMemo(() => {
+    if (!board) return { totalLeads: 0, responseRate: 0 };
+
+    const totalLeads = board.stages.reduce((acc, stage) => acc + stage.customers.length, board.customersWithoutStage.length);
+
+    // Taxa de conversão: clientes no estágio "Fechado - Ganho" / total
+    const wonStage = board.stages.find(
+      (s) =>
+        s.stage.name.toLowerCase().includes("ganho") ||
+        (s.stage.name.toLowerCase().includes("fechado") && !s.stage.name.toLowerCase().includes("perdido"))
+    );
+    const wonCount = wonStage?.customers.length || 0;
+    const responseRate = totalLeads > 0 ? Math.round((wonCount / totalLeads) * 100) : 0;
+
+    return { totalLeads, responseRate };
+  }, [board]);
+
+  // Lista de stages para o modal
+  const stagesList: PipelineStage[] = useMemo(() => {
+    if (!board) return [];
+    return board.stages.map((s) => s.stage);
+  }, [board]);
+
   const handleDragStart = (customer: Customer, fromStageId: string | null) => {
     setDraggedCustomer(customer);
     setDraggedFromStage(fromStageId);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, stageId: string | null) => {
     e.preventDefault();
+    setDragOverStageId(stageId);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverStageId(null);
   };
 
   const handleDrop = async (toStageId: string | null) => {
+    setDragOverStageId(null);
     if (!draggedCustomer) return;
 
-    const companyId = getCompanyId();
-    if (!companyId) return;
+    const cId = getCompanyId();
+    if (!cId) return;
 
     try {
-      await pipelineApi.moveCustomer(draggedCustomer.id, companyId, {
+      await pipelineApi.moveCustomer(draggedCustomer.id, cId, {
         stageId: toStageId,
       });
-
-      // Atualiza o board localmente
       await loadBoard();
     } catch (err: any) {
       console.error("Error moving customer:", err);
@@ -96,76 +128,95 @@ export default function PipelinePage() {
     router.push(`/dashboard/conversations?customer=${customer.id}`);
   };
 
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy", { locale: ptBR });
+    } catch {
+      return "-";
+    }
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <Card className="border-destructive">
-          <CardContent className="pt-6">
-            <p className="text-sm text-destructive">{error}</p>
-          </CardContent>
-        </Card>
+      <div className={spacing.page}>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Pipeline de Vendas</h1>
-          <p className="text-muted-foreground">
-            Organize seus clientes no funil de vendas
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-4">
+        <div className="flex justify-between mb-6">
+          <div className="flex gap-4">
+            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Users className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Total de Leads</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalLeads}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Taxa de Conversão</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.responseRate}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <Button onClick={() => setManageStagesOpen(true)} variant="outline" className="border-gray-300">
             <Settings2 className="h-4 w-4 mr-2" />
             Gerenciar Estágios
           </Button>
         </div>
-      </div>
 
-      {/* Kanban Board */}
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {board?.stages.map((stageData) => (
-          <div
-            key={stageData.stage.id}
-            className="flex-shrink-0 w-80"
-            onDragOver={handleDragOver}
-            onDrop={() => handleDrop(stageData.stage.id)}
-          >
-            <Card className="h-full">
-              <CardHeader className="pb-3">
+        {/* Kanban Board */}
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {board?.stages.map((stageData) => (
+            <div
+              key={stageData.stage.id}
+              className={cn(
+                "flex-shrink-0 w-72 flex flex-col rounded-xl bg-white border shadow-sm transition-all",
+                dragOverStageId === stageData.stage.id ? "border-purple-400 ring-2 ring-purple-100" : "border-gray-200"
+              )}
+              onDragOver={(e) => handleDragOver(e, stageData.stage.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={() => handleDrop(stageData.stage.id)}
+            >
+              {/* Stage Header */}
+              <div className="px-4 py-3 border-b border-gray-100">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: stageData.stage.color }}
-                    />
-                    <CardTitle className="text-sm font-medium">
-                      {stageData.stage.name}
-                    </CardTitle>
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stageData.stage.color }} />
+                    <span className="text-sm font-semibold text-gray-800">{stageData.stage.name}</span>
                   </div>
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-100">
                     {stageData.customers.length}
                   </Badge>
                 </div>
-                {stageData.stage.description && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stageData.stage.description}
-                  </p>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
+              </div>
+
+              {/* Cards Container */}
+              <div className="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-350px)] min-h-[200px]">
                 {stageData.customers.map((customer) => (
                   <div
                     key={customer.id}
@@ -173,63 +224,74 @@ export default function PipelinePage() {
                     onDragStart={() => handleDragStart(customer, stageData.stage.id)}
                     onClick={() => handleCustomerClick(customer)}
                     className={cn(
-                      "p-3 rounded-lg border bg-card cursor-move hover:shadow-md transition-all",
-                      draggedCustomer?.id === customer.id && "opacity-50"
+                      "bg-gray-50 rounded-lg p-3 cursor-pointer border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group",
+                      draggedCustomer?.id === customer.id && "opacity-50 scale-95"
                     )}
                   >
-                    <div className="space-y-2">
-                      <p className="font-medium text-sm">{customer.name}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Phone className="h-3 w-3" />
-                        <span className="truncate">{customer.phone}</span>
-                      </div>
-                      {customer.email && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Mail className="h-3 w-3" />
-                          <span className="truncate">{customer.email}</span>
-                        </div>
-                      )}
-                      {customer.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {customer.tags.slice(0, 2).map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                          {customer.tags.length > 2 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{customer.tags.length - 2}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
+                    {/* Customer Name */}
+                    <div className="flex items-start justify-between mb-2">
+                      <p className="font-medium text-sm text-gray-900 truncate flex-1">{customer.name}</p>
+                      <GripVertical className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab flex-shrink-0" />
                     </div>
+
+                    {/* Phone */}
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-2">
+                      <Phone className="h-3 w-3" />
+                      <span className="truncate">{customer.phone}</span>
+                    </div>
+
+                    {/* Date */}
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                      <Calendar className="h-3 w-3" />
+                      <span>{formatDate(customer.createdAt)}</span>
+                    </div>
+
+                    {/* Tags */}
+                    {customer.tags && customer.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {customer.tags.slice(0, 2).map((tag) => (
+                          <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0 bg-white border-gray-200 text-gray-600">
+                            {tag}
+                          </Badge>
+                        ))}
+                        {customer.tags.length > 2 && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-white border-gray-200 text-gray-600">
+                            +{customer.tags.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-          </div>
-        ))}
 
-        {/* Coluna de clientes sem estágio */}
-        {board && board.customersWithoutStage.length > 0 && (
-          <div
-            className="flex-shrink-0 w-80"
-            onDragOver={handleDragOver}
-            onDrop={() => handleDrop(null)}
-          >
-            <Card className="h-full border-dashed">
-              <CardHeader className="pb-3">
+                {stageData.customers.length === 0 && <div className="text-center py-8 text-gray-400 text-sm">Arraste leads para cá</div>}
+              </div>
+            </div>
+          ))}
+
+          {/* Coluna de clientes sem estágio */}
+          {board && board.customersWithoutStage.length > 0 && (
+            <div
+              className={cn(
+                "flex-shrink-0 w-72 flex flex-col rounded-xl bg-white border-2 border-dashed transition-all",
+                dragOverStageId === null && draggedCustomer ? "border-gray-400 ring-2 ring-gray-100" : "border-gray-300"
+              )}
+              onDragOver={(e) => handleDragOver(e, null)}
+              onDragLeave={handleDragLeave}
+              onDrop={() => handleDrop(null)}
+            >
+              {/* Stage Header */}
+              <div className="px-4 py-3 border-b border-gray-100">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Sem Estágio
-                  </CardTitle>
-                  <Badge variant="secondary" className="text-xs">
+                  <span className="text-sm font-semibold text-gray-500">Sem Estágio</span>
+                  <Badge variant="secondary" className="bg-gray-100 text-gray-500">
                     {board.customersWithoutStage.length}
                   </Badge>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
+              </div>
+
+              {/* Cards Container */}
+              <div className="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-350px)] min-h-[200px]">
                 {board.customersWithoutStage.map((customer) => (
                   <div
                     key={customer.id}
@@ -237,30 +299,37 @@ export default function PipelinePage() {
                     onDragStart={() => handleDragStart(customer, null)}
                     onClick={() => handleCustomerClick(customer)}
                     className={cn(
-                      "p-3 rounded-lg border bg-card cursor-move hover:shadow-md transition-all",
-                      draggedCustomer?.id === customer.id && "opacity-50"
+                      "bg-gray-50 rounded-lg p-3 cursor-pointer border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group",
+                      draggedCustomer?.id === customer.id && "opacity-50 scale-95"
                     )}
                   >
-                    <div className="space-y-2">
-                      <p className="font-medium text-sm">{customer.name}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Phone className="h-3 w-3" />
-                        <span className="truncate">{customer.phone}</span>
-                      </div>
-                      {customer.email && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Mail className="h-3 w-3" />
-                          <span className="truncate">{customer.email}</span>
-                        </div>
-                      )}
+                    <div className="flex items-start justify-between mb-2">
+                      <p className="font-medium text-sm text-gray-900 truncate flex-1">{customer.name}</p>
+                      <GripVertical className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab flex-shrink-0" />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <Phone className="h-3 w-3" />
+                      <span className="truncate">{customer.phone}</span>
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Modal de Gerenciamento de Estágios */}
+      {companyId && (
+        <ManageStagesModal
+          open={manageStagesOpen}
+          onOpenChange={setManageStagesOpen}
+          companyId={companyId}
+          stages={stagesList}
+          onStagesUpdated={loadBoard}
+        />
+      )}
     </div>
   );
 }

@@ -7,11 +7,13 @@ export interface WhatsAppLink {
   slug: string;
   phoneNumber: string;
   message?: string;
+  autoTag?: string; // Tag automática para aplicar quando o cliente enviar mensagem
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
   url: string;
   clicks: number;
+  conversions?: number; // Número de conversões (clientes que enviaram mensagem)
 }
 
 export interface CreateWhatsAppLinkDTO {
@@ -19,6 +21,7 @@ export interface CreateWhatsAppLinkDTO {
   slug: string;
   phoneNumber: string;
   message?: string;
+  autoTag?: string;
 }
 
 export interface UpdateWhatsAppLinkDTO {
@@ -26,6 +29,7 @@ export interface UpdateWhatsAppLinkDTO {
   slug?: string;
   phoneNumber?: string;
   message?: string;
+  autoTag?: string;
   isActive?: boolean;
 }
 

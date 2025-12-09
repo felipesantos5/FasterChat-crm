@@ -35,14 +35,14 @@ class CampaignExecutionController {
       // Executa campanha
       await campaignExecutionService.executeCampaign(id);
 
-      res.json({
+      return res.json({
         message: 'Campaign execution started',
         campaignId: id,
         status: 'PENDING',
       });
     } catch (error: any) {
       console.error('[Campaign Execution] Error executing campaign:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to execute campaign',
         message: error.message,
       });
@@ -88,7 +88,7 @@ class CampaignExecutionController {
       // Agenda campanha
       await campaignExecutionService.scheduleCampaign(id, scheduledDate);
 
-      res.json({
+      return res.json({
         message: 'Campaign scheduled successfully',
         campaignId: id,
         scheduledAt: scheduledDate.toISOString(),
@@ -96,7 +96,7 @@ class CampaignExecutionController {
       });
     } catch (error: any) {
       console.error('[Campaign Execution] Error scheduling campaign:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to schedule campaign',
         message: error.message,
       });
@@ -131,14 +131,14 @@ class CampaignExecutionController {
       // Cancela campanha
       await campaignExecutionService.cancelCampaign(id);
 
-      res.json({
+      return res.json({
         message: 'Campaign canceled successfully',
         campaignId: id,
         status: 'CANCELED',
       });
     } catch (error: any) {
       console.error('[Campaign Execution] Error canceling campaign:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to cancel campaign',
         message: error.message,
       });
@@ -173,10 +173,10 @@ class CampaignExecutionController {
       // Busca estatísticas
       const stats = await campaignExecutionService.getCampaignStats(id);
 
-      res.json(stats);
+      return res.json(stats);
     } catch (error: any) {
       console.error('[Campaign Execution] Error getting stats:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to get campaign stats',
         message: error.message,
       });
@@ -213,11 +213,53 @@ class CampaignExecutionController {
       // Busca logs
       const result = await campaignExecutionService.getCampaignLogs(id, page, limit);
 
-      res.json(result);
+      return res.json(result);
     } catch (error: any) {
       console.error('[Campaign Execution] Error getting logs:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to get campaign logs',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * POST /api/campaigns/:id/reexecute
+   * Reexecuta uma campanha (reseta e executa novamente)
+   */
+  async reexecuteCampaign(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const companyId = req.user?.companyId;
+
+      if (!companyId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      // Valida se a campanha pertence à empresa
+      const campaign = await prisma.campaign.findFirst({
+        where: {
+          id,
+          companyId,
+        },
+      });
+
+      if (!campaign) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
+
+      // Reexecuta campanha
+      await campaignExecutionService.reexecuteCampaign(id);
+
+      return res.json({
+        message: 'Campaign reexecution started',
+        campaignId: id,
+        status: 'PENDING',
+      });
+    } catch (error: any) {
+      console.error('[Campaign Execution] Error reexecuting campaign:', error);
+      return res.status(500).json({
+        error: 'Failed to reexecute campaign',
         message: error.message,
       });
     }

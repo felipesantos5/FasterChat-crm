@@ -7,12 +7,7 @@ export default function PerfilPage() {
   const { user } = useAuthStore();
 
   return (
-    <div className="space-y-6 p-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Perfil</h1>
-        <p className="text-muted-foreground">Visualize e edite suas informações pessoais</p>
-      </div>
-
+    <div className="space-y-6 p-6">
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -35,7 +30,7 @@ export default function PerfilPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* <Card>
           <CardHeader>
             <CardTitle>Segurança</CardTitle>
             <CardDescription>Configurações de segurança</CardDescription>
@@ -45,7 +40,7 @@ export default function PerfilPage() {
               <p className="text-sm text-muted-foreground">Funcionalidade de alteração de senha em desenvolvimento</p>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </div>
   );

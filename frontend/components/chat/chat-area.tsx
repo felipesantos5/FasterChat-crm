@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Message, MessageDirection, SenderType } from "@/types/message";
 import { Conversation } from "@/types/conversation";
 import { Button } from "@/components/ui/button";
@@ -11,8 +12,9 @@ import { Label } from "@/components/ui/label";
 import { messageApi } from "@/lib/message";
 import { conversationApi } from "@/lib/conversation";
 import { conversationExampleApi } from "@/lib/conversation-example";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { showErrorToast } from "@/lib/error-handler";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen } from "lucide-react";
+import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -27,9 +29,12 @@ interface ChatAreaProps {
   customerId: string;
   customerName: string;
   customerPhone: string;
+  onToggleDetails?: () => void;
+  showDetailsButton?: boolean;
 }
 
-export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaProps) {
+export function ChatArea({ customerId, customerName, customerPhone, onToggleDetails, showDetailsButton }: ChatAreaProps) {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -220,8 +225,7 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
       // Recarrega mensagens para garantir sincronia
       setTimeout(loadMessages, 500);
     } catch (error: any) {
-      console.error("Error sending message:", error);
-      toast.error(error.response?.data?.message || "Erro ao enviar mensagem");
+      showErrorToast(error, router, "Erro ao enviar mensagem");
       setInputValue(messageContent); // Restaura o texto
     } finally {
       setSending(false);
@@ -313,54 +317,40 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
   }
 
   const isAiEnabled = conversation?.aiEnabled ?? false;
-  const assignedUser = conversation?.assignedTo;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-muted/30">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-lg">{customerName}</h2>
-            {isAiEnabled ? (
-              <Badge className="bg-purple-500 hover:bg-purple-600">
-                <Bot className="h-3 w-3 mr-1" />
-                IA Ativa
-              </Badge>
-            ) : (
-              <Badge variant="secondary">
-                <UserIcon className="h-3 w-3 mr-1" />
-                {assignedUser ? assignedUser.name : "Humano"}
-              </Badge>
-            )}
-            {/* WebSocket Status Indicator */}
-            {isConnected && isAuthenticated && (
-              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse" />
-                Tempo Real
-              </Badge>
-            )}
+      {/* Header Compacto */}
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-sm">{customerName}</h2>
+              {isConnected && isAuthenticated && (
+                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Tempo Real" />
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">{formatPhoneNumber(customerPhone)}</p>
           </div>
-          <p className="text-sm text-muted-foreground">{customerPhone}</p>
         </div>
 
-        {/* Toggle de IA e Botões de Ação */}
-        <div className="flex items-center gap-4">
+        {/* Ações */}
+        <div className="flex items-center gap-2">
           {/* Toggle IA */}
-          <div className="flex items-center gap-2">
-            <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={handleToggleAi} disabled={togglingAi} />
-            <Label htmlFor="ai-toggle" className="text-sm cursor-pointer">
+          <div className="flex items-center gap-2 border-r pr-3 mr-1">
+            <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={handleToggleAi} disabled={togglingAi} className="scale-90" />
+            <Label htmlFor="ai-toggle" className="text-xs cursor-pointer">
               {togglingAi ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" />
               ) : isAiEnabled ? (
-                <span className="flex items-center gap-1">
-                  <Bot className="h-4 w-4" />
-                  IA Ativa
+                <span className="flex items-center gap-1 text-purple-600">
+                  <Bot className="h-3 w-3" />
+                  IA
                 </span>
               ) : (
                 <span className="flex items-center gap-1">
-                  <UserIcon className="h-4 w-4" />
-                  Atendimento Manual
+                  <UserIcon className="h-3 w-3" />
+                  Manual
                 </span>
               )}
             </Label>
@@ -371,16 +361,22 @@ export function ChatArea({ customerId, customerName, customerPhone }: ChatAreaPr
             onClick={isExample ? handleMarkAsExample : handleOpenExampleModal}
             disabled={markingExample}
             size="sm"
-            variant={isExample ? "default" : "outline"}
-            className={isExample ? "bg-yellow-500 hover:bg-yellow-600" : ""}
+            variant={isExample ? "default" : "ghost"}
+            className={cn("h-7 px-2", isExample && "bg-yellow-500 hover:bg-yellow-600")}
           >
             {markingExample ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
-              <Star className={cn("h-4 w-4 mr-2", isExample && "fill-current")} />
+              <Star className={cn("h-3 w-3", isExample && "fill-current")} />
             )}
-            {isExample ? "Remover Exemplo" : "Marcar como Exemplo"}
           </Button>
+
+          {/* Botão Mostrar Detalhes */}
+          {showDetailsButton && onToggleDetails && (
+            <Button onClick={onToggleDetails} size="sm" variant="outline" className="h-7 px-2">
+              <PanelRightOpen className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       </div>
 

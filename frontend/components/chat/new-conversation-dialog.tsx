@@ -20,9 +20,16 @@ import { conversationApi } from "@/lib/conversation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 
+interface CustomerData {
+  id: string;
+  name: string;
+  phone: string;
+  profilePicUrl?: string | null;
+}
+
 interface NewConversationDialogProps {
   trigger?: React.ReactNode;
-  onConversationCreated?: (customerId: string) => void;
+  onConversationCreated?: (customer: CustomerData) => void;
 }
 
 export function NewConversationDialog({
@@ -49,9 +56,7 @@ export function NewConversationDialog({
       cleaned = "55" + cleaned;
     }
 
-    // Adiciona o sufixo do WhatsApp (padrão para contatos individuais)
-    cleaned = cleaned + "@s.whatsapp.net";
-
+    // NÃO adiciona @s.whatsapp.net - esse é o formato do remoteJid, não o formato do banco
     return cleaned;
   };
 
@@ -107,12 +112,20 @@ export function NewConversationDialog({
 
       // Formata o número de telefone
       const formattedPhone = formatPhoneNumber(formData.phone);
+      // Versão apenas com números para busca (sem prefixo 55 se não tiver)
+      const searchPhone = formData.phone.replace(/\D/g, "");
 
       // Verifica se o cliente já existe
       let customer;
       try {
-        const existingCustomers = await customerApi.getAll({ search: formattedPhone });
-        customer = existingCustomers.customers.find((c) => c.phone === formattedPhone);
+        const existingCustomers = await customerApi.getAll({ search: searchPhone });
+        // Procura por correspondência parcial no telefone (últimos dígitos)
+        customer = existingCustomers.customers.find((c) => {
+          const customerDigits = c.phone.replace(/\D/g, "");
+          return customerDigits === formattedPhone ||
+                 customerDigits.endsWith(searchPhone) ||
+                 formattedPhone.endsWith(customerDigits);
+        });
       } catch (err) {
         console.log("Cliente não encontrado, criando novo...");
       }
@@ -142,8 +155,13 @@ export function NewConversationDialog({
 
       // Callback ou navega para a conversa
       if (onConversationCreated) {
-        // Chama o callback passando o customerId
-        onConversationCreated(customer.id);
+        // Chama o callback passando os dados do cliente
+        onConversationCreated({
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          profilePicUrl: customer.profilePicUrl,
+        });
       } else {
         // Se não tem callback, navega diretamente
         router.push(`/dashboard/conversations?customer=${customer.id}`);

@@ -3,6 +3,8 @@ import { MessageDirection, MessageStatus, MessageFeedback } from "@prisma/client
 import { CreateMessageRequest, GetMessagesRequest, ConversationSummary } from "../types/message";
 import openaiService from "./ai-providers/openai.service";
 import { websocketService } from "./websocket.service";
+import whatsappService from "./whatsapp.service";
+import { Errors, AppError } from "../utils/errors";
 
 class MessageService {
   /**
@@ -225,6 +227,7 @@ class MessageService {
             customerId: message.customerId,
             customerName: message.customer.name,
             customerPhone: message.customer.phone,
+            customerProfilePic: message.customer.profilePicUrl ?? null,
             lastMessage: message.content,
             lastMessageTimestamp: message.timestamp,
             unreadCount: 0, // TODO: implementar lógica de não lidas
@@ -270,20 +273,59 @@ class MessageService {
       });
 
       if (!customer) {
+        // Busca foto de perfil para novo cliente (assíncrono, não bloqueia)
+        let profilePicUrl: string | null = null;
+        if (!isGroup) {
+          profilePicUrl = await whatsappService.getProfilePicture(instanceName, phone);
+        }
+
+        // Busca o primeiro estágio do pipeline para novos clientes (apenas para não-grupos)
+        let pipelineStageId: string | null = null;
+        if (!isGroup) {
+          const firstStage = await prisma.pipelineStage.findFirst({
+            where: { companyId: instance.companyId },
+            orderBy: { order: 'asc' },
+          });
+          pipelineStageId = firstStage?.id || null;
+        }
+
         customer = await prisma.customer.create({
           data: {
             companyId: instance.companyId,
             name: data.pushName || phone,
             phone,
             isGroup,
+            profilePicUrl,
+            pipelineStageId,
           },
         });
-      } else if (customer.isGroup !== isGroup) {
-        // Atualiza o campo isGroup se estiver incorreto
-        customer = await prisma.customer.update({
-          where: { id: customer.id },
-          data: { isGroup },
-        });
+      } else {
+        // Atualiza nome e/ou foto se necessário
+        const updates: any = {};
+
+        if (customer.isGroup !== isGroup) {
+          updates.isGroup = isGroup;
+        }
+
+        // Atualiza nome se veio pushName e é diferente
+        if (data.pushName && data.pushName !== customer.name && customer.name === customer.phone) {
+          updates.name = data.pushName;
+        }
+
+        // Busca foto de perfil se ainda não tem (apenas uma vez por cliente)
+        if (!customer.profilePicUrl && !isGroup) {
+          const profilePicUrl = await whatsappService.getProfilePicture(instanceName, phone);
+          if (profilePicUrl) {
+            updates.profilePicUrl = profilePicUrl;
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          customer = await prisma.customer.update({
+            where: { id: customer.id },
+            data: updates,
+          });
+        }
       }
 
       // --- LÓGICA DE PROCESSAMENTO DE MÍDIA ---
@@ -515,7 +557,12 @@ class MessageService {
       });
 
       if (!customer) {
-        throw new Error("Customer not found");
+        throw Errors.customerNotFound(customerId);
+      }
+
+      // Verifica se a empresa tem instâncias configuradas
+      if (customer.company.whatsappInstances.length === 0) {
+        throw Errors.whatsappNoInstance();
       }
 
       let whatsappInstance;
@@ -524,7 +571,7 @@ class MessageService {
       if (whatsappInstanceId) {
         whatsappInstance = customer.company.whatsappInstances.find((i) => i.id === whatsappInstanceId);
         if (!whatsappInstance) {
-          throw new Error("Specified WhatsApp instance not found");
+          throw Errors.whatsappInstanceNotFound();
         }
       } else {
         // Busca a última mensagem do cliente para descobrir qual instância usar
@@ -551,7 +598,7 @@ class MessageService {
           whatsappInstance = customer.company.whatsappInstances.find((i) => i.status === "CONNECTED");
         }
 
-        // FALLBACK: Se não achar conectada, pega a última que foi criada/atualizada
+        // FALLBACK: Se não achar conectada, pega a primeira (vai dar erro mais claro no whatsappService)
         if (!whatsappInstance && customer.company.whatsappInstances.length > 0) {
           whatsappInstance = customer.company.whatsappInstances[0];
           console.warn(`⚠️ Usando instância com status ${whatsappInstance.status} como fallback.`);
@@ -559,8 +606,7 @@ class MessageService {
       }
 
       if (!whatsappInstance) {
-        console.error("Instâncias encontradas:", customer.company.whatsappInstances);
-        throw new Error("No WhatsApp instance found for this company");
+        throw Errors.whatsappNoInstance();
       }
 
       // Importa o whatsappService dinamicamente para evitar dependência circular

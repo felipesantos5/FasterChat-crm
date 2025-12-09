@@ -185,19 +185,10 @@ export default function CampaignsPage() {
   };
 
   return (
-    <div className={spacing.page}>
+    <div className="p-6">
       <div className={spacing.section}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className={`${typography.pageTitle} flex items-center gap-3`}>
-              <Megaphone className={`${icons.large} text-purple-600`} />
-              Campanhas
-            </h1>
-            <p className={typography.pageSubtitle}>
-              Gerencie suas campanhas de disparo em massa
-            </p>
-          </div>
+        <div className="flex items-center justify-end mb-6">
           <button
             onClick={() => router.push('/dashboard/campaigns/new')}
             className={buttons.primary}

@@ -133,17 +133,6 @@ export function GoogleCalendarModal({
                   <li>Gerenciar tudo em um só lugar</li>
                 </ul>
               </div>
-
-              <Alert variant="default" className="bg-blue-50 border-blue-200">
-                <AlertCircle className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-900">
-                  <p className="font-medium mb-1">Permissões necessárias:</p>
-                  <p className="text-sm">
-                    Vamos solicitar permissão para ler e gerenciar eventos do seu Google Calendar.
-                    Seus dados estão seguros e não serão compartilhados.
-                  </p>
-                </AlertDescription>
-              </Alert>
             </div>
           )}
         </div>

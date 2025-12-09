@@ -1,8 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useToast } from '@/components/ui/use-toast';
+import { notificationSound } from '@/lib/notification-sound';
 
 interface WebSocketContextType {
   isConnected: boolean;
@@ -15,32 +16,53 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(undefin
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  // Guarda IDs de conversas que já notificaram transbordo para evitar repetição
+  const notifiedTransbordos = useRef<Set<string>>(new Set());
 
   const handleNewMessage = useCallback((message: any) => {
-    console.log('📩 New message received:', message);
-
-    // Atualiza lista de conversas se necessário
-    // Você pode adicionar lógica aqui para atualizar o estado global
-
     // Mostra notificação se a mensagem for INBOUND
     if (message.direction === 'INBOUND') {
+      // Som suave para nova mensagem
+      notificationSound.playNewMessageSound();
+
       toast({
         title: `Nova mensagem de ${message.customerName}`,
-        description: message.content.substring(0, 100),
+        description: message.content?.substring(0, 100) || 'Nova mensagem',
       });
     }
   }, [toast]);
 
   const handleConversationUpdate = useCallback((update: any) => {
-    console.log('🔄 Conversation updated:', update);
-
-    // Mostra notificação se necessário
+    // Notificação de transbordo (needsHelp = true)
     if (update.needsHelp) {
-      toast({
-        title: 'Atenção necessária',
-        description: `Cliente ${update.customerId} precisa de ajuda humana`,
-        variant: 'destructive',
-      });
+      const conversationKey = update.customerId || update.id;
+
+      // Evita notificações duplicadas para a mesma conversa
+      if (conversationKey && !notifiedTransbordos.current.has(conversationKey)) {
+        notifiedTransbordos.current.add(conversationKey);
+
+        // Toca som de alerta de transbordo
+        notificationSound.playTransbordoAlert();
+
+        toast({
+          title: '🚨 Transbordo - Atenção necessária',
+          description: update.customerName
+            ? `Cliente ${update.customerName} precisa de atendimento humano`
+            : 'Um cliente precisa de ajuda humana',
+          variant: 'destructive',
+        });
+
+        // Remove da lista após 5 minutos para permitir nova notificação
+        setTimeout(() => {
+          notifiedTransbordos.current.delete(conversationKey);
+        }, 5 * 60 * 1000);
+      }
+    } else if (update.needsHelp === false) {
+      // Se needsHelp foi resolvido, remove da lista
+      const conversationKey = update.customerId || update.id;
+      if (conversationKey) {
+        notifiedTransbordos.current.delete(conversationKey);
+      }
     }
   }, [toast]);
 
@@ -55,18 +77,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     onConversationUpdate: handleConversationUpdate,
   });
 
-  // Log de status de conexão
-  useEffect(() => {
-    if (isConnected) {
-      console.log('✅ WebSocket conectado');
-    } else {
-      console.log('🔌 WebSocket desconectado');
-    }
-  }, [isConnected]);
-
+  // Notificação de conexão
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('✅ WebSocket autenticado');
       toast({
         title: 'Conectado',
         description: 'Você está recebendo atualizações em tempo real',
@@ -95,3 +108,4 @@ export function useWebSocketContext() {
   }
   return context;
 }
+

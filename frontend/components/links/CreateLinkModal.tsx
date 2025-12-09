@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Link, Phone, MessageSquare } from "lucide-react";
+import { X, Link, Phone, MessageSquare, Tag } from "lucide-react";
 import { whatsappLinkService, WhatsAppLink } from "@/lib/whatsapp-link";
 import { toast } from "react-hot-toast";
+import { formatPhoneNumber } from "@/lib/utils";
 
 interface CreateLinkModalProps {
   link?: WhatsAppLink | null;
@@ -19,6 +20,7 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
     slug: link?.slug || "",
     phoneNumber: link?.phoneNumber || "",
     message: link?.message || "",
+    autoTag: link?.autoTag || "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -31,6 +33,7 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
         slug: link.slug,
         phoneNumber: link.phoneNumber,
         message: link.message || "",
+        autoTag: link.autoTag || "",
       });
     }
   }, [link]);
@@ -92,15 +95,10 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
     }
   };
 
-  const formatPhonePreview = (phone: string) => {
-    if (phone.length === 13) {
-      return `+${phone.slice(0, 2)} (${phone.slice(2, 4)}) ${phone.slice(4, 9)}-${phone.slice(9)}`;
-    }
-    return phone;
-  };
+
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 !m-0">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -178,9 +176,6 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
               }`}
             />
             {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>}
-            {formData.phoneNumber && !errors.phoneNumber && (
-              <p className="text-green-600 text-sm mt-1">✓ {formatPhonePreview(formData.phoneNumber)}</p>
-            )}
             <p className="text-xs text-gray-500 mt-1">Formato: código do país + DDD + número (apenas números, sem espaços)</p>
           </div>
 
@@ -202,6 +197,25 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
               <p className="text-xs text-gray-500">Mensagem que aparecerá automaticamente no WhatsApp</p>
               <span className="text-xs text-gray-500">{formData.message.length}/1000</span>
             </div>
+          </div>
+
+          {/* Tag Automática */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <Tag className="h-4 w-4" />
+              Tag Automática (Opcional)
+            </label>
+            <input
+              type="text"
+              value={formData.autoTag}
+              onChange={(e) => handleChange("autoTag", e.target.value)}
+              placeholder="Ex: Via Instagram, Campanha Black Friday"
+              maxLength={50}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Esta tag será adicionada automaticamente ao cliente quando ele enviar uma mensagem através deste link
+            </p>
           </div>
 
           {/* Buttons */}

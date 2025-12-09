@@ -55,6 +55,10 @@ export const campaignApi = {
     await api.post(`/campaigns/${id}/execute`);
   },
 
+  async reexecute(id: string): Promise<void> {
+    await api.post(`/campaigns/${id}/reexecute`);
+  },
+
   async schedule(id: string, scheduledAt: string): Promise<void> {
     await api.post(`/campaigns/${id}/schedule`, { scheduledAt });
   },

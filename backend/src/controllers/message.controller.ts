@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import messageService from '../services/message.service';
+import { AppError } from '../utils/errors';
 
 class MessageController {
   /**
@@ -159,9 +160,19 @@ class MessageController {
       });
     } catch (error: any) {
       console.error('Error in sendMessage controller:', error);
+
+      // Se é um AppError, retorna o formato estruturado
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json(error.toJSON());
+      }
+
+      // Erro genérico
       return res.status(500).json({
         success: false,
-        message: error.message || 'Failed to send message',
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error.message || 'Erro ao enviar mensagem. Tente novamente.',
+        },
       });
     }
   }

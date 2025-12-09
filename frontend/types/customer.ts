@@ -6,6 +6,7 @@ export interface Customer {
   email?: string | null;
   tags: string[];
   notes?: string | null;
+  profilePicUrl?: string | null; // URL da foto de perfil do WhatsApp
   isGroup: boolean; // Identifica se é um grupo do WhatsApp
   pipelineStageId?: string | null; // Estágio atual no pipeline
   createdAt: string;

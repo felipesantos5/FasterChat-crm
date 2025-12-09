@@ -227,17 +227,9 @@ export default function AISettingsPage() {
   }
 
   return (
-    <div className={spacing.page}>
+    <div className="p-6">
       <div className={spacing.section}>
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className={`${typography.pageTitle} flex items-center gap-3`}>
-              <Bot className="h-8 w-8" />
-              Configurações da IA
-            </h1>
-            <p className="text-muted-foreground mt-1">Configure a base de conhecimento da IA para melhorar as respostas automáticas</p>
-          </div>
-
+        <div className="flex items-center justify-end mb-4">
           <div className="flex items-center gap-2">
             {saved && (
               <Badge className="bg-green-500 hover:bg-green-600">

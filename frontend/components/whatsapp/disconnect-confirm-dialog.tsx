@@ -25,7 +25,6 @@ export function DisconnectConfirmDialog({
   onClose,
   onConfirm,
   instanceName,
-  phoneNumber,
   isDeleting = false,
 }: DisconnectConfirmDialogProps) {
   return (
@@ -58,23 +57,6 @@ export function DisconnectConfirmDialog({
             )}
           </DialogDescription>
         </DialogHeader>
-
-        {/* Card com informações da instância */}
-        <div className="my-4 p-4 rounded-lg border bg-muted/50">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-background">
-              <Smartphone className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">{instanceName}</p>
-              {phoneNumber && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Telefone: {phoneNumber}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
 
         {/* Avisos */}
         <div className="space-y-3 text-sm">

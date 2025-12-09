@@ -39,6 +39,45 @@ class DashboardController {
       });
     }
   }
+
+  async getOnboardingStatus(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, message: "Não autenticado" });
+        return;
+      }
+
+      const status = await dashboardService.getOnboardingStatus(req.user.companyId, req.user.userId);
+
+      res.status(200).json({
+        success: true,
+        data: status,
+      });
+    } catch (error) {
+      console.error("Dashboard onboarding error:", error);
+      res.status(500).json({ success: false, message: "Erro ao buscar status de onboarding" });
+    }
+  }
+
+  async getChartsData(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, message: "Não autenticado" });
+        return;
+      }
+
+      const period = (req.query.period as "week" | "month" | "quarter") || "month";
+      const chartsData = await dashboardService.getChartsData(req.user.companyId, period);
+
+      res.status(200).json({
+        success: true,
+        data: chartsData,
+      });
+    } catch (error) {
+      console.error("Dashboard charts error:", error);
+      res.status(500).json({ success: false, message: "Erro ao buscar dados dos gráficos" });
+    }
+  }
 }
 
 export default new DashboardController();

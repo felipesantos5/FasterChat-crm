@@ -10,7 +10,6 @@ import { whatsappApi } from "@/lib/whatsapp";
 import { WhatsAppInstance, WhatsAppStatus } from "@/types/whatsapp";
 import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle, Trash2, RefreshCw } from "lucide-react";
 
-import { buttons, cards, typography, spacing, icons } from "@/lib/design-system";
 export default function WhatsAppSettingsPage() {
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,12 +185,7 @@ export default function WhatsAppSettingsPage() {
   };
 
   return (
-    <div className="space-y-6 p-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">WhatsApp</h1>
-        <p className="text-muted-foreground">Configure e gerencie suas conexões do WhatsApp</p>
-      </div>
-
+    <div className="space-y-6 p-6">
       {/* Error Message */}
       {error && (
         <Card className="border-destructive">
@@ -314,6 +308,7 @@ export default function WhatsAppSettingsPage() {
           }}
           instanceId={selectedInstanceId}
           onSuccess={loadInstances}
+          existingDisplayName={instances.find(i => i.id === selectedInstanceId)?.displayName}
         />
       )}
 

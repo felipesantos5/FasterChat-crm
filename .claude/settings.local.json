@@ -29,7 +29,11 @@
       "Bash(npm run db:seed:*)",
       "Bash(tasklist:*)",
       "Bash(npm run db:generate:*)",
-      "Bash(del /F /Q query_engine-windows.dll.node)"
+      "Bash(del /F /Q query_engine-windows.dll.node)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "Bash(npx shadcn@latest add chart --yes)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []

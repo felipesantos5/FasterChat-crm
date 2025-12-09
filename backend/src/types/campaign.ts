@@ -1,3 +1,5 @@
+import { CampaignStatus as PrismaCampaignStatus, CampaignType as PrismaCampaignType } from '@prisma/client';
+
 export enum CampaignType {
   MANUAL = 'MANUAL',
   SCHEDULED = 'SCHEDULED',
@@ -32,7 +34,7 @@ export interface CreateCampaignDTO {
   name: string;
   messageTemplate: string;
   targetTags: string[];
-  type: CampaignType;
+  type: PrismaCampaignType;
   scheduledAt?: Date;
 }
 
@@ -40,9 +42,11 @@ export interface UpdateCampaignDTO {
   name?: string;
   messageTemplate?: string;
   targetTags?: string[];
-  type?: CampaignType;
+  type?: PrismaCampaignType;
   scheduledAt?: Date;
-  status?: CampaignStatus;
+  status?: PrismaCampaignStatus;
+  sentCount?: number;
+  failedCount?: number;
 }
 
 export interface CampaignEstimate {

@@ -10,11 +10,6 @@ export function useConversations(companyId: string | null) {
     companyId ? `/messages/conversations/${companyId}` : null,
     async () => {
       const response = await messageApi.getConversations(companyId!)
-
-      // Debug: verificar grupos nas conversas
-      const grupos = response.data.filter(c => c.isGroup || c.customerPhone.includes('@g.us'))
-      console.log(`[Conversas SWR] Total: ${response.data.length}, Grupos: ${grupos.length}`)
-
       return response.data
     },
     {
@@ -31,12 +26,8 @@ export function useConversations(companyId: string | null) {
   useEffect(() => {
     if (!isAuthenticated || !socket) return
 
-    console.log('[use-conversations] Setting up WebSocket listeners')
-
     // Escuta nova conversa criada
     const handleNewConversation = (conversation: any) => {
-      console.log('✨ [use-conversations] New conversation received:', conversation)
-
       // Mostra notificação
       toast.success(`Nova conversa com ${conversation.customer?.name || 'Cliente'}`, {
         description: 'Uma nova conversa foi iniciada',
@@ -48,8 +39,7 @@ export function useConversations(companyId: string | null) {
     }
 
     // Escuta nova mensagem para atualizar lastMessage
-    const handleNewMessage = (message: any) => {
-      console.log('📩 [use-conversations] New message received, updating conversations')
+    const handleNewMessage = () => {
       // Revalida para atualizar a lista (ordenação, lastMessage, etc)
       mutate()
     }
@@ -70,3 +60,4 @@ export function useConversations(companyId: string | null) {
     mutate,
   }
 }
+

@@ -6,6 +6,7 @@ import { prisma } from "../utils/prisma";
 import { WhatsAppStatus } from "@prisma/client";
 import { EvolutionWebhookPayload } from "../types/message";
 import whatsappService from "../services/whatsapp.service";
+import { linkConversionService } from "../services/link-conversion.service";
 
 class WebhookController {
   /**
@@ -60,6 +61,20 @@ class WebhookController {
           return res.status(200).json({ success: true, message: "No valid content to process" });
         }
 
+        // 🔗 LINK CONVERSION: Verifica se a mensagem veio de um link rastreado
+        // e aplica tag automática se configurada
+        try {
+          await linkConversionService.processMessageConversion(
+            result.customer.phone,
+            result.message.content,
+            result.customer.id,
+            result.customer.companyId
+          );
+        } catch (conversionError) {
+          console.error("[Webhook] Error processing link conversion:", conversionError);
+          // Não bloqueia o fluxo se der erro
+        }
+
         // 👇👇👇 ADICIONE ESTE BLOCO DE CORREÇÃO AQUI 👇👇👇
         // AUTO-FIX: Se recebemos mensagem, é prova de que estamos conectados.
         // Forçamos o status para CONNECTED para que a IA não seja bloqueada.
@@ -75,7 +90,7 @@ class WebhookController {
         const conversation = await conversationService.getOrCreateConversation(result.customer.id, result.customer.companyId);
 
         // Se IA está habilitada, gera e envia resposta automática
-        if (conversation.aiEnabled && aiService.isConfigured()) {
+        if (conversation.aiEnabled && aiService.isConfigured() && !result.customer.isGroup) {
           try {
             // 📅 PRIORITY CHECK: Verifica se JÁ ESTÁ em fluxo de agendamento ativo
             const { aiAppointmentService } = await import("../services/ai-appointment.service");

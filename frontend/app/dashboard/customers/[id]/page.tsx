@@ -7,11 +7,12 @@ import { Customer } from "@/types/customer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerFormModal } from "@/components/forms/customer-form-modal";
-import { ArrowLeft, Phone, Mail, Calendar, Edit, Trash, FileText } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Calendar, Edit, Trash, FileText, MessageSquare } from "lucide-react";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { Tag } from "@/lib/tag";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatPhoneNumber } from "@/lib/utils";
 
 export default function CustomerDetailPage() {
   const router = useRouter();
@@ -97,6 +98,10 @@ export default function CustomerDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => router.push(`/dashboard/conversations?customer=${customer.id}`)}>
+            <MessageSquare className="mr-2 h-4 w-4" />
+            Abrir Conversa
+          </Button>
           <Button variant="outline" onClick={() => setModalOpen(true)}>
             <Edit className="mr-2 h-4 w-4" />
             Editar
@@ -123,7 +128,7 @@ export default function CustomerDetailPage() {
               </div>
               <div>
                 <p className="text-sm font-medium">Telefone</p>
-                <p className="text-sm text-muted-foreground">{customer.phone}</p>
+                <p className="text-sm text-muted-foreground">{formatPhoneNumber(customer.phone)}</p>
               </div>
             </div>
 

@@ -11,12 +11,124 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Settings, LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
+import {
+  User,
+  Settings,
+  LogOut,
+  LayoutDashboard,
+  Users,
+  MessageSquare,
+  Bot,
+  Smartphone,
+  BookOpen,
+  BarChart3,
+  Megaphone,
+  Kanban,
+  CalendarDays,
+  Link2,
+  LucideIcon,
+} from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { useMemo } from "react";
+
+interface PageInfo {
+  label: string;
+  icon: LucideIcon;
+  description: string;
+}
+
+const pageMap: Record<string, PageInfo> = {
+  "/dashboard": {
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    description: "Visão geral do sistema",
+  },
+  "/dashboard/calendario": {
+    label: "Calendário",
+    icon: CalendarDays,
+    description: "Agendamentos e compromissos",
+  },
+  "/dashboard/customers": {
+    label: "Clientes",
+    icon: Users,
+    description: "Gerenciamento de clientes",
+  },
+  "/dashboard/pipeline": {
+    label: "Pipeline",
+    icon: Kanban,
+    description: "Funil de vendas",
+  },
+  "/dashboard/conversations": {
+    label: "Conversas",
+    icon: MessageSquare,
+    description: "Mensagens e atendimentos",
+  },
+  "/dashboard/campaigns": {
+    label: "Campanhas",
+    icon: Megaphone,
+    description: "Campanhas de marketing",
+  },
+  "/dashboard/links": {
+    label: "Links de WhatsApp",
+    icon: Link2,
+    description: "Links de conversão",
+  },
+  "/dashboard/settings/ai": {
+    label: "Configurações de IA",
+    icon: Bot,
+    description: "Ajustes do assistente",
+  },
+  "/dashboard/settings/whatsapp": {
+    label: "WhatsApp",
+    icon: Smartphone,
+    description: "Conexões do WhatsApp",
+  },
+  "/dashboard/ai/insights": {
+    label: "Insights de IA",
+    icon: BarChart3,
+    description: "Análises inteligentes",
+  },
+  "/dashboard/ai/examples": {
+    label: "Exemplos de Conversas",
+    icon: BookOpen,
+    description: "Treinamento da IA",
+  },
+  "/dashboard/perfil": {
+    label: "Perfil",
+    icon: User,
+    description: "Suas informações",
+  },
+  "/dashboard/configuracoes": {
+    label: "Configurações",
+    icon: Settings,
+    description: "Configurações gerais",
+  },
+};
 
 export function Header() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Encontra a página atual baseado na rota
+  const currentPage = useMemo((): PageInfo => {
+    // Primeiro tenta match exato
+    if (pageMap[pathname]) {
+      return pageMap[pathname];
+    }
+
+    // Depois tenta match parcial para rotas dinâmicas
+    const matchingPath = Object.keys(pageMap)
+      .filter((path) => pathname.startsWith(path) && path !== "/dashboard")
+      .sort((a, b) => b.length - a.length)[0];
+
+    if (matchingPath) {
+      return pageMap[matchingPath];
+    }
+
+    // Fallback para dashboard
+    return pageMap["/dashboard"];
+  }, [pathname]);
 
   const handleLogout = () => {
     logout();
@@ -32,15 +144,22 @@ export function Header() {
       .slice(0, 2);
   };
 
+  const PageIcon = currentPage.icon;
+
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center border-b bg-background px-6">
       <div className="flex flex-1 items-center justify-between">
-        {/* Company Name */}
-        <div>
-          <p className="text-sm text-muted-foreground">Empresa</p>
-          <h2 className="text-lg font-semibold">
-            {user?.companyId ? "Minha Empresa" : "CRM IA"}
-          </h2>
+        {/* Current Page Info */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100">
+            <PageIcon className="h-5 w-5 text-purple-600" />
+          </div>
+          <div>
+            <h1 className="text-base font-semibold text-gray-900">
+              {currentPage.label}
+            </h1>
+            <p className="text-xs text-gray-500">{currentPage.description}</p>
+          </div>
         </div>
 
         {/* User Menu */}
@@ -57,9 +176,6 @@ export function Header() {
               </Avatar>
               <div className="flex flex-col items-start text-sm">
                 <span className="font-medium">{user?.name || "Usuário"}</span>
-                <span className="text-xs text-muted-foreground">
-                  {user?.role || "USER"}
-                </span>
               </div>
             </Button>
           </DropdownMenuTrigger>

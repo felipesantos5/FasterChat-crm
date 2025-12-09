@@ -15,9 +15,10 @@ interface QRCodeModalProps {
   onClose: () => void;
   instanceId: string;
   onSuccess?: () => void;
+  existingDisplayName?: string | null; // Nome existente da instância
 }
 
-export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeModalProps) {
+export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess, existingDisplayName }: QRCodeModalProps) {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [status, setStatus] = useState<WhatsAppStatus>(WhatsAppStatus.CONNECTING);
   const [loading, setLoading] = useState(true);
@@ -25,29 +26,19 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
   const [instanceName, setInstanceName] = useState<string>('');
   const [savingName, setSavingName] = useState(false);
 
+  // Se já tem displayName, não precisa definir um novo
+  const hasExistingName = !!existingDisplayName;
+
   // Função para buscar o QR Code
   const fetchQRCode = async () => {
     try {
       setError(null);
       setLoading(true);
 
-      console.log('[QR Code Modal] Fetching QR Code for instance:', instanceId);
-
       const response = await whatsappApi.getQRCode(instanceId);
-
-      console.log('[QR Code Modal] Response:', {
-        hasQrCode: !!response.data.qrCode,
-        status: response.data.status,
-      });
 
       setQrCode(response.data.qrCode);
       setStatus(response.data.status);
-
-      // Se já está conectado, apenas atualiza o status
-      // O useEffect de fechamento automático cuidará do resto
-      if (response.data.status === 'CONNECTED') {
-        console.log('[QR Code Modal] Already connected!');
-      }
     } catch (err: any) {
       console.error('[QR Code Modal] Error fetching QR code:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Erro ao buscar QR Code';
@@ -69,7 +60,6 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
     try {
       setIsChecking(true);
       const currentAttempt = attemptsRef.current + 1;
-      console.log(`[QR Code Modal] Checking status (attempt ${currentAttempt}/${maxAttempts})...`);
 
       const response = await whatsappApi.getStatus(instanceId);
 
@@ -81,12 +71,10 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
       attemptsRef.current = currentAttempt;
 
       if (response.data.status === WhatsAppStatus.CONNECTED) {
-        console.log('[QR Code Modal] ✓ Connected successfully!');
         return true;
       }
 
       if (response.data.status === WhatsAppStatus.DISCONNECTED) {
-        console.warn('[QR Code Modal] Instance disconnected, stopping polling');
         setError('Instância desconectada. Por favor, tente reconectar novamente.');
         return true;
       }
@@ -116,15 +104,21 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
     }
   }, [isOpen, instanceId]);
 
-  // Chama onSuccess quando conectar mas NÃO fecha o modal automaticamente
+  // Chama onSuccess quando conectar
+  // Se já tem displayName, fecha automaticamente; se não, mostra input de nome
   useEffect(() => {
     if (status === WhatsAppStatus.CONNECTED && isOpen && !hasCalledSuccessRef.current) {
-      console.log('[QR Code Modal] ✓ Connected! Showing name input...');
       hasCalledSuccessRef.current = true; // Marca como chamado
       onSuccess?.();
+      
+      // Se já tem um displayName, fecha automaticamente
+      if (hasExistingName) {
+        toast.success('WhatsApp reconectado com sucesso!');
+        forceClose();
+      }
     }
     return undefined;
-  }, [status, isOpen, onSuccess]);
+  }, [status, isOpen, onSuccess, hasExistingName]);
 
   // Polling: verifica o status a cada 2 segundos
   useEffect(() => {
@@ -139,7 +133,6 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
     const pollStatus = async () => {
       // Verifica se já excedeu tentativas
       if (attemptsRef.current >= maxAttempts) {
-        console.warn('[QR Code Modal] Max attempts reached, stopping polling');
         setError('Tempo limite excedido. Por favor, tente novamente.');
         if (intervalId) clearInterval(intervalId);
         return;
@@ -151,8 +144,6 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
       }
     };
 
-    console.log('[QR Code Modal] Starting polling...');
-    
     // Inicia o intervalo
     intervalId = setInterval(pollStatus, 2000);
 
@@ -192,8 +183,8 @@ export function QRCodeModal({ isOpen, onClose, instanceId, onSuccess }: QRCodeMo
   };
 
   const handleClose = () => {
-    // Só permite fechar se não estiver conectado (ainda não precisa do nome)
-    if (status === WhatsAppStatus.CONNECTED) {
+    // Se está conectado e NÃO tem um nome existente, exige definir um
+    if (status === WhatsAppStatus.CONNECTED && !hasExistingName) {
       toast.warning('Por favor, defina um nome para a instância antes de continuar');
       return;
     }
