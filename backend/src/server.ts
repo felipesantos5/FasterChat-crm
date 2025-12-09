@@ -9,6 +9,7 @@ import linkRedirectRoutes from "./routes/link-redirect.routes";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler";
 import { websocketService } from "./services/websocket.service";
 import campaignExecutionService from "./services/campaign-execution.service";
+import campaignSchedulerService from "./services/campaign-scheduler.service";
 import { config } from "./config";
 
 dotenv.config();
@@ -24,6 +25,9 @@ websocketService.initialize(httpServer);
 
 // Inicializa Workers de Campanha (BullMQ)
 campaignExecutionService.startWorkers();
+
+// Inicializa Scheduler de Campanhas (backup para jobs agendados)
+campaignSchedulerService.start();
 
 // ===========================================
 // SECURITY MIDDLEWARES
@@ -139,11 +143,13 @@ httpServer.listen(PORT, () => {
   console.log(`🔗 API available at http://localhost:${PORT}/api`);
   console.log(`🔌 WebSocket available at ws://localhost:${PORT}`);
   console.log(`📬 Campaign workers ready (BullMQ + Redis)`);
+  console.log(`🕐 Campaign scheduler running (checks every minute)`);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully...');
+  campaignSchedulerService.stop();
   await campaignExecutionService.stopWorkers();
   httpServer.close(() => {
     console.log('Server closed');

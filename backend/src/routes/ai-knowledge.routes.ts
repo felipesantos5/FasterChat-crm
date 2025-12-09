@@ -13,4 +13,7 @@ router.get('/knowledge', aiKnowledgeController.getKnowledge);
 // PUT /api/ai/knowledge - Atualiza base de conhecimento
 router.put('/knowledge', aiKnowledgeController.updateKnowledge);
 
+// POST /api/ai/knowledge/generate-context - Gera contexto completo com IA
+router.post('/knowledge/generate-context', aiKnowledgeController.generateContext);
+
 export default router;

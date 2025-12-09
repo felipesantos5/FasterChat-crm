@@ -9,19 +9,16 @@ import {
   Users,
   MessageSquare,
   Settings,
-  LogOut,
   Bot,
   Smartphone,
   BookOpen,
   ChevronDown,
   BarChart3,
   Megaphone,
-  Kanban,
   CalendarDays,
   Link2,
+  FunnelPlus,
 } from "lucide-react";
-import { useAuthStore } from "@/lib/store/auth.store";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import logo from "@/assets/logo-crm.png";
 
@@ -39,25 +36,26 @@ const menuItems: MenuItem[] = [
     icon: LayoutDashboard,
     href: "/dashboard",
   },
-  {
-    label: "Calendário",
-    icon: CalendarDays,
-    href: "/dashboard/calendario",
-  },
+
   {
     label: "Clientes",
     icon: Users,
     href: "/dashboard/customers",
   },
   {
-    label: "Pipeline",
-    icon: Kanban,
-    href: "/dashboard/pipeline",
-  },
-  {
     label: "Conversas",
     icon: MessageSquare,
     href: "/dashboard/conversations",
+  },
+  {
+    label: "Funil",
+    icon: FunnelPlus,
+    href: "/dashboard/pipeline",
+  },
+  {
+    label: "Calendário",
+    icon: CalendarDays,
+    href: "/dashboard/calendario",
   },
   {
     label: "Campanhas",
@@ -105,14 +103,7 @@ const menuItems: MenuItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { logout } = useAuthStore();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
-
-  const handleLogout = () => {
-    logout();
-    router.push("/login");
-  };
 
   const toggleMenu = (label: string) => {
     setOpenMenus((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]));

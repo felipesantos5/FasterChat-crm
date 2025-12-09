@@ -221,13 +221,42 @@ model Conversation {
 model AIKnowledge {
   id                 String   @id @default(uuid())
   companyId          String   @unique @map("company_id")
-  companyInfo        String?  @map("company_info") @db.Text
-  productsServices   String?  @map("products_services") @db.Text
-  toneInstructions   String?  @map("tone_instructions") @db.Text
-  policies           String?  @db.Text
-  negativeExamples   String?  @map("negative_examples") @db.Text // Anti-exemplos: o que NÃO fazer
 
-  // Configurações avançadas da IA
+  // Informações da empresa (estruturadas)
+  companyName        String?  @map("company_name") // Nome da empresa
+  companySegment     String?  @map("company_segment") // Segmento de atuação
+  companyDescription String?  @map("company_description") @db.Text // Descrição geral
+  companyInfo        String?  @map("company_info") @db.Text // Campo legado - visão geral
+
+  // Objetivo da IA
+  aiObjective        String?  @map("ai_objective") @db.Text // Ex: "Atender clientes, agendar visitas..."
+  aiPersonality      String?  @map("ai_personality") @db.Text // Tom de voz e personalidade
+  toneInstructions   String?  @map("tone_instructions") @db.Text // Instruções de tom (legado)
+
+  // Políticas
+  policies           String?  @db.Text
+  workingHours       String?  @map("working_hours") // Horário de atendimento
+  paymentMethods     String?  @map("payment_methods") // Formas de pagamento
+  deliveryInfo       String?  @map("delivery_info") @db.Text // Info de entrega/prazos
+  warrantyInfo       String?  @map("warranty_info") @db.Text // Garantias
+
+  // Produtos e Serviços (JSON array para cards)
+  productsServices   String?  @map("products_services") @db.Text // Campo legado
+  products           Json?    @default("[]") // Array de produtos [{name, description, price, category}]
+
+  // Configurações adicionais
+  negativeExamples   String?  @map("negative_examples") @db.Text // O que NÃO fazer
+  faq                Json?    @default("[]") // Perguntas frequentes [{question, answer}]
+
+  // Contexto gerado pela IA (texto completo otimizado)
+  generatedContext   String?  @map("generated_context") @db.Text
+  contextGeneratedAt DateTime? @map("context_generated_at")
+
+  // Status do onboarding
+  setupCompleted     Boolean  @default(false) @map("setup_completed")
+  setupStep          Int      @default(0) @map("setup_step") // 0-5 para controle do wizard
+
+  // Configurações avançadas da IA (internas, não expostas ao cliente)
   provider           String?  @default("openai") // openai ou anthropic
   model              String?  // Nome do modelo específico (opcional)
   temperature        Float?   @default(0.7) // 0.0 a 1.0 (menor = mais conservador)

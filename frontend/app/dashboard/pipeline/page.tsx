@@ -10,6 +10,7 @@ import { ManageStagesModal } from "@/components/pipeline/manage-stages-modal";
 import { Loader2, Settings2, GripVertical, Phone, Calendar, Users, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { spacing } from "@/lib/design-system";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -159,7 +160,7 @@ export default function PipelinePage() {
       <div className="p-4">
         <div className="flex justify-between mb-6">
           <div className="flex gap-4">
-            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm w-56">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-100 rounded-lg">
                   <Users className="h-5 w-5 text-purple-600" />
@@ -171,7 +172,7 @@ export default function PipelinePage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm w-56">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg">
                   <TrendingUp className="h-5 w-5 text-green-600" />
@@ -216,7 +217,7 @@ export default function PipelinePage() {
               </div>
 
               {/* Cards Container */}
-              <div className="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-350px)] min-h-[200px]">
+              <div className="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-300px)] min-h-[200px]">
                 {stageData.customers.map((customer) => (
                   <div
                     key={customer.id}
@@ -291,7 +292,7 @@ export default function PipelinePage() {
               </div>
 
               {/* Cards Container */}
-              <div className="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-350px)] min-h-[200px]">
+              <div className="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-300px)] min-h-[200px]">
                 {board.customersWithoutStage.map((customer) => (
                   <div
                     key={customer.id}

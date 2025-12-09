@@ -1,6 +1,33 @@
 import { Request, Response } from 'express';
 import aiKnowledgeService from '../services/ai-knowledge.service';
 
+/**
+ * Parse JSON de forma segura, retornando valor padrão em caso de erro
+ */
+function safeJsonParse(value: any, defaultValue: any = []): any {
+  if (!value) return defaultValue;
+
+  // Se já é um objeto/array, retorna direto
+  if (typeof value === 'object') return value;
+
+  // Se é string, tenta fazer parse
+  if (typeof value === 'string') {
+    try {
+      // Verifica se a string não está vazia
+      const trimmed = value.trim();
+      if (!trimmed || trimmed === '' || trimmed === 'null' || trimmed === 'undefined') {
+        return defaultValue;
+      }
+      return JSON.parse(trimmed);
+    } catch (e) {
+      console.warn('Failed to parse JSON:', value, e);
+      return defaultValue;
+    }
+  }
+
+  return defaultValue;
+}
+
 class AIKnowledgeController {
   /**
    * GET /api/ai/knowledge?companyId=X
@@ -19,9 +46,19 @@ class AIKnowledgeController {
 
       const knowledge = await aiKnowledgeService.getKnowledge(companyId as string);
 
+      // Parse JSON fields de forma segura
+      let result = knowledge;
+      if (knowledge) {
+        result = {
+          ...knowledge,
+          products: safeJsonParse(knowledge.products, []),
+          faq: safeJsonParse(knowledge.faq, []),
+        };
+      }
+
       return res.status(200).json({
         success: true,
-        data: knowledge,
+        data: result,
       });
     } catch (error: any) {
       console.error('Error in getKnowledge controller:', error);
@@ -40,10 +77,30 @@ class AIKnowledgeController {
     try {
       const {
         companyId,
+        // Informações da empresa
+        companyName,
+        companySegment,
+        companyDescription,
         companyInfo,
-        productsServices,
+        // Objetivo da IA
+        aiObjective,
+        aiPersonality,
         toneInstructions,
+        // Políticas
         policies,
+        workingHours,
+        paymentMethods,
+        deliveryInfo,
+        warrantyInfo,
+        // Produtos
+        productsServices,
+        products,
+        // Configurações adicionais
+        negativeExamples,
+        faq,
+        // Status do onboarding
+        setupCompleted,
+        setupStep,
         // Configurações avançadas
         provider,
         model,
@@ -59,19 +116,34 @@ class AIKnowledgeController {
         });
       }
 
-      console.log('[AI Knowledge Controller] Updating knowledge with advanced settings:', {
+      console.log('[AI Knowledge Controller] Updating knowledge:', {
         companyId,
-        provider,
-        temperature,
-        maxTokens,
-        autoReplyEnabled,
+        companyName,
+        companySegment,
+        setupStep,
+        setupCompleted,
+        productsCount: products?.length,
       });
 
       const knowledge = await aiKnowledgeService.upsertKnowledge(companyId, {
+        companyName,
+        companySegment,
+        companyDescription,
         companyInfo,
-        productsServices,
+        aiObjective,
+        aiPersonality,
         toneInstructions,
         policies,
+        workingHours,
+        paymentMethods,
+        deliveryInfo,
+        warrantyInfo,
+        productsServices,
+        products,
+        negativeExamples,
+        faq,
+        setupCompleted,
+        setupStep,
         provider,
         model,
         temperature,
@@ -88,6 +160,38 @@ class AIKnowledgeController {
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to update AI knowledge',
+      });
+    }
+  }
+
+  /**
+   * POST /api/ai/knowledge/generate-context
+   * Gera um contexto completo usando IA
+   */
+  async generateContext(req: Request, res: Response) {
+    try {
+      const { companyId } = req.body;
+
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Company ID is required',
+        });
+      }
+
+      console.log('[AI Knowledge Controller] Generating context for company:', companyId);
+
+      const result = await aiKnowledgeService.generateContext(companyId);
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('Error in generateContext controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to generate context',
       });
     }
   }

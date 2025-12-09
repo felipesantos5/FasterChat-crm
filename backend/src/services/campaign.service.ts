@@ -7,10 +7,12 @@ import {
   CampaignResult,
 } from '../types/campaign';
 import messageService from './message.service';
+import campaignExecutionService from './campaign-execution.service';
 
 class CampaignService {
   /**
    * Cria uma nova campanha
+   * Para campanhas SCHEDULED, também agenda automaticamente a execução
    */
   async create(data: CreateCampaignDTO) {
     try {
@@ -34,6 +36,18 @@ class CampaignService {
           company: true,
         },
       });
+
+      // Se for campanha SCHEDULED com data definida, agenda automaticamente
+      if (data.type === CampaignType.SCHEDULED && data.scheduledAt) {
+        try {
+          await campaignExecutionService.scheduleCampaign(campaign.id, data.scheduledAt);
+          console.log(`[Campaign] Campanha ${campaign.id} agendada para ${data.scheduledAt.toISOString()}`);
+        } catch (scheduleError: any) {
+          console.error(`[Campaign] Erro ao agendar campanha ${campaign.id}:`, scheduleError.message);
+          // Não lança erro aqui para não falhar a criação da campanha
+          // A campanha foi criada, mas o agendamento falhou
+        }
+      }
 
       return campaign;
     } catch (error: any) {

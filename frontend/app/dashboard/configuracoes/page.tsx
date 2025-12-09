@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, Save, User, Building } from "lucide-react";
-import { typography, spacing } from "@/lib/design-system";
+import { spacing } from "@/lib/design-system";
 
 export default function SettingsPage() {
   const { user } = useAuthStore();

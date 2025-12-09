@@ -1,16 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Clock, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Appointment,
   AppointmentStatus,
-  AppointmentType,
   AppointmentStatusLabels,
-  AppointmentTypeLabels,
 } from "@/types/appointment";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";

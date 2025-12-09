@@ -141,7 +141,7 @@ export function NewConversationDialog({
 
       // Cria ou obtém a conversa para esse cliente
       console.log("Iniciando conversa para cliente:", customer.id);
-      const conversationResponse = await conversationApi.getConversation(customer.id, companyId);
+      await conversationApi.getConversation(customer.id, companyId);
       console.log("Conversa iniciada com sucesso!");
 
       // Mostra toast de sucesso

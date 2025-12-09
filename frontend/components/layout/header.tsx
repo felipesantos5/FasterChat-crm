@@ -54,7 +54,7 @@ const pageMap: Record<string, PageInfo> = {
     description: "Gerenciamento de clientes",
   },
   "/dashboard/pipeline": {
-    label: "Pipeline",
+    label: "Funil",
     icon: Kanban,
     description: "Funil de vendas",
   },
@@ -147,7 +147,7 @@ export function Header() {
   const PageIcon = currentPage.icon;
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center border-b bg-background px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background px-6">
       <div className="flex flex-1 items-center justify-between">
         {/* Current Page Info */}
         <div className="flex items-center gap-3">
@@ -155,9 +155,7 @@ export function Header() {
             <PageIcon className="h-5 w-5 text-purple-600" />
           </div>
           <div>
-            <h1 className="text-base font-semibold text-gray-900">
-              {currentPage.label}
-            </h1>
+            <h1 className="text-base font-semibold text-gray-900">{currentPage.label}</h1>
             <p className="text-xs text-gray-500">{currentPage.description}</p>
           </div>
         </div>
@@ -165,14 +163,9 @@ export function Header() {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="relative h-10 gap-2 rounded-full pl-2 pr-3"
-            >
+            <Button variant="ghost" className="relative h-10 gap-2 rounded-full pl-2 pr-3">
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user?.name ? getInitials(user.name) : "U"}
-                </AvatarFallback>
+                <AvatarFallback className="bg-primary text-primary-foreground">{user?.name ? getInitials(user.name) : "U"}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col items-start text-sm">
                 <span className="font-medium">{user?.name || "Usuário"}</span>
@@ -183,9 +176,7 @@ export function Header() {
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">{user?.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email}
-                </p>
+                <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -193,9 +184,7 @@ export function Header() {
               <User className="mr-2 h-4 w-4" />
               <span>Perfil</span>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => router.push("/dashboard/configuracoes")}
-            >
+            <DropdownMenuItem onClick={() => router.push("/dashboard/configuracoes")}>
               <Settings className="mr-2 h-4 w-4" />
               <span>Configurações</span>
             </DropdownMenuItem>

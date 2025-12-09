@@ -5,13 +5,14 @@ import { campaignApi } from '@/lib/campaign';
 import { Campaign, CampaignStatus, CampaignType } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Send, Edit, Trash, XCircle, Loader2, Calendar, BarChart3, Megaphone } from 'lucide-react';
+import { Plus, Send, Edit, Trash, XCircle, Loader2, Calendar, BarChart3, Megaphone, Clock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { buttons, cards, typography, spacing, icons } from "@/lib/design-system";
 import { toast } from "sonner";
 import { EditCampaignDialog } from '@/components/campaigns/edit-campaign-dialog';
+import { ScheduleCampaignDialog } from '@/components/campaigns/schedule-campaign-dialog';
 
 export default function CampaignsPage() {
   const router = useRouter();
@@ -20,6 +21,8 @@ export default function CampaignsPage() {
   const [sendingCampaignId, setSendingCampaignId] = useState<string | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [schedulingCampaign, setSchedulingCampaign] = useState<Campaign | null>(null);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
 
   const getCompanyId = () => {
     const user = localStorage.getItem('user');
@@ -55,48 +58,33 @@ export default function CampaignsPage() {
   const handleExecute = async (campaignId: string) => {
     setSendingCampaignId(campaignId);
 
-    toast.promise(
-      campaignApi.execute(campaignId),
-      {
-        loading: 'Disparando campanha...',
-        success: () => {
-          loadCampaigns();
-          return '🚀 Campanha em execução! As mensagens estão sendo enviadas em fila com delays inteligentes.';
-        },
-        error: (error: any) => {
-          console.error('Error executing campaign:', error);
-          return error.response?.data?.message || 'Erro ao disparar campanha';
-        },
-      }
-    ).finally(() => {
+    try {
+      await toast.promise(
+        campaignApi.execute(campaignId),
+        {
+          loading: 'Disparando campanha...',
+          success: () => {
+            loadCampaigns();
+            return '🚀 Campanha em execução! As mensagens estão sendo enviadas em fila com delays inteligentes.';
+          },
+          error: (error: any) => {
+            console.error('Error executing campaign:', error);
+            return error.response?.data?.message || 'Erro ao disparar campanha';
+          },
+        }
+      );
+    } finally {
       setSendingCampaignId(null);
-    });
+    }
   };
 
-  const handleSchedule = async (campaignId: string) => {
-    const dateStr = prompt('Digite a data e hora para agendar (formato: YYYY-MM-DD HH:mm):\nExemplo: 2025-12-25 10:00');
+  const handleSchedule = (campaign: Campaign) => {
+    setSchedulingCampaign(campaign);
+    setScheduleDialogOpen(true);
+  };
 
-    if (!dateStr) return;
-
-    try {
-      const scheduledDate = new Date(dateStr);
-      if (isNaN(scheduledDate.getTime())) {
-        toast.error('Data inválida! Use o formato: YYYY-MM-DD HH:mm');
-        return;
-      }
-
-      if (scheduledDate <= new Date()) {
-        toast.error('A data deve ser no futuro!');
-        return;
-      }
-
-      await campaignApi.schedule(campaignId, scheduledDate.toISOString());
-      toast.success(`📅 Campanha agendada para ${format(scheduledDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`);
-      await loadCampaigns();
-    } catch (error: any) {
-      console.error('Error scheduling campaign:', error);
-      toast.error(error.response?.data?.message || 'Erro ao agendar campanha');
-    }
+  const handleScheduleSuccess = () => {
+    loadCampaigns();
   };
 
   const handleViewStats = (campaignId: string) => {
@@ -244,8 +232,14 @@ export default function CampaignsPage() {
                     </div>
                     {campaign.type === CampaignType.SCHEDULED && campaign.scheduledAt && (
                       <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-muted-foreground">Agendado para:</span>
-                        <span>{formatDate(campaign.scheduledAt)}</span>
+                        <span className="font-medium">
+                          {format(new Date(campaign.scheduledAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          ({formatDate(campaign.scheduledAt)})
+                        </span>
                       </div>
                     )}
                   </div>
@@ -294,7 +288,7 @@ export default function CampaignsPage() {
                         Editar
                       </Button>
                       <Button
-                        onClick={() => handleSchedule(campaign.id)}
+                        onClick={() => handleSchedule(campaign)}
                         variant="outline"
                         size="sm"
                       >
@@ -401,6 +395,17 @@ export default function CampaignsPage() {
           setEditingCampaign(null);
         }}
         onSuccess={handleEditSuccess}
+      />
+
+      {/* Schedule Campaign Dialog */}
+      <ScheduleCampaignDialog
+        campaign={schedulingCampaign}
+        isOpen={scheduleDialogOpen}
+        onClose={() => {
+          setScheduleDialogOpen(false);
+          setSchedulingCampaign(null);
+        }}
+        onSuccess={handleScheduleSuccess}
       />
     </div>
   );

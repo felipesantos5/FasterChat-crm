@@ -12,8 +12,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TagSelector } from "@/components/forms/tag-selector";
-import { ArrowLeft, Loader2, Users } from "lucide-react";
+import { ArrowLeft, Loader2, Users, CalendarClock, Info } from "lucide-react";
 import { Tag } from "@/lib/tag";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
+import { toast } from "sonner";
 
 export default function NewCampaignPage() {
   const router = useRouter();
@@ -27,7 +29,7 @@ export default function NewCampaignPage() {
     messageTemplate: "",
     targetTags: [] as string[],
     type: CampaignType.MANUAL,
-    scheduledAt: "",
+    scheduledAt: undefined as Date | undefined,
   });
 
   const getCompanyId = () => {
@@ -93,21 +95,37 @@ export default function NewCampaignPage() {
     e.preventDefault();
 
     if (!formData.name || !formData.messageTemplate || formData.targetTags.length === 0) {
-      alert("Por favor, preencha todos os campos obrigatórios");
+      toast.error("Por favor, preencha todos os campos obrigatórios");
       return;
     }
 
     if (formData.type === CampaignType.SCHEDULED && !formData.scheduledAt) {
-      alert("Por favor, defina a data e hora do agendamento");
+      toast.error("Por favor, defina a data e hora do agendamento");
       return;
+    }
+
+    // Validação: agendamento deve ser no futuro
+    if (formData.type === CampaignType.SCHEDULED && formData.scheduledAt) {
+      const now = new Date();
+      if (formData.scheduledAt <= now) {
+        toast.error("A data de agendamento deve ser no futuro");
+        return;
+      }
     }
 
     try {
       setLoading(true);
       const companyId = getCompanyId();
       if (!companyId) {
-        alert("Empresa não encontrada");
+        toast.error("Empresa não encontrada");
         return;
+      }
+
+      // Converte a data para ISO string no fuso horário do Brasil
+      let scheduledAtISO: string | undefined;
+      if (formData.scheduledAt) {
+        // Envia a data como ISO string - o backend vai processar no fuso de Brasília
+        scheduledAtISO = formData.scheduledAt.toISOString();
       }
 
       await campaignApi.create({
@@ -116,13 +134,19 @@ export default function NewCampaignPage() {
         messageTemplate: formData.messageTemplate,
         targetTags: formData.targetTags,
         type: formData.type,
-        scheduledAt: formData.scheduledAt || undefined,
+        scheduledAt: scheduledAtISO,
       });
+
+      if (formData.type === CampaignType.SCHEDULED) {
+        toast.success("🗓️ Campanha criada e agendada com sucesso!");
+      } else {
+        toast.success("Campanha criada com sucesso!");
+      }
 
       router.push("/dashboard/campaigns");
     } catch (error: any) {
       console.error("Error creating campaign:", error);
-      alert(error.response?.data?.message || "Erro ao criar campanha");
+      toast.error(error.response?.data?.message || "Erro ao criar campanha");
     } finally {
       setLoading(false);
     }
@@ -230,13 +254,26 @@ export default function NewCampaignPage() {
         {/* Agendamento */}
         <Card>
           <CardHeader>
-            <CardTitle>Tipo de Envio</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5" />
+              Tipo de Envio
+            </CardTitle>
             <CardDescription>Escolha entre envio imediato ou agendado</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="type">Tipo *</Label>
-              <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as CampaignType })}>
+              <Select
+                value={formData.type}
+                onValueChange={(value) => {
+                  setFormData({
+                    ...formData,
+                    type: value as CampaignType,
+                    // Limpa a data ao mudar para manual
+                    scheduledAt: value === CampaignType.MANUAL ? undefined : formData.scheduledAt
+                  });
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -248,19 +285,39 @@ export default function NewCampaignPage() {
             </div>
 
             {formData.type === CampaignType.SCHEDULED && (
-              <div className="space-y-2">
-                <Label htmlFor="scheduledAt">Data e Hora do Envio *</Label>
-                <Input
-                  id="scheduledAt"
-                  type="datetime-local"
+              <div className="space-y-3">
+                <Label>Data e Hora do Envio *</Label>
+                <DateTimePicker
                   value={formData.scheduledAt}
-                  onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
-                  min={new Date().toISOString().slice(0, 16)}
-                  required
+                  onChange={(date) => setFormData({ ...formData, scheduledAt: date })}
+                  placeholder="Selecione quando disparar a campanha"
+                  minDate={new Date()}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Nota: A funcionalidade de agendamento automático ainda não está implementada. Você precisará disparar manualmente na data escolhida.
-                </p>
+
+                <div className="rounded-lg border bg-blue-50 dark:bg-blue-950 p-3">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5" />
+                    <div className="text-sm text-blue-800 dark:text-blue-200">
+                      <p className="font-medium">Disparo Automático</p>
+                      <p className="text-xs mt-1">
+                        A campanha será disparada automaticamente na data e hora selecionadas.
+                        O sistema usa o fuso horário de Brasília (GMT-3).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {formData.type === CampaignType.MANUAL && (
+              <div className="rounded-lg border bg-muted/50 p-3">
+                <div className="text-sm text-muted-foreground">
+                  <p className="font-medium">Envio Manual</p>
+                  <p className="text-xs mt-1">
+                    Após criar a campanha, você poderá disparar manualmente quando quiser
+                    clicando no botão "Disparar Agora" na lista de campanhas.
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>

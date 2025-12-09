@@ -3,6 +3,7 @@ import {
   GetAIKnowledgeResponse,
   UpdateAIKnowledgeRequest,
   UpdateAIKnowledgeResponse,
+  GenerateContextResponse,
 } from '@/types/ai-knowledge';
 
 export const aiKnowledgeApi = {
@@ -21,6 +22,15 @@ export const aiKnowledgeApi = {
    */
   async updateKnowledge(data: UpdateAIKnowledgeRequest): Promise<UpdateAIKnowledgeResponse> {
     const response = await api.put('/ai/knowledge', data);
+    return response.data;
+  },
+
+  /**
+   * Gera um contexto completo otimizado pela IA
+   * Transforma as informações básicas em um contexto rico e estruturado
+   */
+  async generateContext(companyId: string): Promise<GenerateContextResponse> {
+    const response = await api.post('/ai/knowledge/generate-context', { companyId });
     return response.data;
   },
 };

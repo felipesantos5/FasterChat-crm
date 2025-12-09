@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Smartphone, XCircle } from "lucide-react";
+import { AlertTriangle, XCircle } from "lucide-react";
 
 interface DisconnectConfirmDialogProps {
   isOpen: boolean;
@@ -24,7 +24,6 @@ export function DisconnectConfirmDialog({
   isOpen,
   onClose,
   onConfirm,
-  instanceName,
   isDeleting = false,
 }: DisconnectConfirmDialogProps) {
   return (

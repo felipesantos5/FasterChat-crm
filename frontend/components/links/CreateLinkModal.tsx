@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { X, Link, Phone, MessageSquare, Tag } from "lucide-react";
 import { whatsappLinkService, WhatsAppLink } from "@/lib/whatsapp-link";
 import { toast } from "react-hot-toast";
-import { formatPhoneNumber } from "@/lib/utils";
 
 interface CreateLinkModalProps {
   link?: WhatsAppLink | null;
