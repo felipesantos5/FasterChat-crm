@@ -171,8 +171,22 @@ export default function CustomerDetailPage() {
           </CardContent>
         </Card>
 
+              {customer.notes && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Observações
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-wrap">{customer.notes}</p>
+          </CardContent>
+        </Card>
+      )}
+
         {/* Timeline / Quick Stats */}
-        <div className="space-y-6 p-8">
+        {/* <div className="space-y-6 p-8">
           <Card>
             <CardHeader>
               <CardTitle>Estatísticas</CardTitle>
@@ -196,23 +210,11 @@ export default function CustomerDetailPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </div> */}
       </div>
 
       {/* Notes */}
-      {customer.notes && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Observações
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap">{customer.notes}</p>
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Activity History */}
       <Card>

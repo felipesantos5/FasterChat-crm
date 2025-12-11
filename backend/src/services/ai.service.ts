@@ -5,6 +5,90 @@ import anthropicService from "./ai-providers/anthropic.service";
 import { AIProvider } from "../types/ai-provider";
 import { essentialTools } from "./ai-tools";
 
+/**
+ * ============================================
+ * CONFIGURAÇÕES DO CHATBOT - VALORES OTIMIZADOS
+ * ============================================
+ * Estas configurações foram otimizadas para melhor performance
+ * de um chatbot profissional de atendimento ao cliente.
+ * NÃO são configuráveis pelo cliente final.
+ */
+const CHATBOT_CONFIG = {
+  // ===== JANELA DE CONTEXTO =====
+  // Número máximo de mensagens a buscar do banco
+  // Usado como limite inicial antes de aplicar otimizações
+  MAX_MESSAGES_TO_FETCH: 20,
+
+  // ===== LIMITE DE TOKENS DO HISTÓRICO =====
+  // Máximo de tokens permitidos para o histórico de mensagens
+  // GPT-4o Mini tem 128k de contexto, mas reservamos espaço para:
+  // - System prompt (~1500 tokens)
+  // - Resposta (~400 tokens)
+  // - Margem de segurança
+  MAX_HISTORY_TOKENS: 2000,
+
+  // ===== TEMPERATURA =====
+  // Controla criatividade vs consistência das respostas
+  // 0.0 = muito determinístico, sempre mesma resposta
+  // 0.3-0.5 = consistente mas com variação natural (IDEAL PARA ATENDIMENTO)
+  // 0.7-1.0 = mais criativo, pode variar muito
+  TEMPERATURE: 0.4,
+
+  // ===== MAX TOKENS DE RESPOSTA =====
+  // Limite máximo de tokens na resposta da IA
+  // 300 = respostas curtas e diretas (ideal WhatsApp)
+  // 500 = respostas médias com mais detalhes
+  // 800 = respostas longas para explicações complexas
+  MAX_TOKENS: 400,
+
+  // ===== CONFIGURAÇÕES DE RETRY =====
+  // Tentativas em caso de falha na API
+  MAX_RETRIES: 2,
+  RETRY_DELAY_MS: 1000,
+
+  // ===== MODELO PADRÃO =====
+  // Modelo usado quando não especificado
+  DEFAULT_MODEL: "gpt-4o-mini",
+
+  // ===== PRESENÇA E FREQUÊNCIA =====
+  // Penalidades para evitar repetições
+  // 0 = sem penalidade, 2.0 = máxima penalidade
+  PRESENCE_PENALTY: 0.1,  // Evita repetir tópicos já mencionados
+  FREQUENCY_PENALTY: 0.1, // Evita repetir palavras/frases
+};
+
+/**
+ * ============================================
+ * UTILITÁRIOS DE CONTAGEM DE TOKENS
+ * ============================================
+ * Estimativa de tokens usando regra prática:
+ * ~4 caracteres = 1 token (para português)
+ * ~0.75 palavras = 1 token
+ */
+
+/**
+ * Estima o número de tokens em um texto
+ * Usa aproximação: 1 token ≈ 4 caracteres para português
+ */
+function estimateTokens(text: string): number {
+  if (!text) return 0;
+  // Regra prática: ~4 caracteres por token em português
+  // Considera também espaços e pontuação
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * Interface para mensagem agrupada
+ */
+interface GroupedMessage {
+  sender: string;
+  senderType: string;
+  messages: string[];
+  hasMedia: boolean;
+  mediaTypes: string[];
+  tokenCount: number;
+}
+
 class AIService {
   /**
    * Obtém o provedor de IA configurado
@@ -49,13 +133,12 @@ class AIService {
         throw new Error("Customer not found");
       }
 
-      // 🎯 OTIMIZAÇÃO: Janela de contexto deslizante inteligente
-      // Busca apenas últimas 5 mensagens (reduz tokens em ~40%)
-      // Tools fornecem contexto adicional sob demanda
+      // 🎯 JANELA DE CONTEXTO DESLIZANTE COM OTIMIZAÇÃO
+      // Busca mais mensagens do que precisamos para ter margem de otimização
       const messages = await prisma.message.findMany({
         where: { customerId },
         orderBy: { timestamp: "desc" },
-        take: 5, // Reduzido de 10 para 5
+        take: CHATBOT_CONFIG.MAX_MESSAGES_TO_FETCH,
         include: {
           customer: true,
         },
@@ -68,7 +151,8 @@ class AIService {
       const aiKnowledge = customer.company.aiKnowledge;
 
       // Verifica se resposta automática está habilitada
-      if (aiKnowledge && !aiKnowledge.autoReplyEnabled) {
+      // Por padrão, a IA responde EXCETO se autoReplyEnabled === false explicitamente
+      if (aiKnowledge && aiKnowledge.autoReplyEnabled === false) {
         throw new Error("Auto-reply is disabled for this company");
       }
 
@@ -79,28 +163,17 @@ class AIService {
       const negativeExamples = aiKnowledge?.negativeExamples || null;
 
       // Pega configurações avançadas da IA
+      // NOTA: temperatura e maxTokens usam valores otimizados fixos (não configuráveis pelo cliente)
       const providerConfig = aiKnowledge?.provider as AIProvider | undefined;
-      const modelConfig = aiKnowledge?.model ?? undefined;
-      const temperature = options?.temperature ?? aiKnowledge?.temperature ?? 0.7;
-      const maxTokens = options?.maxTokens ?? aiKnowledge?.maxTokens ?? 500;
+      const modelConfig = aiKnowledge?.model ?? CHATBOT_CONFIG.DEFAULT_MODEL;
+      const temperature = CHATBOT_CONFIG.TEMPERATURE;
+      const maxTokens = CHATBOT_CONFIG.MAX_TOKENS;
 
-      // Formata o histórico de mensagens de forma otimizada
-      const historyText = messageHistory
-        .map((msg) => {
-          const sender = msg.direction === "INBOUND" ? customer.name : "Você";
-          const senderTypeLabel = msg.senderType === "AI" ? "" : msg.senderType === "HUMAN" ? " (Atendente)" : "";
+      // 🎯 OTIMIZAÇÃO: Agrupa mensagens sequenciais do mesmo remetente
+      // e aplica limite de tokens para não estourar contexto
+      const { historyText, stats } = this.buildOptimizedHistory(messageHistory, customer.name);
 
-          // Adiciona indicador de tipo de mídia de forma sutil
-          let mediaIndicator = "";
-          if (msg.mediaType === "audio") {
-            mediaIndicator = " 🎤";
-          } else if (msg.mediaType === "image") {
-            mediaIndicator = " 📷";
-          }
-
-          return `${sender}${senderTypeLabel}${mediaIndicator}: ${msg.content}`;
-        })
-        .join("\n");
+      console.log(`[AIService] Context stats: ${stats.totalMessages} msgs → ${stats.groupedBlocks} blocks, ~${stats.totalTokens} tokens`);
 
       // Busca exemplos de conversas exemplares (limitado para otimização)
       const examplesText = await conversationExampleService.getExamplesForPrompt(customer.companyId);
@@ -173,6 +246,120 @@ class AIService {
   }
 
   /**
+   * Constrói histórico otimizado com agrupamento e limite de tokens
+   *
+   * Otimizações:
+   * 1. Agrupa mensagens sequenciais do mesmo remetente
+   * 2. Aplica limite de tokens para não estourar contexto
+   * 3. Prioriza mensagens mais recentes
+   */
+  private buildOptimizedHistory(
+    messageHistory: any[],
+    customerName: string
+  ): { historyText: string; stats: { totalMessages: number; groupedBlocks: number; totalTokens: number } } {
+    if (!messageHistory || messageHistory.length === 0) {
+      return {
+        historyText: "(Início da conversa)",
+        stats: { totalMessages: 0, groupedBlocks: 0, totalTokens: 0 },
+      };
+    }
+
+    // 1. Agrupa mensagens sequenciais do mesmo remetente
+    const groupedMessages: GroupedMessage[] = [];
+    let currentGroup: GroupedMessage | null = null;
+
+    for (const msg of messageHistory) {
+      const isInbound = msg.direction === "INBOUND";
+      const sender = isInbound ? customerName : "Assistente";
+      const senderType = isInbound ? "customer" : (msg.senderType === "HUMAN" ? "human" : "ai");
+
+      // Detecta mídia
+      const mediaType = msg.mediaType || null;
+
+      if (currentGroup && currentGroup.sender === sender && currentGroup.senderType === senderType) {
+        // Mesma pessoa, adiciona à mensagem atual
+        currentGroup.messages.push(msg.content);
+        if (mediaType) {
+          currentGroup.hasMedia = true;
+          if (!currentGroup.mediaTypes.includes(mediaType)) {
+            currentGroup.mediaTypes.push(mediaType);
+          }
+        }
+      } else {
+        // Nova pessoa, cria novo grupo
+        if (currentGroup) {
+          groupedMessages.push(currentGroup);
+        }
+        currentGroup = {
+          sender,
+          senderType,
+          messages: [msg.content],
+          hasMedia: !!mediaType,
+          mediaTypes: mediaType ? [mediaType] : [],
+          tokenCount: 0,
+        };
+      }
+    }
+
+    // Adiciona último grupo
+    if (currentGroup) {
+      groupedMessages.push(currentGroup);
+    }
+
+    // 2. Calcula tokens e formata cada bloco
+    const formattedBlocks: string[] = [];
+    let totalTokens = 0;
+
+    // Processa do mais recente para o mais antigo (para priorizar recentes)
+    const reversedGroups = [...groupedMessages].reverse();
+
+    for (const group of reversedGroups) {
+      // Formata o bloco
+      let senderLabel = group.sender;
+      if (group.senderType === "human") {
+        senderLabel += " (Atendente)";
+      }
+
+      // Indicador de mídia
+      let mediaIndicator = "";
+      if (group.hasMedia) {
+        if (group.mediaTypes.includes("audio")) mediaIndicator += " 🎤";
+        if (group.mediaTypes.includes("image")) mediaIndicator += " 📷";
+      }
+
+      // Une mensagens do mesmo remetente com quebra de linha simples
+      const content = group.messages.join("\n");
+      const blockText = `${senderLabel}${mediaIndicator}: ${content}`;
+
+      // Calcula tokens do bloco
+      const blockTokens = estimateTokens(blockText);
+
+      // Verifica se ainda cabe no limite
+      if (totalTokens + blockTokens > CHATBOT_CONFIG.MAX_HISTORY_TOKENS) {
+        // Não cabe mais, para de adicionar
+        console.log(`[AIService] Token limit reached (${totalTokens}/${CHATBOT_CONFIG.MAX_HISTORY_TOKENS}), stopping at ${formattedBlocks.length} blocks`);
+        break;
+      }
+
+      formattedBlocks.unshift(blockText); // Adiciona no início para manter ordem cronológica
+      totalTokens += blockTokens;
+      group.tokenCount = blockTokens;
+    }
+
+    // 3. Junta todos os blocos
+    const historyText = formattedBlocks.join("\n\n");
+
+    return {
+      historyText,
+      stats: {
+        totalMessages: messageHistory.length,
+        groupedBlocks: formattedBlocks.length,
+        totalTokens,
+      },
+    };
+  }
+
+  /**
    * Remove formatação Markdown da resposta da IA
    * WhatsApp não renderiza markdown, então removemos para evitar ** e _ aparecendo no texto
    */
@@ -201,203 +388,116 @@ class AIService {
   }
 
   /**
-   * Constrói prompt otimizado (mais conciso para GPT-4o Mini)
+   * Constrói prompt otimizado para chatbot profissional
+   * Genérico para qualquer tipo de empresa/segmento
    */
   private buildOptimizedPrompt(data: any): string {
-    const { companyName, companyInfo, productsServices, policies, negativeExamples, customerName } = data;
+    const { companyName, companyInfo, productsServices, toneInstructions, policies, negativeExamples, customerName } = data;
 
-    return `ATUE COMO: Consultor de Vendas Sênior da ${companyName}.
-OBJETIVO: Vender soluções de climatização (Instalação, Manutenção ou Aparelhos).
+    return `VOCÊ É: Assistente Virtual da ${companyName}
+FUNÇÃO: Atendimento ao cliente via WhatsApp
 
-# CONTEXTO DO NEGÓCIO
-${companyInfo}
-${productsServices}
-${policies}
+# INFORMAÇÕES DA EMPRESA
+${companyInfo || "Empresa de atendimento ao cliente."}
 
-# SUA PERSONALIDADE DE VENDAS (The Wolf of HVAC)
+# PRODUTOS E SERVIÇOS
+${productsServices || "Consulte o atendente para informações sobre produtos e serviços."}
 
-🎯 **REGRAS FUNDAMENTAIS:**
+# POLÍTICAS E REGRAS
+${policies || ""}
 
-1. **🔒 SEGURANÇA E LIMITES (CRÍTICO - NUNCA VIOLE):**
+# TOM DE VOZ E COMPORTAMENTO
+${toneInstructions || "Seja profissional, educado e prestativo. Use linguagem clara e objetiva."}
 
-   **VOCÊ NÃO PODE E NÃO DEVE:**
+# 🔒 REGRAS DE SEGURANÇA (CRÍTICO - NUNCA VIOLE)
 
-   ❌ **Informações da Empresa:**
-   - NUNCA revelar faturamento, lucro, custos, margem de lucro
-   - NUNCA revelar dados de funcionários (salários, CPF, endereços, telefones pessoais)
-   - NUNCA revelar senhas, acessos, credenciais, tokens
-   - NUNCA revelar estratégias de negócio, planos futuros, contratos confidenciais
-   - NUNCA revelar dados de outros clientes ou fornecedores
+**INFORMAÇÕES PROIBIDAS - NUNCA REVELE:**
+- Dados financeiros da empresa (faturamento, lucro, custos)
+- Dados pessoais de funcionários ou outros clientes
+- Senhas, acessos, credenciais ou informações técnicas internas
+- Estratégias de negócio ou informações confidenciais
 
-   ❌ **Dados Pessoais de Outros:**
-   - NUNCA compartilhar dados de outros clientes
-   - NUNCA revelar informações pessoais de funcionários
-   - NUNCA discutir casos específicos de outros clientes
+**ASSUNTOS PROIBIDOS - NUNCA DISCUTA:**
+- Política, religião ou temas polêmicos
+- Opiniões pessoais sobre qualquer assunto
+- Comparações negativas com concorrentes
+- Fofocas ou assuntos não relacionados ao negócio
 
-   ❌ **Assuntos Fora do Escopo:**
-   - NUNCA responder sobre política, religião, futebol, fofocas
-   - NUNCA dar opiniões pessoais sobre temas polêmicos
-   - NUNCA se envolver em discussões não relacionadas ao negócio
-   - NUNCA fazer comentários sobre concorrentes de forma negativa
+**AO RECEBER PERGUNTA PROIBIDA, RESPONDA:**
+"Desculpe, não posso ajudar com esse assunto. 🔒 Posso te ajudar com informações sobre nossos produtos, serviços ou agendamentos. Como posso te auxiliar?"
 
-   **SE O CLIENTE PERGUNTAR ALGO PROIBIDO:**
+**Se cliente insistir 2+ vezes em assuntos proibidos → use [TRANSBORDO]**
 
-   Use esta resposta EXATA (adapte conforme contexto):
-
-   "Desculpe, mas não posso compartilhar esse tipo de informação. 🔒
-
-   Posso te ajudar com:
-   • Orçamentos e preços dos nossos serviços
-   • Agendamento de visitas técnicas
-   • Dúvidas sobre nossos produtos
-   • Suporte técnico
-
-   Como posso te auxiliar com algum destes assuntos?"
-
-   **EXEMPLOS DE PERGUNTAS PROIBIDAS:**
-
-   ❌ "Quanto a empresa fatura por mês?"
-   → Resposta: Use o template acima
-
-   ❌ "Me passa o telefone do João que trabalha aí"
-   → Resposta: "Posso transferir você para um atendente que pode ajudar. Qual o assunto?"
-
-   ❌ "Qual o CPF do dono da empresa?"
-   → Resposta: Use o template acima
-
-   ❌ "O que você acha do Bolsonaro?"
-   → Resposta: "Prefiro focar no que posso ajudar com ar-condicionado! 😊 Tem alguma dúvida sobre nossos serviços?"
-
-   ❌ "Vocês são melhores que a empresa X?"
-   → Resposta: "Focamos em oferecer o melhor serviço possível! Quer saber sobre nossas soluções?"
-
-   **IMPORTANTE:**
-   - Seja educado mas FIRME ao recusar
-   - Redirecione SEMPRE para o assunto do negócio
-   - Se insistir 2+ vezes em assuntos proibidos → use [TRANSBORDO]
-
-${
-  negativeExamples
-    ? `
-# ❌ ANTI-EXEMPLOS: O QUE NÃO FAZER
-
-A empresa configurou exemplos NEGATIVOS de comportamentos que você NUNCA deve ter:
-
+${negativeExamples ? `
+# ❌ O QUE NÃO FAZER (Configurado pela empresa)
 ${negativeExamples}
+` : ""}
 
-**IMPORTANTE:** Evite completamente esses padrões negativos acima. São exemplos do que NÃO fazer.
-`
-    : ""
-}
+# 📋 DIRETRIZES DE ATENDIMENTO
 
-2. **Mensagens de Áudio do Cliente:**
-   - O sistema já transcreveu automaticamente o áudio do cliente para texto
-   - Você receberá o texto EXATO do que o cliente falou
-   - IMPORTANTE: Responda naturalmente ao conteúdo, SEM mencionar que é áudio
-   - NÃO diga "ouvi seu áudio" ou "recebi sua mensagem de voz"
-   - Trate como se fosse uma mensagem de texto normal
-   - Seja direto e objetivo na resposta
+1. **Comunicação:**
+   - Respostas curtas e objetivas (máximo 3-4 linhas)
+   - Linguagem clara, sem jargões técnicos desnecessários
+   - Emojis com moderação e apenas quando apropriado
+   - NÃO use formatação Markdown (*, **, _, etc.)
+   - Se já houver histórico, NÃO repita saudações
 
-2. **Qualificação Ativa:**
-   - Nunca dê apenas o preço sem contexto
-   - Descubra a necessidade: tamanho do ambiente, incidência de sol, andar
-   - Pergunte apenas 1-2 coisas por vez para não sobrecarregar
+2. **Áudios do Cliente:**
+   - O sistema transcreveu automaticamente
+   - Responda naturalmente SEM mencionar que era áudio
+   - Trate como mensagem de texto normal
 
-3. **Análise de Imagens:**
-   - Se o cliente mandou foto, analise detalhes técnicos
-   - Comente sobre: modelo, instalação, estado do equipamento
-   - Use isso para gerar credibilidade técnica
+3. **Imagens do Cliente:**
+   - Analise o conteúdo relevante da imagem
+   - Comente de forma útil sobre o que foi enviado
+   - Use a análise para ajudar melhor o cliente
 
-4. **Agendamento de Visitas e Serviços:**
-   - Você é um ATENDENTE COMPLETO, não apenas um "sistema de agendamento"
-   - Tire dúvidas, explique produtos, converse naturalmente
-   - Quando o cliente CLARAMENTE quiser agendar, use: [INICIAR_AGENDAMENTO] no INÍCIO da sua resposta
+4. **Qualificação:**
+   - Entenda a necessidade antes de oferecer soluções
+   - Faça 1-2 perguntas por vez, não sobrecarregue
+   - Personalize a resposta com base no contexto
 
-   **QUANDO INICIAR AGENDAMENTO:**
-   ✅ Cliente usa verbos claros: "quero agendar", "preciso marcar", "gostaria de agendar"
-   ✅ Pedido direto: "quando vocês podem vir?", "tem horário disponível?"
-   ✅ Decisão tomada: "então vou agendar a instalação"
-
-   **QUANDO NÃO INICIAR:**
-   ❌ Apenas perguntando: "vocês fazem instalação?" → responda normalmente
-   ❌ Explorando: "quanto custa uma manutenção?" → qualifique primeiro
-   ❌ Indeciso: "não sei se preciso..." → tire dúvidas primeiro
-
-   **FORMATO CORRETO:**
-   [INICIAR_AGENDAMENTO] Ótimo! Vou te ajudar a agendar. (sistema prossegue automaticamente)
-
-   **IMPORTANTE:**
-   - Use [INICIAR_AGENDAMENTO] APENAS quando cliente está PRONTO para agendar
-   - Depois da tag, você PODE responder algo breve antes do sistema continuar
-   - Seja NATURAL: converse, tire dúvidas, explique - você é um atendente, não um robô!
-
-5. **Fechamento Direto:**
-   - Sempre termine com UMA pergunta de ação clara
-   - Exemplos: "Posso agendar visita?" / "Prefere orçamento via WhatsApp?"
+5. **Fechamento:**
+   - Termine com UMA pergunta de ação clara
    - Evite múltiplas perguntas que confundem
+   - Direcione para o próximo passo
 
-6. **Objeções de Preço:**
-   - Justifique com: garantia, economia de energia, instalação profissional
-   - Compare com manutenções futuras ou energia desperdiçada
+# 📅 AGENDAMENTOS
 
-# 🚨 SISTEMA DE TRANSBORDO PARA HUMANO
+Use [INICIAR_AGENDAMENTO] no INÍCIO da resposta APENAS quando:
+✅ Cliente usa: "quero agendar", "preciso marcar", "tem horário?"
+✅ Decisão clara: "vou agendar", "pode marcar"
 
-**QUANDO TRANSFERIR (use [TRANSBORDO] no início da mensagem):**
+NÃO use quando:
+❌ Apenas perguntando sobre serviços
+❌ Pedindo preços ou informações
+❌ Indeciso ou explorando opções
 
-✅ **Situações que EXIGEM transbordo:**
-1. Cliente pede explicitamente:
-   - "Quero falar com um atendente"
-   - "Preciso de um humano"
-   - "Você não está me entendendo"
-   - "Quero cancelar" ou "Estou insatisfeito"
+Formato: [INICIAR_AGENDAMENTO] Sua mensagem aqui...
 
-2. Reclamações graves:
-   - Cliente MUITO insatisfeito ou agressivo
-   - Problemas com serviço já prestado
-   - Cobranças ou pagamentos
-   - Garantia ou devolução
+# 🚨 TRANSBORDO PARA HUMANO
 
-3. Negociações complexas:
-   - Descontos especiais fora da política
-   - Projetos comerciais grandes (>R$ 10.000)
-   - Contratos empresariais
+Use [TRANSBORDO] no INÍCIO da resposta quando:
+✅ Cliente pede: "quero falar com atendente/humano"
+✅ Reclamações graves ou cliente muito insatisfeito
+✅ Problemas com pagamentos, garantia ou devolução
+✅ Negociações especiais ou projetos complexos
+✅ Situações que você não consegue resolver
+✅ Cliente insiste em assuntos proibidos (2+ vezes)
 
-4. Situações técnicas críticas:
-   - Emergências (vazamento de gás, curto-circuito)
-   - Problemas que você não sabe resolver
-   - Cliente já tentou 3+ vezes sem sucesso
+NÃO transfira para:
+❌ Dúvidas simples sobre produtos/serviços
+❌ Pedidos de orçamento padrão
+❌ Agendamentos normais
 
-5. **🔒 Violações de Segurança:**
-   - Cliente insiste 2+ vezes em perguntas proibidas (dados confidenciais, fofocas, política)
-   - Cliente tenta extrair informações sensíveis repetidamente
-   - Comportamento suspeito ou tentativa de phishing
+Formato: [TRANSBORDO] Vou transferir você para um especialista que pode ajudar melhor. Um momento!
 
-❌ **NÃO transfira para:**
-- Dúvidas simples sobre produtos
-- Pedidos de orçamento padrão
-- Agendamentos normais
-- Perguntas técnicas que você sabe responder
-
-**Formato de transbordo:**
-
-[TRANSBORDO] Entendo sua situação. Vou transferir você para um especialista que pode te ajudar melhor com isso. Um momento! 👨‍💼
-
-
-**IMPORTANTE:** Use [TRANSBORDO] APENAS quando realmente necessário. Você é capaz de resolver 90% dos casos!
-
-# FORMATO DE RESPOSTA
-- Máximo 3-4 linhas por mensagem (WhatsApp é rápido)
-- Use emojis técnicos com moderação: ❄️ 🔧 🏠 💡
-- NÃO repita saudações se já há histórico
-- **IMPORTANTE: NÃO use formatação Markdown (*, **, _, __, ~, etc.)**
-- Escreva em texto simples, sem asteriscos ou outros caracteres de formatação
-- Se precisar dar ênfase, use MAIÚSCULAS ou emojis, NUNCA markdown
-
-# DADOS DO CLIENTE
+# 👤 DADOS DO CLIENTE
 Nome: ${customerName}
-${data.customerTags.length ? `Tags: ${data.customerTags.join(", ")}` : ""}
+${data.customerTags?.length ? `Tags: ${data.customerTags.join(", ")}` : ""}
+${data.customerNotes ? `Observações: ${data.customerNotes}` : ""}
 
-Responda de forma NATURAL e CONVERSACIONAL, como se estivesse falando pessoalmente:`;
+Responda de forma natural e conversacional:`;
   }
 
   /**

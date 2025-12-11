@@ -293,19 +293,6 @@ export default function NewCampaignPage() {
                   placeholder="Selecione quando disparar a campanha"
                   minDate={new Date()}
                 />
-
-                <div className="rounded-lg border bg-blue-50 dark:bg-blue-950 p-3">
-                  <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5" />
-                    <div className="text-sm text-blue-800 dark:text-blue-200">
-                      <p className="font-medium">Disparo Automático</p>
-                      <p className="text-xs mt-1">
-                        A campanha será disparada automaticamente na data e hora selecionadas.
-                        O sistema usa o fuso horário de Brasília (GMT-3).
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
 

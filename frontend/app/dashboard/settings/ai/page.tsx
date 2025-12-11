@@ -25,7 +25,6 @@ import {
   Edit3,
   X,
   Wand2,
-  CheckCircle2,
   Clock,
   CreditCard,
   Truck,
@@ -75,7 +74,6 @@ export default function AISettingsPage() {
   const [companyDescription, setCompanyDescription] = useState("");
 
   const [aiObjective, setAiObjective] = useState("");
-  const [aiPersonality, setAiPersonality] = useState("");
 
   const [workingHours, setWorkingHours] = useState("");
   const [paymentMethods, setPaymentMethods] = useState("");
@@ -125,7 +123,6 @@ export default function AISettingsPage() {
         setCompanyDescription(response.data.companyDescription || response.data.companyInfo || "");
 
         setAiObjective(response.data.aiObjective || "");
-        setAiPersonality(response.data.aiPersonality || response.data.toneInstructions || "");
 
         setWorkingHours(response.data.workingHours || "");
         setPaymentMethods(response.data.paymentMethods || "");
@@ -150,7 +147,7 @@ export default function AISettingsPage() {
     loadKnowledge();
   }, []);
 
-  const saveKnowledge = async (nextStep?: number) => {
+  const saveKnowledge = async (nextStep?: number, overrides?: { autoReplyEnabled?: boolean }) => {
     try {
       setSaving(true);
       const companyId = getCompanyId();
@@ -165,13 +162,12 @@ export default function AISettingsPage() {
         companySegment,
         companyDescription,
         aiObjective,
-        aiPersonality,
         workingHours,
         paymentMethods,
         deliveryInfo,
         warrantyInfo,
         products,
-        autoReplyEnabled,
+        autoReplyEnabled: overrides?.autoReplyEnabled ?? autoReplyEnabled,
         setupStep: nextStep ?? currentStep,
         setupCompleted,
       });
@@ -287,7 +283,6 @@ export default function AISettingsPage() {
       companySegment={companySegment}
       companyDescription={companyDescription}
       aiObjective={aiObjective}
-      aiPersonality={aiPersonality}
       workingHours={workingHours}
       paymentMethods={paymentMethods}
       deliveryInfo={deliveryInfo}
@@ -316,9 +311,11 @@ export default function AISettingsPage() {
         <div className="flex items-center justify-between mt-6 mb-8">
           {STEPS.map((step, index) => (
             <div key={step.id} className="flex items-center">
-              <div
+              <button
+                type="button"
+                onClick={() => setCurrentStep(index)}
                 className={cn(
-                  "flex flex-col items-center",
+                  "flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity",
                   index <= currentStep ? "text-primary" : "text-muted-foreground"
                 )}
               >
@@ -328,8 +325,8 @@ export default function AISettingsPage() {
                     index < currentStep
                       ? "bg-primary border-primary text-primary-foreground"
                       : index === currentStep
-                      ? "border-primary text-primary"
-                      : "border-muted-foreground/30"
+                        ? "border-primary text-primary"
+                        : "border-muted-foreground/30 hover:border-muted-foreground/50"
                   )}
                 >
                   {index < currentStep ? (
@@ -341,7 +338,7 @@ export default function AISettingsPage() {
                 <span className="text-xs mt-1 font-medium hidden sm:block">
                   {step.title}
                 </span>
-              </div>
+              </button>
               {index < STEPS.length - 1 && (
                 <div
                   className={cn(
@@ -372,17 +369,17 @@ export default function AISettingsPage() {
           {currentStep === 0 && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="companyName">Nome da Empresa *</Label>
+                <Label htmlFor="companyName">Nome da Empresa</Label>
                 <Input
                   id="companyName"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Ex: ClimaTech Ar Condicionado"
+                  placeholder="Digite o nome da sua empresa"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="companySegment">Segmento de Atuação *</Label>
+                <Label htmlFor="companySegment">Segmento de Atuação</Label>
                 <div className="flex flex-wrap gap-2">
                   {SEGMENTS.map((segment) => (
                     <Badge
@@ -422,29 +419,29 @@ export default function AISettingsPage() {
                   id="aiObjective"
                   value={aiObjective}
                   onChange={(e) => setAiObjective(e.target.value)}
-                  placeholder="Ex: Atender clientes via WhatsApp, tirar dúvidas sobre produtos, agendar visitas técnicas, informar preços..."
+                  placeholder="Ex: Atender clientes, responder dúvidas, fornecer informações sobre produtos e serviços, agendar atendimentos..."
                   rows={4}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="aiPersonality">Personalidade e Tom de Voz</Label>
-                <Textarea
-                  id="aiPersonality"
-                  value={aiPersonality}
-                  onChange={(e) => setAiPersonality(e.target.value)}
-                  placeholder="Ex: Seja amigável e profissional, use linguagem simples, pode usar emojis com moderação, sempre se apresente como 'Assistente Virtual da ClimaTech'..."
-                  rows={4}
-                />
+                <p className="text-xs text-muted-foreground">
+                  Descreva o que você espera que a IA faça ao atender seus clientes.
+                </p>
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="font-medium mb-2">💡 Dicas para um bom tom de voz:</h4>
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Comportamento Profissional Automático
+                </h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Sua IA já vem configurada com as melhores práticas de atendimento:
+                </p>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Defina se deve ser formal ou informal</li>
-                  <li>• Indique se pode usar emojis</li>
-                  <li>• Especifique como deve se apresentar</li>
-                  <li>• Mencione o que nunca deve fazer (ex: prometer prazos impossíveis)</li>
+                  <li>• Comunicação educada e profissional</li>
+                  <li>• Respostas claras e objetivas</li>
+                  <li>• Uso moderado de emojis</li>
+                  <li>• Tratamento respeitoso ao cliente</li>
+                  <li>• Nunca inventa informações</li>
+                  <li>• Encaminha para humano quando necessário</li>
                 </ul>
               </div>
             </>
@@ -490,7 +487,7 @@ export default function AISettingsPage() {
                   id="deliveryInfo"
                   value={deliveryInfo}
                   onChange={(e) => setDeliveryInfo(e.target.value)}
-                  placeholder="Ex: Entrega em até 3 dias úteis para a região metropolitana. Frete grátis acima de R$ 200..."
+                  placeholder="Ex: Prazo de entrega, condições de frete, área de atendimento..."
                   rows={3}
                 />
               </div>
@@ -504,7 +501,7 @@ export default function AISettingsPage() {
                   id="warrantyInfo"
                   value={warrantyInfo}
                   onChange={(e) => setWarrantyInfo(e.target.value)}
-                  placeholder="Ex: Garantia de 1 ano para todos os serviços. Troca em até 7 dias em caso de defeito..."
+                  placeholder="Ex: Política de garantia, prazo para trocas, condições..."
                   rows={3}
                 />
               </div>
@@ -554,7 +551,7 @@ export default function AISettingsPage() {
                         <Input
                           value={productForm.name}
                           onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                          placeholder="Ex: Instalação de Ar Split"
+                          placeholder="Nome do produto ou serviço"
                         />
                       </div>
                       <div className="space-y-2">
@@ -572,7 +569,7 @@ export default function AISettingsPage() {
                       <Input
                         value={productForm.category}
                         onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                        placeholder="Ex: Instalação, Manutenção, Produto..."
+                        placeholder="Ex: Serviço, Produto, Consultoria..."
                       />
                     </div>
 
@@ -731,7 +728,6 @@ function CompletedView({
   companySegment,
   companyDescription,
   aiObjective,
-  aiPersonality,
   workingHours,
   paymentMethods,
   deliveryInfo,
@@ -750,7 +746,6 @@ function CompletedView({
   companySegment: string;
   companyDescription: string;
   aiObjective: string;
-  aiPersonality: string;
   workingHours: string;
   paymentMethods: string;
   deliveryInfo: string;
@@ -762,41 +757,14 @@ function CompletedView({
   onRegenerate: () => void;
   generatingContext: boolean;
   setAutoReplyEnabled: (value: boolean) => void;
-  saveKnowledge: () => void;
+  saveKnowledge: (nextStep?: number, overrides?: { autoReplyEnabled?: boolean }) => void;
 }) {
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <CheckCircle2 className="h-6 w-6 text-green-500" />
-            Configuração da IA
-          </h1>
-          <p className="text-muted-foreground">
-            Sua assistente virtual está configurada e pronta para atender
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onEdit}>
-            <Edit3 className="h-4 w-4 mr-1" />
-            Editar
-          </Button>
-          <Button onClick={onRegenerate} disabled={generatingContext}>
-            {generatingContext ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Wand2 className="h-4 w-4 mr-1" />
-            )}
-            Regenerar Contexto
-          </Button>
-        </div>
-      </div>
-
+    <div className="p-6 mx-auto space-y-6">
       {/* Toggle de Resposta Automática */}
       <Card>
-        <CardContent className="py-4">
-          <div className="flex items-center justify-between">
+        <CardContent className="py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
             <div className="space-y-0.5">
               <Label className="text-base">Resposta Automática</Label>
               <p className="text-sm text-muted-foreground">
@@ -807,9 +775,23 @@ function CompletedView({
               checked={autoReplyEnabled}
               onCheckedChange={(checked) => {
                 setAutoReplyEnabled(checked);
-                saveKnowledge();
+                saveKnowledge(undefined, { autoReplyEnabled: checked });
               }}
             />
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onEdit}>
+              <Edit3 className="h-4 w-4 mr-1" />
+              Editar
+            </Button>
+            <Button onClick={onRegenerate} disabled={generatingContext}>
+              {generatingContext ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4 mr-1" />
+              )}
+              Regenerar Contexto
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -857,12 +839,10 @@ function CompletedView({
                 <p className="text-sm line-clamp-3">{aiObjective}</p>
               </div>
             )}
-            {aiPersonality && (
-              <div>
-                <span className="text-sm text-muted-foreground">Personalidade:</span>
-                <p className="text-sm line-clamp-3">{aiPersonality}</p>
-              </div>
-            )}
+            <div>
+              <span className="text-sm text-muted-foreground">Comportamento:</span>
+              <p className="text-sm text-primary">Atendente profissional otimizado</p>
+            </div>
           </CardContent>
         </Card>
 

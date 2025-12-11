@@ -15,6 +15,9 @@ interface GenerateResponseParams {
     customerId: string;
     companyId: string;
   };
+  // Parâmetros avançados de geração
+  presencePenalty?: number;
+  frequencyPenalty?: number;
 }
 
 class OpenAIService {
@@ -40,13 +43,15 @@ class OpenAIService {
       const {
         systemPrompt,
         userPrompt,
-        temperature = 0.7,
-        maxTokens = 500, // GPT-4o Mini é mais eficiente com respostas concisas
+        temperature = 0.4,
+        maxTokens = 400,
         model,
         imageUrl,
         tools,
         toolChoice = "auto",
         context,
+        presencePenalty = 0.1,
+        frequencyPenalty = 0.1,
       } = params;
 
       const modelToUse = model || this.model;
@@ -96,8 +101,8 @@ class OpenAIService {
         temperature,
         max_tokens: maxTokens,
         top_p: 0.95,
-        frequency_penalty: 0.3,
-        presence_penalty: 0.3,
+        frequency_penalty: frequencyPenalty,
+        presence_penalty: presencePenalty,
       };
 
       // Adiciona tools se fornecidas
@@ -254,7 +259,7 @@ class OpenAIService {
         response_format: "text",
         temperature: 0, // 0 = mais preciso, menos criativo
         // Prompt opcional para melhorar contexto (Whisper usa isso como referência)
-        prompt: "Conversa de atendimento sobre ar condicionado, climatização, instalação e manutenção. Cliente falando em português brasileiro.",
+        prompt: "Conversa de atendimento ao cliente via WhatsApp. Cliente falando em português brasileiro sobre produtos, serviços, dúvidas ou agendamentos.",
       });
 
       // Limpa a transcrição

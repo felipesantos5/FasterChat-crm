@@ -136,20 +136,7 @@ export function DateTimePicker({
                   className="flex-1"
                   disabled={!selectedDate}
                 />
-                {selectedDate && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleClear}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    Limpar
-                  </Button>
-                )}
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Fuso horário: Brasil (Brasília)
-              </p>
             </div>
 
             {/* Botão de Confirmar */}

@@ -137,6 +137,49 @@ export default function PipelinePage() {
     }
   };
 
+  const formatPhone = (phone: string) => {
+    if (!phone) return "-";
+
+    // Remove tudo que não é número
+    const numbers = phone.replace(/\D/g, "");
+
+    // Formato brasileiro: +55 (11) 99999-9999
+    if (numbers.length === 13 && numbers.startsWith("55")) {
+      // Com código do país: 5511999999999
+      const ddd = numbers.slice(2, 4);
+      const part1 = numbers.slice(4, 9);
+      const part2 = numbers.slice(9);
+      return `(${ddd}) ${part1}-${part2}`;
+    }
+
+    if (numbers.length === 12 && numbers.startsWith("55")) {
+      // Com código do país (fixo): 551199999999
+      const ddd = numbers.slice(2, 4);
+      const part1 = numbers.slice(4, 8);
+      const part2 = numbers.slice(8);
+      return `(${ddd}) ${part1}-${part2}`;
+    }
+
+    if (numbers.length === 11) {
+      // Celular: 11999999999
+      const ddd = numbers.slice(0, 2);
+      const part1 = numbers.slice(2, 7);
+      const part2 = numbers.slice(7);
+      return `(${ddd}) ${part1}-${part2}`;
+    }
+
+    if (numbers.length === 10) {
+      // Fixo: 1199999999
+      const ddd = numbers.slice(0, 2);
+      const part1 = numbers.slice(2, 6);
+      const part2 = numbers.slice(6);
+      return `(${ddd}) ${part1}-${part2}`;
+    }
+
+    // Se não se encaixar em nenhum formato, retorna como está
+    return phone;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -238,7 +281,7 @@ export default function PipelinePage() {
                     {/* Phone */}
                     <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-2">
                       <Phone className="h-3 w-3" />
-                      <span className="truncate">{customer.phone}</span>
+                      <span className="truncate">{formatPhone(customer.phone)}</span>
                     </div>
 
                     {/* Date */}
@@ -311,7 +354,7 @@ export default function PipelinePage() {
 
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
                       <Phone className="h-3 w-3" />
-                      <span className="truncate">{customer.phone}</span>
+                      <span className="truncate">{formatPhone(customer.phone)}</span>
                     </div>
                   </div>
                 ))}
