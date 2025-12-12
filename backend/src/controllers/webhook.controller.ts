@@ -38,18 +38,32 @@ class WebhookController {
           return res.status(200).json({ success: true, message: "Invalid message data" });
         }
 
-        // Ignora mensagens enviadas por nós (fromMe = true)
-        if (data.key.fromMe) {
-          return res.status(200).json({ success: true, message: "Ignored outbound message" });
-        }
-
         // Validação: verifica se payload.instance está presente
         if (!payload.instance) {
           console.error("Error: payload.instance is null or undefined", JSON.stringify(payload, null, 2));
           return res.status(200).json({ success: false, message: "Instance name not found in payload" });
         }
 
-        // Processa a mensagem (o método agora aceita o payload completo)
+        // Se for mensagem enviada pelo celular (fromMe = true), salva no histórico
+        if (data.key.fromMe) {
+          try {
+            const result = await messageService.processOutboundMessageFromPhone(
+              payload.instance,
+              data.key.remoteJid,
+              data
+            );
+
+            if (result) {
+              console.log(`📱 Mensagem do celular salva: ${result.message.id}`);
+              return res.status(200).json({ success: true, message: "Phone message saved", data: { messageId: result.message.id } });
+            }
+          } catch (error: any) {
+            console.error("Error processing phone message:", error.message);
+          }
+          return res.status(200).json({ success: true, message: "Phone message processed" });
+        }
+
+        // Processa a mensagem recebida (INBOUND)
         const result = await messageService.processInboundMessage(
           payload.instance,
           data.key.remoteJid,

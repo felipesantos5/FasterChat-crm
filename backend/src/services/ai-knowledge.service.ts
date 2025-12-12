@@ -95,6 +95,10 @@ class AIKnowledgeService {
 
   /**
    * Cria ou atualiza a base de conhecimento
+   *
+   * NOTA: Campos removidos (hardcoded no sistema):
+   * - aiPersonality, toneInstructions: Comportamento é fixo para garantir qualidade
+   * - temperature, maxTokens: Valores otimizados fixos no ai.service.ts
    */
   async upsertKnowledge(companyId: string, data: UpdateAIKnowledgeRequest) {
     try {
@@ -117,8 +121,6 @@ class AIKnowledgeService {
 
           // Objetivo da IA
           aiObjective: data.aiObjective,
-          aiPersonality: data.aiPersonality,
-          toneInstructions: data.toneInstructions,
 
           // Políticas
           policies: data.policies,
@@ -131,6 +133,9 @@ class AIKnowledgeService {
           productsServices: data.productsServices,
           products: data.products ? JSON.stringify(data.products) : undefined,
 
+          // Área de atendimento
+          serviceArea: data.serviceArea,
+
           // Configurações adicionais
           negativeExamples: data.negativeExamples,
           faq: data.faq ? JSON.stringify(data.faq) : undefined,
@@ -139,11 +144,9 @@ class AIKnowledgeService {
           setupCompleted: data.setupCompleted,
           setupStep: data.setupStep,
 
-          // Configurações avançadas
+          // Configurações avançadas (apenas provider e model são usados)
           provider: data.provider,
           model: data.model,
-          temperature: data.temperature,
-          maxTokens: data.maxTokens,
           autoReplyEnabled: data.autoReplyEnabled,
         },
         create: {
@@ -156,9 +159,6 @@ class AIKnowledgeService {
 
           // Objetivo da IA (usa padrão se não informado)
           aiObjective: data.aiObjective || DEFAULT_AI_OBJECTIVE,
-          // aiPersonality e toneInstructions agora são hardcoded no sistema
-          aiPersonality: null,
-          toneInstructions: null,
 
           // Políticas
           policies: data.policies,
@@ -171,6 +171,9 @@ class AIKnowledgeService {
           productsServices: data.productsServices,
           products: data.products ? JSON.stringify(data.products) : '[]',
 
+          // Área de atendimento
+          serviceArea: data.serviceArea,
+
           // Configurações adicionais
           negativeExamples: data.negativeExamples,
           faq: data.faq ? JSON.stringify(data.faq) : '[]',
@@ -179,11 +182,9 @@ class AIKnowledgeService {
           setupCompleted: data.setupCompleted ?? false,
           setupStep: data.setupStep ?? 0,
 
-          // Configurações avançadas
+          // Configurações avançadas (apenas provider e model são usados)
           provider: data.provider || 'openai',
           model: data.model,
-          temperature: data.temperature ?? 0.7,
-          maxTokens: data.maxTokens ?? 500,
           autoReplyEnabled: data.autoReplyEnabled ?? true,
         },
       });

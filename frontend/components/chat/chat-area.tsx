@@ -13,7 +13,7 @@ import { messageApi } from "@/lib/message";
 import { conversationApi } from "@/lib/conversation";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -47,8 +47,13 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
   const [exampleNotes, setExampleNotes] = useState("");
   const [markingExample, setMarkingExample] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageCaption, setImageCaption] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const [showImageTooLargeModal, setShowImageTooLargeModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handler para novas mensagens via WebSocket
   const handleWebSocketMessage = useCallback(
@@ -232,6 +237,93 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     }
   };
 
+  // Processa arquivo de imagem
+  const processImageFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione apenas arquivos de imagem.");
+      return;
+    }
+
+    // Limite de 5MB (limite do WhatsApp para imagens)
+    if (file.size > 5 * 1024 * 1024) {
+      setShowImageTooLargeModal(true);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setSelectedImage(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handler para seleção de arquivo
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processImageFile(file);
+    }
+    // Limpa o input para permitir selecionar o mesmo arquivo novamente
+    e.target.value = "";
+  };
+
+  // Handlers de drag and drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processImageFile(file);
+    }
+  };
+
+  // Envia imagem
+  const handleSendImage = async () => {
+    if (!selectedImage || sending) return;
+
+    setSending(true);
+
+    try {
+      const response = await messageApi.sendMedia(customerId, selectedImage, imageCaption || undefined, "HUMAN");
+
+      // Adiciona a mensagem enviada à lista
+      setMessages((prev) => [...prev, response.data.message]);
+
+      // Limpa a imagem selecionada
+      setSelectedImage(null);
+      setImageCaption("");
+
+      // Recarrega mensagens para garantir sincronia
+      setTimeout(loadMessages, 500);
+
+      toast.success("Imagem enviada com sucesso!");
+    } catch (error: any) {
+      showErrorToast(error, router, "Erro ao enviar imagem");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Cancela seleção de imagem
+  const handleCancelImage = () => {
+    setSelectedImage(null);
+    setImageCaption("");
+  };
+
   // Toggle IA
   const handleToggleAi = async () => {
     try {
@@ -380,8 +472,25 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
         </div>
       </div>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Messages Area - Com Drag and Drop */}
+      <div
+        className={cn(
+          "flex-1 overflow-y-auto p-4 space-y-4 relative transition-colors",
+          isDragging && "bg-primary/5 border-2 border-dashed border-primary"
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Overlay de Drag */}
+        {isDragging && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+            <div className="flex flex-col items-center gap-2 text-primary">
+              <ImageIcon className="h-12 w-12" />
+              <p className="text-lg font-medium">Solte a imagem aqui</p>
+            </div>
+          </div>
+        )}
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <MessageSquare className="h-12 w-12 text-muted-foreground mb-2" />
@@ -495,20 +604,98 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-4 border-t bg-muted/30">
-        <Input
-          ref={inputRef}
-          type="text"
-          placeholder="Digite sua mensagem..."
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          disabled={sending}
-          className="flex-1"
-        />
-        <Button type="submit" disabled={sending || !inputValue.trim()} size="icon">
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
-      </form>
+      <div className="border-t bg-muted/30">
+        {/* Preview da imagem selecionada */}
+        {selectedImage && (
+          <div className="p-4 border-b bg-muted/50">
+            <div className="flex items-start gap-3">
+              <div className="relative">
+                <img
+                  src={selectedImage}
+                  alt="Preview"
+                  className="h-24 w-24 object-cover rounded-lg shadow-md"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                  onClick={handleCancelImage}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-medium">Imagem selecionada</p>
+                <Input
+                  type="text"
+                  placeholder="Adicione uma legenda (opcional)..."
+                  value={imageCaption}
+                  onChange={(e) => setImageCaption(e.target.value)}
+                  disabled={sending}
+                  className="text-sm"
+                />
+                <Button
+                  type="button"
+                  onClick={handleSendImage}
+                  disabled={sending}
+                  size="sm"
+                  className="w-full"
+                >
+                  {sending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Enviar Imagem
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Input de mensagem */}
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-4">
+          {/* Input de arquivo oculto */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {/* Botão + para adicionar imagem */}
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending || !!selectedImage}
+            title="Adicionar imagem"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+
+          <Input
+            ref={inputRef}
+            type="text"
+            placeholder="Digite sua mensagem..."
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            disabled={sending || !!selectedImage}
+            className="flex-1"
+          />
+          <Button type="submit" disabled={sending || !inputValue.trim() || !!selectedImage} size="icon">
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </form>
+      </div>
 
       {/* Modal para Marcar como Exemplo */}
       <Dialog open={showExampleModal} onOpenChange={setShowExampleModal}>
@@ -551,6 +738,45 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                   Marcar como Exemplo
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Imagem Muito Grande */}
+      <Dialog open={showImageTooLargeModal} onOpenChange={setShowImageTooLargeModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-orange-500" />
+              Imagem muito grande
+            </DialogTitle>
+            <DialogDescription>
+              A imagem selecionada é maior que 5MB, que é o limite máximo permitido pelo WhatsApp para envio de imagens.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Para enviar esta imagem, você precisa reduzir o tamanho dela. Você pode usar um compressor de imagens online para diminuir a qualidade/tamanho do arquivo.
+            </p>
+
+            <div className="bg-muted p-4 rounded-lg">
+              <p className="text-sm font-medium mb-2">Conversor de imagem recomendado:</p>
+              <a
+                href="https://www.iloveimg.com/pt/comprimir-imagem"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline flex items-center gap-1"
+              >
+                🔗 Clique aqui para acessar o conversor
+              </a>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImageTooLargeModal(false)}>
+              Entendi
             </Button>
           </DialogFooter>
         </DialogContent>

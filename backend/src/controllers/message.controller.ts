@@ -178,6 +178,58 @@ class MessageController {
   }
 
   /**
+   * POST /api/messages/send-media
+   * Envia uma imagem para um customer
+   */
+  async sendMedia(req: Request, res: Response) {
+    try {
+      const { customerId, mediaBase64, caption, sentBy, whatsappInstanceId } = req.body;
+
+      if (!customerId || !mediaBase64) {
+        return res.status(400).json({
+          success: false,
+          message: 'Customer ID and media (base64) are required',
+        });
+      }
+
+      // Valida se é uma imagem base64 válida
+      if (!mediaBase64.startsWith('data:image/')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid image format. Must be base64 encoded image.',
+        });
+      }
+
+      const result = await messageService.sendMedia(
+        customerId,
+        mediaBase64,
+        caption,
+        sentBy || 'HUMAN',
+        whatsappInstanceId
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('Error in sendMedia controller:', error);
+
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json(error.toJSON());
+      }
+
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: error.message || 'Erro ao enviar imagem. Tente novamente.',
+        },
+      });
+    }
+  }
+
+  /**
    * POST /api/messages/:id/feedback
    * Adiciona feedback a uma mensagem da IA
    */

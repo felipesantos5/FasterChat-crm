@@ -78,12 +78,6 @@ export function DateTimePicker({
     }
   }
 
-  const handleClear = () => {
-    setSelectedDate(undefined)
-    setTimeValue("")
-    onChange(undefined)
-  }
-
   // Calcula a data mínima (hoje por padrão, ou minDate se fornecido)
   const effectiveMinDate = minDate || new Date()
   effectiveMinDate.setHours(0, 0, 0, 0)

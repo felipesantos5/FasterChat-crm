@@ -591,6 +591,81 @@ class WhatsAppService {
   }
 
   /**
+   * Envia uma imagem via WhatsApp
+   * Documentação: https://doc.evolution-api.com/v2/api-reference/message-controller/send-media
+   */
+  async sendMedia(data: { instanceId: string; to: string; mediaBase64: string; caption?: string; mediaType?: string }) {
+    try {
+      const { instanceId, to, mediaBase64, caption, mediaType = "image" } = data;
+
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: instanceId },
+      });
+
+      if (!instance) {
+        throw Errors.whatsappInstanceNotFound();
+      }
+
+      // Verificação de status
+      if (instance.status !== WhatsAppStatus.CONNECTED) {
+        const statusResult = await this.getStatus(instanceId);
+        if (statusResult.status !== WhatsAppStatus.CONNECTED && statusResult.status !== WhatsAppStatus.CONNECTING) {
+          throw Errors.whatsappDisconnected(instance.displayName || instance.instanceName);
+        }
+      }
+
+      // Valida o número de telefone
+      const formattedNumber = to.replace(/\D/g, "");
+      if (formattedNumber.length < 10) {
+        throw Errors.whatsappInvalidNumber(to);
+      }
+
+      const remoteJid = `${formattedNumber}@s.whatsapp.net`;
+
+      // Remove o prefixo data:image/xxx;base64, se existir
+      const base64Data = mediaBase64.includes("base64,") ? mediaBase64.split("base64,")[1] : mediaBase64;
+
+      // Detecta o mimetype da imagem
+      let mimetype = "image/jpeg";
+      if (mediaBase64.includes("data:image/png")) {
+        mimetype = "image/png";
+      } else if (mediaBase64.includes("data:image/gif")) {
+        mimetype = "image/gif";
+      } else if (mediaBase64.includes("data:image/webp")) {
+        mimetype = "image/webp";
+      }
+
+      console.log(`[WhatsApp Service] 📷 Sending ${mediaType} to ${to}...`);
+
+      const response = await this.axiosInstance.post(`/message/sendMedia/${instance.instanceName}`, {
+        number: remoteJid,
+        mediatype: mediaType,
+        mimetype,
+        caption: caption || "",
+        media: base64Data,
+      });
+
+      console.log(`[WhatsApp Service] ✅ Media sent successfully to ${to}`);
+
+      return {
+        success: true,
+        messageId: response.data.key?.id,
+        timestamp: response.data.messageTimestamp,
+      };
+    } catch (error: any) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+
+      console.error("[WhatsApp Service] ❌ Error sending media:", error.response?.data || error.message);
+
+      const evolutionError = error.response?.data?.message || error.response?.data?.error || error.message || "";
+
+      throw Errors.whatsappSendFailed(evolutionError);
+    }
+  }
+
+  /**
    * Atualiza o nome amigável (displayName) de uma instância
    * O instanceName técnico permanece o mesmo para não quebrar a integração com Evolution API
    */

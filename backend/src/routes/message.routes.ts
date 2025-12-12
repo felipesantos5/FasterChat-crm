@@ -19,6 +19,9 @@ router.get('/conversations/:companyId', messageController.getConversations);
 // POST /api/messages/send - Envia mensagem
 router.post('/send', messageController.sendMessage);
 
+// POST /api/messages/send-media - Envia imagem
+router.post('/send-media', messageController.sendMedia);
+
 // POST /api/messages/mark-read - Marca mensagens como lidas
 router.post('/mark-read', messageController.markAsRead);
 

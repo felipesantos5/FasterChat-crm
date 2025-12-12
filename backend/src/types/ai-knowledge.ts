@@ -26,8 +26,6 @@ export interface AIKnowledgeData {
 
   // Objetivo da IA
   aiObjective?: string | null;
-  aiPersonality?: string | null;
-  toneInstructions?: string | null;
 
   // Políticas
   policies?: string | null;
@@ -35,6 +33,9 @@ export interface AIKnowledgeData {
   paymentMethods?: string | null;
   deliveryInfo?: string | null;
   warrantyInfo?: string | null;
+
+  // Área de atendimento
+  serviceArea?: string | null;
 
   // Produtos
   productsServices?: string | null;
@@ -52,11 +53,9 @@ export interface AIKnowledgeData {
   setupCompleted?: boolean;
   setupStep?: number;
 
-  // Configurações avançadas
+  // Configurações avançadas (apenas provider, model e autoReply são usados)
   provider?: string | null;
   model?: string | null;
-  temperature?: number | null;
-  maxTokens?: number | null;
   autoReplyEnabled?: boolean | null;
 
   createdAt: Date;
@@ -72,8 +71,6 @@ export interface UpdateAIKnowledgeRequest {
 
   // Objetivo da IA
   aiObjective?: string;
-  aiPersonality?: string;
-  toneInstructions?: string;
 
   // Políticas
   policies?: string;
@@ -81,6 +78,9 @@ export interface UpdateAIKnowledgeRequest {
   paymentMethods?: string;
   deliveryInfo?: string;
   warrantyInfo?: string;
+
+  // Área de atendimento
+  serviceArea?: string;
 
   // Produtos
   productsServices?: string;
@@ -94,10 +94,8 @@ export interface UpdateAIKnowledgeRequest {
   setupCompleted?: boolean;
   setupStep?: number;
 
-  // Configurações avançadas
+  // Configurações avançadas (apenas provider, model e autoReply)
   provider?: string;
   model?: string;
-  temperature?: number;
-  maxTokens?: number;
   autoReplyEnabled?: boolean;
 }

@@ -72,6 +72,10 @@ class AIKnowledgeController {
   /**
    * PUT /api/ai/knowledge
    * Atualiza a base de conhecimento
+   *
+   * NOTA: Campos removidos (hardcoded no sistema):
+   * - aiPersonality, toneInstructions: Comportamento é fixo
+   * - temperature, maxTokens: Valores otimizados fixos
    */
   async updateKnowledge(req: Request, res: Response) {
     try {
@@ -84,14 +88,14 @@ class AIKnowledgeController {
         companyInfo,
         // Objetivo da IA
         aiObjective,
-        aiPersonality,
-        toneInstructions,
         // Políticas
         policies,
         workingHours,
         paymentMethods,
         deliveryInfo,
         warrantyInfo,
+        // Área de atendimento
+        serviceArea,
         // Produtos
         productsServices,
         products,
@@ -101,11 +105,9 @@ class AIKnowledgeController {
         // Status do onboarding
         setupCompleted,
         setupStep,
-        // Configurações avançadas
+        // Configurações avançadas (apenas provider, model e autoReply)
         provider,
         model,
-        temperature,
-        maxTokens,
         autoReplyEnabled,
       } = req.body;
 
@@ -131,13 +133,12 @@ class AIKnowledgeController {
         companyDescription,
         companyInfo,
         aiObjective,
-        aiPersonality,
-        toneInstructions,
         policies,
         workingHours,
         paymentMethods,
         deliveryInfo,
         warrantyInfo,
+        serviceArea,
         productsServices,
         products,
         negativeExamples,
@@ -146,8 +147,6 @@ class AIKnowledgeController {
         setupStep,
         provider,
         model,
-        temperature,
-        maxTokens,
         autoReplyEnabled,
       });
 

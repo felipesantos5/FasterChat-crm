@@ -668,6 +668,135 @@ class MessageService {
   }
 
   /**
+   * Envia uma imagem para um customer via WhatsApp
+   */
+  async sendMedia(
+    customerId: string,
+    mediaBase64: string,
+    caption?: string,
+    sentBy: "HUMAN" | "AI" = "HUMAN",
+    whatsappInstanceId?: string
+  ) {
+    try {
+      // Busca o customer com sua empresa e instâncias
+      const customer = await prisma.customer.findUnique({
+        where: { id: customerId },
+        include: {
+          company: {
+            include: {
+              whatsappInstances: {
+                orderBy: { updatedAt: "desc" },
+              },
+            },
+          },
+        },
+      });
+
+      if (!customer) {
+        throw Errors.customerNotFound(customerId);
+      }
+
+      if (customer.company.whatsappInstances.length === 0) {
+        throw Errors.whatsappNoInstance();
+      }
+
+      let whatsappInstance;
+
+      // Se foi especificada uma instância, usa ela
+      if (whatsappInstanceId) {
+        whatsappInstance = customer.company.whatsappInstances.find((i) => i.id === whatsappInstanceId);
+        if (!whatsappInstance) {
+          throw Errors.whatsappInstanceNotFound();
+        }
+      } else {
+        // Busca a última mensagem do cliente para descobrir qual instância usar
+        const lastMessage = await prisma.message.findFirst({
+          where: {
+            customerId: customer.id,
+            direction: MessageDirection.INBOUND,
+          },
+          orderBy: { timestamp: "desc" },
+          include: { whatsappInstance: true },
+        });
+
+        if (lastMessage) {
+          whatsappInstance = customer.company.whatsappInstances.find((i) => i.id === lastMessage.whatsappInstanceId);
+        }
+
+        if (!whatsappInstance) {
+          whatsappInstance = customer.company.whatsappInstances.find((i) => i.status === "CONNECTED");
+        }
+
+        if (!whatsappInstance && customer.company.whatsappInstances.length > 0) {
+          whatsappInstance = customer.company.whatsappInstances[0];
+        }
+      }
+
+      if (!whatsappInstance) {
+        throw Errors.whatsappNoInstance();
+      }
+
+      // Importa o whatsappService dinamicamente
+      const whatsappService = (await import("./whatsapp.service")).default;
+
+      // Envia a mídia via WhatsApp
+      const result = await whatsappService.sendMedia({
+        instanceId: whatsappInstance.id,
+        to: customer.phone,
+        mediaBase64,
+        caption,
+        mediaType: "image",
+      });
+
+      // Salva a mensagem no banco
+      const message = await prisma.message.create({
+        data: {
+          customerId: customer.id,
+          whatsappInstanceId: whatsappInstance.id,
+          direction: MessageDirection.OUTBOUND,
+          content: caption || "[Imagem enviada]",
+          timestamp: new Date(),
+          messageId: result.messageId,
+          status: MessageStatus.SENT,
+          senderType: sentBy,
+          mediaType: "image",
+          mediaUrl: mediaBase64, // Salva o base64 para exibição no chat
+        },
+        include: {
+          customer: true,
+          whatsappInstance: true,
+        },
+      });
+
+      // Emite evento WebSocket
+      if (websocketService.isInitialized()) {
+        console.log(`📤 Emitindo imagem via WebSocket para customer ${customer.id}`);
+        websocketService.emitNewMessage(customer.companyId, {
+          id: message.id,
+          customerId: message.customerId,
+          customerName: customer.name,
+          direction: message.direction,
+          content: message.content,
+          timestamp: message.timestamp,
+          status: message.status,
+          senderType: message.senderType,
+          mediaType: message.mediaType,
+          mediaUrl: message.mediaUrl,
+        });
+      }
+
+      return {
+        message,
+        whatsappResult: result,
+        sentBy,
+      };
+    } catch (error: any) {
+      console.error("Error sending media:", error);
+      throw new Error(`Failed to send media: ${error.message}`);
+    }
+  }
+
+  /**
    * Adiciona feedback a uma mensagem da IA
    */
   async addFeedback(messageId: string, feedback: "GOOD" | "BAD", feedbackNote?: string) {

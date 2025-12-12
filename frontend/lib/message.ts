@@ -67,6 +67,26 @@ export const messageApi = {
   },
 
   /**
+   * Envia uma imagem para um customer
+   */
+  async sendMedia(customerId: string, mediaBase64: string, caption?: string, sentBy: 'HUMAN' | 'AI' = 'HUMAN'): Promise<{
+    success: boolean;
+    data: {
+      message: Message;
+      whatsappResult: any;
+      sentBy: 'HUMAN' | 'AI';
+    };
+  }> {
+    const response = await api.post('/messages/send-media', {
+      customerId,
+      mediaBase64,
+      caption,
+      sentBy,
+    });
+    return response.data;
+  },
+
+  /**
    * Marca mensagens como lidas
    */
   async markAsRead(data: MarkAsReadRequest): Promise<MarkAsReadResponse> {
