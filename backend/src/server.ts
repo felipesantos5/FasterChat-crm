@@ -44,8 +44,10 @@ const allowedOrigins = [
   'http://localhost:3001',
   'http://127.0.0.1:3000',
   // Adicione aqui os domínios de produção quando tiver
-  // 'https://seu-dominio.com',
-  // 'https://www.seu-dominio.com',
+  'https://admin.fasterchat.com.br',
+  'https://api.fasterchat.com.br',
+  'https://www.fasterchat.com.br',
+  'https://fasterchat.com.br',
 ];
 
 app.use(
