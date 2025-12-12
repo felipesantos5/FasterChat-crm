@@ -7,6 +7,7 @@ import { createServer } from "http";
 import routes from "./routes";
 import linkRedirectRoutes from "./routes/link-redirect.routes";
 import { errorHandler, notFoundHandler } from "./middlewares/errorHandler";
+import { blockApiForRestrictedDomains } from "./middlewares/domainRestriction";
 import { websocketService } from "./services/websocket.service";
 import campaignExecutionService from "./services/campaign-execution.service";
 import campaignSchedulerService from "./services/campaign-scheduler.service";
@@ -127,10 +128,34 @@ app.get("/health", (_req, res) => {
 
 // Rota pública de redirecionamento de links (SEM autenticação)
 // IMPORTANTE: Deve vir ANTES das rotas /api para não ser bloqueada
+// Esta rota é acessível de qualquer domínio (incluindo domínios restritos)
+//
+// Duas rotas disponíveis:
+// - /l/:slug (caminho tradicional para domínio da API)
+// - /:slug  (caminho curto para domínio dedicado de redirect via RESTRICTED_DOMAINS)
 app.use("/l", linkRedirectRoutes);
 
 // API routes (COM autenticação)
-app.use("/api", routes);
+// SEGURANÇA: Bloqueia acesso à API de domínios restritos (ex: domínio de redirect)
+// Configure RESTRICTED_DOMAINS no .env para ativar (ex: RESTRICTED_DOMAINS=wpplink.com.br)
+app.use("/api", blockApiForRestrictedDomains, routes);
+
+// Rota raiz para redirect (domínios restritos)
+// Permite links curtos como: wpplink.com.br/instagram
+// IMPORTANTE: Vem DEPOIS de /api para não conflitar
+// Só funciona para slugs que não são rotas conhecidas
+app.use("/", (req, res, next) => {
+  // Ignora rotas conhecidas
+  const knownPaths = ['/l', '/api', '/health', '/socket.io'];
+  if (knownPaths.some(p => req.path.startsWith(p)) || req.path === '/') {
+    return next();
+  }
+
+  // Trata como slug de redirect
+  // Redireciona internamente para /l/:slug
+  req.url = `/l${req.path}`;
+  return app._router.handle(req, res, next);
+});
 
 // Error handling
 app.use(notFoundHandler);

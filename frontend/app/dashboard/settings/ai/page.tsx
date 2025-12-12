@@ -401,7 +401,8 @@ export default function AISettingsPage() {
                   value={companyDescription}
                   onChange={(e) => setCompanyDescription(e.target.value)}
                   placeholder="Conte um pouco sobre o que sua empresa faz, sua história, missão e valores..."
-                  rows={5}
+                  rows={8}
+                  className="min-h-[180px]"
                 />
                 <p className="text-xs text-muted-foreground">
                   Quanto mais detalhes você fornecer, melhor a IA entenderá seu negócio.
@@ -420,7 +421,8 @@ export default function AISettingsPage() {
                   value={aiObjective}
                   onChange={(e) => setAiObjective(e.target.value)}
                   placeholder="Ex: Atender clientes, responder dúvidas, fornecer informações sobre produtos e serviços, agendar atendimentos..."
-                  rows={4}
+                  rows={6}
+                  className="min-h-[140px]"
                 />
                 <p className="text-xs text-muted-foreground">
                   Descreva o que você espera que a IA faça ao atender seus clientes.
@@ -450,32 +452,34 @@ export default function AISettingsPage() {
           {/* Step 2: Políticas */}
           {currentStep === 2 && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="workingHours" className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Horário de Atendimento
-                  </Label>
-                  <Input
-                    id="workingHours"
-                    value={workingHours}
-                    onChange={(e) => setWorkingHours(e.target.value)}
-                    placeholder="Ex: Segunda a Sexta, 8h às 18h"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="workingHours" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Horário de Atendimento
+                </Label>
+                <Textarea
+                  id="workingHours"
+                  value={workingHours}
+                  onChange={(e) => setWorkingHours(e.target.value)}
+                  placeholder="Ex: Segunda a Sexta: 8h às 18h | Sábado: 8h às 13h | Domingo: Fechado"
+                  rows={3}
+                  className="min-h-[80px]"
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="paymentMethods" className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" />
-                    Formas de Pagamento
-                  </Label>
-                  <Input
-                    id="paymentMethods"
-                    value={paymentMethods}
-                    onChange={(e) => setPaymentMethods(e.target.value)}
-                    placeholder="Ex: PIX, Cartão, Dinheiro"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="paymentMethods" className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  Formas de Pagamento
+                </Label>
+                <Textarea
+                  id="paymentMethods"
+                  value={paymentMethods}
+                  onChange={(e) => setPaymentMethods(e.target.value)}
+                  placeholder="Ex: PIX (5% desconto), Cartão de Crédito (até 12x), Cartão de Débito, Dinheiro, Boleto..."
+                  rows={3}
+                  className="min-h-[80px]"
+                />
               </div>
 
               <div className="space-y-2">
@@ -487,8 +491,9 @@ export default function AISettingsPage() {
                   id="deliveryInfo"
                   value={deliveryInfo}
                   onChange={(e) => setDeliveryInfo(e.target.value)}
-                  placeholder="Ex: Prazo de entrega, condições de frete, área de atendimento..."
-                  rows={3}
+                  placeholder="Ex: Prazo de entrega, condições de frete, área de atendimento, tempo para orçamentos..."
+                  rows={5}
+                  className="min-h-[120px]"
                 />
               </div>
 
@@ -501,8 +506,9 @@ export default function AISettingsPage() {
                   id="warrantyInfo"
                   value={warrantyInfo}
                   onChange={(e) => setWarrantyInfo(e.target.value)}
-                  placeholder="Ex: Política de garantia, prazo para trocas, condições..."
-                  rows={3}
+                  placeholder="Ex: Política de garantia, prazo para trocas, condições, o que não é coberto..."
+                  rows={5}
+                  className="min-h-[120px]"
                 />
               </div>
             </>
@@ -578,8 +584,9 @@ export default function AISettingsPage() {
                       <Textarea
                         value={productForm.description}
                         onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                        placeholder="Descreva o produto ou serviço..."
-                        rows={3}
+                        placeholder="Descreva o produto ou serviço com detalhes: o que inclui, diferenciais, observações importantes..."
+                        rows={5}
+                        className="min-h-[120px]"
                       />
                     </div>
 

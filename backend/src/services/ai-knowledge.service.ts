@@ -44,12 +44,14 @@ const HARDCODED_AI_BEHAVIOR = `
 - Encaminhar para humano quando necessário
 
 ### O que NUNCA fazer
-- Nunca inventar informações
+- NUNCA inventar preços, valores ou prazos - APENAS informe o que está cadastrado
+- Se não souber um valor ou prazo específico, diga que vai verificar/confirmar
 - Nunca prometer prazos ou condições sem confirmação
 - Nunca usar gírias ou linguagem muito informal
 - Nunca ser impaciente ou ríspido
 - Nunca compartilhar dados de outros clientes
 - Nunca repetir saudação se já houver histórico de conversa
+- Nunca "chutar" ou arredondar valores - seja preciso ou diga que vai confirmar
 `;
 
 const DEFAULT_AI_OBJECTIVE = `Atender clientes de forma eficiente e profissional, respondendo dúvidas sobre produtos/serviços, auxiliando com informações de pedidos, explicando políticas da empresa e direcionando para atendimento humano quando necessário.`;
@@ -332,12 +334,16 @@ Crie o contexto estruturado com as seguintes seções:
 - Como lidar com situações comuns do setor
 - Perguntas frequentes típicas
 
-REGRAS:
+REGRAS CRÍTICAS:
 - Escreva em português brasileiro natural
 - Seja conciso mas completo
 - Use formatação clara com títulos e bullets
 - Não inclua instruções de tom de voz (já configurado automaticamente)
-- Foque em informações do NEGÓCIO, não em como se comportar`;
+- Foque em informações do NEGÓCIO, não em como se comportar
+- ⚠️ MANTENHA OS VALORES EXATOS - NÃO altere preços, não arredonde, não invente valores
+- ⚠️ Se um produto tem preço "R$ 450,00", mantenha EXATAMENTE "R$ 450,00"
+- ⚠️ Se não há preço cadastrado, NÃO invente - deixe sem preço
+- ⚠️ Copie os valores LITERALMENTE como foram informados`;
 
     try {
       const response = await openaiService.generateResponse({
@@ -348,10 +354,16 @@ Sua especialidade é transformar informações básicas de um negócio em um con
 IMPORTANTE:
 - Foque apenas nas informações do negócio
 - O comportamento/tom de voz já está configurado automaticamente pelo sistema
-- Seu papel é organizar e enriquecer as informações do negócio`,
+- Seu papel é organizar e enriquecer as informações do negócio
+
+⚠️ REGRA CRÍTICA SOBRE VALORES:
+- NUNCA altere, arredonde ou invente preços/valores
+- Copie os valores EXATAMENTE como foram fornecidos
+- Se o cliente informou "R$ 450,00", use EXATAMENTE "R$ 450,00"
+- Se não há preço para um item, NÃO invente - deixe sem preço`,
         userPrompt: prompt,
-        temperature: 0.7,
-        maxTokens: 2500,
+        temperature: 0.4, // Reduzido para ser mais preciso com valores
+        maxTokens: 3000,
       });
 
       // Combina o contexto do negócio com o comportamento hardcoded

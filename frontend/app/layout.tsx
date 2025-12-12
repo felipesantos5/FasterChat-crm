@@ -10,7 +10,7 @@ import { Suspense } from "react";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "CRM IA - Customer Relationship Management",
+  title: "FasterChat - CRM IA",
   description: "Sistema CRM com Chatbot de Inteligência Artificial",
 };
 

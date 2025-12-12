@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import conversationService from '../services/conversation.service';
+import { websocketService } from '../services/websocket.service';
 
 class ConversationController {
   /**
@@ -168,6 +169,18 @@ class ConversationController {
       }
 
       const conversation = await conversationService.toggleAI(customerId, aiEnabled);
+
+      // Emite atualização via WebSocket para atualizar a lista de conversas em tempo real
+      if (conversation.customer?.companyId) {
+        websocketService.emitConversationUpdate(
+          conversation.customer.companyId,
+          customerId,
+          {
+            aiEnabled: conversation.aiEnabled,
+            needsHelp: conversation.needsHelp,
+          }
+        );
+      }
 
       return res.status(200).json({
         success: true,

@@ -239,6 +239,7 @@ model AIKnowledge {
   paymentMethods     String?  @map("payment_methods") // Formas de pagamento
   deliveryInfo       String?  @map("delivery_info") @db.Text // Info de entrega/prazos
   warrantyInfo       String?  @map("warranty_info") @db.Text // Garantias
+  serviceArea        String?  @map("service_area") @db.Text // Área de atendimento (CEPs, bairros, cidades)
 
   // Produtos e Serviços (JSON array para cards)
   productsServices   String?  @map("products_services") @db.Text // Campo legado

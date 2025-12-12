@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { pipelineApi } from "@/lib/pipeline";
 import { PipelineBoard, PipelineStage } from "@/types/pipeline";
 import { Customer } from "@/types/customer";
+import { Tag, tagApi } from "@/lib/tag";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ManageStagesModal } from "@/components/pipeline/manage-stages-modal";
@@ -24,6 +25,7 @@ export default function PipelinePage() {
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
   const [manageStagesOpen, setManageStagesOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [tags, setTags] = useState<Tag[]>([]);
 
   const getCompanyId = () => {
     const user = localStorage.getItem("user");
@@ -45,7 +47,13 @@ export default function PipelinePage() {
         return;
       }
 
-      const data = await pipelineApi.getBoard(cId);
+      // Carrega board e tags em paralelo
+      const [data, tagsData] = await Promise.all([
+        pipelineApi.getBoard(cId),
+        tagApi.getAll().catch(() => [] as Tag[]),
+      ]);
+
+      setTags(tagsData);
 
       if (data.stages.length === 0) {
         await pipelineApi.initPipeline(cId);
@@ -65,6 +73,22 @@ export default function PipelinePage() {
   useEffect(() => {
     loadBoard();
   }, []);
+
+  // Mapa de nome da tag → cor
+  const tagColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    tags.forEach((tag) => {
+      if (tag.color) {
+        map[tag.name] = tag.color;
+      }
+    });
+    return map;
+  }, [tags]);
+
+  // Função para obter a cor de uma tag pelo nome
+  const getTagColor = (tagName: string) => {
+    return tagColorMap[tagName] || null;
+  };
 
   // Calcula estatísticas do pipeline
   const stats = useMemo(() => {
@@ -293,11 +317,27 @@ export default function PipelinePage() {
                     {/* Tags */}
                     {customer.tags && customer.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {customer.tags.slice(0, 2).map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0 bg-white border-gray-200 text-gray-600">
-                            {tag}
-                          </Badge>
-                        ))}
+                        {customer.tags.slice(0, 2).map((tag) => {
+                          const tagColor = getTagColor(tag);
+                          return (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0"
+                              style={tagColor ? {
+                                backgroundColor: `${tagColor}20`,
+                                borderColor: tagColor,
+                                color: tagColor,
+                              } : {
+                                backgroundColor: 'white',
+                                borderColor: '#e5e7eb',
+                                color: '#4b5563',
+                              }}
+                            >
+                              {tag}
+                            </Badge>
+                          );
+                        })}
                         {customer.tags.length > 2 && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-white border-gray-200 text-gray-600">
                             +{customer.tags.length - 2}
@@ -356,6 +396,38 @@ export default function PipelinePage() {
                       <Phone className="h-3 w-3" />
                       <span className="truncate">{formatPhone(customer.phone)}</span>
                     </div>
+
+                    {/* Tags */}
+                    {customer.tags && customer.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {customer.tags.slice(0, 2).map((tag) => {
+                          const tagColor = getTagColor(tag);
+                          return (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0"
+                              style={tagColor ? {
+                                backgroundColor: `${tagColor}20`,
+                                borderColor: tagColor,
+                                color: tagColor,
+                              } : {
+                                backgroundColor: 'white',
+                                borderColor: '#e5e7eb',
+                                color: '#4b5563',
+                              }}
+                            >
+                              {tag}
+                            </Badge>
+                          );
+                        })}
+                        {customer.tags.length > 2 && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-white border-gray-200 text-gray-600">
+                            +{customer.tags.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

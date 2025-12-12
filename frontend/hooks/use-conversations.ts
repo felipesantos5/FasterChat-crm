@@ -44,12 +44,28 @@ export function useConversations(companyId: string | null) {
       mutate()
     }
 
+    // Escuta atualização de conversa (aiEnabled, needsHelp, etc)
+    const handleConversationUpdate = (update: any) => {
+      // Atualiza a lista localmente sem precisar fazer nova requisição
+      mutate((current) => {
+        if (!current) return current
+        return current.map((conv) => {
+          if (conv.customerId === update.customerId) {
+            return { ...conv, ...update }
+          }
+          return conv
+        })
+      }, false) // false = não revalidar, usar atualização local
+    }
+
     socket.on('new_conversation', handleNewConversation)
     socket.on('new_message', handleNewMessage)
+    socket.on('conversation_update', handleConversationUpdate)
 
     return () => {
       socket.off('new_conversation', handleNewConversation)
       socket.off('new_message', handleNewMessage)
+      socket.off('conversation_update', handleConversationUpdate)
     }
   }, [isAuthenticated, socket, mutate])
 

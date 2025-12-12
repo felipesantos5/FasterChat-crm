@@ -886,21 +886,16 @@ export class AIAppointmentService {
         // Limpa o estado
         await this.clearAppointmentState(customerId);
 
-        // 🔥 MELHORIA: Informa o usuário sobre o status da sincronização com Google Calendar
-        let calendarInfo = '';
+        // Log interno apenas - nunca expor detalhes técnicos para o cliente
         if (appointmentResult.googleCalendarSynced) {
-          calendarInfo = '\n\n📅 Agendamento também foi adicionado ao seu Google Agenda!';
+          console.log('[AIAppointment] ✅ Agendamento sincronizado com Google Calendar');
         } else if (appointmentResult.googleCalendarError) {
-          if (appointmentResult.googleCalendarError.includes('não configurado')) {
-            calendarInfo = '\n\n⚠️ Nota: O agendamento foi salvo no sistema, mas não foi sincronizado com o Google Agenda (não configurado ainda).';
-          } else {
-            calendarInfo = '\n\n⚠️ Nota: O agendamento foi salvo no sistema, mas houve um problema ao sincronizar com o Google Agenda. Você pode consultar seus agendamentos pelo nosso painel.';
-          }
+          console.warn('[AIAppointment] ⚠️ Google Calendar error (interno):', appointmentResult.googleCalendarError);
         }
 
         return {
           shouldContinue: true,
-          response: `✅ Pronto! Agendamento confirmado!\n\nSua ${serviceLabel.toLowerCase()} tá marcada pra ${startTime.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às ${state.time}.${calendarInfo}\n\n📱 Vou te mandar um lembrete no dia anterior, beleza?\n\nPrecisa de mais alguma coisa? 😊`,
+          response: `✅ Pronto! Agendamento confirmado!\n\nSua ${serviceLabel.toLowerCase()} tá marcada pra ${startTime.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às ${state.time}.\n\nVou te mandar um lembrete no dia anterior, beleza?\n\nPrecisa de mais alguma coisa?`,
         };
       } catch (error: any) {
         console.error('[AIAppointment] Error creating appointment:', error);

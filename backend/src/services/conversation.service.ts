@@ -148,12 +148,19 @@ class ConversationService {
 
   /**
    * Ativa/Desativa IA em uma conversa
+   * Quando a IA é ATIVADA, também reseta o flag needsHelp (remove aviso de transbordo)
    */
   async toggleAI(customerId: string, aiEnabled: boolean) {
     try {
+      // Se está ativando a IA, também reseta o needsHelp
+      const updateData: { aiEnabled: boolean; needsHelp?: boolean } = { aiEnabled };
+      if (aiEnabled) {
+        updateData.needsHelp = false;
+      }
+
       const conversation = await prisma.conversation.update({
         where: { customerId },
-        data: { aiEnabled },
+        data: updateData,
         include: {
           customer: true,
           assignedTo: {
@@ -166,7 +173,7 @@ class ConversationService {
         },
       });
 
-      console.log(`Conversation ${conversation.id} AI ${aiEnabled ? 'enabled' : 'disabled'}`);
+      console.log(`Conversation ${conversation.id} AI ${aiEnabled ? 'enabled' : 'disabled'}${aiEnabled ? ' (needsHelp reset)' : ''}`);
 
       return conversation;
     } catch (error: any) {
