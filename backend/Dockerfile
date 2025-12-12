@@ -1,20 +1,20 @@
 # backend/Dockerfile
 
-# Use uma imagem Node.js leve
 FROM node:20-alpine
 
-# Cria diretório de trabalho
 WORKDIR /usr/src/app
 
-# Instala dependências do sistema necessárias para o Prisma/Bcrypt se necessário
+# Instala dependências do sistema
 RUN apk add --no-cache openssl
 
 # Copia arquivos de dependência
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Instala dependências (npm ci é mais rápido e seguro para CI/CD)
-RUN npm ci
+# --- A CORREÇÃO ESTÁ AQUI ---
+# Força a instalação de TODAS as dependências (incluindo tsc-alias e typescript)
+# Mesmo que o ambiente esteja setado como production
+RUN npm install --include=dev
 
 # Copia o resto do código fonte
 COPY . .
@@ -22,11 +22,11 @@ COPY . .
 # Gera o cliente do Prisma
 RUN npx prisma generate
 
-# Compila o TypeScript para JavaScript
+# Compila o TypeScript (agora vai encontrar o tsc e o tsc-alias)
 RUN npm run build
 
-# Expõe a porta que sua aplicação usa
-EXPOSE 3051
+# Expõe a porta
+EXPOSE 3001
 
-# Comando para iniciar a aplicação em produção
+# Comando de start (Lembre-se da dica anterior sobre o package.json)
 CMD ["npm", "start"]
