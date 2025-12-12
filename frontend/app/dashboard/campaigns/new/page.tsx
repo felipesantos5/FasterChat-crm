@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TagSelector } from "@/components/forms/tag-selector";
-import { ArrowLeft, Loader2, Users, CalendarClock, Info } from "lucide-react";
+import { ArrowLeft, Loader2, Users, CalendarClock } from "lucide-react";
 import { Tag } from "@/lib/tag";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { toast } from "sonner";
