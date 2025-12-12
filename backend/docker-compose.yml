@@ -71,7 +71,7 @@ services:
     container_name: crm_backend
     restart: unless-stopped
     ports:
-      - "3001:3001" # Coolify vai usar essa porta para expor o domínio
+      - "3051:3051" # Coolify vai usar essa porta para expor o domínio
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,7 +81,7 @@ services:
       - crm_network
     environment:
       NODE_ENV: production
-      PORT: 3001
+      PORT: 3051
       # Conexão interna com o container 'postgres' na porta 5432
       DATABASE_URL: postgresql://${POSTGRES_USER:-crm_user}:${POSTGRES_PASSWORD:-crm_password}@postgres:5432/${POSTGRES_DB:-crm_db}?schema=public
       # Conexão interna com o container 'redis'
@@ -91,7 +91,7 @@ services:
       EVOLUTION_API_URL: http://evolution-api:8080
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-crm-api-key-secure-2024}
       # URL que a Evolution vai chamar (comunicação interna docker-to-docker)
-      WEBHOOK_URL: http://api:3001
+      WEBHOOK_URL: http://api:3051
       # Seus segredos (Configure no Coolify)
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}

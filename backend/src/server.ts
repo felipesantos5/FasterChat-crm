@@ -16,7 +16,7 @@ import { config } from "./config";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3030;
+const PORT = process.env.PORT || 3051;
 
 // Cria servidor HTTP para compartilhar com Socket.IO
 const httpServer = createServer(app);
