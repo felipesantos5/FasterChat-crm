@@ -47,16 +47,16 @@ class WebhookController {
         // Se for mensagem enviada pelo celular (fromMe = true), salva no histórico
         if (data.key.fromMe) {
           try {
-            const result = await messageService.processOutboundMessageFromPhone(
-              payload.instance,
-              data.key.remoteJid,
-              data
-            );
+            // const result = await messageService.processOutboundMessageFromPhone(
+            //   payload.instance,
+            //   data.key.remoteJid,
+            //   data
+            // );
 
-            if (result) {
-              console.log(`📱 Mensagem do celular salva: ${result.message.id}`);
-              return res.status(200).json({ success: true, message: "Phone message saved", data: { messageId: result.message.id } });
-            }
+            // if (result) {
+            //   console.log(`📱 Mensagem do celular salva: ${result.message.id}`);
+            //   return res.status(200).json({ success: true, message: "Phone message saved", data: { messageId: result.message.id } });
+            // }
           } catch (error: any) {
             console.error("Error processing phone message:", error.message);
           }
