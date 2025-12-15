@@ -73,8 +73,6 @@ class CampaignExecutionService {
         },
       },
     });
-
-    console.log('✅ Campaign queues initialized');
   }
 
   /**

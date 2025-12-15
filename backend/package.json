@@ -4,7 +4,7 @@
   "description": "CRM com Chatbot IA - Backend API",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsc",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc && tsc-alias",
     "start": "npx prisma migrate deploy && node dist/server.js",
     "db:generate": "prisma generate",

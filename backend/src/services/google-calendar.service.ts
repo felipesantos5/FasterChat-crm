@@ -29,10 +29,6 @@ export class GoogleCalendarService {
       throw new Error('Credenciais do Google Calendar não configuradas no .env');
     }
 
-    console.log('✓ Credenciais Google OAuth carregadas:');
-    console.log('  - Client ID:', process.env.GOOGLE_CLIENT_ID.substring(0, 20) + '...');
-    console.log('  - Redirect URI:', process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/api/google/callback');
-
     this.oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
