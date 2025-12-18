@@ -5,7 +5,7 @@ FROM node:20-alpine
 WORKDIR /usr/src/app
 
 # Instala dependências do sistema
-RUN apk add --no-cache openssl
+RUN apk add --no-cache bash
 
 # Copia arquivos de dependência
 COPY package*.json ./
@@ -26,7 +26,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Expõe a porta
-EXPOSE 3001
+EXPOSE 3051
 
 # Comando de start (Lembre-se da dica anterior sobre o package.json)
 CMD ["npm", "start"]
