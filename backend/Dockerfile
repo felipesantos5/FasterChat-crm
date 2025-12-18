@@ -5,7 +5,7 @@ FROM node:20-alpine
 WORKDIR /usr/src/app
 
 # Instala dependências do sistema
-RUN apk add --no-cache bash
+RUN apk add --no-cache openssl ncurses-libs libstdc++ compat-openssl1.1
 
 # Copia arquivos de dependência
 COPY package*.json ./
