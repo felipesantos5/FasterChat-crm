@@ -9,18 +9,19 @@ services:
     container_name: crm_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-crm_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-crm_password}
-      POSTGRES_DB: ${POSTGRES_DB:-crm_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
+      POSTGRES_DB: ${POSTGRES_DB:-crm}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - crm_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U crm_user -d crm_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crm"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
   # ----------------------------------------------------------------
   # BANCO DE DADOS EVOLUTION API
@@ -41,7 +42,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U evolution_user -d evolution_db"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
   # ----------------------------------------------------------------
   # REDIS (Compartilhado)
@@ -83,7 +85,7 @@ services:
       NODE_ENV: production
       PORT: 3051
       # Conexão interna com o container 'postgres' na porta 5432
-      DATABASE_URL: postgresql://${POSTGRES_USER:-crm_user}:${POSTGRES_PASSWORD:-crm_password}@postgres:5432/${POSTGRES_DB:-crm_db}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-crm}?schema=public
       # Conexão interna com o container 'redis'
       REDIS_HOST: redis 
       REDIS_PORT: 6379
