@@ -20,8 +20,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const notifiedTransbordos = useRef<Set<string>>(new Set());
 
   const handleNewMessage = useCallback((message: any) => {
-    // Mostra notificação se a mensagem for INBOUND
-    if (message.direction === 'INBOUND') {
+    // Mostra notificação se a mensagem for INBOUND e não for de um grupo
+    if (message.direction === 'INBOUND' && !message.isGroup) {
       // Som suave para nova mensagem
       notificationSound.playNewMessageSound();
 
