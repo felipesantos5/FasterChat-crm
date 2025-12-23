@@ -26,11 +26,6 @@ export const config = {
     modelAdvanced: process.env.OPENAI_MODEL_ADVANCED || 'gpt-4o',
   },
 
-  anthropic: {
-    apiKey: process.env.ANTHROPIC_API_KEY || '',
-    model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
-  },
-
   evolution: {
     apiUrl: process.env.EVOLUTION_API_URL || 'http://localhost:8080',
     apiKey: process.env.EVOLUTION_API_KEY || '',

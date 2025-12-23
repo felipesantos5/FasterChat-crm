@@ -12,19 +12,39 @@ class WebSocketService {
   private userSockets: Map<string, Set<string>> = new Map(); // userId -> Set<socketId>
 
   /**
+   * Obtém as origens permitidas para CORS
+   */
+  private getCorsOrigins(): string[] | string {
+    const origins = process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:3000';
+    const originList = origins.split(',').map(o => o.trim()).filter(Boolean);
+
+    // Se for apenas uma origem, retorna string; senão, retorna array
+    return originList.length === 1 ? originList[0] : originList;
+  }
+
+  /**
    * Inicializa o servidor Socket.IO
    */
   initialize(httpServer: HTTPServer) {
+    const corsOrigins = this.getCorsOrigins();
+
+    console.log('[WebSocket] Initializing with CORS origins:', corsOrigins);
+
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+        origin: corsOrigins,
         methods: ['GET', 'POST'],
         credentials: true,
       },
       transports: ['websocket', 'polling'],
+      // Configurações para melhor suporte a proxies (Coolify/Docker)
+      pingTimeout: 60000,
+      pingInterval: 25000,
+      allowEIO3: true,
     });
 
     this.setupEventHandlers();
+    console.log('[WebSocket] Server initialized successfully');
   }
 
   /**
@@ -34,6 +54,8 @@ class WebSocketService {
     if (!this.io) return;
 
     this.io.on('connection', (socket: AuthenticatedSocket) => {
+      console.log(`[WebSocket] New connection: ${socket.id} from ${socket.handshake.address}`);
+
       // Autenticação via token JWT
       socket.on('authenticate', (token: string) => {
         try {
@@ -52,9 +74,10 @@ class WebSocketService {
           // Entra em sala específica da empresa
           socket.join(`company:${socket.companyId}`);
 
+          console.log(`[WebSocket] User ${socket.userId} authenticated, joined company:${socket.companyId}`);
           socket.emit('authenticated', { userId: socket.userId, companyId: socket.companyId });
         } catch (error) {
-          console.error('[WebSocket] Authentication failed');
+          console.error('[WebSocket] Authentication failed:', error);
           socket.emit('auth_error', { message: 'Invalid token' });
           socket.disconnect();
         }
@@ -76,7 +99,8 @@ class WebSocketService {
       });
 
       // Desconexão
-      socket.on('disconnect', () => {
+      socket.on('disconnect', (reason) => {
+        console.log(`[WebSocket] Client ${socket.id} disconnected. Reason: ${reason}`);
         if (socket.userId) {
           const userSocketSet = this.userSockets.get(socket.userId);
           if (userSocketSet) {
@@ -87,6 +111,11 @@ class WebSocketService {
           }
         }
       });
+
+      // Log de erros
+      socket.on('error', (error) => {
+        console.error(`[WebSocket] Socket error for ${socket.id}:`, error);
+      });
     });
   }
 
@@ -94,13 +123,23 @@ class WebSocketService {
    * Emite uma nova mensagem para todos os clientes da empresa
    */
   emitNewMessage(companyId: string, message: any) {
-    if (!this.io) return;
+    if (!this.io) {
+      console.warn('[WebSocket] Cannot emit new_message - Socket.IO not initialized');
+      return;
+    }
 
-    this.io.to(`company:${companyId}`).emit('new_message', message);
+    const companyRoom = `company:${companyId}`;
+    const roomSize = this.io.sockets.adapter.rooms.get(companyRoom)?.size || 0;
+
+    console.log(`[WebSocket] Emitting new_message to ${companyRoom} (${roomSize} clients)`);
+    this.io.to(companyRoom).emit('new_message', message);
 
     // Também emite para sala específica da conversa
     if (message.customerId) {
-      this.io.to(`conversation:${message.customerId}`).emit('message_update', message);
+      const conversationRoom = `conversation:${message.customerId}`;
+      const convRoomSize = this.io.sockets.adapter.rooms.get(conversationRoom)?.size || 0;
+      console.log(`[WebSocket] Emitting message_update to ${conversationRoom} (${convRoomSize} clients)`);
+      this.io.to(conversationRoom).emit('message_update', message);
     }
   }
 

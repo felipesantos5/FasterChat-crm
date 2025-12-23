@@ -1,7 +1,6 @@
 import { prisma } from "../utils/prisma";
 import conversationExampleService from "./conversation-example.service";
 import openaiService from "./ai-providers/openai.service";
-import anthropicService from "./ai-providers/anthropic.service";
 import { AIProvider } from "../types/ai-provider";
 import { essentialTools } from "./ai-tools";
 
@@ -94,18 +93,8 @@ class AIService {
    * Obtém o provedor de IA configurado
    */
   private getProvider(providerName?: AIProvider) {
-    // Usa o provedor especificado ou o padrão do .env
-    const provider = providerName || (process.env.AI_PROVIDER as AIProvider) || "openai";
-
-    switch (provider) {
-      case "openai":
-        return openaiService;
-      case "anthropic":
-        return anthropicService;
-      default:
-        console.warn(`Unknown AI provider: ${provider}. Falling back to OpenAI.`);
-        return openaiService;
-    }
+    // Agora só suporta OpenAI
+    return openaiService;
   }
 
   /**
@@ -221,8 +210,8 @@ class AIService {
         console.log("[AIService] Image detected, enabling Vision capabilities");
       }
 
-      // 🎯 Function Calling: Passa tools apenas para OpenAI (Anthropic não suporta ainda)
-      const useTools = providerName === "openai" || (options?.provider || providerConfig) === "openai";
+      // 🎯 Function Calling
+      const useTools = true;
 
       const aiResponse = await provider.generateResponse({
         systemPrompt,
@@ -581,7 +570,7 @@ Sua resposta (lembre-se: sem 'Oi' repetitivo se já houver histórico):`;
    * Verifica se algum provedor está configurado
    */
   isConfigured(): boolean {
-    return openaiService.isConfigured() || anthropicService.isConfigured();
+    return openaiService.isConfigured();
   }
 
   /**
@@ -602,11 +591,6 @@ Sua resposta (lembre-se: sem 'Oi' repetitivo se já houver histórico):`;
         name: "openai",
         configured: openaiService.isConfigured(),
         info: openaiService.getModelInfo(),
-      },
-      {
-        name: "anthropic",
-        configured: anthropicService.isConfigured(),
-        info: anthropicService.getModelInfo(),
       },
     ];
   }

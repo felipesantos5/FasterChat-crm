@@ -1,4 +1,4 @@
-export type AIProvider = 'openai' | 'anthropic';
+export type AIProvider = 'openai';
 
 export interface AIProviderService {
   generateResponse(params: {
