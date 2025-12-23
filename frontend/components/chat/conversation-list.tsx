@@ -96,7 +96,7 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
                     </Badge>
                   )}
                   {needsHelp && (
-                    <Badge className="bg-yellow-500 text-white text-[10px] h-4 px-1 flex-shrink-0">
+                    <Badge className="bg-yellow-500 text-white text-[10px] h-4 w-4 px-1 flex-shrink-0 items-center justify-center">
                       !
                     </Badge>
                   )}

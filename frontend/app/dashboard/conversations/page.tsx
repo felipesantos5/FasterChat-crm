@@ -353,7 +353,7 @@ export default function ConversationsPage() {
           "fixed inset-0 z-20 lg:relative lg:z-auto",
           mobileView === "list" ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           showSidebar ? "lg:w-[320px]" : "lg:w-0",
-          "w-full lg:w-auto"
+          "w-full"
         )}
       >
         {(showSidebar || mobileView === "list") && (

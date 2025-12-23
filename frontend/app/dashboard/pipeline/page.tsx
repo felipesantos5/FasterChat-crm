@@ -8,13 +8,14 @@ import { Tag, tagApi } from "@/lib/tag";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ManageStagesModal } from "@/components/pipeline/manage-stages-modal";
-import { Loader2, Settings2, GripVertical, Phone, Calendar, Users, TrendingUp } from "lucide-react";
+import { Settings2, GripVertical, Phone, Calendar, Users, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { spacing } from "@/lib/design-system";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "react-hot-toast";
+import { PipelineSkeleton } from "@/components/ui/skeletons";
 
 export default function PipelinePage() {
   const router = useRouter();
@@ -271,11 +272,7 @@ export default function PipelinePage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-      </div>
-    );
+    return <PipelineSkeleton />;
   }
 
   if (error) {

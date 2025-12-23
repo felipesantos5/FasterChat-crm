@@ -25,6 +25,7 @@ import { buttons, cards, typography, spacing, badges, icons } from "@/lib/design
 // ✅ NOVOS IMPORTS
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useCustomers } from "@/hooks/use-customers";
+import { CalendarSkeleton } from "@/components/ui/skeletons";
 
 const locales = { "pt-BR": ptBR };
 
@@ -270,14 +271,7 @@ export default function CalendarioPage() {
   }
 
   if (loading && appointments.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Calendar className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando calendário...</p>
-        </div>
-      </div>
-    );
+    return <CalendarSkeleton />;
   }
 
   // Calculate metrics
