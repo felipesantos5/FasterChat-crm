@@ -97,15 +97,15 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     [customerId]
   );
 
-  // Handler para indicador de digitação
+  // Handler para indicador de digitação - só processa se IA estiver habilitada
   const handleWebSocketTyping = useCallback(
     (data: any) => {
-      if (data.customerId === customerId) {
+      if (data.customerId === customerId && conversation?.aiEnabled) {
         console.log("⌨️ Indicador de digitação:", data.isTyping);
         setIsTyping(data.isTyping);
       }
     },
-    [customerId]
+    [customerId, conversation?.aiEnabled]
   );
 
   // WebSocket - usa hook diretamente para ter controle dos eventos
@@ -331,6 +331,13 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
       const newAiState = !conversation?.aiEnabled;
       await conversationApi.toggleAI(customerId, newAiState);
       await loadConversation();
+
+      // Se desligou a IA, limpa os indicadores de processamento
+      if (!newAiState) {
+        setAiProcessing(false);
+        setIsTyping(false);
+      }
+
       toast.success(newAiState ? "IA ativada com sucesso!" : "IA desativada com sucesso!");
     } catch (error: any) {
       console.error("Error toggling AI:", error);
@@ -577,8 +584,8 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
           })
         )}
 
-        {/* AI Processing/Typing Indicator */}
-        {(aiProcessing || isTyping) && (
+        {/* AI Processing/Typing Indicator - só aparece se IA estiver habilitada */}
+        {isAiEnabled && (aiProcessing || isTyping) && (
           <div className="flex justify-start">
             <div className="max-w-[70%] rounded-lg px-4 py-2 bg-purple-100 dark:bg-purple-900/30">
               <div className="flex items-center gap-2">

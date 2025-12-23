@@ -103,8 +103,19 @@ class WebhookController {
         // Verifica se deve processar com IA
         const conversation = await conversationService.getOrCreateConversation(result.customer.id, result.customer.companyId);
 
-        // Se IA está habilitada, gera e envia resposta automática
-        if (conversation.aiEnabled && aiService.isConfigured() && !result.customer.isGroup) {
+        // Busca configuração global de auto-reply da empresa
+        const aiKnowledge = await prisma.aIKnowledge.findUnique({
+          where: { companyId: result.customer.companyId },
+        });
+
+        // Verifica todas as condições para processar com IA:
+        // 1. IA habilitada na conversa (toggle individual)
+        // 2. Auto-reply habilitado na empresa (configuração global)
+        // 3. Provedor de IA configurado
+        // 4. Não é grupo
+        const isAutoReplyEnabled = aiKnowledge?.autoReplyEnabled !== false; // Default true se não existir
+
+        if (conversation.aiEnabled && isAutoReplyEnabled && aiService.isConfigured() && !result.customer.isGroup) {
           try {
             // 📅 PRIORITY CHECK: Verifica se JÁ ESTÁ em fluxo de agendamento ativo
             const { aiAppointmentService } = await import("../services/ai-appointment.service");
@@ -184,7 +195,7 @@ class WebhookController {
             messageId: result.message.id,
             customerId: result.customer.id,
             customerName: result.customer.name,
-            aiProcessed: conversation.aiEnabled && aiService.isConfigured(),
+            aiProcessed: conversation.aiEnabled && isAutoReplyEnabled && aiService.isConfigured() && !result.customer.isGroup,
           },
         });
       }
