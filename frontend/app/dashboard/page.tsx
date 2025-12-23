@@ -20,7 +20,7 @@ import {
 } from "@/components/dashboard/charts";
 import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
 import { Users, MessageSquare, Bot, Activity } from "lucide-react";
-import { cards, typography, spacing, icons } from "@/lib/design-system";
+import { cards, typography, spacing } from "@/lib/design-system";
 
 type PeriodType = "today" | "week" | "month";
 type ChartPeriodType = "week" | "month" | "quarter";

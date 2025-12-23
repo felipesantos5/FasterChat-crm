@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { pipelineApi } from "@/lib/pipeline";
 import { PipelineBoard, PipelineStage } from "@/types/pipeline";
 import { Customer } from "@/types/customer";

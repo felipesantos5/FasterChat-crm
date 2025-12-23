@@ -11,7 +11,6 @@ import {
   ExternalLink,
   Users,
   MousePointerClick,
-  TrendingUp,
   Copy,
 } from 'lucide-react';
 import {
@@ -102,9 +101,9 @@ export default function LinkAnalyticsPage() {
     value: item.count,
   }));
 
-  const conversionRate = analytics.uniqueVisitors > 0
-    ? ((analytics.totalClicks / analytics.uniqueVisitors) * 100).toFixed(1)
-    : '0';
+  // const conversionRate = analytics.uniqueVisitors > 0
+  //   ? ((analytics.totalClicks / analytics.uniqueVisitors) * 100).toFixed(1)
+  //   : '0';
 
   return (
     <div className="p-6">
