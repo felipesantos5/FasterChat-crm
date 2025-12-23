@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import messageService from "../services/message.service";
 import conversationService from "../services/conversation.service";
 import aiService from "../services/ai.service";
+import openaiService from "../services/ai-providers/openai.service"; // ✅ Importado OpenAI Service
 import { prisma } from "../utils/prisma";
 import { WhatsAppStatus } from "@prisma/client";
 import { EvolutionWebhookPayload } from "../types/message";
@@ -15,7 +16,7 @@ class WebhookController {
    */
   async handleWhatsAppWebhook(req: Request, res: Response) {
     try {
-      // Valida webhook secret (segurança)
+      // Valida webhook secret (segurança) - Descomentar em produção
       // const webhookSecret = process.env.WEBHOOK_SECRET;
       // const receivedSecret = req.headers['x-webhook-secret'];
 
@@ -26,8 +27,10 @@ class WebhookController {
 
       const payload: EvolutionWebhookPayload = req.body;
 
-      // Log do webhook recebido para debug
-      console.log(`[Webhook] Event: ${payload.event}, Instance: ${payload.instance || "NOT PROVIDED"}`);
+      // Log do webhook recebido para debug (apenas eventos importantes)
+      if (payload.event !== "messages.update") {
+        console.log(`[Webhook] Event: ${payload.event}, Instance: ${payload.instance || "NOT PROVIDED"}`);
+      }
 
       // Verifica se é um evento de mensagem recebida
       if (payload.event === "messages.upsert") {
@@ -44,23 +47,9 @@ class WebhookController {
           return res.status(200).json({ success: false, message: "Instance name not found in payload" });
         }
 
-        // Se for mensagem enviada pelo celular (fromMe = true), salva no histórico
+        // Se for mensagem enviada pelo celular (fromMe = true), apenas retorna (pode salvar histórico se quiser)
         if (data.key.fromMe) {
-          try {
-            // const result = await messageService.processOutboundMessageFromPhone(
-            //   payload.instance,
-            //   data.key.remoteJid,
-            //   data
-            // );
-
-            // if (result) {
-            //   console.log(`📱 Mensagem do celular salva: ${result.message.id}`);
-            //   return res.status(200).json({ success: true, message: "Phone message saved", data: { messageId: result.message.id } });
-            // }
-          } catch (error: any) {
-            console.error("Error processing phone message:", error.message);
-          }
-          return res.status(200).json({ success: true, message: "Phone message processed" });
+          return res.status(200).json({ success: true, message: "Phone message ignored" });
         }
 
         // Processa a mensagem recebida (INBOUND)
@@ -76,7 +65,6 @@ class WebhookController {
         }
 
         // 🔗 LINK CONVERSION: Verifica se a mensagem veio de um link rastreado
-        // e aplica tag automática se configurada
         try {
           await linkConversionService.processMessageConversion(
             result.customer.phone,
@@ -86,18 +74,13 @@ class WebhookController {
           );
         } catch (conversionError) {
           console.error("[Webhook] Error processing link conversion:", conversionError);
-          // Não bloqueia o fluxo se der erro
         }
 
-        // 👇👇👇 ADICIONE ESTE BLOCO DE CORREÇÃO AQUI 👇👇👇
-        // AUTO-FIX: Se recebemos mensagem, é prova de que estamos conectados.
-        // Forçamos o status para CONNECTED para que a IA não seja bloqueada.
+        // ✅ AUTO-FIX: Se recebemos mensagem, estamos conectados.
         if (result.instance.status !== WhatsAppStatus.CONNECTED) {
           await whatsappService.updateConnectionStatus(result.instance.id, WhatsAppStatus.CONNECTED);
-          console.log(`✅ Status auto-corrected to CONNECTED for ${result.instance.instanceName} (Message received)`);
-
-          // Atualiza o objeto local para a lógica seguinte
-          result.instance.status = WhatsAppStatus.CONNECTED;
+          result.instance.status = WhatsAppStatus.CONNECTED; // Atualiza localmente
+          console.log(`✅ Status auto-corrected to CONNECTED for ${result.instance.instanceName}`);
         }
 
         // Verifica se deve processar com IA
@@ -108,16 +91,20 @@ class WebhookController {
           where: { companyId: result.customer.companyId },
         });
 
-        // Verifica todas as condições para processar com IA:
-        // 1. IA habilitada na conversa (toggle individual)
-        // 2. Auto-reply habilitado na empresa (configuração global)
-        // 3. Provedor de IA configurado
+        // Verifica condições para IA:
+        // 1. IA habilitada na conversa
+        // 2. Auto-reply habilitado na empresa
+        // 3. Provedor de IA configurado (Usando openaiService diretamente)
         // 4. Não é grupo
-        const isAutoReplyEnabled = aiKnowledge?.autoReplyEnabled !== false; // Default true se não existir
+        const isAutoReplyEnabled = aiKnowledge?.autoReplyEnabled !== false;
+        
+        // CORREÇÃO AQUI: Usamos openaiService.isConfigured() ao invés de aiService
+        const isAIConfigured = openaiService.isConfigured();
 
-        if (conversation.aiEnabled && isAutoReplyEnabled && aiService.isConfigured() && !result.customer.isGroup) {
+        if (conversation.aiEnabled && isAutoReplyEnabled && isAIConfigured && !result.customer.isGroup) {
           try {
             // 📅 PRIORITY CHECK: Verifica se JÁ ESTÁ em fluxo de agendamento ativo
+            // Import dinâmico para evitar dependência circular se houver
             const { aiAppointmentService } = await import("../services/ai-appointment.service");
             const hasActiveFlow = await aiAppointmentService.hasActiveAppointmentFlow(result.customer.id);
 
@@ -136,14 +123,11 @@ class WebhookController {
               // NÃO está em fluxo de agendamento, processa normalmente com a IA
               const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
 
-              // 🎯 COMANDO ESPECIAL: Verifica se a IA detectou intenção de agendamento
+              // 🎯 COMANDO ESPECIAL: Agendamento
               if (aiResponse.startsWith("[INICIAR_AGENDAMENTO]")) {
                 console.log(`📅 IA detectou intenção de agendamento para ${result.customer.name}`);
-
-                // Remove a tag e pega a mensagem da IA
                 const aiMessage = aiResponse.replace("[INICIAR_AGENDAMENTO]", "").trim();
 
-                // Envia a mensagem da IA primeiro
                 if (aiMessage) {
                   await messageService.sendMessage(result.customer.id, aiMessage, "AI");
                 }
@@ -159,28 +143,20 @@ class WebhookController {
                   await messageService.sendMessage(result.customer.id, appointmentResult.response, "AI");
                 }
               }
-              // 🚨 TRANSBORDO HUMANO: Verifica se a IA solicitou transferência para humano
+              // 🚨 COMANDO ESPECIAL: Transbordo
               else if (aiResponse.startsWith("[TRANSBORDO]")) {
                 console.log(`🚨 Transbordo solicitado para cliente ${result.customer.name}`);
-
-                // Remove a tag [TRANSBORDO] da mensagem
                 const cleanMessage = aiResponse.replace("[TRANSBORDO]", "").trim();
 
-                // Envia a mensagem limpa ao cliente
                 await messageService.sendMessage(result.customer.id, cleanMessage, "AI");
-
-                // Desativa a IA para essa conversa (transbordo para humano)
                 await conversationService.toggleAI(result.customer.id, false);
-
-                // Marca a conversa como precisando de ajuda
+                
                 await prisma.conversation.update({
                   where: { customerId: result.customer.id },
                   data: { needsHelp: true },
                 });
-
-                console.log(`✓ Conversa transferida para atendimento humano: ${result.customer.id}`);
               } else {
-                // Resposta normal da IA (sem comandos especiais)
+                // Resposta normal da IA
                 await messageService.sendMessage(result.customer.id, aiResponse, "AI");
               }
             }
@@ -194,8 +170,7 @@ class WebhookController {
           data: {
             messageId: result.message.id,
             customerId: result.customer.id,
-            customerName: result.customer.name,
-            aiProcessed: conversation.aiEnabled && isAutoReplyEnabled && aiService.isConfigured() && !result.customer.isGroup,
+            aiProcessed: conversation.aiEnabled && isAutoReplyEnabled && isAIConfigured && !result.customer.isGroup,
           },
         });
       }
@@ -205,13 +180,11 @@ class WebhookController {
         return res.status(200).json({ success: true, message: "Status update received" });
       }
 
-      // Eventos de conexão (CONNECTION_UPDATE)
+      // Eventos de conexão
       if (payload.event === "connection.update") {
         try {
-          // Validação: verifica se payload.instance está presente
           if (!payload.instance) {
-            console.error("Error: payload.instance is null for connection.update", JSON.stringify(payload, null, 2));
-            return res.status(200).json({ success: false, message: "Instance name not found in payload" });
+            return res.status(200).json({ success: false, message: "Instance name missing" });
           }
 
           const instance = await prisma.whatsAppInstance.findFirst({
@@ -219,7 +192,6 @@ class WebhookController {
           });
 
           if (!instance) {
-            console.warn(`[Webhook] Instance ${payload.instance} not found in database`);
             return res.status(200).json({ success: true, message: "Instance not found" });
           }
 
@@ -236,118 +208,76 @@ class WebhookController {
               break;
             case "close":
             case "closed":
-              const reason =
-                payload.data?.lastDisconnect?.error?.output?.statusCode ||
-                payload.data?.statusReason || // Adicionei esta leitura do statusReason direto
-                payload.data?.reason;
-              console.log(`⚠️ Evolution API Connection Closed. Reason: ${reason}`);
+              const reason = payload.data?.lastDisconnect?.error?.output?.statusCode || 
+                           payload.data?.statusReason || 
+                           payload.data?.reason;
+              
+              console.log(`⚠️ Evolution API Closed. Reason: ${reason}`);
 
-              // Se for 401 (Logged Out), marcamos como DISCONNECTED
-              // Para qualquer outro erro (instabilidade, restart), marcamos como CONNECTING (para tentar de novo)
+              // Se for 401/403 ou loggedOut, desconecta totalmente
               if (reason === 401 || reason === 403 || reason === "loggedOut") {
                 newStatus = WhatsAppStatus.DISCONNECTED;
-
-                // 🔥 BLINDAGEM: Limpar QR Code e Phone Number para forçar nova geração limpa
                 await whatsappService.updateConnectionStatus(instance.id, WhatsAppStatus.DISCONNECTED);
-
-                // Limpeza adicional se necessário (já feito pelo updateConnectionStatus mas garantindo campos extras se houver)
+                
+                // Limpa dados de conexão
                 await prisma.whatsAppInstance.update({
                   where: { id: instance.id },
-                  data: {
-                    qrCode: null,
-                    phoneNumber: null,
-                  },
+                  data: { qrCode: null, phoneNumber: null },
                 });
-                console.log(`❌ Instance ${instance.instanceName} invalidated (401/403). Cleaned up for reconnection.`);
-
-                // Opcional: Chamar endpoint de Logout na Evolution para garantir limpeza lá também
-                // whatsappService.logout(instance.instanceName);
               } else {
                 newStatus = WhatsAppStatus.CONNECTING;
-                console.log(`🔄 Evolution API: ${payload.instance} RECONNECTING (Temporary fluctuation)`);
               }
               break;
           }
 
           if (newStatus) {
-            const phoneNumber =
-              newStatus === WhatsAppStatus.CONNECTED && payload.data?.instance?.wuid ? payload.data.instance.wuid.split("@")[0] : undefined;
+            const phoneNumber = newStatus === WhatsAppStatus.CONNECTED && payload.data?.instance?.wuid 
+              ? payload.data.instance.wuid.split("@")[0] 
+              : undefined;
 
             await whatsappService.updateConnectionStatus(instance.id, newStatus, phoneNumber);
           }
 
-          return res.status(200).json({
-            success: true,
-            message: "Connection status updated",
-            data: { status: newStatus },
-          });
+          return res.status(200).json({ success: true, data: { status: newStatus } });
         } catch (error: any) {
           console.error("Error processing connection update:", error.message);
-          return res.status(200).json({
-            success: false,
-            message: error.message,
-          });
+          return res.status(200).json({ success: false, message: error.message });
         }
       }
 
-      // Eventos de QR Code atualizado
+      // QR Code Update
       if (payload.event === "qrcode.updated") {
         try {
-          // Validação: verifica se payload.instance está presente
-          if (!payload.instance) {
-            console.error("Error: payload.instance is null for qrcode.updated", JSON.stringify(payload, null, 2));
-            return res.status(200).json({ success: false, message: "Instance name not found in payload" });
-          }
+          if (!payload.instance) return res.status(200).json({ success: false });
 
           const instance = await prisma.whatsAppInstance.findFirst({
             where: { instanceName: payload.instance },
           });
 
-          if (!instance) {
-            console.warn(`[Webhook] Instance ${payload.instance} not found in database`);
-            return res.status(200).json({ success: true, message: "Instance not found" });
+          if (instance) {
+            const qrCode = payload.data?.qrcode?.base64 || payload.data?.qrcode?.code;
+            if (qrCode) {
+              await prisma.whatsAppInstance.update({
+                where: { id: instance.id },
+                data: { qrCode, status: WhatsAppStatus.CONNECTING },
+              });
+            }
           }
-
-          const qrCode = payload.data?.qrcode?.base64 || payload.data?.qrcode?.code;
-
-          if (qrCode) {
-            await prisma.whatsAppInstance.update({
-              where: { id: instance.id },
-              data: {
-                qrCode,
-                status: WhatsAppStatus.CONNECTING,
-              },
-            });
-          }
-
-          return res.status(200).json({
-            success: true,
-            message: "QR Code updated",
-          });
-        } catch (error: any) {
-          console.error("Error processing QR code update:", error.message);
-          return res.status(200).json({
-            success: false,
-            message: error.message,
-          });
+          return res.status(200).json({ success: true, message: "QR Code updated" });
+        } catch (error) {
+          return res.status(200).json({ success: false, message: "Error updating QR" });
         }
       }
 
       return res.status(200).json({ success: true, message: "Event received" });
     } catch (error: any) {
       console.error("Error processing webhook:", error);
-
-      // Retorna 200 mesmo com erro para não fazer a Evolution API retentar
-      return res.status(200).json({
-        success: false,
-        message: error.message || "Failed to process webhook",
-      });
+      return res.status(200).json({ success: false, message: "Failed to process webhook" });
     }
   }
 
   /**
-   * GET /api/webhooks/whatsapp/test
-   * Endpoint de teste para verificar se o webhook está funcionando
+   * Endpoint de teste
    */
   async testWebhook(_req: Request, res: Response) {
     return res.status(200).json({
