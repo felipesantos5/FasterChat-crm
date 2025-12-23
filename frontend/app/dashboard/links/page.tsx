@@ -201,7 +201,7 @@ export default function LinksPage() {
                       <div className="flex flex-col">
                         <div className="text-sm font-medium text-gray-900">{link.name}</div>
                         <div className="flex items-center gap-2 mt-1">
-                          <code className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">/l/{link.slug}</code>
+                          <code className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">/{link.slug}</code>
                           <button onClick={() => handleCopyLink(link.url)} className="text-gray-400 hover:text-gray-600" title="Copiar link">
                             <Copy className="h-4 w-4" />
                           </button>

@@ -12,7 +12,7 @@ import { customerApi } from "@/lib/customer";
 import { whatsappApi } from "@/lib/whatsapp";
 import { Customer } from "@/types/customer";
 import { WhatsAppInstance } from "@/types/whatsapp";
-import { Loader2, MessageSquare, Search, X, Bot, User, ChevronRight, MessageSquarePlus, Smartphone } from "lucide-react";
+import { Loader2, MessageSquare, Search, X, Bot, User, ChevronRight, MessageSquarePlus, Smartphone, ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,7 @@ export default function ConversationsPage() {
   // Layout
   const [showSidebar, setShowSidebar] = useState(true);
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
 
   // Obtém o companyId do usuário logado
   const getCompanyId = () => {
@@ -293,6 +294,17 @@ export default function ConversationsPage() {
     needsHelp: conversations.filter((c) => c.needsHelp).length,
   };
 
+  // Handler para selecionar conversa (muda view no mobile)
+  const handleSelectConversation = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    setMobileView("chat");
+  };
+
+  // Handler para voltar à lista no mobile
+  const handleBackToList = () => {
+    setMobileView("list");
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -317,10 +329,16 @@ export default function ConversationsPage() {
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-muted/30">
       {/* Sidebar Esquerda: Lista de Conversas */}
       <div
-        className={cn("border-r bg-background transition-all duration-300 flex flex-col", showSidebar ? "w-[320px]" : "w-0")}
-        style={{ width: showSidebar ? "320px" : 0 }}
+        className={cn(
+          "border-r bg-background transition-all duration-300 flex flex-col",
+          // Mobile: tela cheia quando em view de lista, esconde quando em chat
+          "fixed inset-0 z-20 lg:relative lg:z-auto",
+          mobileView === "list" ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+          showSidebar ? "lg:w-[320px]" : "lg:w-0",
+          "w-full lg:w-auto"
+        )}
       >
-        {showSidebar && (
+        {(showSidebar || mobileView === "list") && (
           <>
             {/* Header da Sidebar */}
             <div className="p-3 border-b space-y-2">
@@ -441,7 +459,7 @@ export default function ConversationsPage() {
                 <ConversationList
                   conversations={filteredConversations}
                   selectedCustomerId={selectedCustomerId}
-                  onSelectConversation={setSelectedCustomerId}
+                  onSelectConversation={handleSelectConversation}
                 />
               )}
             </div>
@@ -459,15 +477,35 @@ export default function ConversationsPage() {
       )}
 
       {/* Área Central: Chat */}
-      <div className="flex-1 bg-background overflow-hidden flex flex-col">
+      <div
+        className={cn(
+          "flex-1 bg-background overflow-hidden flex flex-col",
+          // Mobile: mostra apenas quando em view de chat
+          mobileView === "chat" ? "block" : "hidden lg:flex"
+        )}
+      >
         {selectedConversation ? (
-          <ChatArea
-            customerId={selectedConversation.customerId}
-            customerName={selectedConversation.customerName}
-            customerPhone={selectedConversation.customerPhone}
-            onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
-            showDetailsButton={true}
-          />
+          <>
+            {/* Botão voltar - apenas mobile */}
+            <div className="lg:hidden border-b p-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBackToList}
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Voltar
+              </Button>
+            </div>
+            <ChatArea
+              customerId={selectedConversation.customerId}
+              customerName={selectedConversation.customerName}
+              customerPhone={selectedConversation.customerPhone}
+              onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
+              showDetailsButton={true}
+            />
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-6">
             <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -479,9 +517,9 @@ export default function ConversationsPage() {
         )}
       </div>
 
-      {/* Sidebar Direita: Detalhes do Cliente */}
+      {/* Sidebar Direita: Detalhes do Cliente - oculto no mobile */}
       {selectedConversation && showCustomerDetails && (
-        <div className="max-w-[280px] border-l bg-background overflow-hidden">
+        <div className="hidden lg:block w-[280px] border-l bg-background overflow-hidden">
           <CustomerDetails
             customerId={selectedConversation.customerId}
             customerName={selectedConversation.customerName}

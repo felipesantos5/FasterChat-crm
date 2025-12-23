@@ -11,9 +11,10 @@ interface ColorPickerProps {
 }
 
 const PRESET_COLORS = [
-  { name: 'Roxo', value: '#8B5CF6' },
+  { name: 'Verde', value: '#22C55E' },
+  { name: 'Verde Escuro', value: '#16A34A' },
+  { name: 'Verde Claro', value: '#4ADE80' },
   { name: 'Azul', value: '#3B82F6' },
-  { name: 'Verde', value: '#10B981' },
   { name: 'Amarelo', value: '#F59E0B' },
   { name: 'Vermelho', value: '#EF4444' },
   { name: 'Rosa', value: '#EC4899' },
@@ -21,7 +22,6 @@ const PRESET_COLORS = [
   { name: 'Ciano', value: '#06B6D4' },
   { name: 'Índigo', value: '#6366F1' },
   { name: 'Lima', value: '#84CC16' },
-  { name: 'Âmbar', value: '#F59E0B' },
   { name: 'Cinza', value: '#6B7280' },
 ];
 

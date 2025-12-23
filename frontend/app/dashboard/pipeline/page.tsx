@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { pipelineApi } from "@/lib/pipeline";
 import { PipelineBoard, PipelineStage } from "@/types/pipeline";
 import { Customer } from "@/types/customer";
@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { spacing } from "@/lib/design-system";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "react-hot-toast";
 
 export default function PipelinePage() {
   const router = useRouter();
@@ -21,8 +22,9 @@ export default function PipelinePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draggedCustomer, setDraggedCustomer] = useState<Customer | null>(null);
-  const [, setDraggedFromStage] = useState<string | null>(null);
+  const [draggedFromStage, setDraggedFromStage] = useState<string | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
   const [manageStagesOpen, setManageStagesOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -130,22 +132,86 @@ export default function PipelinePage() {
 
   const handleDrop = async (toStageId: string | null) => {
     setDragOverStageId(null);
-    if (!draggedCustomer) return;
+    if (!draggedCustomer || !board || isMoving) return;
+
+    // Se está soltando no mesmo estágio, não faz nada
+    if (draggedFromStage === toStageId) {
+      setDraggedCustomer(null);
+      setDraggedFromStage(null);
+      return;
+    }
 
     const cId = getCompanyId();
     if (!cId) return;
 
+    // Guarda o estado anterior para rollback em caso de erro
+    const previousBoard = board;
+    const customerToMove = draggedCustomer;
+    const fromStageId = draggedFromStage;
+
+    // Optimistic update: atualiza a UI imediatamente
+    setBoard((prevBoard) => {
+      if (!prevBoard) return prevBoard;
+
+      const newBoard = { ...prevBoard };
+
+      // Remove o cliente do estágio de origem
+      if (fromStageId === null) {
+        // Estava em "sem estágio"
+        newBoard.customersWithoutStage = prevBoard.customersWithoutStage.filter(
+          (c) => c.id !== customerToMove.id
+        );
+      } else {
+        // Estava em um estágio específico
+        newBoard.stages = prevBoard.stages.map((stageData) => {
+          if (stageData.stage.id === fromStageId) {
+            return {
+              ...stageData,
+              customers: stageData.customers.filter((c) => c.id !== customerToMove.id),
+            };
+          }
+          return stageData;
+        });
+      }
+
+      // Adiciona o cliente no estágio de destino
+      if (toStageId === null) {
+        // Movendo para "sem estágio"
+        newBoard.customersWithoutStage = [customerToMove, ...newBoard.customersWithoutStage];
+      } else {
+        // Movendo para um estágio específico
+        newBoard.stages = newBoard.stages.map((stageData) => {
+          if (stageData.stage.id === toStageId) {
+            return {
+              ...stageData,
+              customers: [customerToMove, ...stageData.customers],
+            };
+          }
+          return stageData;
+        });
+      }
+
+      return newBoard;
+    });
+
+    // Limpa o estado de drag
+    setDraggedCustomer(null);
+    setDraggedFromStage(null);
+    setIsMoving(true);
+
+    // Faz a chamada ao backend em segundo plano
     try {
-      await pipelineApi.moveCustomer(draggedCustomer.id, cId, {
+      await pipelineApi.moveCustomer(customerToMove.id, cId, {
         stageId: toStageId,
       });
-      await loadBoard();
+      // Sucesso - não precisa fazer nada, UI já está atualizada
     } catch (err: any) {
       console.error("Error moving customer:", err);
-      setError("Erro ao mover cliente");
+      // Rollback: reverte para o estado anterior
+      setBoard(previousBoard);
+      toast.error("Erro ao mover cliente. A alteração foi revertida.");
     } finally {
-      setDraggedCustomer(null);
-      setDraggedFromStage(null);
+      setIsMoving(false);
     }
   };
 

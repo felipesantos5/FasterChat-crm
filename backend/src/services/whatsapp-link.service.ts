@@ -148,8 +148,27 @@ class WhatsAppLinkService {
 
   /**
    * Registra um clique no link
+   * Evita contagens duplicadas do mesmo IP dentro de um período de 10 segundos
    */
-  async trackClick(linkId: string, data: TrackClickDTO): Promise<LinkClick> {
+  async trackClick(linkId: string, data: TrackClickDTO): Promise<LinkClick | null> {
+    // Verifica se já existe um clique do mesmo IP nos últimos 10 segundos
+    // para evitar contagens duplicadas (requisições duplicadas, prefetch, etc)
+    if (data.ipAddress) {
+      const tenSecondsAgo = new Date(Date.now() - 10 * 1000);
+      const recentClick = await prisma.linkClick.findFirst({
+        where: {
+          linkId,
+          ipAddress: data.ipAddress,
+          clickedAt: { gte: tenSecondsAgo },
+        },
+      });
+
+      if (recentClick) {
+        console.log(`[WhatsAppLink] Clique duplicado ignorado para IP ${data.ipAddress} no link ${linkId}`);
+        return null; // Ignora clique duplicado
+      }
+    }
+
     // Parse do User-Agent para extrair informações do dispositivo
     let deviceInfo: {
       deviceType?: string;

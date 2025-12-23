@@ -48,9 +48,9 @@ class WhatsAppLinkController {
 
       const link = await whatsappLinkService.create(companyId, data);
 
-      // Monta a URL completa
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const fullUrl = `${baseUrl}/l/${link.slug}`;
+      // Monta a URL completa usando o domínio de redirecionamento WhatsApp
+      const redirectDomain = process.env.WHATSAPP_REDIRECT_DOMAIN || 'https://whatsconversas.com.br';
+      const fullUrl = `${redirectDomain}/${link.slug}`;
 
       return res.status(201).json({
         success: true,
@@ -87,11 +87,12 @@ class WhatsAppLinkController {
 
       const links = await whatsappLinkService.findAll(companyId);
 
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      // Usa o domínio de redirecionamento WhatsApp
+      const redirectDomain = process.env.WHATSAPP_REDIRECT_DOMAIN || 'https://whatsconversas.com.br';
 
       const linksWithUrl = links.map((link) => ({
         ...link,
-        url: `${baseUrl}/l/${link.slug}`,
+        url: `${redirectDomain}/${link.slug}`,
         clicks: link._count.clicks,
       }));
 
@@ -121,13 +122,14 @@ class WhatsAppLinkController {
         return res.status(404).json({ error: 'Link não encontrado' });
       }
 
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      // Usa o domínio de redirecionamento WhatsApp
+      const redirectDomain = process.env.WHATSAPP_REDIRECT_DOMAIN || 'https://whatsconversas.com.br';
 
       return res.json({
         success: true,
         data: {
           ...link,
-          url: `${baseUrl}/l/${link.slug}`,
+          url: `${redirectDomain}/${link.slug}`,
         },
       });
     } catch (error: any) {
@@ -153,13 +155,14 @@ class WhatsAppLinkController {
 
       const link = await whatsappLinkService.update(id, companyId, data);
 
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      // Usa o domínio de redirecionamento WhatsApp
+      const redirectDomain = process.env.WHATSAPP_REDIRECT_DOMAIN || 'https://whatsconversas.com.br';
 
       return res.json({
         success: true,
         data: {
           ...link,
-          url: `${baseUrl}/l/${link.slug}`,
+          url: `${redirectDomain}/${link.slug}`,
         },
       });
     } catch (error: any) {

@@ -75,8 +75,8 @@ const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
 };
 
 const APPOINTMENT_STATUS_COLORS: Record<AppointmentStatus, string> = {
-  SCHEDULED: "#3B82F6", // blue
-  CONFIRMED: "#8B5CF6", // green
+  SCHEDULED: "#86EFAC", // light green
+  CONFIRMED: "#4ADE80", // green
   COMPLETED: "#22C55E", // green
   CANCELLED: "#EF4444", // red
   NO_SHOW: "#F59E0B", // amber

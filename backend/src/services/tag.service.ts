@@ -61,7 +61,7 @@ class TagService {
         create: {
           companyId,
           name: trimmedName,
-          color: color || '#8B5CF6',
+          color: color || '#22C55E',
         },
       });
 

@@ -32,14 +32,14 @@ interface ManageStagesModalProps {
 }
 
 const PRESET_COLORS = [
-  "#94A3B8", // Slate
+  "#22C55E", // Green
+  "#16A34A", // Green Dark
+  "#4ADE80", // Green Light
   "#3B82F6", // Blue
-  "#8B5CF6", // green
-  "#EC4899", // Pink
   "#F59E0B", // Amber
-  "#10B981", // Emerald
   "#EF4444", // Red
   "#06B6D4", // Cyan
+  "#94A3B8", // Slate
 ];
 
 export function ManageStagesModal({

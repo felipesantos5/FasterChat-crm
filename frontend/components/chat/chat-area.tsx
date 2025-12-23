@@ -224,11 +224,16 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     try {
       const response = await messageApi.sendMessage(customerId, messageContent, "HUMAN");
 
-      // Adiciona a mensagem enviada à lista
-      setMessages((prev) => [...prev, response.data.message]);
-
-      // Recarrega mensagens para garantir sincronia
-      setTimeout(loadMessages, 500);
+      // Adiciona a mensagem apenas se não estiver conectado ao WebSocket
+      // Se estiver conectado, o WebSocket vai trazer a mensagem automaticamente
+      if (!isConnected || !isAuthenticated) {
+        setMessages((prev) => {
+          // Evita duplicatas verificando pelo ID
+          const exists = prev.some((m) => m.id === response.data.message.id);
+          if (exists) return prev;
+          return [...prev, response.data.message];
+        });
+      }
     } catch (error: any) {
       showErrorToast(error, router, "Erro ao enviar mensagem");
       setInputValue(messageContent); // Restaura o texto
@@ -300,15 +305,20 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     try {
       const response = await messageApi.sendMedia(customerId, selectedImage, imageCaption || undefined, "HUMAN");
 
-      // Adiciona a mensagem enviada à lista
-      setMessages((prev) => [...prev, response.data.message]);
+      // Adiciona a mensagem apenas se não estiver conectado ao WebSocket
+      // Se estiver conectado, o WebSocket vai trazer a mensagem automaticamente
+      if (!isConnected || !isAuthenticated) {
+        setMessages((prev) => {
+          // Evita duplicatas verificando pelo ID
+          const exists = prev.some((m) => m.id === response.data.message.id);
+          if (exists) return prev;
+          return [...prev, response.data.message];
+        });
+      }
 
       // Limpa a imagem selecionada
       setSelectedImage(null);
       setImageCaption("");
-
-      // Recarrega mensagens para garantir sincronia
-      setTimeout(loadMessages, 500);
 
       toast.success("Imagem enviada com sucesso!");
     } catch (error: any) {

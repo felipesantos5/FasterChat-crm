@@ -42,7 +42,7 @@ export function TagSelector({
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [newTagValue, setNewTagValue] = useState('');
-  const [newTagColor, setNewTagColor] = useState('#8B5CF6');
+  const [newTagColor, setNewTagColor] = useState('#22C55E');
   const [creating, setCreating] = useState(false);
 
   const addTag = async (tag: string, createInDatabase = false, color?: string) => {
@@ -65,7 +65,7 @@ export function TagSelector({
       onChange([...value, trimmedTag]);
       setSearchValue('');
       setNewTagValue('');
-      setNewTagColor('#8B5CF6');
+      setNewTagColor('#22C55E');
     }
   };
 
@@ -107,7 +107,7 @@ export function TagSelector({
   // Retorna a cor da tag pelo nome
   const getTagColorByName = (tagName: string): string => {
     const tag = availableTags.find((t) => t.name === tagName);
-    return tag?.color || '#8B5CF6';
+    return tag?.color || '#22C55E';
   };
 
   return (
@@ -197,8 +197,8 @@ export function TagSelector({
                             className={cn('border text-white')}
                             variant="outline"
                             style={{
-                              backgroundColor: tag.color || '#8B5CF6',
-                              borderColor: tag.color || '#8B5CF6',
+                              backgroundColor: tag.color || '#22C55E',
+                              borderColor: tag.color || '#22C55E',
                             }}
                           >
                             {tag.name}

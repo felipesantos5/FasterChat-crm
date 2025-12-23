@@ -14,8 +14,8 @@ interface TagBadgeProps {
 export function TagBadge({ tag, tags = [], variant = 'default', className }: TagBadgeProps) {
   const tagName = typeof tag === 'string' ? tag : tag.name;
   const tagColor = typeof tag === 'string'
-    ? tags.find((t) => t.name === tag)?.color || '#8B5CF6'
-    : tag.color || '#8B5CF6';
+    ? tags.find((t) => t.name === tag)?.color || '#22C55E'
+    : tag.color || '#22C55E';
 
   return (
     <Badge

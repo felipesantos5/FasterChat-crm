@@ -163,10 +163,21 @@ app.use("/api", blockApiForRestrictedDomains, routes);
 // Rota raiz para redirect (domínios dedicados como whatsconversas.com.br)
 // Permite links curtos como: whatsconversas.com.br/instagram
 // IMPORTANTE: Vem DEPOIS de /api para não conflitar
-app.use("/", (req, res, next) => {
+app.use("/", (req: any, res, next) => {
+  // Evita reprocessamento (flag para prevenir loop)
+  if (req._redirectRewritten) {
+    return next();
+  }
+
   // Ignora rotas conhecidas
   const knownPaths = ['/l/', '/l-test', '/api', '/health', '/socket.io'];
   if (knownPaths.some(p => req.path.startsWith(p)) || req.path === '/' || req.path === '/l') {
+    return next();
+  }
+
+  // Ignora requisições de recursos estáticos (favicon, robots, etc)
+  const staticPaths = ['/favicon', '/robots.txt', '/sitemap', '/.well-known'];
+  if (staticPaths.some(p => req.path.startsWith(p))) {
     return next();
   }
 
@@ -175,6 +186,7 @@ app.use("/", (req, res, next) => {
   const newUrl = `/l${req.path}`;
   console.log(`[LinkRedirect] Rewriting ${req.path} -> ${newUrl} (host: ${req.headers.host})`);
   req.url = newUrl;
+  req._redirectRewritten = true; // Marca para evitar reprocessamento
   return app._router.handle(req, res, next);
 });
 

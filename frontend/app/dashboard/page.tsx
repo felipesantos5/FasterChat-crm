@@ -83,9 +83,9 @@ export default function DashboardPage() {
 
   if (isPageLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-6">
         {/* Stats Skeletons */}
-        <div className={`grid ${spacing.cardGap} md:grid-cols-2 lg:grid-cols-4`}>
+        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-4`}>
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className={cards.stats}>
               <div className="flex items-center justify-between mb-4">
@@ -117,23 +117,23 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className={spacing.section}>
         {/* Stats Grid */}
-        <div className={`grid ${spacing.cardGap} md:grid-cols-2 lg:grid-cols-4 mb-8`}>
+        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-4 mb-6 sm:mb-8`}>
           {statCards.map((stat) => {
             const Icon = stat.icon;
             return (
               <div key={stat.title} className={cards.stats}>
-                <div className="flex items-center justify-between mb-4">
-                  <p className={typography.caption}>{stat.title}</p>
-                  <div className={`rounded-xl p-3 ${stat.bgColor}`}>
-                    <Icon className={`${icons.default} ${stat.color}`} />
+                <div className="flex items-center justify-between mb-2 sm:mb-4">
+                  <p className={`${typography.caption} text-xs sm:text-sm`}>{stat.title}</p>
+                  <div className={`rounded-lg sm:rounded-xl p-2 sm:p-3 ${stat.bgColor}`}>
+                    <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${stat.color}`} />
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</p>
-                <div className="flex items-center justify-between">
-                  <p className={typography.caption}>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">{stat.value}</p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                  <p className={`${typography.caption} text-xs hidden sm:block`}>
                     {stat.description}
                   </p>
                   <StatChangeBadge
@@ -150,18 +150,18 @@ export default function DashboardPage() {
         {chartsData ? (
           <>
             {/* Primeira linha: Funil de Pipeline e Mensagens */}
-            <div className="grid gap-6 md:grid-cols-2 mb-6">
+            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 mb-4 sm:mb-6">
               <PipelineFunnelChart data={chartsData.pipelineFunnel} />
               <MessagesChart data={chartsData.messagesOverTime} />
             </div>
 
             {/* Segunda linha: Agendamentos ao longo do tempo */}
-            <div className="mb-6">
+            <div className="mb-4 sm:mb-6">
               <AppointmentsChart data={chartsData.appointmentsOverTime} />
             </div>
 
             {/* Terceira linha: Status de Agendamentos e Atividade de Clientes */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
+            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 mb-4 sm:mb-6">
               <AppointmentsStatusChart data={chartsData.appointmentsByStatus} />
               <CustomerActivityChart data={chartsData.customerActivity} />
 

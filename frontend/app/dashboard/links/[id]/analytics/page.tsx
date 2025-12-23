@@ -29,7 +29,7 @@ import {
 import { whatsappLinkService, WhatsAppLink, LinkAnalytics } from '@/lib/whatsapp-link';
 import { toast } from 'react-hot-toast';
 
-const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444'];
+const COLORS = ['#22C55E', '#16A34A', '#15803D', '#14532D', '#4ADE80', '#86EFAC'];
 
 export default function LinkAnalyticsPage() {
   const router = useRouter();
@@ -126,7 +126,7 @@ export default function LinkAnalyticsPage() {
             </h1>
             <div className="flex items-center gap-3 mt-2">
               <code className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded">
-                /l/{link.slug}
+                /{link.slug}
               </code>
               <button
                 onClick={handleCopyLink}
@@ -152,8 +152,8 @@ export default function LinkAnalyticsPage() {
                 key={days}
                 onClick={() => setPeriod(days)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${period === days
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
               >
                 {days} dias
@@ -164,7 +164,7 @@ export default function LinkAnalyticsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-gray-600">Total de Cliques</p>
@@ -183,14 +183,14 @@ export default function LinkAnalyticsPage() {
           <p className="text-xs text-gray-500 mt-1">IPs únicos</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        {/* <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-gray-600">Taxa de Conversão</p>
             <TrendingUp className="h-5 w-5 text-green-600" />
           </div>
           <p className="text-3xl font-bold text-gray-900">{conversionRate}%</p>
           <p className="text-xs text-gray-500 mt-1">Cliques por visitante</p>
-        </div>
+        </div> */}
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-2">
@@ -225,7 +225,7 @@ export default function LinkAnalyticsPage() {
                 labelFormatter={(value) => new Date(value).toLocaleDateString('pt-BR')}
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }}
               />
-              <Line type="monotone" dataKey="count" stroke="#8B5CF6" strokeWidth={2} name="Cliques" />
+              <Line type="monotone" dataKey="count" stroke="#22C55E" strokeWidth={2} name="Cliques" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -304,7 +304,7 @@ export default function LinkAnalyticsPage() {
         </div>
 
         {/* Top Referers */}
-        <div className="bg-white rounded-lg shadow p-6">
+        {/* <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center gap-2 mb-4">
             <ExternalLink className="h-5 w-5 text-orange-600" />
             <h3 className="text-lg font-semibold text-gray-900">Top Origens</h3>
@@ -343,7 +343,7 @@ export default function LinkAnalyticsPage() {
           ) : (
             <p className="text-gray-500 text-center py-8">Nenhum dado disponível</p>
           )}
-        </div>
+        </div> */}
       </div>
     </div>
   );

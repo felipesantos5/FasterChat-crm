@@ -13,11 +13,11 @@ interface AppointmentsChartProps {
 const chartConfig = {
   scheduled: {
     label: "Agendado",
-    color: "#3B82F6",
+    color: "#86EFAC",
   },
   confirmed: {
     label: "Confirmado",
-    color: "#8B5CF6",
+    color: "#4ADE80",
   },
   completed: {
     label: "Concluído",
@@ -93,13 +93,13 @@ export function AppointmentsChart({ data }: AppointmentsChartProps) {
               <Bar
                 dataKey="confirmed"
                 stackId="a"
-                fill="#8B5CF6"
+                fill="#4ADE80"
                 radius={[0, 0, 0, 0]}
               />
               <Bar
                 dataKey="scheduled"
                 stackId="a"
-                fill="#3B82F6"
+                fill="#86EFAC"
                 radius={[0, 0, 0, 0]}
               />
               <Bar

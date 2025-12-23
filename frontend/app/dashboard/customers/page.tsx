@@ -140,34 +140,35 @@ export default function CustomersPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header compacto */}
-      <div className="flex-shrink-0 border-b bg-background p-4">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">
+      <div className="flex-shrink-0 border-b bg-background p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             {total} cliente{total !== 1 ? "s" : ""}
             {hasActiveFilters && " (filtrado)"}
           </p>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)}>
-              <Upload className="h-4 w-4 mr-1" />
-              Importar
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)} className="h-8 px-2 sm:px-3">
+              <Upload className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Importar</span>
             </Button>
             <Button
               size="sm"
+              className="h-8 px-2 sm:px-3"
               onClick={() => {
                 setEditingCustomer(undefined);
                 setModalOpen(true);
               }}
             >
-              <Plus className="h-4 w-4 mr-1" />
-              Novo
+              <Plus className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Novo</span>
             </Button>
           </div>
         </div>
 
         {/* Barra de busca e filtros */}
-        <div className="flex items-center gap-2 mt-4">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex items-center gap-2 mt-3 sm:mt-4">
+          <div className="relative flex-1 sm:max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Buscar nome, telefone ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
             {search && (
@@ -207,8 +208,8 @@ export default function CustomersPage() {
                 style={
                   selectedTags.includes(tag.name)
                     ? {
-                        backgroundColor: tag.color || "#8B5CF6",
-                        borderColor: tag.color || "#8B5CF6",
+                        backgroundColor: tag.color || "#22C55E",
+                        borderColor: tag.color || "#22C55E",
                       }
                     : undefined
                 }
@@ -222,7 +223,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Grid de clientes */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-3 sm:p-4">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-muted-foreground">Carregando...</div>
@@ -245,7 +246,7 @@ export default function CustomersPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {customers.map((customer) => (
               <Card
                 key={customer.id}
