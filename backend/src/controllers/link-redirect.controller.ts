@@ -13,6 +13,8 @@ class LinkRedirectController {
     try {
       const { slug } = req.params;
 
+      console.log(`[LinkRedirect] Processing slug: "${slug}" from ${req.headers.host}`);
+
       // Busca o link pelo slug
       const link = await whatsappLinkService.findBySlug(slug);
 

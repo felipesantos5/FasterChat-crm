@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
 import {
   PipelineFunnelChart,
@@ -18,7 +19,7 @@ import {
   CustomerActivityChart,
 } from "@/components/dashboard/charts";
 import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
-import { Users, MessageSquare, Bot, Activity, Loader2 } from "lucide-react";
+import { Users, MessageSquare, Bot, Activity } from "lucide-react";
 import { cards, typography, spacing, icons } from "@/lib/design-system";
 
 type PeriodType = "today" | "week" | "month";
@@ -77,50 +78,76 @@ export default function DashboardPage() {
       ]
     : [];
 
+  // Loading state unificado
+  const isPageLoading = (isLoading && !stats) || (isLoadingCharts && !chartsData);
+
+  if (isPageLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        {/* Stats Skeletons */}
+        <div className={`grid ${spacing.cardGap} md:grid-cols-2 lg:grid-cols-4`}>
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className={cards.stats}>
+              <div className="flex items-center justify-between mb-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-10 w-10 rounded-xl" />
+              </div>
+              <Skeleton className="h-8 w-16 mb-2" />
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-5 w-12 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Charts Skeletons */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <Skeleton className="h-80 w-full rounded-lg" />
+          <Skeleton className="h-80 w-full rounded-lg" />
+        </div>
+        <Skeleton className="h-72 w-full rounded-lg" />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-64 w-full rounded-lg" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       <div className={spacing.section}>
         {/* Stats Grid */}
-        {isLoading && !stats ? (
-          <div className={`${cards.default} text-center py-16`}>
-            <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto" />
-            <p className={`${typography.body} mt-4 text-gray-600`}>Carregando estatísticas...</p>
-          </div>
-        ) : (
-          <div className={`grid ${spacing.cardGap} md:grid-cols-2 lg:grid-cols-4 mb-8`}>
-            {statCards.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <div key={stat.title} className={cards.stats}>
-                  <div className="flex items-center justify-between mb-4">
-                    <p className={typography.caption}>{stat.title}</p>
-                    <div className={`rounded-xl p-3 ${stat.bgColor}`}>
-                      <Icon className={`${icons.default} ${stat.color}`} />
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</p>
-                  <div className="flex items-center justify-between">
-                    <p className={typography.caption}>
-                      {stat.description}
-                    </p>
-                    <StatChangeBadge 
-                      percentageChange={stat.percentageChange} 
-                      period={period}
-                    />
+        <div className={`grid ${spacing.cardGap} md:grid-cols-2 lg:grid-cols-4 mb-8`}>
+          {statCards.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <div key={stat.title} className={cards.stats}>
+                <div className="flex items-center justify-between mb-4">
+                  <p className={typography.caption}>{stat.title}</p>
+                  <div className={`rounded-xl p-3 ${stat.bgColor}`}>
+                    <Icon className={`${icons.default} ${stat.color}`} />
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <p className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</p>
+                <div className="flex items-center justify-between">
+                  <p className={typography.caption}>
+                    {stat.description}
+                  </p>
+                  <StatChangeBadge
+                    percentageChange={stat.percentageChange}
+                    period={period}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
         {/* Charts Section */}
-        {isLoadingCharts && !chartsData ? (
-          <div className={`${cards.default} text-center py-16`}>
-            <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto" />
-            <p className={`${typography.body} mt-4 text-gray-600`}>Carregando gráficos...</p>
-          </div>
-        ) : chartsData ? (
+        {chartsData ? (
           <>
             {/* Primeira linha: Funil de Pipeline e Mensagens */}
             <div className="grid gap-6 md:grid-cols-2 mb-6">
