@@ -293,112 +293,106 @@ export class GoogleCalendarService {
   /**
    * Lista horários disponíveis em um dia específico
    */
-  async getAvailableSlots(
+async getAvailableSlots(
     companyId: string,
     date: Date,
-    businessHours: { start: number; end: number } = { start: 9, end: 18 }, // 9h às 18h
+    businessHours: { start: number; end: number } = { start: 9, end: 18 },
     slotDuration: number = 60
   ): Promise<TimeSlot[]> {
-    // Garante que a data está no fuso horário correto (Brasil - UTC-3)
-    // Extrai ano, mês e dia da data recebida
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth();
-    const day = date.getUTCDate();
+    // 1. Configuração de Datas (Fuso Horário BR)
+    // Força o timezone para evitar bugs em servidores UTC (Docker)
+    const timeZone = 'America/Sao_Paulo';
+    
+    // Cria o início e fim do dia comercial baseados na data fornecida
+    const startOfDay = new Date(date);
+    startOfDay.setHours(businessHours.start, 0, 0, 0);
+    
+    const endOfDay = new Date(date);
+    endOfDay.setHours(businessHours.end, 0, 0, 0);
 
-    // Cria datas no fuso horário local (não UTC)
-    const dayStart = new Date(year, month, day, businessHours.start, 0, 0, 0);
-    const dayEnd = new Date(year, month, day, businessHours.end, 0, 0, 0);
-
-    console.log(`[GoogleCalendar] Data original: ${date.toISOString()}`);
-    console.log(`[GoogleCalendar] Ano: ${year}, Mês: ${month}, Dia: ${day}`);
-    console.log(`[GoogleCalendar] Buscando slots para ${dayStart.toISOString()} até ${dayEnd.toISOString()}`);
-    console.log(`[GoogleCalendar] Horário local: ${dayStart.toLocaleString('pt-BR')} até ${dayEnd.toLocaleString('pt-BR')}`);
-    console.log(`[GoogleCalendar] Duração do slot: ${slotDuration} minutos`);
-
-    // Busca eventos do Google Calendar
+    // Carrega tokens
     const calendarConfig = await this.loadTokens(companyId);
     const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
+    // 2. Busca Eventos (Expande recorrentes e filtra deletados)
     const response = await calendar.events.list({
       calendarId: calendarConfig.calendarId || 'primary',
-      timeMin: dayStart.toISOString(),
-      timeMax: dayEnd.toISOString(),
-      singleEvents: true,
+      timeMin: startOfDay.toISOString(),
+      timeMax: endOfDay.toISOString(),
+      singleEvents: true, // Expande eventos recorrentes (ex: reunião toda seg-feira)
       orderBy: 'startTime',
+      timeZone, // Importante pedir no timezone correto
     });
 
     const events = response.data.items || [];
-    console.log(`[GoogleCalendar] Encontrados ${events.length} eventos no calendário`);
 
-    // Log dos eventos encontrados
-    events.forEach((event, index) => {
-      const eventStart = new Date(event.start?.dateTime || event.start?.date || '');
-      const eventEnd = new Date(event.end?.dateTime || event.end?.date || '');
-      console.log(`[GoogleCalendar] Evento ${index + 1}:`, {
-        summary: event.summary,
-        start: eventStart.toISOString(),
-        end: eventEnd.toISOString(),
-        startLocal: eventStart.toLocaleString('pt-BR'),
-        endLocal: eventEnd.toLocaleString('pt-BR'),
-      });
-    });
-
-    // Gera slots em intervalos de 15 minutos
+    // 3. Geração de Slots
     const slots: TimeSlot[] = [];
-    let currentTime = this.roundToNext15Minutes(dayStart);
+    let currentTime = this.roundToNext15Minutes(startOfDay);
 
-    while (currentTime < dayEnd) {
+    // Loop para criar slots de tempo
+    while (currentTime < endOfDay) {
       const slotEnd = new Date(currentTime.getTime() + slotDuration * 60000);
 
-      // Verifica se o slot ultrapassa o horário comercial
-      if (slotEnd > dayEnd) {
+      // Se o slot terminar depois do expediente, para o loop
+      if (slotEnd > endOfDay) {
         break;
       }
 
-      // Verifica se o slot conflita com algum evento
+      // 4. Verificação de Conflitos (A Lógica Crítica)
       const conflictingEvent = events.find((event) => {
-        const eventStart = new Date(event.start?.dateTime || event.start?.date || '');
-        const eventEnd = new Date(event.end?.dateTime || event.end?.date || '');
+        // Pula eventos cancelados
+        if (event.status === 'cancelled') return false;
 
-        // Verifica se há sobreposição
-        const hasOverlap = (
-          (currentTime >= eventStart && currentTime < eventEnd) ||
-          (slotEnd > eventStart && slotEnd <= eventEnd) ||
-          (currentTime <= eventStart && slotEnd >= eventEnd)
-        );
+        // Pula eventos marcados como "Livre" (Transparency)
+        // 'transparent' = Livre, 'opaque' = Ocupado (ou null/undefined = Ocupado)
+        if (event.transparency === 'transparent') return false;
+
+        // Normaliza datas do evento
+        let eventStart: Date;
+        let eventEnd: Date;
+
+        if (event.start?.dateTime) {
+          // Evento comum com hora marcada
+          eventStart = new Date(event.start.dateTime);
+          eventEnd = new Date(event.end?.dateTime || event.start.dateTime);
+        } else if (event.start?.date) {
+          // Evento de Dia Inteiro (All Day)
+          // Tratamento especial para evitar bugs de fuso horário
+          const dateString = event.start.date; // "2024-12-25"
+          // Cria data ao meio-dia para garantir que caia no dia certo independente do offset UTC
+          eventStart = new Date(`${dateString}T00:00:00-03:00`); 
+          const endDateString = event.end?.date || dateString;
+          eventEnd = new Date(`${endDateString}T23:59:59-03:00`);
+        } else {
+          return false; // Evento inválido
+        }
+
+        // Verifica sobreposição (Overlap)
+        // (StartA < EndB) and (EndA > StartB)
+        const hasOverlap = (currentTime < eventEnd && slotEnd > eventStart);
 
         return hasOverlap;
       });
 
+      // Se não encontrou conflito, está disponível
       const isAvailable = !conflictingEvent;
 
-      // Log detalhado dos primeiros slots para debug
-      if (slots.length < 3) {
-        console.log(`[GoogleCalendar] Slot ${slots.length + 1}:`, {
-          start: currentTime.toISOString(),
-          end: slotEnd.toISOString(),
-          startLocal: currentTime.toLocaleString('pt-BR'),
-          endLocal: slotEnd.toLocaleString('pt-BR'),
-          available: isAvailable,
-          conflictWith: conflictingEvent?.summary || 'Nenhum',
+      if (isAvailable) {
+         slots.push({
+          start: new Date(currentTime),
+          end: new Date(slotEnd),
+          available: true,
         });
       }
 
-      slots.push({
-        start: new Date(currentTime),
-        end: new Date(slotEnd),
-        available: isAvailable,
-      });
-
-      // Avança 15 minutos
-      currentTime = new Date(currentTime.getTime() + 15 * 60000);
+      // Avança intervalo (ex: slots a cada 30 min ou 60 min)
+      // Dica: Se quiser slots começando a cada hora cheia, use 60. 
+      // Se quiser flexibilidade (9:00, 9:15, 9:30), use 15 ou 30.
+      currentTime = new Date(currentTime.getTime() + 30 * 60000); // Avança 30 min para dar mais opções
     }
 
-    console.log(`[GoogleCalendar] Gerados ${slots.length} slots totais`);
-    console.log(`[GoogleCalendar] ${slots.filter(s => s.available).length} slots disponíveis`);
-
-    // Retorna apenas os slots disponíveis
-    return slots.filter((slot) => slot.available);
+    return slots;
   }
 
   /**

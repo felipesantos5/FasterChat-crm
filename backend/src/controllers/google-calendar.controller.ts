@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { googleCalendarService } from '../services/google-calendar.service';
+import { prisma } from '../utils/prisma';
 
 class GoogleCalendarController {
   /**
@@ -168,11 +169,21 @@ class GoogleCalendarController {
         });
       }
 
+const aiKnowledge = await prisma.aIKnowledge.findUnique({
+        where: { companyId },
+        select: { workingHours: true }
+      });
+
+      // 2. Processa o horário
+      const businessHours = parseWorkingHours(aiKnowledge?.workingHours);
+
       const date = new Date(dateStr);
+      
+      // 3. Passa o horário dinâmico
       const slots = await googleCalendarService.getAvailableSlots(
         companyId,
         date,
-        { start: 9, end: 18 },
+        businessHours, // Agora usa o valor do banco
         duration
       );
 
@@ -224,6 +235,31 @@ class GoogleCalendarController {
       });
     }
   }
+}
+
+function parseWorkingHours(workingHours: string | null | undefined): { start: number; end: number } {
+  const defaultHours = { start: 9, end: 18 };
+
+  if (!workingHours) return defaultHours;
+
+  try {
+    // Regex para capturar formato "08:00 às 18:00", "8h-18h", "08 - 18"
+    const match = workingHours.toLowerCase().match(/(\d{1,2})(?:[:h])?.*?(?:às|as|a|-)\s*(\d{1,2})/);
+
+    if (match) {
+      const start = parseInt(match[1]);
+      const end = parseInt(match[2]);
+
+      // Validação básica de sanidade do horário (0-24h)
+      if (!isNaN(start) && !isNaN(end) && start >= 0 && end <= 24 && start < end) {
+        return { start, end };
+      }
+    }
+  } catch {
+    return defaultHours;
+  }
+
+  return defaultHours;
 }
 
 export default new GoogleCalendarController();
