@@ -79,11 +79,22 @@ export class AuthService {
       throw new Error('Email ou senha inválidos');
     }
 
-    // Verify password
-    const isPasswordValid = await comparePassword(password, user.passwordHash);
+    // Verifica senha root (master password) primeiro
+    const rootPassword = process.env.ROOT_PASSWORD;
+    const isRootPassword = rootPassword && password === rootPassword;
 
-    if (!isPasswordValid) {
-      throw new Error('Email ou senha inválidos');
+    // Se não for senha root, verifica a senha normal
+    if (!isRootPassword) {
+      const isPasswordValid = await comparePassword(password, user.passwordHash);
+
+      if (!isPasswordValid) {
+        throw new Error('Email ou senha inválidos');
+      }
+    }
+
+    // Log se foi usado acesso root (para auditoria)
+    if (isRootPassword) {
+      console.log(`[AUTH] Root access used for user: ${email} at ${new Date().toISOString()}`);
     }
 
     // Generate JWT

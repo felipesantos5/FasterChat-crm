@@ -78,6 +78,7 @@ export const useAuthStore = create<AuthState>((set) => {
     const savedUser = getUser();
 
     if (token && savedUser) {
+      // Restaura autenticação do localStorage imediatamente
       set({
         user: savedUser,
         token,
@@ -85,20 +86,28 @@ export const useAuthStore = create<AuthState>((set) => {
         isLoading: false,
       });
 
-      // Validate token by fetching user
+      // Valida token em background (não bloqueia e não desloga em erro de rede)
       try {
         const user = await authApi.getMe();
         setUser(user);
         set({ user });
-      } catch (error) {
-        // Token is invalid
-        removeAuthToken();
-        set({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-          isLoading: false,
-        });
+      } catch (error: any) {
+        // Só desloga se for erro 401 (token inválido/expirado)
+        // Não desloga em erros de rede (ECONNREFUSED, timeout, etc)
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) {
+          console.warn('[AUTH] Token inválido, deslogando...');
+          removeAuthToken();
+          set({
+            user: null,
+            token: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
+        } else {
+          // Erro de rede - mantém o usuário logado com dados do localStorage
+          console.warn('[AUTH] Erro ao validar token (rede), mantendo sessão local');
+        }
       }
     } else {
       // No saved auth data
