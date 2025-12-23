@@ -1,0 +1,11 @@
+# Robots.txt for FasterChat
+
+User-agent: *
+Allow: /
+
+# Bloqueia areas privadas
+Disallow: /dashboard/
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://admin.fasterchat.com.br/sitemap.xml
