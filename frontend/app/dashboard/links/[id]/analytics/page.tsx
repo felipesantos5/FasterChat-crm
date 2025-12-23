@@ -76,7 +76,7 @@ export default function LinkAnalyticsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
       </div>
     );
   }
@@ -88,7 +88,7 @@ export default function LinkAnalyticsPage() {
           <p className="text-gray-600">Link não encontrado</p>
           <button
             onClick={() => router.push('/dashboard/links')}
-            className="mt-4 text-purple-600 hover:text-purple-800"
+            className="mt-4 text-green-600 hover:text-green-800"
           >
             Voltar para links
           </button>
@@ -121,7 +121,7 @@ export default function LinkAnalyticsPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <BarChart2 className="h-6 w-6 text-purple-600" />
+              <BarChart2 className="h-6 w-6 text-green-600" />
               Analytics - {link.name}
             </h1>
             <div className="flex items-center gap-3 mt-2">
@@ -137,7 +137,7 @@ export default function LinkAnalyticsPage() {
               </button>
               <button
                 onClick={() => window.open(link.url, '_blank')}
-                className="text-purple-600 hover:text-purple-800 flex items-center gap-1 text-sm"
+                className="text-green-600 hover:text-green-800 flex items-center gap-1 text-sm"
               >
                 <ExternalLink className="h-4 w-4" />
                 Testar link
@@ -151,11 +151,10 @@ export default function LinkAnalyticsPage() {
               <button
                 key={days}
                 onClick={() => setPeriod(days)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  period === days
-                    ? 'bg-purple-600 text-white'
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${period === days
+                    ? 'bg-green-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
               >
                 {days} dias
               </button>
@@ -169,7 +168,7 @@ export default function LinkAnalyticsPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-gray-600">Total de Cliques</p>
-            <MousePointerClick className="h-5 w-5 text-purple-600" />
+            <MousePointerClick className="h-5 w-5 text-green-600" />
           </div>
           <p className="text-3xl font-bold text-gray-900">{analytics.totalClicks}</p>
           <p className="text-xs text-gray-500 mt-1">Últimos {period} dias</p>
@@ -210,7 +209,7 @@ export default function LinkAnalyticsPage() {
         {/* Cliques por Dia */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Calendar className="h-5 w-5 text-purple-600" />
+            <Calendar className="h-5 w-5 text-green-600" />
             <h3 className="text-lg font-semibold text-gray-900">Cliques por Dia</h3>
           </div>
           <ResponsiveContainer width="100%" height={300}>

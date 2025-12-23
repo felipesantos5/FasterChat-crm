@@ -103,7 +103,7 @@ export default function LinksPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
       </div>
     );
   }
@@ -130,8 +130,8 @@ export default function LinksPage() {
                 <p className={typography.caption}>Total de Links</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{links.length}</p>
               </div>
-              <div className="bg-purple-100 p-4 rounded-xl">
-                <LinkIcon className={`${icons.large} text-purple-600`} />
+              <div className="bg-green-100 p-4 rounded-xl">
+                <LinkIcon className={`${icons.large} text-green-600`} />
               </div>
             </div>
           </div>
@@ -183,102 +183,102 @@ export default function LinksPage() {
           </div>
         ) : (
           <div className={cards.default}>
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome / Link</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">WhatsApp</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliques</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Criado em</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {links.map((link) => (
-                <tr key={link.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <div className="text-sm font-medium text-gray-900">{link.name}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <code className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">/l/{link.slug}</code>
-                        <button onClick={() => handleCopyLink(link.url)} className="text-gray-400 hover:text-gray-600" title="Copiar link">
-                          <Copy className="h-4 w-4" />
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome / Link</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">WhatsApp</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliques</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Criado em</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {links.map((link) => (
+                  <tr key={link.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <div className="text-sm font-medium text-gray-900">{link.name}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <code className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">/l/{link.slug}</code>
+                          <button onClick={() => handleCopyLink(link.url)} className="text-gray-400 hover:text-gray-600" title="Copiar link">
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{formatPhoneNumber(link.phoneNumber)}</div>
+                      {link.message && <div className="text-xs text-gray-500 truncate max-w-xs">{link.message}</div>}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-900">{link.clicks}</span>
+                        <button
+                          onClick={() => router.push(`/dashboard/links/${link.id}/analytics`)}
+                          className="text-green-600 hover:text-green-800"
+                          title="Ver analytics"
+                        >
+                          <BarChart2 className="h-4 w-4" />
                         </button>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{formatPhoneNumber(link.phoneNumber)}</div>
-                    {link.message && <div className="text-xs text-gray-500 truncate max-w-xs">{link.message}</div>}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-900">{link.clicks}</span>
-                      <button
-                        onClick={() => router.push(`/dashboard/links/${link.id}/analytics`)}
-                        className="text-purple-600 hover:text-purple-800"
-                        title="Ver analytics"
-                      >
-                        <BarChart2 className="h-4 w-4" />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button onClick={() => handleToggleActive(link)}>
+                        {link.isActive ? (
+                          <span className={badges.success}>
+                            <CheckCircle2 className={`${icons.small} mr-1`} />
+                            Ativo
+                          </span>
+                        ) : (
+                          <span className={badges.neutral}>
+                            <XCircle className={`${icons.small} mr-1`} />
+                            Inativo
+                          </span>
+                        )}
                       </button>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button onClick={() => handleToggleActive(link)}>
-                      {link.isActive ? (
-                        <span className={badges.success}>
-                          <CheckCircle2 className={`${icons.small} mr-1`} />
-                          Ativo
-                        </span>
-                      ) : (
-                        <span className={badges.neutral}>
-                          <XCircle className={`${icons.small} mr-1`} />
-                          Inativo
-                        </span>
-                      )}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={typography.body}>{formatDate(link.createdAt)}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-3">
-                      <button
-                        onClick={() => router.push(`/dashboard/links/${link.id}/analytics`)}
-                        className="p-2.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                        title="Ver métricas"
-                      >
-                        <BarChart2 className={icons.default} />
-                      </button>
-                      <button
-                        onClick={() => window.open(link.url, "_blank")}
-                        className="p-2.5 text-gray-600 hover:bg-gray-50 rounded-lg transition-all"
-                        title="Testar link"
-                      >
-                        <ExternalLink className={icons.default} />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(link)}
-                        className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                        title="Editar"
-                      >
-                        <Edit2 className={icons.default} />
-                      </button>
-                      <button
-                        onClick={() => setDeletingLink(link)}
-                        className="p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                        title="Deletar"
-                      >
-                        <Trash2 className={icons.default} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={typography.body}>{formatDate(link.createdAt)}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => router.push(`/dashboard/links/${link.id}/analytics`)}
+                          className="p-2.5 text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                          title="Ver métricas"
+                        >
+                          <BarChart2 className={icons.default} />
+                        </button>
+                        <button
+                          onClick={() => window.open(link.url, "_blank")}
+                          className="p-2.5 text-gray-600 hover:bg-gray-50 rounded-lg transition-all"
+                          title="Testar link"
+                        >
+                          <ExternalLink className={icons.default} />
+                        </button>
+                        <button
+                          onClick={() => handleEdit(link)}
+                          className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                          title="Editar"
+                        >
+                          <Edit2 className={icons.default} />
+                        </button>
+                        <button
+                          onClick={() => setDeletingLink(link)}
+                          className="p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          title="Deletar"
+                        >
+                          <Trash2 className={icons.default} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {/* Modals */}

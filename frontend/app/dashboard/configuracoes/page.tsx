@@ -62,8 +62,8 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <User className="h-5 w-5 text-purple-600" />
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <User className="h-5 w-5 text-green-600" />
                   </div>
                   <div>
                     <CardTitle>Seu Perfil</CardTitle>

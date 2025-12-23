@@ -91,13 +91,13 @@ export default function OnboardingPage() {
 
           {/* PASSO 2: CONFIGURAR IA */}
           {!status?.aiConfigured && (
-            <Card className="border-l-4 border-l-purple-500 shadow-md hover:shadow-lg transition-shadow">
+            <Card className="border-l-4 border-l-green-500 shadow-md hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Bot className="h-6 w-6 text-purple-600" />
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Bot className="h-6 w-6 text-green-600" />
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-purple-600">Essencial</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-green-600">Essencial</span>
                 </div>
                 <CardTitle>Treinar a IA</CardTitle>
                 <CardDescription>Faça upload de PDFs ou textos sobre sua empresa para a IA saber o que responder.</CardDescription>

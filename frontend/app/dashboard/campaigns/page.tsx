@@ -189,7 +189,7 @@ export default function CampaignsPage() {
         {/* Campaigns List */}
         {loading ? (
           <div className={`${cards.default} text-center py-16`}>
-            <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto" />
+            <Loader2 className="h-12 w-12 animate-spin text-green-600 mx-auto" />
             <p className={`${typography.body} mt-4 text-gray-600`}>Carregando campanhas...</p>
           </div>
         ) : campaigns.length === 0 ? (
@@ -211,175 +211,175 @@ export default function CampaignsPage() {
           <div className={`${spacing.element} space-y-6`}>
             {campaigns.map((campaign) => (
               <div key={campaign.id} className={cards.hover}>
-              <div className="flex items-start justify-between">
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <h3 className="text-lg font-semibold">{campaign.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {campaign.messageTemplate.substring(0, 100)}
-                      {campaign.messageTemplate.length > 100 ? '...' : ''}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Status:</span>
-                      {getStatusBadge(campaign.status)}
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <h3 className="text-lg font-semibold">{campaign.name}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {campaign.messageTemplate.substring(0, 100)}
+                        {campaign.messageTemplate.length > 100 ? '...' : ''}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Tipo:</span>
-                      {getTypeBadge(campaign.type)}
-                    </div>
-                    {campaign.type === CampaignType.SCHEDULED && campaign.scheduledAt && (
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Agendado para:</span>
-                        <span className="font-medium">
-                          {format(new Date(campaign.scheduledAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          ({formatDate(campaign.scheduledAt)})
-                        </span>
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Tags alvo:</span>
-                      <div className="flex gap-1 flex-wrap">
-                        {campaign.targetTags.map((tag) => (
-                          <Badge key={tag} variant="secondary">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {(campaign.sentCount > 0 || campaign.failedCount > 0) && (
                     <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Enviadas:</span>
-                        <span className="font-medium text-green-600">{campaign.sentCount}</span>
+                        <span className="text-muted-foreground">Status:</span>
+                        {getStatusBadge(campaign.status)}
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Falharam:</span>
-                        <span className="font-medium text-destructive">{campaign.failedCount}</span>
+                        <span className="text-muted-foreground">Tipo:</span>
+                        {getTypeBadge(campaign.type)}
+                      </div>
+                      {campaign.type === CampaignType.SCHEDULED && campaign.scheduledAt && (
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Agendado para:</span>
+                          <span className="font-medium">
+                            {format(new Date(campaign.scheduledAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            ({formatDate(campaign.scheduledAt)})
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">Tags alvo:</span>
+                        <div className="flex gap-1 flex-wrap">
+                          {campaign.targetTags.map((tag) => (
+                            <Badge key={tag} variant="secondary">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  )}
 
-                  <div className="text-xs text-muted-foreground">
-                    Criada {formatDate(campaign.createdAt)}
+                    {(campaign.sentCount > 0 || campaign.failedCount > 0) && (
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">Enviadas:</span>
+                          <span className="font-medium text-green-600">{campaign.sentCount}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">Falharam:</span>
+                          <span className="font-medium text-destructive">{campaign.failedCount}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-xs text-muted-foreground">
+                      Criada {formatDate(campaign.createdAt)}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 ml-4">
+                    {campaign.status === CampaignStatus.DRAFT && (
+                      <>
+                        <Button
+                          onClick={() => handleEdit(campaign)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          onClick={() => handleSchedule(campaign)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Calendar className="h-4 w-4 mr-1" />
+                          Agendar
+                        </Button>
+                        <Button
+                          onClick={() => handleExecute(campaign.id)}
+                          size="sm"
+                          disabled={sendingCampaignId === campaign.id}
+                        >
+                          {sendingCampaignId === campaign.id ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4 mr-1" />
+                          )}
+                          Disparar Agora
+                        </Button>
+                      </>
+                    )}
+
+                    {campaign.status === CampaignStatus.PENDING && (
+                      <>
+                        <Button
+                          onClick={() => handleExecute(campaign.id)}
+                          size="sm"
+                          disabled={sendingCampaignId === campaign.id}
+                        >
+                          {sendingCampaignId === campaign.id ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4 mr-1" />
+                          )}
+                          Executar Agora
+                        </Button>
+                        <Button
+                          onClick={() => handleCancelExecution(campaign.id)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Cancelar
+                        </Button>
+                      </>
+                    )}
+
+                    {campaign.status === CampaignStatus.PROCESSING && (
+                      <>
+                        <Button
+                          onClick={() => handleViewStats(campaign.id)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <BarChart3 className="h-4 w-4 mr-1" />
+                          Ver Progresso
+                        </Button>
+                        <Button
+                          onClick={() => handleCancelExecution(campaign.id)}
+                          variant="destructive"
+                          size="sm"
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Parar
+                        </Button>
+                      </>
+                    )}
+
+                    {(campaign.status === CampaignStatus.COMPLETED ||
+                      campaign.status === CampaignStatus.FAILED ||
+                      campaign.status === CampaignStatus.CANCELED) && (
+                        <>
+                          <Button
+                            onClick={() => handleViewStats(campaign.id)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <BarChart3 className="h-4 w-4 mr-1" />
+                            Estatísticas
+                          </Button>
+                          <Button
+                            onClick={() => handleDelete(campaign.id)}
+                            variant="destructive"
+                            size="sm"
+                          >
+                            <Trash className="h-4 w-4 mr-1" />
+                            Excluir
+                          </Button>
+                        </>
+                      )}
                   </div>
                 </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2 ml-4">
-                  {campaign.status === CampaignStatus.DRAFT && (
-                    <>
-                      <Button
-                        onClick={() => handleEdit(campaign)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Editar
-                      </Button>
-                      <Button
-                        onClick={() => handleSchedule(campaign)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Calendar className="h-4 w-4 mr-1" />
-                        Agendar
-                      </Button>
-                      <Button
-                        onClick={() => handleExecute(campaign.id)}
-                        size="sm"
-                        disabled={sendingCampaignId === campaign.id}
-                      >
-                        {sendingCampaignId === campaign.id ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4 mr-1" />
-                        )}
-                        Disparar Agora
-                      </Button>
-                    </>
-                  )}
-
-                  {campaign.status === CampaignStatus.PENDING && (
-                    <>
-                      <Button
-                        onClick={() => handleExecute(campaign.id)}
-                        size="sm"
-                        disabled={sendingCampaignId === campaign.id}
-                      >
-                        {sendingCampaignId === campaign.id ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4 mr-1" />
-                        )}
-                        Executar Agora
-                      </Button>
-                      <Button
-                        onClick={() => handleCancelExecution(campaign.id)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        Cancelar
-                      </Button>
-                    </>
-                  )}
-
-                  {campaign.status === CampaignStatus.PROCESSING && (
-                    <>
-                      <Button
-                        onClick={() => handleViewStats(campaign.id)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <BarChart3 className="h-4 w-4 mr-1" />
-                        Ver Progresso
-                      </Button>
-                      <Button
-                        onClick={() => handleCancelExecution(campaign.id)}
-                        variant="destructive"
-                        size="sm"
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        Parar
-                      </Button>
-                    </>
-                  )}
-
-                  {(campaign.status === CampaignStatus.COMPLETED ||
-                    campaign.status === CampaignStatus.FAILED ||
-                    campaign.status === CampaignStatus.CANCELED) && (
-                    <>
-                      <Button
-                        onClick={() => handleViewStats(campaign.id)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <BarChart3 className="h-4 w-4 mr-1" />
-                        Estatísticas
-                      </Button>
-                      <Button
-                        onClick={() => handleDelete(campaign.id)}
-                        variant="destructive"
-                        size="sm"
-                      >
-                        <Trash className="h-4 w-4 mr-1" />
-                        Excluir
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
               </div>
             ))}
           </div>

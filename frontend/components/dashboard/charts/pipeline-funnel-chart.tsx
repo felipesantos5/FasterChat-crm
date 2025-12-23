@@ -26,7 +26,7 @@ export function PipelineFunnelChart({ data }: PipelineFunnelChartProps) {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div>
           <CardTitle className="text-base font-medium flex items-center gap-2">
-            <Users className="h-4 w-4 text-purple-600" />
+            <Users className="h-4 w-4 text-green-600" />
             Funil de Clientes
           </CardTitle>
           <CardDescription>

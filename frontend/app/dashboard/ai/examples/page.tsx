@@ -134,9 +134,8 @@ export default function ExamplesPage() {
                 return (
                   <div key={message.id} className={`flex ${isInbound ? "justify-start" : "justify-end"}`}>
                     <div
-                      className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                        isInbound ? "bg-muted text-foreground" : isAi ? "bg-purple-500 text-white" : "bg-primary text-primary-foreground"
-                      }`}
+                      className={`max-w-[70%] rounded-lg px-4 py-2 ${isInbound ? "bg-muted text-foreground" : isAi ? "bg-green-500 text-white" : "bg-primary text-primary-foreground"
+                        }`}
                     >
                       {!isInbound && (
                         <div className="flex items-center gap-1 mb-1">

@@ -151,8 +151,8 @@ export function Header() {
       <div className="flex flex-1 items-center justify-between">
         {/* Current Page Info */}
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100">
-            <PageIcon className="h-5 w-5 text-purple-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-100">
+            <PageIcon className="h-5 w-5 text-green-600" />
           </div>
           <div>
             <h1 className="text-base font-semibold text-gray-900">{currentPage.label}</h1>

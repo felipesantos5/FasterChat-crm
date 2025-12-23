@@ -34,7 +34,7 @@ interface ManageStagesModalProps {
 const PRESET_COLORS = [
   "#94A3B8", // Slate
   "#3B82F6", // Blue
-  "#8B5CF6", // Purple
+  "#8B5CF6", // green
   "#EC4899", // Pink
   "#F59E0B", // Amber
   "#10B981", // Emerald
@@ -241,10 +241,10 @@ export function ManageStagesModal({
               className={cn(
                 "flex items-center gap-3 p-3 rounded-lg border bg-white transition-all",
                 editingId === stage.id
-                  ? "border-purple-300 ring-2 ring-purple-100"
+                  ? "border-green-300 ring-2 ring-green-100"
                   : dragOverIndex === index
-                  ? "border-purple-400 border-2 bg-purple-50"
-                  : "border-gray-200 hover:border-gray-300",
+                    ? "border-green-400 border-2 bg-green-50"
+                    : "border-gray-200 hover:border-gray-300",
                 draggedIndex === index && "opacity-50"
               )}
             >
@@ -372,7 +372,7 @@ export function ManageStagesModal({
 
           {/* Adicionar novo estágio */}
           {isAdding ? (
-            <div className="p-3 rounded-lg border border-purple-300 bg-purple-50/50 space-y-3">
+            <div className="p-3 rounded-lg border border-green-300 bg-green-50/50 space-y-3">
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}

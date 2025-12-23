@@ -145,8 +145,8 @@ export default function CustomerDetailPage() {
             )}
 
             <div className="flex items-start gap-3">
-              <div className="rounded-full bg-purple-100 p-2">
-                <Calendar className="h-4 w-4 text-purple-600" />
+              <div className="rounded-full bg-green-100 p-2">
+                <Calendar className="h-4 w-4 text-green-600" />
               </div>
               <div>
                 <p className="text-sm font-medium">Cliente desde</p>
@@ -171,19 +171,19 @@ export default function CustomerDetailPage() {
           </CardContent>
         </Card>
 
-              {customer.notes && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Observações
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap">{customer.notes}</p>
-          </CardContent>
-        </Card>
-      )}
+        {customer.notes && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Observações
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm whitespace-pre-wrap">{customer.notes}</p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Timeline / Quick Stats */}
         {/* <div className="space-y-6 p-8">

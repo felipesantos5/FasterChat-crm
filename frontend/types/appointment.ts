@@ -97,7 +97,7 @@ export const AppointmentStatusColors: Record<AppointmentStatus, string> = {
 };
 
 export const AppointmentTypeColors: Record<AppointmentType, string> = {
-  [AppointmentType.VISIT]: 'bg-purple-500',
+  [AppointmentType.VISIT]: 'bg-green-500',
   [AppointmentType.INSTALLATION]: 'bg-blue-500',
   [AppointmentType.MAINTENANCE]: 'bg-orange-500',
   [AppointmentType.CONSULTATION]: 'bg-green-500',

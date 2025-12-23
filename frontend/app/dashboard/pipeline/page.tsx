@@ -207,7 +207,7 @@ export default function PipelinePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
       </div>
     );
   }
@@ -229,8 +229,8 @@ export default function PipelinePage() {
           <div className="flex gap-4">
             <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm w-56">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Users className="h-5 w-5 text-purple-600" />
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Users className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Total de Leads</p>
@@ -264,7 +264,7 @@ export default function PipelinePage() {
               key={stageData.stage.id}
               className={cn(
                 "flex-shrink-0 w-72 flex flex-col rounded-xl bg-white border shadow-sm transition-all",
-                dragOverStageId === stageData.stage.id ? "border-purple-400 ring-2 ring-purple-100" : "border-gray-200"
+                dragOverStageId === stageData.stage.id ? "border-green-400 ring-2 ring-green-100" : "border-gray-200"
               )}
               onDragOver={(e) => handleDragOver(e, stageData.stage.id)}
               onDragLeave={handleDragLeave}

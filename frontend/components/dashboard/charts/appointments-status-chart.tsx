@@ -30,7 +30,7 @@ export function AppointmentsStatusChart({ data }: AppointmentsStatusChartProps) 
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-medium flex items-center gap-2">
-          <PieChartIcon className="h-4 w-4 text-purple-600" />
+          <PieChartIcon className="h-4 w-4 text-green-600" />
           Agendamentos por Status
         </CardTitle>
         <CardDescription>

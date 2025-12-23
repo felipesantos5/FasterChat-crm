@@ -442,7 +442,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
               {togglingAi ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : isAiEnabled ? (
-                <span className="flex items-center gap-1 text-purple-600">
+                <span className="flex items-center gap-1 text-green-600">
                   <Bot className="h-3 w-3" />
                   IA
                 </span>
@@ -514,7 +514,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                 <div
                   className={cn(
                     "max-w-[70%] rounded-lg px-4 py-2",
-                    isInbound ? "bg-muted text-foreground" : isAi ? "bg-purple-500 text-white" : "bg-primary text-primary-foreground"
+                    isInbound ? "bg-muted text-foreground" : isAi ? "bg-green-500 text-white" : "bg-primary text-primary-foreground"
                   )}
                 >
                   {!isInbound && (
@@ -587,9 +587,9 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
         {/* AI Processing/Typing Indicator - só aparece se IA estiver habilitada */}
         {isAiEnabled && (aiProcessing || isTyping) && (
           <div className="flex justify-start">
-            <div className="max-w-[70%] rounded-lg px-4 py-2 bg-purple-100 dark:bg-purple-900/30">
+            <div className="max-w-[70%] rounded-lg px-4 py-2 bg-green-100 dark:bg-green-900/30">
               <div className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <Bot className="h-4 w-4 text-green-600 dark:text-green-400" />
                 <div className="flex gap-1">
                   <span className="animate-bounce" style={{ animationDelay: "0ms" }}>
                     ●
@@ -601,7 +601,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                     ●
                   </span>
                 </div>
-                <span className="text-sm text-purple-600 dark:text-purple-400">{isTyping ? "IA está digitando..." : "IA está pensando..."}</span>
+                <span className="text-sm text-green-600 dark:text-green-400">{isTyping ? "IA está digitando..." : "IA está pensando..."}</span>
               </div>
             </div>
           </div>

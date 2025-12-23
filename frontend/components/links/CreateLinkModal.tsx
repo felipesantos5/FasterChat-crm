@@ -103,7 +103,7 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Link className="h-5 w-5 text-purple-600" />
+              <Link className="h-5 w-5 text-green-600" />
               {isEditing ? "Editar Link" : "Criar Novo Link"}
             </h2>
             <p className="text-sm text-gray-600 mt-1">
@@ -125,9 +125,8 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
               value={formData.name}
               onChange={(e) => handleChange("name", e.target.value)}
               placeholder="Ex: Instagram Bio, Campanha Black Friday"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                errors.name ? "border-red-500" : "border-gray-300"
-              }`}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${errors.name ? "border-red-500" : "border-gray-300"
+                }`}
             />
             {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
             <p className="text-xs text-gray-500 mt-1">Nome descritivo para identificar o link internamente</p>
@@ -147,9 +146,8 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
                     value={formData.slug}
                     onChange={(e) => handleChange("slug", e.target.value.toLowerCase())}
                     placeholder="meu-link"
-                    className={`flex-1 px-4 py-2 border rounded-r-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.slug ? "border-red-500" : "border-gray-300"
-                    }`}
+                    className={`flex-1 px-4 py-2 border rounded-r-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${errors.slug ? "border-red-500" : "border-gray-300"
+                      }`}
                   />
                 </div>
               </div>
@@ -170,9 +168,8 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
               onChange={(e) => handleChange("phoneNumber", e.target.value.replace(/\D/g, ""))}
               placeholder="5511999999999"
               maxLength={15}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                errors.phoneNumber ? "border-red-500" : "border-gray-300"
-              }`}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${errors.phoneNumber ? "border-red-500" : "border-gray-300"
+                }`}
             />
             {errors.phoneNumber && <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>}
             <p className="text-xs text-gray-500 mt-1">Formato: código do país + DDD + número (apenas números, sem espaços)</p>
@@ -190,7 +187,7 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
               placeholder="Olá! Vim através do link..."
               rows={3}
               maxLength={1000}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             />
             <div className="flex items-center justify-between mt-1">
               <p className="text-xs text-gray-500">Mensagem que aparecerá automaticamente no WhatsApp</p>
@@ -210,7 +207,7 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
               onChange={(e) => handleChange("autoTag", e.target.value)}
               placeholder="Ex: Via Instagram, Campanha Black Friday"
               maxLength={50}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             />
             <p className="text-xs text-gray-500 mt-1">
               Esta tag será adicionada automaticamente ao cliente quando ele enviar uma mensagem através deste link
@@ -229,7 +226,7 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading ? (
                 <>

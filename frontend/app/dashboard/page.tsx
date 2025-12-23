@@ -39,43 +39,43 @@ export default function DashboardPage() {
   // Transforma o objeto stats em um array para renderização
   const statCards = stats
     ? [
-        {
-          title: "Novos Clientes",
-          value: stats.totalCustomers.current,
-          percentageChange: stats.totalCustomers.percentageChange,
-          icon: Users,
-          color: "text-blue-600",
-          bgColor: "bg-blue-100 dark:bg-blue-900/30",
-          description: "Total de novos cadastros",
-        },
-        {
-          title: "Conversas Ativas",
-          value: stats.activeConversations.current,
-          percentageChange: stats.activeConversations.percentageChange,
-          icon: MessageSquare,
-          color: "text-green-600",
-          bgColor: "bg-green-100 dark:bg-green-900/30",
-          description: "Conversas com interação",
-        },
-        {
-          title: "Mensagens Recebidas",
-          value: stats.messagesReceived.current,
-          percentageChange: stats.messagesReceived.percentageChange,
-          icon: Activity,
-          color: "text-orange-600",
-          bgColor: "bg-orange-100 dark:bg-orange-900/30",
-          description: "Volume total de mensagens",
-        },
-        {
-          title: "Respostas da IA",
-          value: stats.messagesWithAI.current,
-          percentageChange: stats.messagesWithAI.percentageChange,
-          icon: Bot,
-          color: "text-purple-600",
-          bgColor: "bg-purple-100 dark:bg-purple-900/30",
-          description: "Automação de respostas",
-        },
-      ]
+      {
+        title: "Novos Clientes",
+        value: stats.totalCustomers.current,
+        percentageChange: stats.totalCustomers.percentageChange,
+        icon: Users,
+        color: "text-blue-600",
+        bgColor: "bg-blue-100 dark:bg-blue-900/30",
+        description: "Total de novos cadastros",
+      },
+      {
+        title: "Conversas Ativas",
+        value: stats.activeConversations.current,
+        percentageChange: stats.activeConversations.percentageChange,
+        icon: MessageSquare,
+        color: "text-green-600",
+        bgColor: "bg-green-100 dark:bg-green-900/30",
+        description: "Conversas com interação",
+      },
+      {
+        title: "Mensagens Recebidas",
+        value: stats.messagesReceived.current,
+        percentageChange: stats.messagesReceived.percentageChange,
+        icon: Activity,
+        color: "text-orange-600",
+        bgColor: "bg-orange-100 dark:bg-orange-900/30",
+        description: "Volume total de mensagens",
+      },
+      {
+        title: "Respostas da IA",
+        value: stats.messagesWithAI.current,
+        percentageChange: stats.messagesWithAI.percentageChange,
+        icon: Bot,
+        color: "text-green-600",
+        bgColor: "bg-green-100 dark:bg-green-900/30",
+        description: "Automação de respostas",
+      },
+    ]
     : [];
 
   // Loading state unificado

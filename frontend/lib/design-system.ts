@@ -9,7 +9,7 @@ export const spacing = {
 };
 
 export const colors = {
-  primary: "bg-purple-600 hover:bg-purple-700 text-white",
+  primary: "bg-green-600 hover:bg-green-700 text-white",
   secondary: "bg-gray-100 hover:bg-gray-200 text-gray-900",
   success: "bg-green-600 hover:bg-green-700 text-white",
   danger: "bg-red-600 hover:bg-red-700 text-white",
@@ -30,13 +30,13 @@ export const buttons = {
 
   // Variantes
   primary:
-    "px-6 py-2.5 text-base font-medium rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-all duration-200 shadow-sm hover:shadow-md h-10",
+    "px-6 py-2.5 text-base font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white transition-all duration-200 shadow-sm hover:shadow-md h-10",
   secondary:
     "px-6 py-2.5 text-base font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-300 transition-all duration-200",
   success:
     "px-6 py-2.5 text-base font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white transition-all duration-200 shadow-sm hover:shadow-md",
   danger: "px-6 py-2.5 text-base font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all duration-200 shadow-sm hover:shadow-md",
-  outline: "px-6 py-2.5 text-base font-medium rounded-lg border-2 border-purple-600 text-purple-600 hover:bg-purple-50 transition-all duration-200",
+  outline: "px-6 py-2.5 text-base font-medium rounded-lg border-2 border-green-600 text-green-600 hover:bg-green-50 transition-all duration-200",
   ghost: "px-6 py-2.5 text-base font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition-all duration-200",
 };
 
@@ -63,13 +63,13 @@ export const layout = {
 };
 
 export const forms = {
-  input: "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all",
+  input: "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all",
   label: "block text-sm font-medium text-gray-700 mb-2",
   error: "text-sm text-red-600 mt-1",
   select:
-    "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white",
+    "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all bg-white",
   textarea:
-    "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none",
+    "w-full px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none",
 };
 
 export const badges = {

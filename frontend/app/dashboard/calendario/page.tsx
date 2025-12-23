@@ -314,7 +314,7 @@ export default function CalendarioPage() {
           <div className={cards.stats}>
             <div className="flex flex-col">
               <p className={typography.caption}>Próximos 7 dias</p>
-              <p className="text-3xl font-bold text-purple-600 mt-2">{upcomingAppointments.length}</p>
+              <p className="text-3xl font-bold text-green-600 mt-2">{upcomingAppointments.length}</p>
               <p className={`${typography.caption} mt-1`}>Agendamentos próximos</p>
             </div>
           </div>
@@ -329,175 +329,175 @@ export default function CalendarioPage() {
 
         {/* Calendar */}
         <div className={cards.default}>
-        <div className="calendar-container" style={{ height: "700px" }}>
-          <BigCalendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            view={view}
-            onView={setView}
-            date={date}
-            onNavigate={setDate}
-            messages={messages}
-            culture="pt-BR"
-            eventPropGetter={eventStyleGetter}
-            onSelectEvent={handleSelectEvent}
-            onSelectSlot={handleSelectSlot}
-            selectable
-            popup
-            views={["month", "week", "day", "agenda"]}
-            step={30}
-            timeslots={2}
-            min={new Date(2024, 0, 1, 6, 0, 0)} // 06:00
-            max={new Date(2024, 0, 1, 23, 0, 0)} // 23:00
-            showMultiDayTimes
-            defaultDate={new Date()}
-            defaultView="week"
-            formats={{
-              timeGutterFormat: (date, culture, localizer) =>
-                localizer?.format(date, "HH:mm", culture) || "",
-              eventTimeRangeFormat: ({ start, end }, culture, localizer) =>
-                `${localizer?.format(start, "HH:mm", culture)} - ${localizer?.format(end, "HH:mm", culture)}`,
-              agendaTimeRangeFormat: ({ start, end }, culture, localizer) =>
-                `${localizer?.format(start, "HH:mm", culture)} - ${localizer?.format(end, "HH:mm", culture)}`,
-            }}
-          />
-        </div>
+          <div className="calendar-container" style={{ height: "700px" }}>
+            <BigCalendar
+              localizer={localizer}
+              events={events}
+              startAccessor="start"
+              endAccessor="end"
+              view={view}
+              onView={setView}
+              date={date}
+              onNavigate={setDate}
+              messages={messages}
+              culture="pt-BR"
+              eventPropGetter={eventStyleGetter}
+              onSelectEvent={handleSelectEvent}
+              onSelectSlot={handleSelectSlot}
+              selectable
+              popup
+              views={["month", "week", "day", "agenda"]}
+              step={30}
+              timeslots={2}
+              min={new Date(2024, 0, 1, 6, 0, 0)} // 06:00
+              max={new Date(2024, 0, 1, 23, 0, 0)} // 23:00
+              showMultiDayTimes
+              defaultDate={new Date()}
+              defaultView="week"
+              formats={{
+                timeGutterFormat: (date, culture, localizer) =>
+                  localizer?.format(date, "HH:mm", culture) || "",
+                eventTimeRangeFormat: ({ start, end }, culture, localizer) =>
+                  `${localizer?.format(start, "HH:mm", culture)} - ${localizer?.format(end, "HH:mm", culture)}`,
+                agendaTimeRangeFormat: ({ start, end }, culture, localizer) =>
+                  `${localizer?.format(start, "HH:mm", culture)} - ${localizer?.format(end, "HH:mm", culture)}`,
+              }}
+            />
+          </div>
         </div>
 
         {/* Event Details Modal */}
-      <Dialog open={showEventDetails} onOpenChange={setShowEventDetails}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Detalhes do Agendamento
-            </DialogTitle>
-          </DialogHeader>
+        <Dialog open={showEventDetails} onOpenChange={setShowEventDetails}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Detalhes do Agendamento
+              </DialogTitle>
+            </DialogHeader>
 
-          {selectedAppointment && (
-            <div className="space-y-4">
-              {/* Title and Badges */}
-              <div>
-                <h3 className="text-2xl font-bold mb-2">{selectedAppointment.title}</h3>
-                <div className="flex gap-2">
-                  <Badge variant="outline">
-                    {AppointmentTypeLabels[selectedAppointment.type]}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={
-                      selectedAppointment.status === AppointmentStatus.CONFIRMED
-                        ? "bg-green-50 text-green-700 border-green-200"
-                        : selectedAppointment.status === AppointmentStatus.CANCELLED
-                        ? "bg-red-50 text-red-700 border-red-200"
-                        : "bg-blue-50 text-blue-700 border-blue-200"
-                    }
-                  >
-                    {AppointmentStatusLabels[selectedAppointment.status]}
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Details Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">Horário</p>
-                    <p className="text-muted-foreground">
-                      {format(new Date(selectedAppointment.startTime), "PPP 'às' HH:mm", { locale: ptBR })}
-                      {" - "}
-                      {format(new Date(selectedAppointment.endTime), "HH:mm")}
-                    </p>
+            {selectedAppointment && (
+              <div className="space-y-4">
+                {/* Title and Badges */}
+                <div>
+                  <h3 className="text-2xl font-bold mb-2">{selectedAppointment.title}</h3>
+                  <div className="flex gap-2">
+                    <Badge variant="outline">
+                      {AppointmentTypeLabels[selectedAppointment.type]}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={
+                        selectedAppointment.status === AppointmentStatus.CONFIRMED
+                          ? "bg-green-50 text-green-700 border-green-200"
+                          : selectedAppointment.status === AppointmentStatus.CANCELLED
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : "bg-blue-50 text-blue-700 border-blue-200"
+                      }
+                    >
+                      {AppointmentStatusLabels[selectedAppointment.status]}
+                    </Badge>
                   </div>
                 </div>
 
-                {selectedAppointment.customer && (
+                {/* Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-muted-foreground" />
+                    <Clock className="h-4 w-4 text-muted-foreground" />
                     <div>
-                      <p className="font-medium">Cliente</p>
-                      <p className="text-muted-foreground">{selectedAppointment.customer.name}</p>
+                      <p className="font-medium">Horário</p>
+                      <p className="text-muted-foreground">
+                        {format(new Date(selectedAppointment.startTime), "PPP 'às' HH:mm", { locale: ptBR })}
+                        {" - "}
+                        {format(new Date(selectedAppointment.endTime), "HH:mm")}
+                      </p>
                     </div>
+                  </div>
+
+                  {selectedAppointment.customer && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Cliente</p>
+                        <p className="text-muted-foreground">{selectedAppointment.customer.name}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedAppointment.location && (
+                    <div className="flex items-center gap-2 text-sm col-span-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Localização</p>
+                        <p className="text-muted-foreground">{selectedAppointment.location}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {selectedAppointment.description && (
+                  <div>
+                    <p className="font-medium mb-1">Descrição</p>
+                    <p className="text-sm text-muted-foreground">{selectedAppointment.description}</p>
                   </div>
                 )}
 
-                {selectedAppointment.location && (
-                  <div className="flex items-center gap-2 text-sm col-span-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Localização</p>
-                      <p className="text-muted-foreground">{selectedAppointment.location}</p>
-                    </div>
+                {selectedAppointment.notes && (
+                  <div>
+                    <p className="font-medium mb-1">Notas Internas</p>
+                    <p className="text-sm text-muted-foreground italic">{selectedAppointment.notes}</p>
                   </div>
                 )}
-              </div>
 
-              {selectedAppointment.description && (
-                <div>
-                  <p className="font-medium mb-1">Descrição</p>
-                  <p className="text-sm text-muted-foreground">{selectedAppointment.description}</p>
-                </div>
-              )}
-
-              {selectedAppointment.notes && (
-                <div>
-                  <p className="font-medium mb-1">Notas Internas</p>
-                  <p className="text-sm text-muted-foreground italic">{selectedAppointment.notes}</p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-2 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => handleEditAppointment(selectedAppointment)}
-                  className="flex-1"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Editar
-                </Button>
-                {selectedAppointment.status === AppointmentStatus.SCHEDULED && (
+                {/* Actions */}
+                <div className="flex gap-2 pt-4 border-t">
                   <Button
                     variant="outline"
-                    onClick={() => handleConfirmAppointment(selectedAppointment.id)}
+                    onClick={() => handleEditAppointment(selectedAppointment)}
                     className="flex-1"
                   >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Confirmar
+                    <Edit className="h-4 w-4 mr-2" />
+                    Editar
                   </Button>
-                )}
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDeleteAppointment(selectedAppointment.id)}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Deletar
-                </Button>
+                  {selectedAppointment.status === AppointmentStatus.SCHEDULED && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleConfirmAppointment(selectedAppointment.id)}
+                      className="flex-1"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Confirmar
+                    </Button>
+                  )}
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleDeleteAppointment(selectedAppointment.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Deletar
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            )}
+          </DialogContent>
+        </Dialog>
 
-      {/* Modals */}
-      <AppointmentModal
-        open={showNewAppointment}
-        onClose={() => setShowNewAppointment(false)}
-        onSuccess={loadAppointments}
-        companyId={companyId}
-        customers={customers}
-      />
+        {/* Modals */}
+        <AppointmentModal
+          open={showNewAppointment}
+          onClose={() => setShowNewAppointment(false)}
+          onSuccess={loadAppointments}
+          companyId={companyId}
+          customers={customers}
+        />
 
-      <EditAppointmentModal
-        open={showEditAppointment}
-        onClose={() => setShowEditAppointment(false)}
-        onSuccess={loadAppointments}
-        companyId={companyId}
-        appointment={selectedAppointment}
-      />
+        <EditAppointmentModal
+          open={showEditAppointment}
+          onClose={() => setShowEditAppointment(false)}
+          onSuccess={loadAppointments}
+          companyId={companyId}
+          appointment={selectedAppointment}
+        />
 
         <GoogleCalendarModal
           open={showGoogleCalendar}
