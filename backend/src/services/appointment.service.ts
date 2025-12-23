@@ -379,6 +379,7 @@ export class AppointmentService {
 
   /**
    * Busca horários disponíveis para um dia
+   * Usa horários configurados no sistema (AIKnowledge.workingHours)
    */
   async getAvailableSlots(
     companyId: string,
@@ -389,11 +390,27 @@ export class AppointmentService {
     console.log('[Appointment] Data recebida:', date);
     console.log('[Appointment] Duração:', slotDuration, 'minutos');
 
+    // Busca horário de funcionamento configurado no sistema
+    const aiKnowledge = await prisma.aIKnowledge.findUnique({
+      where: { companyId },
+      select: { workingHours: true },
+    });
+
+    // Parse dos horários configurados
+    const businessHours = this.parseWorkingHoursConfig(aiKnowledge?.workingHours || null);
+
+    if (!businessHours) {
+      console.log('[Appointment] Horário de funcionamento não configurado');
+      return [];
+    }
+
+    console.log('[Appointment] Horário configurado:', businessHours.start, 'às', businessHours.end);
+
     try {
       const slots = await googleCalendarService.getAvailableSlots(
         companyId,
         date,
-        { start: 9, end: 18 }, // horário comercial
+        businessHours,
         slotDuration
       );
 
@@ -413,9 +430,9 @@ export class AppointmentService {
       const month = date.getUTCMonth();
       const day = date.getUTCDate();
 
-      // Cria datas no fuso horário local (não UTC)
-      const dayStart = new Date(year, month, day, 9, 0, 0, 0);
-      const dayEnd = new Date(year, month, day, 18, 0, 0, 0);
+      // Cria datas no fuso horário local usando horários do sistema
+      const dayStart = new Date(year, month, day, businessHours.start, 0, 0, 0);
+      const dayEnd = new Date(year, month, day, businessHours.end, 0, 0, 0);
 
       console.log('[Appointment] Data original:', date.toISOString());
       console.log('[Appointment] Ano:', year, 'Mês:', month, 'Dia:', day);
@@ -449,6 +466,36 @@ export class AppointmentService {
       console.log(`[Appointment] ${slots.length} slots disponíveis (fallback)`);
 
       return slots;
+    }
+  }
+
+  /**
+   * Parse do texto de horário de funcionamento
+   * Retorna null se não configurado
+   */
+  private parseWorkingHoursConfig(workingHoursText: string | null): { start: number; end: number } | null {
+    if (!workingHoursText || workingHoursText.trim() === '') {
+      return null;
+    }
+
+    try {
+      const text = workingHoursText.toLowerCase();
+      // Regex para capturar "8h as 18h", "08:00 - 18:00", "8 às 18", etc.
+      const match = text.match(/(\d{1,2})[h:]?.*(?:às|as|a|-).+?(\d{1,2})[h:]?/);
+
+      if (match) {
+        const start = parseInt(match[1]);
+        const end = parseInt(match[2]);
+
+        // Validação básica
+        if (start >= 0 && start <= 23 && end >= 0 && end <= 23 && start < end) {
+          return { start, end };
+        }
+      }
+
+      return null;
+    } catch {
+      return null;
     }
   }
 

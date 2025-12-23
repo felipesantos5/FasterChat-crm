@@ -1,6 +1,7 @@
 import { prisma } from '../../utils/prisma';
 import { addDays, format, startOfDay } from 'date-fns';
 import Fuse from 'fuse.js'; // npm install fuse.js
+import { googleCalendarService } from '../google-calendar.service';
 
 // ==========================================
 // TYPES & INTERFACES
@@ -63,46 +64,62 @@ function searchProducts(
 }
 
 /**
- * Parser de horários (Mantido e Melhorado)
+ * Parser de horários - Extrai informações do texto de horário de funcionamento
+ * Retorna null se não conseguir parsear (empresa precisa configurar)
  */
-function parseWorkingHours(workingHoursText: string | null) {
-  const defaultHours = {
-    weekdayHours: [9, 10, 11, 14, 15, 16, 17],
-    saturdayHours: [], // Por segurança, padrão é fechado sábado
-    sundayHours: [],
-  };
+function parseWorkingHours(workingHoursText: string | null): {
+  weekdayHours: number[];
+  saturdayHours: number[];
+  sundayHours: number[];
+  startHour: number;
+  endHour: number;
+  configured: boolean;
+} | null {
 
-  if (!workingHoursText) return defaultHours;
+  if (!workingHoursText || workingHoursText.trim() === '') {
+    return null; // Não configurado - não assume valores padrão
+  }
 
   try {
     const text = workingHoursText.toLowerCase();
-    
-    // Helper para gerar range
+
+    // Helper para gerar range de horas
     const range = (start: number, end: number) => {
       const h = [];
-      for (let i = start; i < end; i++) if(i !== 12 && i !== 13) h.push(i); // Pula almoço padrão
+      for (let i = start; i < end; i++) {
+        if (i !== 12 && i !== 13) h.push(i); // Pula almoço padrão
+      }
       return h;
     };
 
-    // Regex simples para capturar "8h as 18h" ou "08:00 - 18:00"
+    // Regex para capturar "8h as 18h", "08:00 - 18:00", "8 às 18", etc.
     const match = text.match(/(\d{1,2})[h:]?.*(?:às|as|a|-).+?(\d{1,2})[h:]?/);
-    
+
     if (match) {
       const start = parseInt(match[1]);
       const end = parseInt(match[2]);
-      const hours = range(start, end);
 
+      // Validação básica dos horários
+      if (start < 0 || start > 23 || end < 0 || end > 23 || start >= end) {
+        return null;
+      }
+
+      const hours = range(start, end);
       const isSaturday = text.includes('sáb') || text.includes('sab');
-      
+
       return {
         weekdayHours: hours,
-        saturdayHours: isSaturday ? range(start, 12) : [], // Se mencionar sábado, assume manhã
-        sundayHours: []
+        saturdayHours: isSaturday ? range(start, 12) : [],
+        sundayHours: [],
+        startHour: start,
+        endHour: end,
+        configured: true,
       };
     }
-    return defaultHours;
+
+    return null; // Não conseguiu parsear o formato
   } catch {
-    return defaultHours;
+    return null;
   }
 }
 
@@ -223,6 +240,8 @@ export async function handleCalculateQuote(args: {
 
 /**
  * [TOOL] Ver Disponibilidade de Agenda
+ * Integrado com Google Calendar quando disponível
+ * Usa horários configurados no sistema (nunca valores hardcoded)
  */
 export async function handleGetAvailableSlots(args: {
   service_type: string;
@@ -232,21 +251,130 @@ export async function handleGetAvailableSlots(args: {
   try {
     const { preferred_date, companyId } = args;
 
+    // Busca configurações de horário de trabalho do sistema
     const aiKnowledge = await prisma.aIKnowledge.findUnique({
       where: { companyId },
       select: { workingHours: true },
     });
 
-    const { weekdayHours, saturdayHours } = parseWorkingHours(aiKnowledge?.workingHours || null);
-    
+    // Parse dos horários configurados - retorna null se não configurado
+    const workingHoursConfig = parseWorkingHours(aiKnowledge?.workingHours || null);
+
+    // ========================================
+    // VALIDA SE HORÁRIO DE FUNCIONAMENTO ESTÁ CONFIGURADO
+    // ========================================
+    if (!workingHoursConfig) {
+      console.log('[Tool] GetAvailableSlots: Horário de funcionamento não configurado para empresa:', companyId);
+      return {
+        available: false,
+        slots: [],
+        message: "Horário de funcionamento não está configurado. Entre em contato para mais informações.",
+        error_type: "working_hours_not_configured"
+      };
+    }
+
+    const { weekdayHours, saturdayHours, startHour, endHour } = workingHoursConfig;
     const startDate = preferred_date ? new Date(preferred_date) : new Date();
+
+    // ========================================
+    // VERIFICA SE GOOGLE CALENDAR ESTÁ CONECTADO
+    // ========================================
+    let isGoogleCalendarConnected = false;
+    try {
+      isGoogleCalendarConnected = await googleCalendarService.isConfigured(companyId);
+    } catch (error) {
+      // Silently fail - não impacta outros atendimentos
+      console.log('[Tool] GetAvailableSlots: Erro ao verificar Google Calendar, usando fallback');
+      isGoogleCalendarConnected = false;
+    }
+
+    // ========================================
+    // FLUXO COM GOOGLE CALENDAR CONECTADO
+    // ========================================
+    if (isGoogleCalendarConnected) {
+      console.log('[Tool] GetAvailableSlots: Google Calendar conectado, buscando slots reais...');
+      console.log('[Tool] GetAvailableSlots: Horário configurado:', startHour, 'às', endHour);
+
+      try {
+        const slots: string[] = [];
+
+        // Busca slots para os próximos 5 dias usando o Google Calendar real
+        for (let i = 0; i < 5; i++) {
+          const currentDate = addDays(startOfDay(startDate), i);
+          const day = currentDate.getDay();
+
+          // Pula domingo (fechado)
+          if (day === 0) continue;
+
+          // Define horário comercial baseado no dia (usando config do sistema)
+          let businessHours = { start: startHour, end: endHour };
+          if (day === 6) {
+            // Sábado: usa horário reduzido se configurado
+            if (saturdayHours.length === 0) continue; // Sábado fechado
+            businessHours = {
+              start: Math.min(...saturdayHours),
+              end: Math.max(...saturdayHours) + 1
+            };
+          }
+
+          try {
+            // Busca slots REAIS do Google Calendar
+            const googleSlots = await googleCalendarService.getAvailableSlots(
+              companyId,
+              currentDate,
+              businessHours,
+              60 // duração de 1 hora
+            );
+
+            // Converte para formato string
+            googleSlots.forEach(slot => {
+              if (slot.available && slot.start > new Date()) {
+                slots.push(format(slot.start, "yyyy-MM-dd'T'HH:mm:ss"));
+              }
+            });
+          } catch (dayError) {
+            console.log(`[Tool] GetAvailableSlots: Erro ao buscar dia ${i}, continuando...`);
+            // Continua para o próximo dia em caso de erro
+          }
+        }
+
+        if (slots.length > 0) {
+          return {
+            available: true,
+            slots: slots.slice(0, 8), // Retorna apenas os 8 primeiros
+            message: "Horários disponíveis encontrados (sincronizado com agenda).",
+            source: "google_calendar"
+          };
+        }
+
+        // Se não encontrou slots no Google Calendar, retorna mensagem apropriada
+        return {
+          available: false,
+          slots: [],
+          message: "Sem horários disponíveis na agenda para os próximos dias.",
+          source: "google_calendar"
+        };
+
+      } catch (googleError: any) {
+        console.error('[Tool] GetAvailableSlots: Erro no Google Calendar, usando fallback:', googleError.message);
+        // Fallback para geração local se Google Calendar falhar
+      }
+    }
+
+    // ========================================
+    // FALLBACK: GERAÇÃO LOCAL (SEM GOOGLE CALENDAR)
+    // Usa os horários configurados no sistema
+    // ========================================
+    console.log('[Tool] GetAvailableSlots: Usando geração local de slots (Google Calendar não conectado)');
+    console.log('[Tool] GetAvailableSlots: Horário configurado:', startHour, 'às', endHour);
+
     const slots: string[] = [];
-    
-    // Gera slots para os próximos 5 dias
+
+    // Gera slots para os próximos 5 dias baseado nos horários configurados
     for (let i = 0; i < 5; i++) {
       const currentDate = addDays(startOfDay(startDate), i);
       const day = currentDate.getDay();
-      
+
       let hours: number[] = [];
       if (day === 0) hours = []; // Domingo fechado
       else if (day === 6) hours = saturdayHours;
@@ -264,7 +392,8 @@ export async function handleGetAvailableSlots(args: {
     return {
       available: slots.length > 0,
       slots: slots.slice(0, 8), // Retorna apenas os 8 primeiros para não poluir o contexto
-      message: slots.length === 0 ? "Sem horários nesta data." : "Horários disponíveis encontrados."
+      message: slots.length === 0 ? "Sem horários nesta data." : "Horários disponíveis encontrados.",
+      source: "local_fallback"
     };
 
   } catch (error) {

@@ -294,6 +294,22 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
 - Use português brasileiro correto.
 - Mantenha respostas curtas (ideal para WhatsApp).
 - Evite formatação Markdown complexa (negrito e listas simples são ok).
+
+### ⚠️ REGRAS ANTI-REPETIÇÃO (MUITO IMPORTANTE)
+1. **NÃO SEJA ROBÓTICO**: Varie suas respostas. Não termine TODAS as mensagens com "Como posso ajudar?" ou frases similares.
+2. **ANALISE O CONTEXTO**:
+   - Se você já perguntou "Como posso ajudar?" na mensagem anterior, NÃO pergunte novamente.
+   - Se o cliente já está conversando sobre algo específico, continue o assunto naturalmente.
+   - Se você acabou de responder uma pergunta simples, apenas responda - não precisa oferecer ajuda adicional toda vez.
+3. **QUANDO OFERECER AJUDA**:
+   - ✅ Ofereça ajuda: No INÍCIO da conversa, após resolver um problema completamente, ou quando houver uma pausa natural.
+   - ❌ NÃO ofereça ajuda: Quando já ofereceu na última mensagem, quando está no meio de uma conversa ativa, ou após respostas simples.
+4. **SEJA NATURAL**: Pense como um humano atendendo. Você não pergunta "posso ajudar?" após cada frase em uma conversa real.
+5. **VARIEDADE**: Quando for oferecer ajuda, varie as formas:
+   - "Posso te ajudar com mais alguma coisa?"
+   - "Ficou com alguma dúvida?"
+   - "Precisa de mais informações?"
+   - Ou simplesmente finalize sem perguntar nada se a resposta já foi completa.
 `.trim();
 
     return [
@@ -382,7 +398,53 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
   }
 
   private buildUserPrompt(historyText: string, currentMessage: string): string {
-    return `HISTÓRICO RECENTE:\n${historyText}\n\nMENSAGEM NOVA DO CLIENTE:\n${currentMessage}\n\nResponda como o Assistente Virtual:`;
+    // Analisa se a última mensagem da IA contém frases de oferta de ajuda
+    const lastAIMessage = this.getLastAIMessage(historyText);
+    const containsHelpOffer = lastAIMessage && this.containsHelpOfferPhrase(lastAIMessage);
+
+    const contextNote = containsHelpOffer
+      ? "\n⚠️ ATENÇÃO: Sua última mensagem já ofereceu ajuda. NÃO repita frases como 'Como posso ajudar?' nesta resposta."
+      : "";
+
+    return `HISTÓRICO RECENTE:\n${historyText}\n\nMENSAGEM NOVA DO CLIENTE:\n${currentMessage}${contextNote}\n\nResponda como o Assistente Virtual:`;
+  }
+
+  /**
+   * Extrai a última mensagem da IA do histórico
+   */
+  private getLastAIMessage(historyText: string): string | null {
+    if (!historyText) return null;
+
+    const lines = historyText.split('\n\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].startsWith('Você:')) {
+        return lines[i].substring(5).trim(); // Remove "Você: " e retorna o conteúdo
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Verifica se uma mensagem contém frases comuns de oferta de ajuda
+   */
+  private containsHelpOfferPhrase(message: string): boolean {
+    const helpPhrases = [
+      'como posso ajudar',
+      'posso ajudar',
+      'posso te ajudar',
+      'em que posso ajudar',
+      'precisa de ajuda',
+      'precisa de algo',
+      'precisa de mais',
+      'algo mais',
+      'mais alguma coisa',
+      'ficou com dúvida',
+      'alguma dúvida',
+      'quer saber mais'
+    ];
+
+    const lowerMessage = message.toLowerCase();
+    return helpPhrases.some(phrase => lowerMessage.includes(phrase));
   }
 }
 
