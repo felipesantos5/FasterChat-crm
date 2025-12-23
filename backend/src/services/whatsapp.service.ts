@@ -34,9 +34,35 @@ class WhatsAppService {
   }
 
   /**
+   * 🛠️ Helper para formatar JID (Identificador do WhatsApp) corretamente
+   * Resolve o problema de envio para LIDs (Business) e Números normais
+   */
+  private formatJid(contact: string): string {
+    if (!contact) return "";
+
+    // Se já tem domínio (@s.whatsapp.net, @g.us, @lid), respeita e retorna
+    if (contact.includes("@")) {
+      return contact;
+    }
+
+    // Remove caracteres não numéricos
+    const cleanNumber = contact.replace(/\D/g, "");
+
+    // Detecção de LID (Linked Identifier / Business ID)
+    // LIDs geralmente têm 15 dígitos e começam com números específicos (ex: 2)
+    // Números de telefone reais (E.164) raramente chegam a 15 dígitos sem formatação especial
+    if (cleanNumber.length >= 15) {
+      // console.log(`[WhatsApp Service] ℹ️ Detectado ID de Business (LID): ${cleanNumber}`);
+      return `${cleanNumber}@lid`;
+    }
+
+    // Padrão para números de telefone
+    return `${cleanNumber}@s.whatsapp.net`;
+  }
+
+  /**
    * Cria uma nova instância do WhatsApp na Evolution API
    */
-
   async createInstance(data: CreateInstanceRequest) {
     const INSTANCE_LIMIT = 5;
 
@@ -352,13 +378,14 @@ class WhatsAppService {
         console.log("[WhatsApp Service] Connection valid (Open or Connecting). Sending message...");
       }
 
-      // Valida o número de telefone
-      const formattedNumber = to.replace(/\D/g, "");
-      if (formattedNumber.length < 10) {
+      // Valida o número de telefone (com suporte a LIDs)
+      const cleanTo = to.replace(/\D/g, "");
+      if (cleanTo.length < 8) { // Mínimo aceitável
         throw Errors.whatsappInvalidNumber(to);
       }
 
-      const remoteJid = `${formattedNumber}@s.whatsapp.net`;
+      // Usa o helper para formatar corretamente (LID vs Phone)
+      const remoteJid = this.formatJid(to);
 
       const response = await this.axiosInstance.post<EvolutionApiSendMessageResponse>(`/message/sendText/${instance!.instanceName}`, {
         number: remoteJid,
@@ -379,7 +406,7 @@ class WhatsAppService {
       // Log detalhado para debug
       console.error("[WhatsApp Service] Erro ao enviar mensagem:");
       console.error("  - Status:", error.response?.status);
-      console.error("  - Data:", JSON.stringify(error.response?.data, null, 2));
+      console.error("  - Destino (JID):", this.formatJid(data.to)); // Debug do JID gerado
       console.error("  - Message:", error.message);
 
       // Extrai a mensagem de erro da Evolution API
@@ -480,22 +507,18 @@ class WhatsAppService {
 
   /**
    * Baixa mídia (áudio, imagem, etc) através da Evolution API
-   * A Evolution API faz o download e descriptografia automaticamente
-   * Documentação: https://doc.evolution-api.com/v2/api-reference/chat-controller/get-base64
    */
   async downloadMedia(instanceName: string, messageKey: any): Promise<Buffer> {
     try {
       console.log(`[WhatsApp Service] 📥 Downloading media for message ${messageKey.id}...`);
 
-      // Endpoint correto da Evolution API v2 para obter base64 de mídia
       const response = await this.axiosInstance.post(`/chat/getBase64FromMediaMessage/${instanceName}`, {
         message: {
           key: messageKey,
         },
-        convertToMp4: false, // Mantém formato original
+        convertToMp4: false,
       });
 
-      // A resposta contém o base64 da mídia
       const base64Data = response.data?.base64;
 
       if (!base64Data) {
@@ -504,7 +527,6 @@ class WhatsAppService {
 
       console.log(`[WhatsApp Service] ✅ Media base64 received: ${(base64Data.length / 1024).toFixed(2)} KB`);
 
-      // Converte base64 para Buffer
       const mediaBuffer = Buffer.from(base64Data, "base64");
 
       return mediaBuffer;
@@ -519,7 +541,6 @@ class WhatsAppService {
    */
   private async configureWebhook(instanceName: string) {
     try {
-      // Prioriza a variável WEBHOOK_URL
       const webhookUrl = process.env.WEBHOOK_URL || process.env.API_URL;
 
       if (!webhookUrl) {
@@ -527,12 +548,10 @@ class WhatsAppService {
         return;
       }
 
-      // Garante a rota correta da API
       const fullWebhookUrl = `${webhookUrl}/api/webhooks/whatsapp`;
 
       console.log(`🔄 Configurando webhook para ${instanceName} em: ${fullWebhookUrl}`);
 
-      // CORREÇÃO: Formato V2 (dentro do objeto webhook) e Eventos Corrigidos
       await this.axiosInstance.post(`/webhook/set/${instanceName}`, {
         webhook: {
           url: fullWebhookUrl,
@@ -544,7 +563,6 @@ class WhatsAppService {
             "CONNECTION_UPDATE",
             "QRCODE_UPDATED",
             "SEND_MESSAGE",
-            // STATUS_INSTANCE removido pois causa erro 400
           ],
           webhook_headers: {
             "X-Webhook-Secret": process.env.WEBHOOK_SECRET || "",
@@ -560,13 +578,11 @@ class WhatsAppService {
 
   /**
    * Busca a foto de perfil de um contato via Evolution API
-   * Documentação: https://doc.evolution-api.com/v2/api-reference/chat-controller/fetch-profile-picture-url
    */
   async getProfilePicture(instanceName: string, phone: string): Promise<string | null> {
     try {
-      // Formata o número para o formato do WhatsApp
-      const formattedNumber = phone.replace(/\D/g, "");
-      const remoteJid = formattedNumber.includes("@") ? formattedNumber : `${formattedNumber}@s.whatsapp.net`;
+      // ✅ CORREÇÃO: Usa o helper formatJid para garantir o domínio correto (@lid vs @s.whatsapp.net)
+      const remoteJid = this.formatJid(phone);
 
       console.log(`[WhatsApp Service] 📷 Fetching profile picture for ${remoteJid}...`);
 
@@ -584,7 +600,6 @@ class WhatsAppService {
       console.log(`[WhatsApp Service] ⚠️ No profile picture for ${phone}`);
       return null;
     } catch (error: any) {
-      // Não loga erro pois é comum não ter foto de perfil
       console.log(`[WhatsApp Service] 📷 Could not fetch profile picture for ${phone}: ${error.response?.data?.message || error.message}`);
       return null;
     }
@@ -592,7 +607,6 @@ class WhatsAppService {
 
   /**
    * Envia uma imagem via WhatsApp
-   * Documentação: https://doc.evolution-api.com/v2/api-reference/message-controller/send-media
    */
   async sendMedia(data: { instanceId: string; to: string; mediaBase64: string; caption?: string; mediaType?: string }) {
     try {
@@ -606,7 +620,6 @@ class WhatsAppService {
         throw Errors.whatsappInstanceNotFound();
       }
 
-      // Verificação de status
       if (instance.status !== WhatsAppStatus.CONNECTED) {
         const statusResult = await this.getStatus(instanceId);
         if (statusResult.status !== WhatsAppStatus.CONNECTED && statusResult.status !== WhatsAppStatus.CONNECTING) {
@@ -614,28 +627,22 @@ class WhatsAppService {
         }
       }
 
-      // Valida o número de telefone
-      const formattedNumber = to.replace(/\D/g, "");
-      if (formattedNumber.length < 10) {
+      const cleanTo = to.replace(/\D/g, "");
+      if (cleanTo.length < 8) {
         throw Errors.whatsappInvalidNumber(to);
       }
 
-      const remoteJid = `${formattedNumber}@s.whatsapp.net`;
+      // ✅ CORREÇÃO: Usa o helper formatJid
+      const remoteJid = this.formatJid(to);
 
-      // Remove o prefixo data:image/xxx;base64, se existir
       const base64Data = mediaBase64.includes("base64,") ? mediaBase64.split("base64,")[1] : mediaBase64;
 
-      // Detecta o mimetype da imagem
       let mimetype = "image/jpeg";
-      if (mediaBase64.includes("data:image/png")) {
-        mimetype = "image/png";
-      } else if (mediaBase64.includes("data:image/gif")) {
-        mimetype = "image/gif";
-      } else if (mediaBase64.includes("data:image/webp")) {
-        mimetype = "image/webp";
-      }
+      if (mediaBase64.includes("data:image/png")) mimetype = "image/png";
+      else if (mediaBase64.includes("data:image/gif")) mimetype = "image/gif";
+      else if (mediaBase64.includes("data:image/webp")) mimetype = "image/webp";
 
-      console.log(`[WhatsApp Service] 📷 Sending ${mediaType} to ${to}...`);
+      console.log(`[WhatsApp Service] 📷 Sending ${mediaType} to ${to} (${remoteJid})...`);
 
       const response = await this.axiosInstance.post(`/message/sendMedia/${instance.instanceName}`, {
         number: remoteJid,
@@ -653,21 +660,16 @@ class WhatsAppService {
         timestamp: response.data.messageTimestamp,
       };
     } catch (error: any) {
-      if (error instanceof AppError) {
-        throw error;
-      }
+      if (error instanceof AppError) throw error;
 
       console.error("[WhatsApp Service] ❌ Error sending media:", error.response?.data || error.message);
-
       const evolutionError = error.response?.data?.message || error.response?.data?.error || error.message || "";
-
       throw Errors.whatsappSendFailed(evolutionError);
     }
   }
 
   /**
    * Atualiza o nome amigável (displayName) de uma instância
-   * O instanceName técnico permanece o mesmo para não quebrar a integração com Evolution API
    */
   async updateInstanceName(instanceId: string, displayName: string): Promise<void> {
     try {
