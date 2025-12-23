@@ -43,11 +43,15 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://127.0.0.1:3000',
-  // Adicione aqui os domínios de produção quando tiver
+  // Domínios de produção
   'https://admin.fasterchat.com.br',
   'https://api.fasterchat.com.br',
+  'https://api2.fasterchat.com.br',
   'https://www.fasterchat.com.br',
   'https://fasterchat.com.br',
+  // Domínio de redirect WhatsApp
+  'https://whatsconversas.com.br',
+  'https://www.whatsconversas.com.br',
 ];
 
 app.use(
