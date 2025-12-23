@@ -22,6 +22,9 @@ import { AppointmentModal } from "@/components/appointments/AppointmentModal";
 import { EditAppointmentModal } from "@/components/appointments/EditAppointmentModal";
 import { GoogleCalendarModal } from "@/components/appointments/GoogleCalendarModal";
 import { buttons, cards, typography, spacing, badges, icons } from "@/lib/design-system";
+// ✅ NOVOS IMPORTS
+import { useAuthStore } from "@/lib/store/auth.store";
+import { useCustomers } from "@/hooks/use-customers";
 
 const locales = { "pt-BR": ptBR };
 
@@ -58,6 +61,13 @@ interface CalendarEvent {
 }
 
 export default function CalendarioPage() {
+  // ✅ 1. Recuperar dados do usuário autenticado
+  const { user } = useAuthStore();
+  const companyId = user?.companyId;
+
+  // ✅ 2. Recuperar clientes reais da API
+  const { customers } = useCustomers(companyId || null);
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [googleStatus, setGoogleStatus] = useState<GoogleCalendarStatus | null>(null);
@@ -69,25 +79,24 @@ export default function CalendarioPage() {
   const [showEventDetails, setShowEventDetails] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
-  const companyId = "af874797-cd69-4aed-bc6a-fa9737418905";
-  const customers = [
-    { id: "1", name: "João Silva", email: "joao@email.com" },
-    { id: "2", name: "Maria Santos", email: "maria@email.com" },
-  ];
+  // ✅ Removido código hardcoded:
+  // const companyId = "af874797-cd69-4aed-bc6a-fa9737418905";
+  // const customers = [...];
 
-  useEffect(() => {
-    loadAppointments();
-    checkGoogleConnection();
-  }, []);
+  // ✅ 3. Envelopar funções em useCallback para usar nas dependências do useEffect
+  const loadAppointments = useCallback(async () => {
+    if (!companyId) return;
 
-  const loadAppointments = async () => {
     try {
       setLoading(true);
       const dbAppointments = await appointmentApi.getAll(companyId);
 
       try {
+        // Verifica conexão com Google Calendar
         const status = await googleCalendarApi.getStatus(companyId);
+
         if (status.connected) {
+          // Define janela de busca (Mês atual + 2 meses)
           const startDate = new Date();
           startDate.setDate(1);
           const endDate = new Date(startDate);
@@ -99,6 +108,7 @@ export default function CalendarioPage() {
             endDate.toISOString()
           );
 
+          // Mapeia eventos do Google para o formato do sistema
           const googleAppointments: Appointment[] = googleEvents.map((event) => ({
             id: event.id,
             companyId,
@@ -117,6 +127,7 @@ export default function CalendarioPage() {
             updatedAt: new Date().toISOString(),
           }));
 
+          // Filtra duplicados (eventos que já existem no banco local e estão sincronizados)
           const dbEventIds = new Set(dbAppointments.map(a => a.googleEventId).filter(Boolean));
           const uniqueGoogleEvents = googleAppointments.filter(
             g => !dbEventIds.has(g.googleEventId)
@@ -127,23 +138,34 @@ export default function CalendarioPage() {
           setAppointments(dbAppointments);
         }
       } catch (googleError) {
+        console.warn("Erro ao buscar eventos do Google Calendar:", googleError);
         setAppointments(dbAppointments);
       }
     } catch (error) {
+      console.error("Erro ao carregar agendamentos:", error);
       setAppointments([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [companyId]);
 
-  const checkGoogleConnection = async () => {
+  const checkGoogleConnection = useCallback(async () => {
+    if (!companyId) return;
     try {
       const status = await googleCalendarApi.getStatus(companyId);
       setGoogleStatus(status);
     } catch (error) {
       setGoogleStatus(null);
     }
-  };
+  }, [companyId]);
+
+  // ✅ 4. Atualizar useEffect para depender do companyId
+  useEffect(() => {
+    if (companyId) {
+      loadAppointments();
+      checkGoogleConnection();
+    }
+  }, [companyId, loadAppointments, checkGoogleConnection]);
 
   const events: CalendarEvent[] = useMemo(() => {
     return appointments.map((apt) => ({
@@ -213,7 +235,7 @@ export default function CalendarioPage() {
   };
 
   const handleDeleteAppointment = async (id: string) => {
-    if (!confirm("Tem certeza que deseja deletar este agendamento?")) return;
+    if (!confirm("Tem certeza que deseja deletar este agendamento?") || !companyId) return;
 
     try {
       await appointmentApi.delete(id, companyId);
@@ -225,6 +247,7 @@ export default function CalendarioPage() {
   };
 
   const handleConfirmAppointment = async (id: string) => {
+    if (!companyId) return;
     try {
       await appointmentApi.update(id, companyId, { status: AppointmentStatus.CONFIRMED });
       await loadAppointments();
@@ -234,7 +257,19 @@ export default function CalendarioPage() {
     }
   };
 
-  if (loading) {
+  // ✅ Loading state inicial enquanto não temos companyId
+  if (!companyId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Calendar className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Carregando dados da empresa...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && appointments.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -488,7 +523,11 @@ export default function CalendarioPage() {
           onClose={() => setShowNewAppointment(false)}
           onSuccess={loadAppointments}
           companyId={companyId}
-          customers={customers}
+          customers={customers.map((c) => ({
+            id: c.id,
+            name: c.name,
+            email: c.email ?? undefined, // Convert null to undefined
+          }))}
         />
 
         <EditAppointmentModal
