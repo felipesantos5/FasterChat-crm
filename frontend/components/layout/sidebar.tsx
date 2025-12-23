@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import logo from "@/assets/logo-crm.png";
+import logo from "@/assets/logo2.webp";
 import { useSidebar } from "@/contexts/SidebarContext";
 
 // Tipo para os itens de menu
