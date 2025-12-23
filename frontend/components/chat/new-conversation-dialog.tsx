@@ -123,8 +123,8 @@ export function NewConversationDialog({
         customer = existingCustomers.customers.find((c) => {
           const customerDigits = c.phone.replace(/\D/g, "");
           return customerDigits === formattedPhone ||
-                 customerDigits.endsWith(searchPhone) ||
-                 formattedPhone.endsWith(customerDigits);
+            customerDigits.endsWith(searchPhone) ||
+            formattedPhone.endsWith(customerDigits);
         });
       } catch (err) {
         console.log("Cliente não encontrado, criando novo...");
@@ -177,9 +177,21 @@ export function NewConversationDialog({
   };
 
   const handlePhoneChange = (value: string) => {
-    // Permite apenas números, espaços, parênteses, hífen e +
-    const cleaned = value.replace(/[^\d\s()\-+]/g, "");
-    setFormData({ ...formData, phone: cleaned });
+    // 1. Remove tudo que não é número
+    let input = value.replace(/\D/g, "");
+
+    // 2. Limita a 11 dígitos (DDD + 9 dígitos) para evitar strings infinitas
+    if (input.length > 11) {
+      input = input.slice(0, 11);
+    }
+
+    // 3. Aplica a formatação progressiva
+    // Coloca parênteses em volta dos dois primeiros dígitos (DDD)
+    input = input.replace(/^(\d{2})(\d)/g, "($1) $2");
+    // Coloca o hífen antes dos últimos 4 dígitos
+    input = input.replace(/(\d)(\d{4})$/, "$1-$2");
+
+    setFormData({ ...formData, phone: input });
   };
 
   return (
@@ -230,12 +242,13 @@ export function NewConversationDialog({
                 type="tel"
                 placeholder="Ex: (11) 99999-9999 ou 11999999999"
                 value={formData.phone}
+                maxLength={15}
                 onChange={(e) => handlePhoneChange(e.target.value)}
                 disabled={loading}
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Digite apenas números com DDD (ex: 11999999999). O código do país será adicionado automaticamente.
+                Digite apenas números com DDD. O código do país será adicionado automaticamente.
               </p>
             </div>
 
