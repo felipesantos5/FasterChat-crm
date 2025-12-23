@@ -92,4 +92,28 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Prevenir overflow horizontal global */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* Garantir que inputs e textareas não causem overflow */
+  input, textarea, select {
+    max-width: 100%;
+  }
+
+  /* Quebra de palavras longas */
+  .break-words {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  /* Utility para overflow-wrap anywhere */
+  .overflow-wrap-anywhere {
+    overflow-wrap: anywhere;
+  }
 }

@@ -24,6 +24,7 @@ import { AudioPlayer } from "@/components/chat/audio-player";
 import { MessageText } from "@/components/chat/message-text";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { toast } from "sonner";
+import { ChatAreaSkeleton } from "@/components/ui/skeletons";
 
 interface ChatAreaProps {
   customerId: string;
@@ -445,8 +446,11 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex flex-col h-full">
+        <div className="border-b bg-background p-4">
+          <div className="h-6 w-32 bg-muted rounded animate-pulse" />
+        </div>
+        <ChatAreaSkeleton />
       </div>
     );
   }
@@ -456,11 +460,11 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
   return (
     <div className="flex flex-col h-full">
       {/* Header Compacto */}
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b bg-muted/30">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="font-semibold text-sm">{customerName}</h2>
+              <h2 className="font-semibold text-sm truncate">{customerName}</h2>
               {isConnected && isAuthenticated && (
                 <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Tempo Real" />
               )}
@@ -470,11 +474,11 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
         </div>
 
         {/* Ações */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {/* Toggle IA */}
-          <div className="flex items-center gap-2 border-r pr-3 mr-1">
+          <div className="hidden sm:flex items-center gap-2 border-r pr-3 mr-1">
             <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={handleToggleAi} disabled={togglingAi} className="scale-90" />
-            <Label htmlFor="ai-toggle" className="text-xs cursor-pointer">
+            <Label htmlFor="ai-toggle" className="text-xs cursor-pointer whitespace-nowrap">
               {togglingAi ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : isAiEnabled ? (
@@ -549,7 +553,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
               <div key={message.id} className={cn("flex", isInbound ? "justify-start" : "justify-end")}>
                 <div
                   className={cn(
-                    "max-w-[70%] rounded-lg px-4 py-2",
+                    "max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-3 py-2 sm:px-4",
                     isInbound ? "bg-muted text-foreground" : isAi ? "bg-green-500 text-white" : "bg-primary text-primary-foreground"
                   )}
                 >
@@ -599,7 +603,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
 
                     {/* Texto (apenas se não for áudio) */}
                     {message.mediaType !== "audio" && message.content && !message.content.startsWith("[Imagem]") && (
-                      <MessageText content={message.content} className="text-sm whitespace-pre-wrap break-words" />
+                      <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
                     )}
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-1">
@@ -623,7 +627,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
         {/* AI Processing/Typing Indicator - só aparece se IA estiver habilitada */}
         {isAiEnabled && (aiProcessing || isTyping) && (
           <div className="flex justify-start">
-            <div className="max-w-[70%] rounded-lg px-4 py-2 bg-green-100 dark:bg-green-900/30">
+            <div className="max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 bg-green-100 dark:bg-green-900/30">
               <div className="flex items-center gap-2">
                 <Bot className="h-4 w-4 text-green-600 dark:text-green-400" />
                 <div className="flex gap-1">
@@ -703,7 +707,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
         )}
 
         {/* Input de mensagem */}
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-4">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-2 sm:p-4 border-t">
           {/* Input de arquivo oculto */}
           <input
             ref={fileInputRef}
@@ -734,8 +738,8 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
             disabled={sending || !!selectedImage}
             className="flex-1"
           />
-          <Button type="submit" disabled={sending || !inputValue.trim() || !!selectedImage} size="icon">
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          <Button type="submit" disabled={!inputValue.trim() || !!selectedImage} isLoading={sending} size="icon">
+            <Send className="h-4 w-4" />
           </Button>
         </form>
       </div>
@@ -769,18 +773,9 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
             <Button variant="outline" onClick={() => setShowExampleModal(false)} disabled={markingExample}>
               Cancelar
             </Button>
-            <Button onClick={handleMarkAsExample} disabled={markingExample} className="bg-yellow-500 hover:bg-yellow-600">
-              {markingExample ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Marcando...
-                </>
-              ) : (
-                <>
-                  <Star className="h-4 w-4 mr-2" />
-                  Marcar como Exemplo
-                </>
-              )}
+            <Button onClick={handleMarkAsExample} isLoading={markingExample} className="bg-yellow-500 hover:bg-yellow-600">
+              <Star className="h-4 w-4 mr-2" />
+              {markingExample ? "Marcando..." : "Marcar como Exemplo"}
             </Button>
           </DialogFooter>
         </DialogContent>

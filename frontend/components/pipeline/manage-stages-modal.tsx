@@ -19,7 +19,6 @@ import {
   Plus,
   Check,
   X,
-  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -280,14 +279,11 @@ export function ManageStagesModal({
                     <Button
                       size="sm"
                       onClick={handleSaveEdit}
-                      disabled={loading || !editName.trim()}
+                      disabled={!editName.trim()}
+                      isLoading={loading}
                       className="h-8"
                     >
-                      {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Check className="h-4 w-4" />
-                      )}
+                      <Check className="h-4 w-4" />
                       <span className="ml-1">Salvar</span>
                     </Button>
                     <Button
@@ -316,14 +312,10 @@ export function ManageStagesModal({
                       size="sm"
                       variant="destructive"
                       onClick={() => handleDeleteStage(stage.id)}
-                      disabled={loading}
+                      isLoading={loading}
                       className="h-8"
                     >
-                      {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Confirmar"
-                      )}
+                      Confirmar
                     </Button>
                     <Button
                       size="sm"
@@ -402,14 +394,11 @@ export function ManageStagesModal({
                 <Button
                   size="sm"
                   onClick={handleAddStage}
-                  disabled={loading || !newName.trim()}
+                  disabled={!newName.trim()}
+                  isLoading={loading}
                   className="h-8"
                 >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
+                  <Plus className="h-4 w-4" />
                   <span className="ml-1">Adicionar</span>
                 </Button>
                 <Button

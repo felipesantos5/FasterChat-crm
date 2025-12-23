@@ -12,13 +12,14 @@ import { customerApi } from "@/lib/customer";
 import { whatsappApi } from "@/lib/whatsapp";
 import { Customer } from "@/types/customer";
 import { WhatsAppInstance } from "@/types/whatsapp";
-import { Loader2, MessageSquare, Search, X, Bot, User, ChevronRight, MessageSquarePlus, Smartphone, ArrowLeft } from "lucide-react";
+import { MessageSquare, Search, X, Bot, User, ChevronRight, MessageSquarePlus, Smartphone, ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConversationListSkeleton } from "@/components/ui/skeletons";
 
 type FilterType = "all" | "ai" | "human" | "unread" | "needsHelp";
 type SortType = "recent" | "oldest" | "name";
@@ -307,8 +308,25 @@ export default function ConversationsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-muted/30">
+        {/* Sidebar com loading */}
+        <div className="w-96 border-r bg-background flex flex-col">
+          <div className="p-4 border-b">
+            <div className="h-10 bg-muted rounded-md animate-pulse mb-2" />
+            <div className="flex gap-2">
+              <div className="h-8 flex-1 bg-muted rounded-md animate-pulse" />
+              <div className="h-8 w-20 bg-muted rounded-md animate-pulse" />
+            </div>
+          </div>
+          <ConversationListSkeleton />
+        </div>
+        {/* Área de chat com loading */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <MessageSquare className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+            <p className="text-muted-foreground">Carregando conversas...</p>
+          </div>
+        </div>
       </div>
     );
   }

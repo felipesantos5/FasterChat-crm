@@ -1,10 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Home, ArrowLeft, Search, MessageSquare } from "lucide-react";
 
 export default function NotFound() {
+  const router = useRouter();
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30">
       <div className="text-center px-6 py-12 max-w-lg">
@@ -30,17 +32,13 @@ export default function NotFound() {
 
         {/* Botões de ação */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="/dashboard">
-              <Home className="mr-2 h-4 w-4" />
-              Ir para Dashboard
-            </Link>
+          <Button onClick={() => router.push("/dashboard")} size="lg" className="w-full sm:w-auto">
+            <Home className="mr-2 h-4 w-4" />
+            Ir para Dashboard
           </Button>
-          <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-            <Link href="/dashboard/conversations">
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Conversas
-            </Link>
+          <Button onClick={() => router.push("/dashboard/conversations")} variant="outline" size="lg" className="w-full sm:w-auto">
+            <MessageSquare className="mr-2 h-4 w-4" />
+            Conversas
           </Button>
         </div>
 

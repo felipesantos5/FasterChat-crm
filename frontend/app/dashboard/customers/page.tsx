@@ -19,7 +19,7 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
-  Eye,
+  // Eye,
   MessageSquare,
   Upload,
   X,
@@ -32,6 +32,7 @@ import { ImportCustomersDialog } from "@/components/customers/import-customers-d
 import { Tag } from "@/lib/tag";
 import { tagApi } from "@/lib/tag";
 import { Card } from "@/components/ui/card";
+import { CustomerGridSkeleton } from "@/components/ui/skeletons";
 
 export default function CustomersPage() {
   const router = useRouter();
@@ -208,9 +209,9 @@ export default function CustomersPage() {
                 style={
                   selectedTags.includes(tag.name)
                     ? {
-                        backgroundColor: tag.color || "#22C55E",
-                        borderColor: tag.color || "#22C55E",
-                      }
+                      backgroundColor: tag.color || "#22C55E",
+                      borderColor: tag.color || "#22C55E",
+                    }
                     : undefined
                 }
                 onClick={() => toggleTagFilter(tag.name)}
@@ -225,9 +226,7 @@ export default function CustomersPage() {
       {/* Grid de clientes */}
       <div className="flex-1 overflow-auto p-3 sm:p-4">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-muted-foreground">Carregando...</div>
-          </div>
+          <CustomerGridSkeleton />
         ) : customers.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <Users className="h-12 w-12 text-muted-foreground/50 mb-3" />
@@ -250,10 +249,10 @@ export default function CustomersPage() {
             {customers.map((customer) => (
               <Card
                 key={customer.id}
-                className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                className="p-3 sm:p-4 cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => router.push(`/dashboard/conversations?customer=${customer.id}`)}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-2 sm:gap-3">
                   <div className="flex-1 min-w-0">
                     {/* Nome e badge de grupo */}
                     <div className="flex items-center gap-2 mb-2">
@@ -302,7 +301,7 @@ export default function CustomersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem
+                      {/* <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();
                           router.push(`/dashboard/customers/${customer.id}`);
@@ -310,7 +309,7 @@ export default function CustomersPage() {
                       >
                         <Eye className="mr-2 h-4 w-4" />
                         Ver detalhes
-                      </DropdownMenuItem>
+                      </DropdownMenuItem> */}
                       <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();

@@ -304,8 +304,16 @@ export default function AISettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
+        <div className="mb-8">
+          <div className="h-8 w-64 bg-muted rounded animate-pulse mb-2" />
+          <div className="h-4 w-96 bg-muted rounded animate-pulse" />
+        </div>
+        <div className="space-y-6">
+          <div className="h-32 bg-muted rounded-lg animate-pulse" />
+          <div className="h-40 bg-muted rounded-lg animate-pulse" />
+          <div className="h-48 bg-muted rounded-lg animate-pulse" />
+        </div>
       </div>
     );
   }

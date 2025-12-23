@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MessageSquarePlus, Loader2, AlertCircle } from "lucide-react";
+import { MessageSquarePlus, AlertCircle } from "lucide-react";
 import { customerApi } from "@/lib/customer";
 import { conversationApi } from "@/lib/conversation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -257,18 +257,9 @@ export function NewConversationDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Criando...
-                </>
-              ) : (
-                <>
-                  <MessageSquarePlus className="h-4 w-4 mr-2" />
-                  Iniciar Conversa
-                </>
-              )}
+            <Button type="submit" isLoading={loading}>
+              <MessageSquarePlus className="h-4 w-4 mr-2" />
+              {loading ? "Criando..." : "Iniciar Conversa"}
             </Button>
           </DialogFooter>
         </form>
