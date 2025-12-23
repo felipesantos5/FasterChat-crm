@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { aiKnowledgeApi } from "@/lib/ai-knowledge";
-import { AIKnowledge, Product } from "@/types/ai-knowledge";
+import { AIKnowledge, Product, ObjectivePreset } from "@/types/ai-knowledge";
 import {
   Loader2,
   Check,
@@ -28,10 +28,31 @@ import {
   Clock,
   CreditCard,
   Truck,
-  Shield
+  Shield,
+  Headphones,
+  ShoppingCart,
+  CalendarCheck,
+  Calendar,
+  Info,
+  UserCheck,
+  PackageSearch,
+  Settings,
+  LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+// Mapeamento de ícones para os objetivos
+const OBJECTIVE_ICONS: Record<string, LucideIcon> = {
+  support: Headphones,
+  sales: ShoppingCart,
+  sales_scheduling: CalendarCheck,
+  scheduling_only: Calendar,
+  info_faq: Info,
+  lead_qualification: UserCheck,
+  order_tracking: PackageSearch,
+  custom: Settings,
+};
 
 // Definição dos steps do wizard
 const STEPS = [
@@ -73,7 +94,9 @@ export default function AISettingsPage() {
   const [companySegment, setCompanySegment] = useState("");
   const [companyDescription, setCompanyDescription] = useState("");
 
-  const [aiObjective, setAiObjective] = useState("");
+  const [objectiveType, setObjectiveType] = useState("support");
+  const [objectivePresets, setObjectivePresets] = useState<ObjectivePreset[]>([]);
+  const [aiObjective, setAiObjective] = useState(""); // Usado apenas quando objectiveType === 'custom'
 
   const [workingHours, setWorkingHours] = useState("");
   const [paymentMethods, setPaymentMethods] = useState("");
@@ -112,6 +135,16 @@ export default function AISettingsPage() {
         return;
       }
 
+      // Carrega os presets de objetivos
+      try {
+        const presetsResponse = await aiKnowledgeApi.getObjectivePresets();
+        if (presetsResponse.data) {
+          setObjectivePresets(presetsResponse.data);
+        }
+      } catch (err) {
+        console.error("Error loading presets:", err);
+      }
+
       const response = await aiKnowledgeApi.getKnowledge(companyId);
 
       if (response.data) {
@@ -122,6 +155,7 @@ export default function AISettingsPage() {
         setCompanySegment(response.data.companySegment || "");
         setCompanyDescription(response.data.companyDescription || response.data.companyInfo || "");
 
+        setObjectiveType(response.data.objectiveType || "support");
         setAiObjective(response.data.aiObjective || "");
 
         setWorkingHours(response.data.workingHours || "");
@@ -161,7 +195,8 @@ export default function AISettingsPage() {
         companyName,
         companySegment,
         companyDescription,
-        aiObjective,
+        objectiveType,
+        aiObjective: objectiveType === 'custom' ? aiObjective : undefined,
         workingHours,
         paymentMethods,
         deliveryInfo,
@@ -282,6 +317,8 @@ export default function AISettingsPage() {
       companyName={companyName}
       companySegment={companySegment}
       companyDescription={companyDescription}
+      objectiveType={objectiveType}
+      objectivePresets={objectivePresets}
       aiObjective={aiObjective}
       workingHours={workingHours}
       paymentMethods={paymentMethods}
@@ -414,20 +451,75 @@ export default function AISettingsPage() {
           {/* Step 1: Objetivo da IA */}
           {currentStep === 1 && (
             <>
-              <div className="space-y-2">
-                <Label htmlFor="aiObjective">Qual o objetivo da sua IA?</Label>
-                <Textarea
-                  id="aiObjective"
-                  value={aiObjective}
-                  onChange={(e) => setAiObjective(e.target.value)}
-                  placeholder="Ex: Atender clientes, responder dúvidas, fornecer informações sobre produtos e serviços, agendar atendimentos..."
-                  rows={6}
-                  className="min-h-[140px]"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Descreva o que você espera que a IA faça ao atender seus clientes.
-                </p>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-base">Selecione o objetivo da sua IA</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Escolha o tipo de atendimento que melhor se adequa ao seu negócio
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {objectivePresets.map((preset) => {
+                    const IconComponent = OBJECTIVE_ICONS[preset.id] || Target;
+                    const isSelected = objectiveType === preset.id;
+
+                    return (
+                      <button
+                        type="button"
+                        key={preset.id}
+                        onClick={() => setObjectiveType(preset.id)}
+                        className={cn(
+                          "flex items-start gap-3 p-4 rounded-lg border-2 text-left transition-all hover:border-primary/50",
+                          isSelected
+                            ? "border-primary bg-primary/5"
+                            : "border-muted hover:bg-muted/50"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "p-2 rounded-lg shrink-0",
+                            isSelected
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          <IconComponent className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{preset.label}</span>
+                            {isSelected && (
+                              <Check className="h-4 w-4 text-primary shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
+                            {preset.description}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* Campo customizado quando seleciona "Personalizado" */}
+              {objectiveType === "custom" && (
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="aiObjective">Descreva o objetivo personalizado</Label>
+                  <Textarea
+                    id="aiObjective"
+                    value={aiObjective}
+                    onChange={(e) => setAiObjective(e.target.value)}
+                    placeholder="Ex: Atender clientes, responder dúvidas, fornecer informações sobre produtos e serviços, agendar atendimentos..."
+                    rows={6}
+                    className="min-h-[140px]"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Descreva detalhadamente o que você espera que a IA faça ao atender seus clientes.
+                  </p>
+                </div>
+              )}
 
               <div className="bg-muted/50 rounded-lg p-4">
                 <h4 className="font-medium mb-2 flex items-center gap-2">
@@ -442,7 +534,7 @@ export default function AISettingsPage() {
                   <li>• Respostas claras e objetivas</li>
                   <li>• Uso moderado de emojis</li>
                   <li>• Tratamento respeitoso ao cliente</li>
-                  <li>• Nunca inventa informações</li>
+                  <li>• <strong>Nunca inventa preços</strong> - usa apenas valores cadastrados</li>
                   <li>• Encaminha para humano quando necessário</li>
                 </ul>
               </div>
@@ -734,6 +826,8 @@ function CompletedView({
   companyName,
   companySegment,
   companyDescription,
+  objectiveType,
+  objectivePresets,
   aiObjective,
   workingHours,
   paymentMethods,
@@ -752,6 +846,8 @@ function CompletedView({
   companyName: string;
   companySegment: string;
   companyDescription: string;
+  objectiveType: string;
+  objectivePresets: ObjectivePreset[];
   aiObjective: string;
   workingHours: string;
   paymentMethods: string;
@@ -766,6 +862,9 @@ function CompletedView({
   setAutoReplyEnabled: (value: boolean) => void;
   saveKnowledge: (nextStep?: number, overrides?: { autoReplyEnabled?: boolean }) => void;
 }) {
+  // Encontra o preset selecionado
+  const selectedPreset = objectivePresets.find(p => p.id === objectiveType);
+  const ObjectiveIcon = OBJECTIVE_ICONS[objectiveType] || Target;
   return (
     <div className="p-6 mx-auto space-y-6">
       {/* Toggle de Resposta Automática */}
@@ -835,21 +934,28 @@ function CompletedView({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Target className="h-5 w-5" />
+              <ObjectiveIcon className="h-5 w-5" />
               Objetivo da IA
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {aiObjective && (
-              <div>
-                <span className="text-sm text-muted-foreground">Objetivo:</span>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <ObjectiveIcon className="h-3 w-3" />
+                {selectedPreset?.label || "Suporte ao Cliente"}
+              </Badge>
+            </div>
+            {selectedPreset?.description && (
+              <p className="text-sm text-muted-foreground">
+                {selectedPreset.description}
+              </p>
+            )}
+            {objectiveType === "custom" && aiObjective && (
+              <div className="mt-2 pt-2 border-t">
+                <span className="text-sm text-muted-foreground">Objetivo customizado:</span>
                 <p className="text-sm line-clamp-3">{aiObjective}</p>
               </div>
             )}
-            <div>
-              <span className="text-sm text-muted-foreground">Comportamento:</span>
-              <p className="text-sm text-primary">Atendente profissional otimizado</p>
-            </div>
           </CardContent>
         </Card>
 

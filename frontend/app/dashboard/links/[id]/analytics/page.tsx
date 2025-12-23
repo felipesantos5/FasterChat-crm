@@ -266,7 +266,7 @@ export default function LinkAnalyticsPage() {
       {/* Tables Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Países */}
-        <div className="bg-white rounded-lg shadow p-6">
+        {/* <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center gap-2 mb-4">
             <Globe className="h-5 w-5 text-green-600" />
             <h3 className="text-lg font-semibold text-gray-900">Top Países</h3>
@@ -300,7 +300,7 @@ export default function LinkAnalyticsPage() {
           ) : (
             <p className="text-gray-500 text-center py-8">Nenhum dado disponível</p>
           )}
-        </div>
+        </div> */}
 
         {/* Top Referers */}
         {/* <div className="bg-white rounded-lg shadow p-6">

@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma';
 import { UpdateAIKnowledgeRequest, Product } from '../types/ai-knowledge';
 import openaiService from './ai-providers/openai.service';
+import { getObjectivePrompt, getObjectivePresetsForUI, AI_OBJECTIVE_PRESETS } from '../config/ai-objectives';
 
 // ============================================
 // CONFIGURAÇÕES HARDCODED DO ATENDENTE VIRTUAL
@@ -42,6 +43,16 @@ const HARDCODED_AI_BEHAVIOR = `
 - Pedir desculpas educadamente em caso de limitações
 - Oferecer alternativas quando não puder ajudar diretamente
 - Encaminhar para humano quando necessário
+- SEMPRE usar os valores EXATOS cadastrados nos produtos/serviços
+
+### ⚠️ REGRA CRÍTICA SOBRE PREÇOS (NUNCA VIOLE)
+Esta é a regra mais importante do atendimento:
+- NUNCA invente, estime ou arredonde preços - use APENAS valores cadastrados
+- Se perguntarem um preço que não está cadastrado: "Preciso verificar esse valor. Posso consultar para você?"
+- NUNCA diga "aproximadamente", "cerca de", "em torno de" para valores
+- NUNCA "chute" faixas de preço como "entre R$ 100 e R$ 200"
+- Se um serviço custa R$ 347,50, informe EXATAMENTE R$ 347,50
+- Quando não souber o preço, ADMITA e ofereça verificar
 
 ### O que NUNCA fazer
 - NUNCA inventar preços, valores ou prazos - APENAS informe o que está cadastrado
@@ -120,6 +131,7 @@ class AIKnowledgeService {
           companyInfo: data.companyInfo,
 
           // Objetivo da IA
+          objectiveType: data.objectiveType,
           aiObjective: data.aiObjective,
 
           // Políticas
@@ -157,8 +169,9 @@ class AIKnowledgeService {
           companyDescription: data.companyDescription,
           companyInfo: data.companyInfo,
 
-          // Objetivo da IA (usa padrão se não informado)
-          aiObjective: data.aiObjective || DEFAULT_AI_OBJECTIVE,
+          // Objetivo da IA (usa padrão 'support' se não informado)
+          objectiveType: data.objectiveType || 'support',
+          aiObjective: data.aiObjective,
 
           // Políticas
           policies: data.policies,
@@ -222,13 +235,18 @@ class AIKnowledgeService {
       // Parse products
       const products: Product[] = this.safeJsonParse(knowledge.products, []);
 
+      // Busca o prompt do objetivo pré-definido
+      const objectiveType = knowledge.objectiveType || 'support';
+      const objectivePrompt = getObjectivePrompt(objectiveType, knowledge.aiObjective || undefined);
+
       // Monta as informações para a IA processar
-      // NOTA: aiPersonality foi removido - agora é hardcoded
       const businessInfo = {
         companyName: knowledge.companyName || '',
         companySegment: knowledge.companySegment || '',
         companyDescription: knowledge.companyDescription || knowledge.companyInfo || '',
-        aiObjective: knowledge.aiObjective || '',
+        objectiveType,
+        objectivePrompt,
+        serviceArea: knowledge.serviceArea || '',
         workingHours: knowledge.workingHours || '',
         paymentMethods: knowledge.paymentMethods || '',
         deliveryInfo: knowledge.deliveryInfo || '',
@@ -264,23 +282,21 @@ class AIKnowledgeService {
   /**
    * Usa IA para gerar um contexto rico e estruturado
    *
-   * IMPORTANTE: Esta função também aprimora o objetivo do cliente
-   * para torná-lo mais eficiente e profissional.
+   * IMPORTANTE: Usa o prompt do objetivo pré-definido para definir o comportamento
    */
   private async generateContextWithAI(businessInfo: {
     companyName: string;
     companySegment: string;
     companyDescription: string;
-    aiObjective: string;
+    objectiveType: string;
+    objectivePrompt: string;
+    serviceArea: string;
     workingHours: string;
     paymentMethods: string;
     deliveryInfo: string;
     warrantyInfo: string;
     products: Product[];
   }): Promise<string> {
-    // Primeiro, aprimora o objetivo do cliente usando IA
-    const enhancedObjective = await this.enhanceObjectiveWithAI(businessInfo.aiObjective, businessInfo.companySegment);
-
     const prompt = `Você é um especialista em criar contextos de IA para atendimento ao cliente via WhatsApp.
 
 Com base nas informações abaixo sobre um negócio, crie um contexto COMPLETO, PROFISSIONAL e OTIMIZADO que será usado por uma IA assistente para atender clientes.
@@ -293,13 +309,14 @@ IMPORTANTE: O comportamento e tom de voz já estão configurados automaticamente
 **Segmento:** ${businessInfo.companySegment || 'Não informado'}
 **Descrição:** ${businessInfo.companyDescription || 'Não informada'}
 
-**Objetivo do Atendimento (Aprimorado):**
-${enhancedObjective}
+## OBJETIVO E FLUXO DE ATENDIMENTO
+${businessInfo.objectivePrompt || 'Atendimento geral ao cliente'}
 
 **Horário de Atendimento:** ${businessInfo.workingHours || 'Consultar disponibilidade'}
 **Formas de Pagamento:** ${businessInfo.paymentMethods || 'Consultar opções disponíveis'}
 **Entrega/Prazos:** ${businessInfo.deliveryInfo || 'Consultar condições'}
 **Garantias:** ${businessInfo.warrantyInfo || 'Consultar política de garantia'}
+${businessInfo.serviceArea ? `**Área de Atendimento:** ${businessInfo.serviceArea}` : ''}
 
 **Produtos/Serviços:**
 ${businessInfo.products.length > 0
@@ -454,7 +471,9 @@ Transforme isso em um objetivo profissional e otimizado para um chatbot de atend
     companyName: string;
     companySegment: string;
     companyDescription: string;
-    aiObjective: string;
+    objectiveType: string;
+    objectivePrompt: string;
+    serviceArea: string;
     workingHours: string;
     paymentMethods: string;
     deliveryInfo: string;
@@ -469,8 +488,8 @@ Transforme isso em um objetivo profissional e otimizado para um chatbot de atend
     if (businessInfo.companyDescription) context += `${businessInfo.companyDescription}\n`;
     context += '\n';
 
-    context += `## Meu Objetivo\n`;
-    context += businessInfo.aiObjective || this.getDefaultObjectiveForSegment(businessInfo.companySegment);
+    context += `## Objetivo e Fluxo de Atendimento\n`;
+    context += businessInfo.objectivePrompt || this.getDefaultObjectiveForSegment(businessInfo.companySegment);
     context += '\n\n';
 
     if (businessInfo.products.length > 0) {
@@ -489,12 +508,20 @@ Transforme isso em um objetivo profissional e otimizado para um chatbot de atend
     if (businessInfo.paymentMethods) context += `- Formas de pagamento: ${businessInfo.paymentMethods}\n`;
     if (businessInfo.deliveryInfo) context += `- Entrega: ${businessInfo.deliveryInfo}\n`;
     if (businessInfo.warrantyInfo) context += `- Garantia: ${businessInfo.warrantyInfo}\n`;
+    if (businessInfo.serviceArea) context += `- Área de atendimento: ${businessInfo.serviceArea}\n`;
     context += '\n';
 
     // Adiciona o comportamento hardcoded
     context += HARDCODED_AI_BEHAVIOR;
 
     return context;
+  }
+
+  /**
+   * Retorna a lista de objetivos pré-definidos para o frontend
+   */
+  getObjectivePresets() {
+    return getObjectivePresetsForUI();
   }
 
   /**

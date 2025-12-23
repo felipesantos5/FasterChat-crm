@@ -4,6 +4,7 @@ import {
   UpdateAIKnowledgeRequest,
   UpdateAIKnowledgeResponse,
   GenerateContextResponse,
+  GetObjectivePresetsResponse,
 } from '@/types/ai-knowledge';
 
 export const aiKnowledgeApi = {
@@ -31,6 +32,14 @@ export const aiKnowledgeApi = {
    */
   async generateContext(companyId: string): Promise<GenerateContextResponse> {
     const response = await api.post('/ai/knowledge/generate-context', { companyId });
+    return response.data;
+  },
+
+  /**
+   * Obtém a lista de objetivos pré-definidos
+   */
+  async getObjectivePresets(): Promise<GetObjectivePresetsResponse> {
+    const response = await api.get('/ai/knowledge/objective-presets');
     return response.data;
   },
 };

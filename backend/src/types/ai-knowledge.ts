@@ -25,7 +25,8 @@ export interface AIKnowledgeData {
   companyInfo?: string | null;
 
   // Objetivo da IA
-  aiObjective?: string | null;
+  objectiveType?: string | null; // ID do objetivo pré-definido
+  aiObjective?: string | null; // Texto customizado (quando objectiveType = 'custom')
 
   // Políticas
   policies?: string | null;
@@ -70,7 +71,8 @@ export interface UpdateAIKnowledgeRequest {
   companyInfo?: string;
 
   // Objetivo da IA
-  aiObjective?: string;
+  objectiveType?: string; // ID do objetivo pré-definido
+  aiObjective?: string; // Texto customizado (quando objectiveType = 'custom')
 
   // Políticas
   policies?: string;

@@ -272,6 +272,32 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     e.target.value = "";
   };
 
+  // Handler para colar imagem do clipboard (Ctrl+V)
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          processImageFile(file);
+        }
+        break;
+      }
+    }
+  }, []);
+
+  // Adiciona listener de paste no documento
+  useEffect(() => {
+    document.addEventListener("paste", handlePaste);
+    return () => {
+      document.removeEventListener("paste", handlePaste);
+    };
+  }, [handlePaste]);
+
   // Handlers de drag and drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();

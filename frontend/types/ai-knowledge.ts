@@ -14,6 +14,14 @@ export interface FAQ {
   answer: string;
 }
 
+// Tipo para objetivo pré-definido
+export interface ObjectivePreset {
+  id: string;
+  label: string;
+  description: string;
+  icon?: string;
+}
+
 export interface AIKnowledge {
   id: string;
   companyId: string;
@@ -25,7 +33,8 @@ export interface AIKnowledge {
   companyInfo?: string | null; // legado
 
   // Objetivo da IA
-  aiObjective?: string | null;
+  objectiveType?: string | null; // ID do objetivo pré-definido
+  aiObjective?: string | null; // Texto customizado (quando objectiveType = 'custom')
   aiPersonality?: string | null;
   toneInstructions?: string | null; // legado
 
@@ -78,7 +87,8 @@ export interface UpdateAIKnowledgeRequest {
   companyInfo?: string;
 
   // Objetivo da IA
-  aiObjective?: string;
+  objectiveType?: string; // ID do objetivo pré-definido
+  aiObjective?: string; // Texto customizado (quando objectiveType = 'custom')
   aiPersonality?: string;
   toneInstructions?: string;
 
@@ -124,4 +134,9 @@ export interface GenerateContextResponse {
     generatedContext: string;
     contextGeneratedAt: string;
   };
+}
+
+export interface GetObjectivePresetsResponse {
+  success: boolean;
+  data: ObjectivePreset[];
 }

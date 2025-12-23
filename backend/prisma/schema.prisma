@@ -230,7 +230,8 @@ model AIKnowledge {
   companyInfo        String?  @map("company_info") @db.Text // Campo legado - visão geral
 
   // Objetivo da IA
-  aiObjective        String?  @map("ai_objective") @db.Text // Ex: "Atender clientes, agendar visitas..."
+  objectiveType      String?  @default("support") @map("objective_type") // ID do objetivo pré-definido (support, sales, sales_scheduling, etc.)
+  aiObjective        String?  @map("ai_objective") @db.Text // Texto customizado (usado quando objectiveType = 'custom')
   aiPersonality      String?  @map("ai_personality") @db.Text // Tom de voz e personalidade
   toneInstructions   String?  @map("tone_instructions") @db.Text // Instruções de tom (legado)
 

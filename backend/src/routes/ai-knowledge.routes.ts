@@ -16,4 +16,7 @@ router.put('/knowledge', aiKnowledgeController.updateKnowledge);
 // POST /api/ai/knowledge/generate-context - Gera contexto completo com IA
 router.post('/knowledge/generate-context', aiKnowledgeController.generateContext);
 
+// GET /api/ai/knowledge/objective-presets - Lista objetivos pré-definidos
+router.get('/knowledge/objective-presets', aiKnowledgeController.getObjectivePresets);
+
 export default router;

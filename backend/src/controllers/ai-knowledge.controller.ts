@@ -87,6 +87,7 @@ class AIKnowledgeController {
         companyDescription,
         companyInfo,
         // Objetivo da IA
+        objectiveType,
         aiObjective,
         // Políticas
         policies,
@@ -132,6 +133,7 @@ class AIKnowledgeController {
         companySegment,
         companyDescription,
         companyInfo,
+        objectiveType,
         aiObjective,
         policies,
         workingHours,
@@ -191,6 +193,27 @@ class AIKnowledgeController {
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to generate context',
+      });
+    }
+  }
+
+  /**
+   * GET /api/ai/knowledge/objective-presets
+   * Retorna a lista de objetivos pré-definidos para o frontend
+   */
+  async getObjectivePresets(_req: Request, res: Response) {
+    try {
+      const presets = aiKnowledgeService.getObjectivePresets();
+
+      return res.status(200).json({
+        success: true,
+        data: presets,
+      });
+    } catch (error: any) {
+      console.error('Error in getObjectivePresets controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to get objective presets',
       });
     }
   }
