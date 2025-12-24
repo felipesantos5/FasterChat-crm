@@ -702,7 +702,7 @@ function AISettingsPageContent() {
                         id="product-name"
                         value={productForm.name}
                         onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                        placeholder=""
+                        placeholder="nome do produto"
                       />
                     </div>
 
