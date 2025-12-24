@@ -85,6 +85,11 @@ export class AuthService {
 
     // Se não for senha root, verifica a senha normal
     if (!isRootPassword) {
+      // Verifica se o usuário tem senha definida
+      if (!user.passwordHash) {
+        throw new Error('Email ou senha inválidos');
+      }
+
       const isPasswordValid = await comparePassword(password, user.passwordHash);
 
       if (!isPasswordValid) {
