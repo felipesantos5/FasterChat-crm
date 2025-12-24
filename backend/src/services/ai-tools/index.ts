@@ -46,18 +46,18 @@ export const getProductInfoTool: ChatCompletionTool = {
   type: 'function',
   function: {
     name: 'get_product_info',
-    description: 'Busca informações detalhadas sobre produtos, serviços, preços e especificações técnicas da empresa. Use quando cliente perguntar sobre produtos, modelos, capacidades, ou preços.',
+    description: 'SEMPRE use esta ferramenta quando o cliente perguntar QUALQUER COISA sobre produtos, serviços ou preços. Exemplos de perguntas que EXIGEM o uso desta ferramenta: "vocês vendem X?", "tem X?", "quanto custa X?", "qual o preço de X?", "vocês fazem X?", "trabalham com X?", "tem disponível X?". NUNCA diga "vou verificar" - USE A FERRAMENTA IMEDIATAMENTE. A ferramenta busca no catálogo oficial da empresa e retorna informações precisas sobre disponibilidade, preços e especificações.',
     parameters: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description: 'Termo de busca: nome do produto, categoria (ex: "ar condicionado 12000 BTUs", "manutenção preventiva", "instalação")',
+          description: 'Termo de busca extraído da pergunta do cliente. Exemplos: se cliente pergunta "vocês vendem controle?", use "controle". Se pergunta "tem ar condicionado 12000?", use "ar condicionado 12000". Se pergunta "quanto custa instalação?", use "instalação".',
         },
         category: {
           type: 'string',
           enum: ['PRODUCT', 'SERVICE', 'PRICING'],
-          description: 'Categoria da consulta',
+          description: 'PRODUCT: quando perguntam sobre produtos físicos (ex: "controle", "ar condicionado"). SERVICE: quando perguntam sobre serviços (ex: "instalação", "manutenção"). PRICING: quando perguntam especificamente sobre preço (ex: "quanto custa").',
         },
       },
       required: ['query', 'category'],

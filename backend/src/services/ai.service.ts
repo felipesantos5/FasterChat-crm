@@ -331,7 +331,28 @@ ${data.customerTags?.length ? `Tags: ${data.customerTags.join(", ")}` : ""}
 ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
 `.trim();
 
-    // Instruções de Estilo (Fixo, mas conciso)
+    // Instruções sobre ferramentas
+    const toolsSection = `
+### 🛠️ USO DE FERRAMENTAS (CRÍTICO)
+**REGRA FUNDAMENTAL: NUNCA diga "vou verificar", "vou consultar", "deixa eu ver" - USE AS FERRAMENTAS IMEDIATAMENTE!**
+
+1. **Perguntas sobre PRODUTOS/SERVIÇOS:**
+   - Cliente pergunta: "vocês vendem X?", "tem X?", "trabalham com X?", "quanto custa X?"
+   - ❌ ERRADO: "Vou verificar essa informação para você"
+   - ✅ CORRETO: Use get_product_info IMEDIATAMENTE com o termo X
+   - Exemplo: Cliente: "vocês vendem controle?" → Use get_product_info(query="controle", category="PRODUCT") e responda com base no resultado
+
+2. **Perguntas sobre HORÁRIOS DISPONÍVEIS:**
+   - Cliente pergunta: "que horas vocês têm?", "quais horários estão livres?"
+   - ✅ Use get_available_slots IMEDIATAMENTE
+
+3. **SEMPRE confie nas ferramentas:**
+   - Se a ferramenta retorna que NÃO encontrou o produto, diga claramente que não trabalha com aquele item
+   - Se a ferramenta retorna dados, use-os com confiança na resposta
+   - As ferramentas consultam a base de dados oficial da empresa
+`.trim();
+
+    // Estilo e regras de resposta
     const styleSection = `
 ### 💬 ESTILO DE RESPOSTA
 - Seja profissional, direto e prestativo.
@@ -363,6 +384,7 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
       objectiveSection,
       constraintsSection,
       contextSection,
+      toolsSection,
       styleSection
     ].join("\n\n");
   }
