@@ -26,6 +26,7 @@ import { buttons, cards, typography, spacing, badges, icons } from "@/lib/design
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useCustomers } from "@/hooks/use-customers";
 import { CalendarSkeleton } from "@/components/ui/skeletons";
+import { ProtectedPage } from "@/components/layout/protected-page";
 
 const locales = { "pt-BR": ptBR };
 
@@ -62,6 +63,14 @@ interface CalendarEvent {
 }
 
 export default function CalendarioPage() {
+  return (
+    <ProtectedPage requiredPage="CALENDAR">
+      <CalendarioPageContent />
+    </ProtectedPage>
+  );
+}
+
+function CalendarioPageContent() {
   // ✅ 1. Recuperar dados do usuário autenticado
   const { user } = useAuthStore();
   const companyId = user?.companyId;

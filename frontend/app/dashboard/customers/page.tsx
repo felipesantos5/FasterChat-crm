@@ -33,8 +33,17 @@ import { Tag } from "@/lib/tag";
 import { tagApi } from "@/lib/tag";
 import { Card } from "@/components/ui/card";
 import { CustomerGridSkeleton } from "@/components/ui/skeletons";
+import { ProtectedPage } from "@/components/layout/protected-page";
 
 export default function CustomersPage() {
+  return (
+    <ProtectedPage requiredPage="CUSTOMERS">
+      <CustomersPageContent />
+    </ProtectedPage>
+  );
+}
+
+function CustomersPageContent() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");

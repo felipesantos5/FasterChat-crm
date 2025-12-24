@@ -148,6 +148,28 @@ class AIService {
       const serviceArea = aiKnowledge?.serviceArea || null;
       const negativeExamples = aiKnowledge?.negativeExamples || null;
 
+      // Verifica se Google Calendar está conectado
+      let googleCalendarStatus = "não conectado";
+      try {
+        const googleCalendar = await prisma.googleCalendar.findUnique({
+          where: { companyId: customer.companyId },
+        });
+        if (googleCalendar && googleCalendar.accessToken) {
+          googleCalendarStatus = "conectado e sincronizado";
+        }
+      } catch (error) {
+        console.warn("[AIService] Erro ao verificar Google Calendar:", error);
+      }
+
+      // Durações de serviços (em minutos)
+      const serviceDurations = {
+        INSTALLATION: 120, // 2 horas
+        MAINTENANCE: 60,   // 1 hora
+        CONSULTATION: 30,  // 30 minutos
+        VISIT: 60,         // 1 hora
+        OTHER: 60,         // 1 hora
+      };
+
       // Configurações do modelo
       const providerConfig = aiKnowledge?.provider as AIProvider | undefined;
       const modelConfig = aiKnowledge?.model ?? CHATBOT_CONFIG.DEFAULT_MODEL;
@@ -178,7 +200,9 @@ class AIService {
         customerPhone: customer.phone,
         customerTags: customer.tags,
         customerNotes: customer.notes,
-        objective: aiKnowledge?.aiObjective // Objetivo específico do cliente
+        objective: aiKnowledge?.aiObjective, // Objetivo específico do cliente
+        googleCalendarStatus, // Status do Google Calendar
+        serviceDurations, // Durações dos serviços
       });
 
       const userPrompt = this.buildUserPrompt(historyText, message);
@@ -238,7 +262,9 @@ class AIService {
       deliveryInfo,
       negativeExamples,
       customerName,
-      objective
+      objective,
+      googleCalendarStatus,
+      serviceDurations,
     } = data;
 
     // Cabeçalho de Identidade e Segurança (Fixo)
@@ -264,6 +290,28 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
       if (deliveryInfo) businessContext += `- Entrega/Prazos: ${deliveryInfo}\n`;
       if (serviceArea) businessContext += `- Área de Atendimento: ${serviceArea}\n`;
       if (policies) businessContext += `- Políticas: ${policies}\n`;
+    }
+
+    // Informações de Agendamento
+    if (googleCalendarStatus && serviceDurations) {
+      businessContext += `\n### 📅 SISTEMA DE AGENDAMENTOS\n`;
+      businessContext += `- Google Calendar: ${googleCalendarStatus}\n`;
+      if (googleCalendarStatus === "conectado e sincronizado") {
+        businessContext += `- Agendamentos são sincronizados automaticamente com Google Calendar\n`;
+      }
+      businessContext += `\n**Durações de Serviços:**\n`;
+      businessContext += `- Instalação: ${serviceDurations.INSTALLATION} minutos (${serviceDurations.INSTALLATION / 60}h)\n`;
+      businessContext += `- Manutenção: ${serviceDurations.MAINTENANCE} minutos (${serviceDurations.MAINTENANCE / 60}h)\n`;
+      businessContext += `- Consultoria: ${serviceDurations.CONSULTATION} minutos\n`;
+      businessContext += `- Visita: ${serviceDurations.VISIT} minutos (${serviceDurations.VISIT / 60}h)\n`;
+      businessContext += `- Outros serviços: ${serviceDurations.OTHER} minutos (${serviceDurations.OTHER / 60}h)\n`;
+      businessContext += `\n**INSTRUÇÕES PARA AGENDAMENTO:**\n`;
+      businessContext += `1. Quando o cliente quiser agendar, SEMPRE use a ferramenta 'get_available_slots' primeiro para verificar horários disponíveis\n`;
+      businessContext += `2. Apresente os horários disponíveis de forma clara ao cliente\n`;
+      businessContext += `3. Após o cliente escolher data e horário, colete: tipo de serviço, endereço completo\n`;
+      businessContext += `4. Confirme TODOS os dados com o cliente antes de criar o agendamento\n`;
+      businessContext += `5. Use a ferramenta 'create_appointment' SOMENTE após confirmação explícita do cliente\n`;
+      businessContext += `6. Informe ao cliente que ${googleCalendarStatus === "conectado e sincronizado" ? "o agendamento será adicionado ao Google Calendar automaticamente" : "o agendamento foi registrado no sistema"}\n`;
     }
 
     // Seção de Produtos (A mais importante para a confiabilidade)

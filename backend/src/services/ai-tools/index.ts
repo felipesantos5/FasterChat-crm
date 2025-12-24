@@ -161,6 +161,48 @@ export const getCompanyPolicyTool: ChatCompletionTool = {
 };
 
 /**
+ * Tool: Criar agendamento
+ */
+export const createAppointmentTool: ChatCompletionTool = {
+  type: 'function',
+  function: {
+    name: 'create_appointment',
+    description: 'Cria um agendamento para o cliente quando todos os dados necessários foram coletados: tipo de serviço, data, horário e endereço. Use SOMENTE quando o cliente confirmar explicitamente que deseja agendar.',
+    parameters: {
+      type: 'object',
+      properties: {
+        service_type: {
+          type: 'string',
+          enum: ['INSTALLATION', 'MAINTENANCE', 'CONSULTATION', 'VISIT', 'OTHER'],
+          description: 'Tipo de serviço a ser agendado',
+        },
+        date: {
+          type: 'string',
+          description: 'Data do agendamento no formato YYYY-MM-DD',
+        },
+        time: {
+          type: 'string',
+          description: 'Horário do agendamento no formato HH:MM (ex: 14:00)',
+        },
+        address: {
+          type: 'string',
+          description: 'Endereço completo onde o serviço será realizado',
+        },
+        title: {
+          type: 'string',
+          description: 'Título descritivo do agendamento (ex: "Instalação de Ar Condicionado")',
+        },
+        notes: {
+          type: 'string',
+          description: 'Observações adicionais sobre o agendamento',
+        },
+      },
+      required: ['service_type', 'date', 'time', 'address', 'title'],
+    },
+  },
+};
+
+/**
  * Lista de todas as tools disponíveis
  */
 export const allTools: ChatCompletionTool[] = [
@@ -169,6 +211,7 @@ export const allTools: ChatCompletionTool[] = [
   getCustomerHistoryTool,
   calculateQuoteTool,
   getCompanyPolicyTool,
+  createAppointmentTool,
 ];
 
 /**
@@ -177,6 +220,7 @@ export const allTools: ChatCompletionTool[] = [
  */
 export const essentialTools: ChatCompletionTool[] = [
   getAvailableSlotsTool,
+  createAppointmentTool,
   getProductInfoTool,
   calculateQuoteTool,
 ];

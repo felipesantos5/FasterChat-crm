@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { customerController } from "../controllers/customer.controller";
 import { authenticate } from "../middlewares/auth";
+import { checkPermission } from "../middlewares/permission";
 
 const router = Router();
 
@@ -8,13 +9,13 @@ const router = Router();
 router.use(authenticate);
 
 // Customer CRUD
-router.post("/", customerController.create.bind(customerController));
-router.get("/", customerController.findAll.bind(customerController));
-router.get("/stats", customerController.getStats.bind(customerController));
-router.get("/tags", customerController.getAllTags.bind(customerController));
-router.get("/:id", customerController.findById.bind(customerController));
-router.put("/:id", customerController.update.bind(customerController));
-router.delete("/:id", customerController.delete.bind(customerController));
-router.post("/import", customerController.import.bind(customerController));
+router.post("/", checkPermission("CUSTOMERS", true), customerController.create.bind(customerController));
+router.get("/", checkPermission("CUSTOMERS", false), customerController.findAll.bind(customerController));
+router.get("/stats", checkPermission("CUSTOMERS", false), customerController.getStats.bind(customerController));
+router.get("/tags", checkPermission("CUSTOMERS", false), customerController.getAllTags.bind(customerController));
+router.get("/:id", checkPermission("CUSTOMERS", false), customerController.findById.bind(customerController));
+router.put("/:id", checkPermission("CUSTOMERS", true), customerController.update.bind(customerController));
+router.delete("/:id", checkPermission("CUSTOMERS", true), customerController.delete.bind(customerController));
+router.post("/import", checkPermission("CUSTOMERS", true), customerController.import.bind(customerController));
 
 export default router;

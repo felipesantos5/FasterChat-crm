@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConversationListSkeleton } from "@/components/ui/skeletons";
+import { ProtectedPage } from "@/components/layout/protected-page";
 
 type FilterType = "all" | "ai" | "human" | "unread" | "needsHelp";
 type SortType = "recent" | "oldest" | "name";
@@ -33,6 +34,14 @@ interface PendingConversation {
 }
 
 export default function ConversationsPage() {
+  return (
+    <ProtectedPage requiredPage="CONVERSATIONS">
+      <ConversationsPageContent />
+    </ProtectedPage>
+  );
+}
+
+function ConversationsPageContent() {
   const searchParams = useSearchParams();
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [pendingConversation, setPendingConversation] = useState<PendingConversation | null>(null);
@@ -352,7 +361,7 @@ export default function ConversationsPage() {
           // Mobile: tela cheia quando em view de lista, esconde quando em chat
           "fixed inset-0 z-20 lg:relative lg:z-auto",
           mobileView === "list" ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-          showSidebar ? "lg:w-[320px]" : "lg:w-0",
+          showSidebar ? "lg:w-[360px]" : "lg:w-0",
           "w-full"
         )}
       >

@@ -23,6 +23,8 @@ import {
 import { useState, useEffect } from "react";
 import logo from "@/assets/logo2.webp";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/lib/store/auth.store";
 
 // Tipo para os itens de menu
 interface MenuItem {
@@ -30,6 +32,8 @@ interface MenuItem {
   icon: any;
   href?: string;
   children?: MenuItem[];
+  permission?: string; // Permissão necessária para ver este item
+  adminOnly?: boolean; // Item visível apenas para ADMIN
 }
 
 const menuItems: MenuItem[] = [
@@ -37,55 +41,65 @@ const menuItems: MenuItem[] = [
     label: "Dashboard",
     icon: LayoutDashboard,
     href: "/dashboard",
+    permission: "DASHBOARD",
   },
   {
     label: "Clientes",
     icon: Users,
     href: "/dashboard/customers",
+    permission: "CUSTOMERS",
   },
   {
     label: "Conversas",
     icon: MessageSquare,
     href: "/dashboard/conversations",
+    permission: "CONVERSATIONS",
   },
   {
     label: "Funil",
     icon: FunnelPlus,
     href: "/dashboard/pipeline",
+    permission: "PIPELINE",
   },
   {
     label: "Calendário",
     icon: CalendarDays,
     href: "/dashboard/calendario",
+    permission: "CALENDAR",
   },
   {
     label: "Campanhas",
     icon: Megaphone,
     href: "/dashboard/campaigns",
+    permission: "CAMPAIGNS",
   },
   {
     label: "Links de WhatsApp",
     icon: Link2,
     href: "/dashboard/links",
+    permission: "WHATSAPP_LINKS",
   },
   {
     label: "Configurações",
     icon: Settings,
     children: [
       {
-        label: "Colaboradores",
-        icon: Users,
-        href: "/dashboard/configuracoes/colaboradores",
-      },
-      {
         label: "IA",
         icon: Bot,
         href: "/dashboard/settings/ai",
+        permission: "AI_CONFIG",
       },
       {
         label: "WhatsApp",
         icon: Smartphone,
         href: "/dashboard/settings/whatsapp",
+        permission: "WHATSAPP_CONFIG",
+      },
+      {
+        label: "Colaboradores",
+        icon: Users,
+        href: "/dashboard/configuracoes/colaboradores",
+        adminOnly: true,
       },
     ],
   },
@@ -111,11 +125,47 @@ export function Sidebar() {
   const pathname = usePathname();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
   const { isOpen, close } = useSidebar();
+  const { hasPermission, loading } = usePermissions();
+  const { user } = useAuthStore();
 
   // Fecha a sidebar ao navegar no mobile
   useEffect(() => {
     close();
   }, [pathname, close]);
+
+  // Filtra itens do menu baseado nas permissões do usuário
+  const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
+    return items
+      .map((item) => {
+        // Se o item requer ADMIN e o usuário não é ADMIN, não exibe
+        if (item.adminOnly && user?.role !== 'ADMIN') {
+          return null;
+        }
+
+        // Se o item tem permissão específica e o usuário não tem, não exibe
+        if (item.permission && !hasPermission(item.permission)) {
+          return null;
+        }
+
+        // Se tem children, filtra recursivamente
+        if (item.children) {
+          const filteredChildren = filterMenuItems(item.children);
+
+          // Se não sobrou nenhum child visível, não exibe o pai
+          if (filteredChildren.length === 0) {
+            return null;
+          }
+
+          return { ...item, children: filteredChildren };
+        }
+
+        return item;
+      })
+      .filter((item): item is MenuItem => item !== null);
+  };
+
+  // Filtra os itens do menu
+  const visibleMenuItems = loading ? [] : filterMenuItems(menuItems);
 
   const toggleMenu = (label: string) => {
     setOpenMenus((prev) => (prev.includes(label) ? prev.filter((item) => item !== label) : [...prev, label]));
@@ -214,7 +264,15 @@ export function Sidebar() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 overflow-y-auto p-4">{menuItems.map((item) => renderMenuItem(item))}</nav>
+          <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+            {loading ? (
+              <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
+                Carregando...
+              </div>
+            ) : (
+              visibleMenuItems.map((item) => renderMenuItem(item))
+            )}
+          </nav>
         </div>
       </aside>
     </>

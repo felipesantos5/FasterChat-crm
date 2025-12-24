@@ -5,6 +5,7 @@ export interface Product {
   description?: string;
   price?: string;
   category?: string;
+  duration?: number; // Duração em minutos (para serviços)
 }
 
 // Tipo para FAQ

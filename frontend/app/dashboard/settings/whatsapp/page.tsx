@@ -9,8 +9,17 @@ import { DisconnectConfirmDialog } from "@/components/whatsapp/disconnect-confir
 import { whatsappApi } from "@/lib/whatsapp";
 import { WhatsAppInstance, WhatsAppStatus } from "@/types/whatsapp";
 import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle, Trash2, RefreshCw } from "lucide-react";
+import { ProtectedPage } from "@/components/layout/protected-page";
 
 export default function WhatsAppSettingsPage() {
+  return (
+    <ProtectedPage requiredPage="WHATSAPP_CONFIG">
+      <WhatsAppSettingsPageContent />
+    </ProtectedPage>
+  );
+}
+
+function WhatsAppSettingsPageContent() {
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);

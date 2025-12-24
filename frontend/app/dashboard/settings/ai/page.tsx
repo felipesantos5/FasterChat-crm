@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ProtectedPage } from "@/components/layout/protected-page";
 
 // Mapeamento de ícones para os objetivos
 const OBJECTIVE_ICONS: Record<string, LucideIcon> = {
@@ -80,6 +81,14 @@ const SEGMENTS = [
 ];
 
 export default function AISettingsPage() {
+  return (
+    <ProtectedPage requiredPage="AI_CONFIG">
+      <AISettingsPageContent />
+    </ProtectedPage>
+  );
+}
+
+function AISettingsPageContent() {
   const [knowledge, setKnowledge] = useState<AIKnowledge | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -116,7 +125,36 @@ export default function AISettingsPage() {
     description: "",
     price: "",
     category: "",
+    duration: "", // Duração em minutos
   });
+
+  // Função para formatar valor monetário
+  const formatCurrency = (value: string): string => {
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, "");
+
+    if (!numbers) return "";
+
+    // Converte para número e divide por 100 (centavos)
+    const amount = parseInt(numbers) / 100;
+
+    // Formata como moeda brasileira
+    return amount.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  };
+
+  // Função para remover formatação de moeda
+  const unformatCurrency = (value: string): string => {
+    return value.replace(/\D/g, "");
+  };
+
+  // Handler para mudança de preço com máscara
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCurrency(e.target.value);
+    setProductForm({ ...productForm, price: formatted });
+  };
 
   const getCompanyId = () => {
     const user = localStorage.getItem("user");
@@ -274,6 +312,7 @@ export default function AISettingsPage() {
       description: productForm.description.trim(),
       price: productForm.price.trim(),
       category: productForm.category.trim(),
+      duration: productForm.duration ? parseInt(productForm.duration) : undefined,
     };
 
     if (editingProduct) {
@@ -282,7 +321,7 @@ export default function AISettingsPage() {
       setProducts([...products, newProduct]);
     }
 
-    setProductForm({ name: "", description: "", price: "", category: "" });
+    setProductForm({ name: "", description: "", price: "", category: "", duration: "" });
     setEditingProduct(null);
     setShowProductForm(false);
   };
@@ -294,6 +333,7 @@ export default function AISettingsPage() {
       description: product.description || "",
       price: product.price || "",
       category: product.category || "",
+      duration: product.duration ? product.duration.toString() : "",
     });
     setShowProductForm(true);
   };
@@ -644,49 +684,81 @@ export default function AISettingsPage() {
                         onClick={() => {
                           setShowProductForm(false);
                           setEditingProduct(null);
-                          setProductForm({ name: "", description: "", price: "", category: "" });
+                          setProductForm({ name: "", description: "", price: "", category: "", duration: "" });
                         }}
                       >
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Nome *</Label>
-                        <Input
-                          value={productForm.name}
-                          onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                          placeholder="Nome do produto ou serviço"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Preço</Label>
-                        <Input
-                          value={productForm.price}
-                          onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
-                          placeholder="Ex: R$ 350,00"
-                        />
-                      </div>
-                    </div>
-
                     <div className="space-y-2">
-                      <Label>Categoria</Label>
+                      <Label htmlFor="product-name">
+                        Nome do Produto/Serviço <span className="text-destructive">*</span>
+                      </Label>
                       <Input
-                        value={productForm.category}
-                        onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                        placeholder="Ex: Serviço, Produto, Consultoria..."
+                        id="product-name"
+                        value={productForm.name}
+                        onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                        placeholder="Ex: Instalação de Ar Condicionado, Manutenção Preventiva..."
                       />
                     </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="product-category">Categoria</Label>
+                        <Input
+                          id="product-category"
+                          value={productForm.category}
+                          onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                          placeholder="Ex: Serviço, Produto..."
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="product-price" className="flex items-center gap-1">
+                          Preço
+                          <CreditCard className="h-3 w-3 text-muted-foreground" />
+                        </Label>
+                        <Input
+                          id="product-price"
+                          value={productForm.price}
+                          onChange={handlePriceChange}
+                          placeholder="R$ 0,00"
+                          inputMode="numeric"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="product-duration" className="flex items-center gap-1">
+                          Duração
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="product-duration"
+                            type="number"
+                            min="0"
+                            value={productForm.duration}
+                            onChange={(e) => setProductForm({ ...productForm, duration: e.target.value })}
+                            placeholder="60"
+                            className="pr-16"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                            minutos
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label>Descrição</Label>
+                      <Label htmlFor="product-description">Descrição Detalhada</Label>
                       <Textarea
+                        id="product-description"
                         value={productForm.description}
                         onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
                         placeholder="Descreva o produto ou serviço com detalhes: o que inclui, diferenciais, observações importantes..."
-                        rows={5}
-                        className="min-h-[120px]"
+                        rows={4}
+                        className="min-h-[100px]"
                       />
                     </div>
 
@@ -701,31 +773,54 @@ export default function AISettingsPage() {
               {products.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {products.map((product) => (
-                    <Card key={product.id} className="relative group">
+                    <Card key={product.id} className="relative group hover:shadow-md transition-shadow">
                       <CardContent className="pt-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-medium">{product.name}</h4>
-                            {product.category && (
-                              <Badge variant="secondary" className="mt-1">
-                                {product.category}
-                              </Badge>
-                            )}
-                            {product.price && (
-                              <p className="text-sm text-primary font-medium mt-2">
-                                {product.price}
-                              </p>
-                            )}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            {/* Título e Categoria */}
+                            <div className="flex items-start gap-2 mb-2">
+                              <h4 className="font-semibold text-base flex-1">{product.name}</h4>
+                              {product.category && (
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
+                                  {product.category}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Preço e Duração */}
+                            <div className="flex flex-wrap gap-3 mb-2">
+                              {product.price && (
+                                <div className="flex items-center gap-1.5 text-sm">
+                                  <CreditCard className="h-4 w-4 text-green-600" />
+                                  <span className="font-semibold text-green-700 dark:text-green-400">
+                                    {product.price}
+                                  </span>
+                                </div>
+                              )}
+                              {product.duration && (
+                                <div className="flex items-center gap-1.5 text-sm">
+                                  <Clock className="h-4 w-4 text-blue-600" />
+                                  <span className="text-muted-foreground">
+                                    {product.duration} min {product.duration >= 60 && `(${Math.floor(product.duration / 60)}h${product.duration % 60 > 0 ? ` ${product.duration % 60}min` : ''})`}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Descrição */}
                             {product.description && (
-                              <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                              <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
                                 {product.description}
                               </p>
                             )}
                           </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+
+                          {/* Botões de Ação */}
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="h-8 w-8"
                               onClick={() => handleEditProduct(product)}
                             >
                               <Edit3 className="h-4 w-4" />
@@ -733,6 +828,7 @@ export default function AISettingsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="h-8 w-8"
                               onClick={() => handleDeleteProduct(product.id)}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />

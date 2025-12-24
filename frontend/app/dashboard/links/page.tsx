@@ -8,8 +8,17 @@ import { toast } from "react-hot-toast";
 import CreateLinkModal from "@/components/links/CreateLinkModal";
 import DeleteConfirmModal from "@/components/links/DeleteConfirmModal";
 import { buttons, cards, typography, spacing, badges, icons } from "@/lib/design-system";
+import { ProtectedPage } from "@/components/layout/protected-page";
 
 export default function LinksPage() {
+  return (
+    <ProtectedPage requiredPage="WHATSAPP_LINKS">
+      <LinksPageContent />
+    </ProtectedPage>
+  );
+}
+
+function LinksPageContent() {
   const router = useRouter();
   const [links, setLinks] = useState<WhatsAppLink[]>([]);
   const [loading, setLoading] = useState(true);

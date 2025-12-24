@@ -13,8 +13,17 @@ import { buttons, cards, typography, spacing, icons } from "@/lib/design-system"
 import { toast } from "sonner";
 import { EditCampaignDialog } from '@/components/campaigns/edit-campaign-dialog';
 import { ScheduleCampaignDialog } from '@/components/campaigns/schedule-campaign-dialog';
+import { ProtectedPage } from '@/components/layout/protected-page';
 
 export default function CampaignsPage() {
+  return (
+    <ProtectedPage requiredPage="CAMPAIGNS">
+      <CampaignsPageContent />
+    </ProtectedPage>
+  );
+}
+
+function CampaignsPageContent() {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);

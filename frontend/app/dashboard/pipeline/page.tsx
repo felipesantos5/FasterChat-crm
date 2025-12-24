@@ -16,8 +16,17 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "react-hot-toast";
 import { PipelineSkeleton } from "@/components/ui/skeletons";
+import { ProtectedPage } from "@/components/layout/protected-page";
 
 export default function PipelinePage() {
+  return (
+    <ProtectedPage requiredPage="PIPELINE">
+      <PipelinePageContent />
+    </ProtectedPage>
+  );
+}
+
+function PipelinePageContent() {
   const router = useRouter();
   const [board, setBoard] = useState<PipelineBoard | null>(null);
   const [loading, setLoading] = useState(true);

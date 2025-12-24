@@ -1,7 +1,8 @@
 import { prisma } from '../../utils/prisma';
-import { addDays, format, startOfDay } from 'date-fns';
+import { addDays, format, startOfDay, parse, addMinutes } from 'date-fns';
 import Fuse from 'fuse.js'; // npm install fuse.js
 import { googleCalendarService } from '../google-calendar.service';
+import { appointmentService } from '../appointment.service';
 
 // ==========================================
 // TYPES & INTERFACES
@@ -410,14 +411,14 @@ export async function handleGetCompanyPolicy(args: {
   companyId: string;
 }) {
   const { policy_type, companyId } = args;
-  
+
   const knowledge = await prisma.aIKnowledge.findUnique({
     where: { companyId },
-    select: { 
-      policies: true, 
-      paymentMethods: true, 
+    select: {
+      policies: true,
+      paymentMethods: true,
       warrantyInfo: true,
-      deliveryInfo: true 
+      deliveryInfo: true
     }
   });
 
@@ -439,6 +440,100 @@ export async function handleGetCompanyPolicy(args: {
   };
 }
 
+/**
+ * [TOOL] Criar Agendamento
+ * Cria um agendamento no banco de dados e sincroniza com Google Calendar
+ */
+export async function handleCreateAppointment(args: {
+  service_type: string;
+  date: string;
+  time: string;
+  address: string;
+  title: string;
+  notes?: string;
+  customerId: string;
+  companyId: string;
+}) {
+  try {
+    const { service_type, date, time, address, title, notes, customerId, companyId } = args;
+
+    // Valida o tipo de serviço
+    const validTypes = ['INSTALLATION', 'MAINTENANCE', 'CONSULTATION', 'VISIT', 'OTHER'];
+    if (!validTypes.includes(service_type)) {
+      return {
+        success: false,
+        error: `Tipo de serviço inválido: ${service_type}. Use: ${validTypes.join(', ')}`
+      };
+    }
+
+    // Duração padrão por tipo de serviço (em minutos)
+    const serviceDurations: Record<string, number> = {
+      INSTALLATION: 120,
+      MAINTENANCE: 60,
+      CONSULTATION: 30,
+      VISIT: 60,
+      OTHER: 60,
+    };
+
+    const duration = serviceDurations[service_type] || 60;
+
+    // Parse da data e hora
+    const dateTime = parse(`${date} ${time}`, 'yyyy-MM-dd HH:mm', new Date());
+    const endTime = addMinutes(dateTime, duration);
+
+    // Cria o agendamento usando o serviço existente
+    const appointment = await appointmentService.create(companyId, {
+      customerId,
+      title,
+      description: notes || `${service_type} - ${title}`,
+      type: service_type as any,
+      startTime: dateTime,
+      endTime: endTime,
+      duration,
+      location: address,
+      notes,
+    });
+
+    return {
+      success: true,
+      appointment: {
+        id: appointment.id,
+        title: appointment.title,
+        type: appointment.type,
+        date: format(appointment.startTime, 'dd/MM/yyyy'),
+        time: format(appointment.startTime, 'HH:mm'),
+        duration: `${duration} minutos`,
+        address: appointment.location,
+        googleCalendarSynced: (appointment as any).googleCalendarSynced || false,
+      },
+      message: `Agendamento criado com sucesso para ${format(dateTime, "dd/MM/yyyy 'às' HH:mm")}!`,
+    };
+
+  } catch (error: any) {
+    console.error('[Tool] CreateAppointment Error:', error);
+
+    // Tratamento de erros específicos
+    if (error.message.includes('não disponível') || error.message.includes('not available')) {
+      return {
+        success: false,
+        error: 'Horário não disponível. Use get_available_slots para verificar horários livres.'
+      };
+    }
+
+    if (error.message.includes('não encontrado') || error.message.includes('not found')) {
+      return {
+        success: false,
+        error: 'Cliente não encontrado.'
+      };
+    }
+
+    return {
+      success: false,
+      error: error.message || 'Erro ao criar agendamento. Tente novamente.'
+    };
+  }
+}
+
 // ==========================================
 // DISPATCHER PRINCIPAL
 // ==========================================
@@ -454,19 +549,22 @@ export async function executeToolCall(
   switch (toolName) {
     case 'get_product_info':
       return handleGetProductInfo(fullArgs);
-      
+
     case 'calculate_quote':
       return handleCalculateQuote(fullArgs);
-      
+
     case 'get_available_slots':
       return handleGetAvailableSlots(fullArgs);
-      
+
     case 'get_company_policy':
       return handleGetCompanyPolicy(fullArgs);
 
+    case 'create_appointment':
+      return handleCreateAppointment(fullArgs);
+
     case 'get_customer_history':
        // Implementação simples mantida ou importada
-       return { status: "not_implemented_yet_optimized" }; 
+       return { status: "not_implemented_yet_optimized" };
 
     default:
       return { error: `Tool ${toolName} not found` };

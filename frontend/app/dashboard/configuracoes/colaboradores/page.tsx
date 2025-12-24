@@ -10,8 +10,31 @@ import { EditPermissionsModal } from "@/components/collaborators/edit-permission
 import { Plus, User, Trash, Edit, Clock, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/lib/store/auth.store";
+import { useRouter } from "next/navigation";
 
 export default function CollaboratorsPage() {
+  const { user } = useAuthStore();
+  const router = useRouter();
+
+  // Proteção: apenas ADMIN pode acessar esta página
+  useEffect(() => {
+    if (user && user.role !== 'ADMIN') {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
+
+  if (!user || user.role !== 'ADMIN') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Carregando...</p>
+      </div>
+    );
+  }
+
+  return <CollaboratorsPageContent />;
+}
+
+function CollaboratorsPageContent() {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<Collaborator[]>([]);

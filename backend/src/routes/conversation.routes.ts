@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import conversationController from '../controllers/conversation.controller';
 import { authenticate } from '../middlewares/auth';
+import { checkPermission } from '../middlewares/permission';
 
 const router = Router();
 
@@ -8,18 +9,18 @@ const router = Router();
 router.use(authenticate);
 
 // GET /api/conversations/:customerId - Obtém ou cria conversa
-router.get('/:customerId', conversationController.getConversation);
+router.get('/:customerId', checkPermission('CONVERSATIONS', false), conversationController.getConversation);
 
 // POST /api/conversations/:customerId/assign - Atribui conversa a usuário
-router.post('/:customerId/assign', conversationController.assignConversation);
+router.post('/:customerId/assign', checkPermission('CONVERSATIONS', true), conversationController.assignConversation);
 
 // POST /api/conversations/:customerId/unassign - Remove atribuição
-router.post('/:customerId/unassign', conversationController.unassignConversation);
+router.post('/:customerId/unassign', checkPermission('CONVERSATIONS', true), conversationController.unassignConversation);
 
 // GET /api/conversations/assigned/:userId - Lista conversas atribuídas
-router.get('/assigned/:userId', conversationController.getAssignedConversations);
+router.get('/assigned/:userId', checkPermission('CONVERSATIONS', false), conversationController.getAssignedConversations);
 
 // PATCH /api/conversations/:customerId/toggle-ai - Ativa/Desativa IA
-router.patch('/:customerId/toggle-ai', conversationController.toggleAI);
+router.patch('/:customerId/toggle-ai', checkPermission('CONVERSATIONS', true), conversationController.toggleAI);
 
 export default router;

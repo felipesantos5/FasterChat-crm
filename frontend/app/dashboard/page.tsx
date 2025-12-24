@@ -21,11 +21,20 @@ import {
 import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
 import { Users, MessageSquare, Bot, Activity } from "lucide-react";
 import { cards, typography, spacing } from "@/lib/design-system";
+import { ProtectedPage } from "@/components/layout/protected-page";
 
 type PeriodType = "today" | "week" | "month";
 type ChartPeriodType = "week" | "month" | "quarter";
 
 export default function DashboardPage() {
+  return (
+    <ProtectedPage requiredPage="DASHBOARD">
+      <DashboardPageContent />
+    </ProtectedPage>
+  );
+}
+
+function DashboardPageContent() {
   const router = useRouter();
   const [period] = useState<PeriodType>("week");
   const [chartPeriod] = useState<ChartPeriodType>("month");
