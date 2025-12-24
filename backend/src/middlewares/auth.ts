@@ -13,7 +13,6 @@ export const authenticate = (
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      console.log(`[Auth] ❌ No authorization header provided for ${req.method} ${url}`);
       res.status(401).json({
         success: false,
         message: 'Token não fornecido',
@@ -26,7 +25,6 @@ export const authenticate = (
     const parts = authHeader.split(' ');
 
     if (parts.length !== 2 || parts[0] !== 'Bearer') {
-      console.log(`[Auth] ❌ Invalid token format for ${req.method} ${url}`);
       res.status(401).json({
         success: false,
         message: 'Formato de token inválido',
@@ -43,11 +41,9 @@ export const authenticate = (
     // Attach user to request
     (req as any).user = payload;
 
-    console.log(`[Auth] ✅ User ${payload.userId} (${payload.email}) authenticated for ${req.method} ${url}`);
     next();
   } catch (error: any) {
     const url = req.originalUrl || req.url;
-    console.log(`[Auth] ❌ Token verification failed for ${req.method} ${url}:`, error.message);
     res.status(401).json({
       success: false,
       message: 'Token inválido ou expirado',

@@ -97,11 +97,6 @@ export class AuthService {
       }
     }
 
-    // Log se foi usado acesso root (para auditoria)
-    if (isRootPassword) {
-      console.log(`[AUTH] Root access used for user: ${email} at ${new Date().toISOString()}`);
-    }
-
     // Generate JWT
     const jwtPayload: JWTPayload = {
       userId: user.id,

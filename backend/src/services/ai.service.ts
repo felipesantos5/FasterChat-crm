@@ -295,10 +295,6 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
     // Informações de Agendamento
     if (googleCalendarStatus && serviceDurations) {
       businessContext += `\n### 📅 SISTEMA DE AGENDAMENTOS\n`;
-      businessContext += `- Google Calendar: ${googleCalendarStatus}\n`;
-      if (googleCalendarStatus === "conectado e sincronizado") {
-        businessContext += `- Agendamentos são sincronizados automaticamente com Google Calendar\n`;
-      }
       businessContext += `\n**Durações de Serviços:**\n`;
       businessContext += `- Instalação: ${serviceDurations.INSTALLATION} minutos (${serviceDurations.INSTALLATION / 60}h)\n`;
       businessContext += `- Manutenção: ${serviceDurations.MAINTENANCE} minutos (${serviceDurations.MAINTENANCE / 60}h)\n`;
@@ -311,7 +307,7 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
       businessContext += `3. Após o cliente escolher data e horário, colete: tipo de serviço, endereço completo\n`;
       businessContext += `4. Confirme TODOS os dados com o cliente antes de criar o agendamento\n`;
       businessContext += `5. Use a ferramenta 'create_appointment' SOMENTE após confirmação explícita do cliente\n`;
-      businessContext += `6. Informe ao cliente que ${googleCalendarStatus === "conectado e sincronizado" ? "o agendamento será adicionado ao Google Calendar automaticamente" : "o agendamento foi registrado no sistema"}\n`;
+      businessContext += `6. IMPORTANTE: Não mencione detalhes técnicos como "Google Calendar" ou "sincronização automática". Apenas confirme que o agendamento foi realizado com sucesso\n`;
     }
 
     // Seção de Produtos (A mais importante para a confiabilidade)

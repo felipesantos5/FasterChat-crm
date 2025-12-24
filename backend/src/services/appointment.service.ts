@@ -380,15 +380,19 @@ export class AppointmentService {
   /**
    * Busca horários disponíveis para um dia
    * Usa horários configurados no sistema (AIKnowledge.workingHours)
+   * Retorna APENAS as brechas de tempo (slots livres) dentro do horário de funcionamento
    */
   async getAvailableSlots(
     companyId: string,
     date: Date,
     slotDuration: number = 60
   ): Promise<Array<{ start: Date; end: Date }>> {
-    console.log('[Appointment] Buscando slots disponíveis');
-    console.log('[Appointment] Data recebida:', date);
-    console.log('[Appointment] Duração:', slotDuration, 'minutos');
+    console.log('[Appointment] ============================================');
+    console.log('[Appointment] Buscando BRECHAS DE TEMPO (slots livres)');
+    console.log('[Appointment] Data recebida:', date.toISOString());
+    console.log('[Appointment] Data formatada:', date.toLocaleDateString('pt-BR'));
+    console.log('[Appointment] Duração do slot:', slotDuration, 'minutos');
+    console.log('[Appointment] ============================================');
 
     // Busca horário de funcionamento configurado no sistema
     const aiKnowledge = await prisma.aIKnowledge.findUnique({
@@ -396,17 +400,33 @@ export class AppointmentService {
       select: { workingHours: true },
     });
 
+    console.log('[Appointment] Horário de funcionamento configurado:', aiKnowledge?.workingHours || 'NÃO CONFIGURADO');
+
     // Parse dos horários configurados
     const businessHours = this.parseWorkingHoursConfig(aiKnowledge?.workingHours || null);
 
     if (!businessHours) {
-      console.log('[Appointment] Horário de funcionamento não configurado');
+      console.log('[Appointment] ❌ ERRO: Horário de funcionamento não configurado no sistema');
+      console.log('[Appointment] Por favor, configure o horário de funcionamento em Configurações > IA');
       return [];
     }
 
-    console.log('[Appointment] Horário configurado:', businessHours.start, 'às', businessHours.end);
+    console.log('[Appointment] ✅ Horário de funcionamento parseado:', businessHours.start, 'h às', businessHours.end, 'h');
 
+    // Tenta buscar do Google Calendar primeiro
     try {
+      console.log('[Appointment] 🔍 Verificando se Google Calendar está configurado...');
+      const isGoogleConfigured = await googleCalendarService.isConfigured(companyId);
+
+      if (!isGoogleConfigured) {
+        console.log('[Appointment] ⚠️ Google Calendar NÃO está configurado');
+        console.log('[Appointment] Usando fallback: geração local baseada no banco de dados');
+        throw new Error('Google Calendar não configurado - usando fallback');
+      }
+
+      console.log('[Appointment] ✅ Google Calendar está configurado');
+      console.log('[Appointment] 📅 Buscando slots REAIS do Google Calendar...');
+
       const slots = await googleCalendarService.getAvailableSlots(
         companyId,
         date,
@@ -414,15 +434,22 @@ export class AppointmentService {
         slotDuration
       );
 
-      console.log(`[Appointment] ${slots.length} slots disponíveis do Google Calendar`);
+      console.log(`[Appointment] ✅ Google Calendar retornou ${slots.length} BRECHAS DE TEMPO (slots livres)`);
+
+      if (slots.length > 0) {
+        console.log('[Appointment] Primeiros slots encontrados:');
+        slots.slice(0, 3).forEach((slot, i) => {
+          console.log(`[Appointment]   ${i + 1}. ${slot.start.toLocaleString('pt-BR')} - ${slot.end.toLocaleString('pt-BR')}`);
+        });
+      }
 
       return slots.map((slot) => ({
         start: slot.start,
         end: slot.end,
       }));
     } catch (error: any) {
-      console.log('[Appointment] Erro ao buscar slots do Google:', error.message);
-      console.log('[Appointment] Usando fallback com banco de dados local');
+      console.log('[Appointment] ⚠️ Erro ao buscar do Google Calendar:', error.message);
+      console.log('[Appointment] 🔄 Usando fallback: geração local com banco de dados');
 
       // Fallback: gera slots baseado apenas no banco local
       // Extrai ano, mês e dia da data recebida (UTC)

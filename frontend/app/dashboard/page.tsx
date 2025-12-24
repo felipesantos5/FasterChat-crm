@@ -15,11 +15,11 @@ import {
   PipelineFunnelChart,
   MessagesChart,
   AppointmentsChart,
-  AppointmentsStatusChart,
+  // AppointmentsStatusChart,
   CustomerActivityChart,
 } from "@/components/dashboard/charts";
 import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
-import { Users, MessageSquare, Bot, Activity } from "lucide-react";
+import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, CalendarClock, CheckCircle } from "lucide-react";
 import { cards, typography, spacing } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
@@ -85,6 +85,42 @@ function DashboardPageContent() {
         bgColor: "bg-green-100 dark:bg-green-900/30",
         description: "Automação de respostas",
       },
+      {
+        title: "Agendamentos Totais",
+        value: stats.totalAppointments.current,
+        percentageChange: stats.totalAppointments.percentageChange,
+        icon: Calendar,
+        color: "text-purple-600",
+        bgColor: "bg-purple-100 dark:bg-purple-900/30",
+        description: "Total de agendamentos",
+      },
+      {
+        title: "Agendamentos Hoje",
+        value: stats.todayAppointments.current,
+        percentageChange: stats.todayAppointments.percentageChange,
+        icon: CalendarCheck,
+        color: "text-blue-600",
+        bgColor: "bg-blue-100 dark:bg-blue-900/30",
+        description: "Agendamentos de hoje",
+      },
+      {
+        title: "Próximos 7 Dias",
+        value: stats.upcomingAppointments.current,
+        percentageChange: stats.upcomingAppointments.percentageChange,
+        icon: CalendarClock,
+        color: "text-orange-600",
+        bgColor: "bg-orange-100 dark:bg-orange-900/30",
+        description: "Agendamentos futuros",
+      },
+      {
+        title: "Confirmados",
+        value: stats.confirmedAppointments.current,
+        percentageChange: stats.confirmedAppointments.percentageChange,
+        icon: CheckCircle,
+        color: "text-green-600",
+        bgColor: "bg-green-100 dark:bg-green-900/30",
+        description: "Agendamentos confirmados",
+      },
     ]
     : [];
 
@@ -96,7 +132,7 @@ function DashboardPageContent() {
       <div className="p-4 sm:p-6 space-y-6">
         {/* Stats Skeletons */}
         <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-4`}>
-          {[1, 2, 3, 4].map((i) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
             <div key={i} className={cards.stats}>
               <div className="flex items-center justify-between mb-4">
                 <Skeleton className="h-4 w-24" />
@@ -142,7 +178,7 @@ function DashboardPageContent() {
     <div className="p-4 sm:p-6">
       <div className={spacing.section}>
         {/* Stats Grid */}
-        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-4 mb-6 sm:mb-8`}>
+        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-4 mb-4 sm:mb-6`}>
           {statCards.map((stat) => {
             const Icon = stat.icon;
             return (
@@ -184,7 +220,7 @@ function DashboardPageContent() {
 
             {/* Terceira linha: Status de Agendamentos e Atividade de Clientes */}
             <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 mb-4 sm:mb-6">
-              <AppointmentsStatusChart data={chartsData.appointmentsByStatus} />
+              {/* <AppointmentsStatusChart data={chartsData.appointmentsByStatus} /> */}
               <CustomerActivityChart data={chartsData.customerActivity} />
 
               {/* Ações Rápidas */}

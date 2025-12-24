@@ -20,18 +20,18 @@ export const getAvailableSlotsTool: ChatCompletionTool = {
   type: 'function',
   function: {
     name: 'get_available_slots',
-    description: 'Busca horários disponíveis para agendamento de visita técnica ou serviço. Use quando o cliente perguntar sobre disponibilidade, horários livres, ou quiser agendar.',
+    description: 'Busca APENAS as brechas de tempo (horários LIVRES) na agenda dentro do horário de funcionamento. Retorna horários REAIS sem conflitos no Google Calendar. Use quando o cliente perguntar: "que horas vocês têm disponível?", "quais horários estão livres?", "quando vocês podem vir?", ou quando precisar verificar disponibilidade antes de agendar. IMPORTANTE: Estes são horários confirmados e disponíveis, não são sugestões.',
     parameters: {
       type: 'object',
       properties: {
         service_type: {
           type: 'string',
           enum: ['INSTALLATION', 'MAINTENANCE', 'CONSULTATION', 'REPAIR'],
-          description: 'Tipo de serviço desejado pelo cliente',
+          description: 'Tipo de serviço desejado pelo cliente. Influencia a duração dos slots (Instalação: 2h, Manutenção: 1h, Consulta: 30min)',
         },
         preferred_date: {
           type: 'string',
-          description: 'Data preferida pelo cliente no formato YYYY-MM-DD. Se não especificada, busca próximos dias disponíveis.',
+          description: 'Data preferida pelo cliente no formato YYYY-MM-DD (ex: 2024-12-25). Se não especificada, busca nos próximos 7 dias.',
         },
       },
       required: ['service_type'],

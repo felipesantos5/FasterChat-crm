@@ -96,7 +96,6 @@ export const useAuthStore = create<AuthState>((set) => {
         // Não desloga em erros de rede (ECONNREFUSED, timeout, etc)
         const status = error?.response?.status;
         if (status === 401 || status === 403) {
-          console.warn('[AUTH] Token inválido, deslogando...');
           removeAuthToken();
           set({
             user: null,
@@ -104,9 +103,6 @@ export const useAuthStore = create<AuthState>((set) => {
             isAuthenticated: false,
             isLoading: false,
           });
-        } else {
-          // Erro de rede - mantém o usuário logado com dados do localStorage
-          console.warn('[AUTH] Erro ao validar token (rede), mantendo sessão local');
         }
       }
     } else {

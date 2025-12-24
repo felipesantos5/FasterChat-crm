@@ -1,5 +1,5 @@
 import { prisma } from '../../utils/prisma';
-import { addDays, format, startOfDay, parse, addMinutes } from 'date-fns';
+import { addDays, format, startOfDay, addMinutes } from 'date-fns';
 import Fuse from 'fuse.js'; // npm install fuse.js
 import { googleCalendarService } from '../google-calendar.service';
 import { appointmentService } from '../appointment.service';
@@ -23,6 +23,31 @@ interface SearchResult {
 // ==========================================
 // HELPERS
 // ==========================================
+
+/**
+ * Cria uma data no timezone do Brasil (America/Sao_Paulo)
+ * Garante que quando o cliente fala "08:00", é realmente 08:00 no horário de Brasília
+ *
+ * @param dateString Data no formato YYYY-MM-DD (ex: "2024-12-25")
+ * @param timeString Hora no formato HH:mm (ex: "08:00")
+ * @returns Date object no timezone correto
+ */
+function createBrazilDate(dateString: string, timeString: string): Date {
+  // Parse manual para garantir que está no timezone correto
+  const [year, month, day] = dateString.split('-').map(Number);
+  const [hours, minutes] = timeString.split(':').map(Number);
+
+  // Cria a data no timezone local (que deve ser configurado como America/Sao_Paulo)
+  // Se o servidor estiver em UTC, isso criará a data errada, então vamos garantir
+  const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
+
+  console.log('[Helper] Criando data Brasil:');
+  console.log('[Helper]   Input:', dateString, timeString);
+  console.log('[Helper]   Output:', date.toISOString());
+  console.log('[Helper]   Output (BR):', date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+
+  return date;
+}
 
 /**
  * Limpa e converte preço para number
@@ -241,8 +266,8 @@ export async function handleCalculateQuote(args: {
 
 /**
  * [TOOL] Ver Disponibilidade de Agenda
+ * Retorna APENAS as brechas de tempo (horários livres) dentro do horário de funcionamento
  * Integrado com Google Calendar quando disponível
- * Usa horários configurados no sistema (nunca valores hardcoded)
  */
 export async function handleGetAvailableSlots(args: {
   service_type: string;
@@ -250,156 +275,91 @@ export async function handleGetAvailableSlots(args: {
   companyId: string;
 }) {
   try {
-    const { preferred_date, companyId } = args;
+    const { preferred_date, companyId, service_type } = args;
 
-    // Busca configurações de horário de trabalho do sistema
-    const aiKnowledge = await prisma.aIKnowledge.findUnique({
-      where: { companyId },
-      select: { workingHours: true },
-    });
+    // Determina a duração do serviço
+    const serviceDurations: Record<string, number> = {
+      INSTALLATION: 120,
+      MAINTENANCE: 60,
+      CONSULTATION: 30,
+      REPAIR: 60,
+    };
+    const slotDuration = serviceDurations[service_type] || 60;
 
-    // Parse dos horários configurados - retorna null se não configurado
-    const workingHoursConfig = parseWorkingHours(aiKnowledge?.workingHours || null);
+    console.log('[Tool] GetAvailableSlots: Buscando horários disponíveis');
+    console.log('[Tool] GetAvailableSlots: Tipo de serviço:', service_type, '- Duração:', slotDuration, 'min');
 
-    // ========================================
-    // VALIDA SE HORÁRIO DE FUNCIONAMENTO ESTÁ CONFIGURADO
-    // ========================================
-    if (!workingHoursConfig) {
-      console.log('[Tool] GetAvailableSlots: Horário de funcionamento não configurado para empresa:', companyId);
-      return {
-        available: false,
-        slots: [],
-        message: "Horário de funcionamento não está configurado. Entre em contato para mais informações.",
-        error_type: "working_hours_not_configured"
-      };
-    }
-
-    const { weekdayHours, saturdayHours, startHour, endHour } = workingHoursConfig;
+    // Busca horários para os próximos 7 dias
     const startDate = preferred_date ? new Date(preferred_date) : new Date();
+    const allSlots: Array<{ date: string; time: string; datetime: string }> = [];
 
-    // ========================================
-    // VERIFICA SE GOOGLE CALENDAR ESTÁ CONECTADO
-    // ========================================
-    let isGoogleCalendarConnected = false;
-    try {
-      isGoogleCalendarConnected = await googleCalendarService.isConfigured(companyId);
-    } catch (error) {
-      // Silently fail - não impacta outros atendimentos
-      console.log('[Tool] GetAvailableSlots: Erro ao verificar Google Calendar, usando fallback');
-      isGoogleCalendarConnected = false;
-    }
+    for (let i = 0; i < 7; i++) {
+      const currentDate = addDays(startOfDay(startDate), i);
+      const dayOfWeek = currentDate.getDay();
 
-    // ========================================
-    // FLUXO COM GOOGLE CALENDAR CONECTADO
-    // ========================================
-    if (isGoogleCalendarConnected) {
-      console.log('[Tool] GetAvailableSlots: Google Calendar conectado, buscando slots reais...');
-      console.log('[Tool] GetAvailableSlots: Horário configurado:', startHour, 'às', endHour);
+      // Pula domingo
+      if (dayOfWeek === 0) continue;
 
       try {
-        const slots: string[] = [];
+        console.log(`[Tool] GetAvailableSlots: Buscando slots para ${format(currentDate, 'dd/MM/yyyy')}`);
 
-        // Busca slots para os próximos 5 dias usando o Google Calendar real
-        for (let i = 0; i < 5; i++) {
-          const currentDate = addDays(startOfDay(startDate), i);
-          const day = currentDate.getDay();
+        // Usa o appointmentService que já integra Google Calendar + banco local
+        const daySlots = await appointmentService.getAvailableSlots(
+          companyId,
+          currentDate,
+          slotDuration
+        );
 
-          // Pula domingo (fechado)
-          if (day === 0) continue;
+        console.log(`[Tool] GetAvailableSlots: Encontrados ${daySlots.length} slots disponíveis para ${format(currentDate, 'dd/MM/yyyy')}`);
 
-          // Define horário comercial baseado no dia (usando config do sistema)
-          let businessHours = { start: startHour, end: endHour };
-          if (day === 6) {
-            // Sábado: usa horário reduzido se configurado
-            if (saturdayHours.length === 0) continue; // Sábado fechado
-            businessHours = {
-              start: Math.min(...saturdayHours),
-              end: Math.max(...saturdayHours) + 1
-            };
-          }
-
-          try {
-            // Busca slots REAIS do Google Calendar
-            const googleSlots = await googleCalendarService.getAvailableSlots(
-              companyId,
-              currentDate,
-              businessHours,
-              60 // duração de 1 hora
-            );
-
-            // Converte para formato string
-            googleSlots.forEach(slot => {
-              if (slot.available && slot.start > new Date()) {
-                slots.push(format(slot.start, "yyyy-MM-dd'T'HH:mm:ss"));
-              }
+        // Converte para formato amigável para a IA
+        daySlots.forEach(slot => {
+          if (slot.start > new Date()) { // Apenas slots futuros
+            allSlots.push({
+              date: format(slot.start, 'dd/MM/yyyy'),
+              time: format(slot.start, 'HH:mm'),
+              datetime: format(slot.start, "yyyy-MM-dd'T'HH:mm:ss")
             });
-          } catch (dayError) {
-            console.log(`[Tool] GetAvailableSlots: Erro ao buscar dia ${i}, continuando...`);
-            // Continua para o próximo dia em caso de erro
           }
-        }
+        });
 
-        if (slots.length > 0) {
-          return {
-            available: true,
-            slots: slots.slice(0, 8), // Retorna apenas os 8 primeiros
-            message: "Horários disponíveis encontrados (sincronizado com agenda).",
-            source: "google_calendar"
-          };
-        }
+        // Limita a 12 slots para não sobrecarregar a resposta
+        if (allSlots.length >= 12) break;
 
-        // Se não encontrou slots no Google Calendar, retorna mensagem apropriada
-        return {
-          available: false,
-          slots: [],
-          message: "Sem horários disponíveis na agenda para os próximos dias.",
-          source: "google_calendar"
-        };
-
-      } catch (googleError: any) {
-        console.error('[Tool] GetAvailableSlots: Erro no Google Calendar, usando fallback:', googleError.message);
-        // Fallback para geração local se Google Calendar falhar
+      } catch (dayError: any) {
+        console.log(`[Tool] GetAvailableSlots: Erro ao buscar dia ${format(currentDate, 'dd/MM/yyyy')}:`, dayError.message);
+        // Continua para o próximo dia
       }
     }
 
-    // ========================================
-    // FALLBACK: GERAÇÃO LOCAL (SEM GOOGLE CALENDAR)
-    // Usa os horários configurados no sistema
-    // ========================================
-    console.log('[Tool] GetAvailableSlots: Usando geração local de slots (Google Calendar não conectado)');
-    console.log('[Tool] GetAvailableSlots: Horário configurado:', startHour, 'às', endHour);
+    console.log(`[Tool] GetAvailableSlots: Total de ${allSlots.length} slots disponíveis encontrados`);
 
-    const slots: string[] = [];
-
-    // Gera slots para os próximos 5 dias baseado nos horários configurados
-    for (let i = 0; i < 5; i++) {
-      const currentDate = addDays(startOfDay(startDate), i);
-      const day = currentDate.getDay();
-
-      let hours: number[] = [];
-      if (day === 0) hours = []; // Domingo fechado
-      else if (day === 6) hours = saturdayHours;
-      else hours = weekdayHours;
-
-      hours.forEach(h => {
-        const slot = new Date(currentDate);
-        slot.setHours(h, 0, 0, 0);
-        if (slot > new Date()) { // Só futuro
-          slots.push(format(slot, "yyyy-MM-dd'T'HH:mm:ss"));
-        }
-      });
+    if (allSlots.length === 0) {
+      return {
+        available: false,
+        slots: [],
+        message: "Não encontrei horários disponíveis nos próximos 7 dias dentro do horário de funcionamento.",
+        instruction: "Informe ao cliente que a agenda está cheia. Ofereça contato com atendimento humano para verificar outras opções."
+      };
     }
 
+    // Retorna os primeiros 12 slots
+    const limitedSlots = allSlots.slice(0, 12);
+
     return {
-      available: slots.length > 0,
-      slots: slots.slice(0, 8), // Retorna apenas os 8 primeiros para não poluir o contexto
-      message: slots.length === 0 ? "Sem horários nesta data." : "Horários disponíveis encontrados.",
-      source: "local_fallback"
+      available: true,
+      total_slots: limitedSlots.length,
+      slots: limitedSlots,
+      message: `Encontrei ${limitedSlots.length} horários disponíveis. Estes são horários REAIS e LIVRES na agenda.`,
+      instruction: "Apresente os horários de forma clara e natural. Mencione que são horários confirmados sem conflitos na agenda."
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Tool] GetAvailableSlots Error:', error);
-    return { error: 'Erro ao buscar agenda' };
+    return {
+      error: 'Erro ao buscar horários disponíveis',
+      message: 'Não consegui consultar a agenda no momento. Entre em contato para verificar disponibilidade.'
+    };
   }
 }
 
@@ -477,9 +437,13 @@ export async function handleCreateAppointment(args: {
 
     const duration = serviceDurations[service_type] || 60;
 
-    // Parse da data e hora
-    const dateTime = parse(`${date} ${time}`, 'yyyy-MM-dd HH:mm', new Date());
+    // Parse da data e hora no timezone do Brasil (America/Sao_Paulo)
+    console.log('[CreateAppointment] Criando agendamento para:', date, time, '(horário de Brasília)');
+    const dateTime = createBrazilDate(date, time);
     const endTime = addMinutes(dateTime, duration);
+
+    console.log('[CreateAppointment] Data/hora criada:', dateTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+    console.log('[CreateAppointment] Data/hora fim:', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
     // Cria o agendamento usando o serviço existente
     const appointment = await appointmentService.create(companyId, {

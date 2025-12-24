@@ -12,6 +12,10 @@ interface DashboardStats {
   activeConversations: PeriodStats;
   messagesReceived: PeriodStats;
   messagesWithAI: PeriodStats;
+  totalAppointments: PeriodStats;
+  todayAppointments: PeriodStats;
+  upcomingAppointments: PeriodStats;
+  confirmedAppointments: PeriodStats;
 }
 
 interface PipelineFunnelData {
@@ -187,6 +191,78 @@ class DashboardService {
       }),
     ]);
 
+    // Appointment stats
+    const [currentTotalAppointments, previousTotalAppointments] = await Promise.all([
+      prisma.appointment.count({
+        where: {
+          companyId,
+          startTime: { gte: currentStart },
+        },
+      }),
+      prisma.appointment.count({
+        where: {
+          companyId,
+          startTime: { gte: previousStart, lt: previousEnd },
+        },
+      }),
+    ]);
+
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+
+    const [currentTodayAppointments, previousTodayAppointments] = await Promise.all([
+      prisma.appointment.count({
+        where: {
+          companyId,
+          startTime: { gte: todayStart, lt: todayEnd },
+        },
+      }),
+      prisma.appointment.count({
+        where: {
+          companyId,
+          startTime: { gte: yesterdayStart, lt: todayStart },
+        },
+      }),
+    ]);
+
+    const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const previous7DaysStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const [currentUpcomingAppointments, previousUpcomingAppointments] = await Promise.all([
+      prisma.appointment.count({
+        where: {
+          companyId,
+          startTime: { gte: now, lt: next7Days },
+          status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED] },
+        },
+      }),
+      prisma.appointment.count({
+        where: {
+          companyId,
+          startTime: { gte: previous7DaysStart, lt: now },
+          status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED] },
+        },
+      }),
+    ]);
+
+    const [currentConfirmedAppointments, previousConfirmedAppointments] = await Promise.all([
+      prisma.appointment.count({
+        where: {
+          companyId,
+          status: AppointmentStatus.CONFIRMED,
+          startTime: { gte: currentStart },
+        },
+      }),
+      prisma.appointment.count({
+        where: {
+          companyId,
+          status: AppointmentStatus.CONFIRMED,
+          startTime: { gte: previousStart, lt: previousEnd },
+        },
+      }),
+    ]);
+
     return {
       totalCustomers: {
         current: currentCustomers,
@@ -207,6 +283,26 @@ class DashboardService {
         current: currentMessagesWithAI,
         previous: previousMessagesWithAI,
         percentageChange: this.calculatePercentageChange(currentMessagesWithAI, previousMessagesWithAI),
+      },
+      totalAppointments: {
+        current: currentTotalAppointments,
+        previous: previousTotalAppointments,
+        percentageChange: this.calculatePercentageChange(currentTotalAppointments, previousTotalAppointments),
+      },
+      todayAppointments: {
+        current: currentTodayAppointments,
+        previous: previousTodayAppointments,
+        percentageChange: this.calculatePercentageChange(currentTodayAppointments, previousTodayAppointments),
+      },
+      upcomingAppointments: {
+        current: currentUpcomingAppointments,
+        previous: previousUpcomingAppointments,
+        percentageChange: this.calculatePercentageChange(currentUpcomingAppointments, previousUpcomingAppointments),
+      },
+      confirmedAppointments: {
+        current: currentConfirmedAppointments,
+        previous: previousConfirmedAppointments,
+        percentageChange: this.calculatePercentageChange(currentConfirmedAppointments, previousConfirmedAppointments),
       },
     };
   }

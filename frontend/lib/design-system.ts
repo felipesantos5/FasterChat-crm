@@ -4,7 +4,7 @@ export const spacing = {
   page: "p-8", // Padding das páginas
   section: "space-y-6", // Espaçamento entre seções
   card: "p-6", // Padding dos cards
-  cardGap: "gap-6", // Gap entre cards
+  cardGap: "gap-4", // Gap entre cards
   element: "space-y-4", // Espaçamento entre elementos
 };
 

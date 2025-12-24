@@ -3,6 +3,26 @@ import { appointmentService } from './appointment.service';
 import { AppointmentType } from '@prisma/client';
 
 /**
+ * Cria uma data no timezone do Brasil (America/Sao_Paulo)
+ * Garante que quando o cliente fala "08:00", é realmente 08:00 no horário de Brasília
+ */
+function createBrazilDateTime(dateString: string, timeString: string): Date {
+  // Parse da data YYYY-MM-DD
+  const [year, month, day] = dateString.split('-').map(Number);
+  // Parse da hora HH:mm
+  const [hours, minutes] = timeString.split(':').map(Number);
+
+  // Cria a data no timezone local
+  const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
+
+  console.log('[AIAppointment] Criando data Brasil:', dateString, timeString);
+  console.log('[AIAppointment]   ISO:', date.toISOString());
+  console.log('[AIAppointment]   BR:', date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+
+  return date;
+}
+
+/**
  * Estado do processo de agendamento
  */
 interface AppointmentState {
@@ -828,13 +848,14 @@ export class AIAppointmentService {
           throw new Error('Customer not found');
         }
 
-        // Monta a data e hora completas
-        const [hours, minutes] = state.time!.split(':');
-        const startTime = new Date(state.date!);
-        startTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
+        // Monta a data e hora completas no timezone do Brasil
+        const startTime = createBrazilDateTime(state.date!, state.time!);
         const endTime = new Date(startTime);
         endTime.setMinutes(endTime.getMinutes() + (state.duration || 60));
+
+        console.log('[AIAppointment] Agendamento sendo criado:');
+        console.log('[AIAppointment]   Início:', startTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+        console.log('[AIAppointment]   Fim:', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
         const serviceLabel = this.getServiceTypeLabel(state.serviceType!);
         const description = `Agendamento via WhatsApp - ${serviceLabel}`;

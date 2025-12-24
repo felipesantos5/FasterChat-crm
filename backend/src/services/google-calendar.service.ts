@@ -292,6 +292,7 @@ export class GoogleCalendarService {
 
   /**
    * Lista horários disponíveis em um dia específico
+   * Retorna APENAS os slots LIVRES (brechas de tempo sem conflitos)
    */
 async getAvailableSlots(
     companyId: string,
@@ -299,22 +300,32 @@ async getAvailableSlots(
     businessHours: { start: number; end: number } = { start: 9, end: 18 },
     slotDuration: number = 60
   ): Promise<TimeSlot[]> {
+    console.log('[GoogleCalendar] ============================================');
+    console.log('[GoogleCalendar] Buscando brechas de tempo no Google Calendar');
+    console.log('[GoogleCalendar] Data:', date.toLocaleDateString('pt-BR'));
+    console.log('[GoogleCalendar] Horário de funcionamento:', businessHours.start, 'h às', businessHours.end, 'h');
+    console.log('[GoogleCalendar] Duração do slot:', slotDuration, 'minutos');
+    console.log('[GoogleCalendar] ============================================');
+
     // 1. Configuração de Datas (Fuso Horário BR)
     // Força o timezone para evitar bugs em servidores UTC (Docker)
     const timeZone = 'America/Sao_Paulo';
-    
+
     // Cria o início e fim do dia comercial baseados na data fornecida
     const startOfDay = new Date(date);
     startOfDay.setHours(businessHours.start, 0, 0, 0);
-    
+
     const endOfDay = new Date(date);
     endOfDay.setHours(businessHours.end, 0, 0, 0);
+
+    console.log('[GoogleCalendar] Período de busca:', startOfDay.toLocaleString('pt-BR'), 'até', endOfDay.toLocaleString('pt-BR'));
 
     // Carrega tokens
     const calendarConfig = await this.loadTokens(companyId);
     const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
     // 2. Busca Eventos (Expande recorrentes e filtra deletados)
+    console.log('[GoogleCalendar] 📅 Buscando eventos agendados no Google Calendar...');
     const response = await calendar.events.list({
       calendarId: calendarConfig.calendarId || 'primary',
       timeMin: startOfDay.toISOString(),
@@ -325,8 +336,22 @@ async getAvailableSlots(
     });
 
     const events = response.data.items || [];
+    console.log(`[GoogleCalendar] Encontrados ${events.length} eventos agendados para este dia`);
+
+    if (events.length > 0) {
+      console.log('[GoogleCalendar] Eventos ocupados:');
+      events.slice(0, 5).forEach((event, i) => {
+        const start = event.start?.dateTime || event.start?.date || 'N/A';
+        const end = event.end?.dateTime || event.end?.date || 'N/A';
+        console.log(`[GoogleCalendar]   ${i + 1}. ${event.summary} (${start} - ${end})`);
+      });
+      if (events.length > 5) {
+        console.log(`[GoogleCalendar]   ... e mais ${events.length - 5} eventos`);
+      }
+    }
 
     // 3. Geração de Slots
+    console.log('[GoogleCalendar] 🔍 Procurando brechas de tempo...');
     const slots: TimeSlot[] = [];
     let currentTime = this.roundToNext15Minutes(startOfDay);
 
@@ -361,7 +386,7 @@ async getAvailableSlots(
           // Tratamento especial para evitar bugs de fuso horário
           const dateString = event.start.date; // "2024-12-25"
           // Cria data ao meio-dia para garantir que caia no dia certo independente do offset UTC
-          eventStart = new Date(`${dateString}T00:00:00-03:00`); 
+          eventStart = new Date(`${dateString}T00:00:00-03:00`);
           const endDateString = event.end?.date || dateString;
           eventEnd = new Date(`${endDateString}T23:59:59-03:00`);
         } else {
@@ -387,10 +412,21 @@ async getAvailableSlots(
       }
 
       // Avança intervalo (ex: slots a cada 30 min ou 60 min)
-      // Dica: Se quiser slots começando a cada hora cheia, use 60. 
+      // Dica: Se quiser slots começando a cada hora cheia, use 60.
       // Se quiser flexibilidade (9:00, 9:15, 9:30), use 15 ou 30.
       currentTime = new Date(currentTime.getTime() + 30 * 60000); // Avança 30 min para dar mais opções
     }
+
+    console.log(`[GoogleCalendar] ✅ Encontradas ${slots.length} BRECHAS DE TEMPO (slots livres)`);
+    if (slots.length > 0) {
+      console.log('[GoogleCalendar] Primeiros slots disponíveis:');
+      slots.slice(0, 5).forEach((slot, i) => {
+        console.log(`[GoogleCalendar]   ${i + 1}. ${slot.start.toLocaleString('pt-BR')}`);
+      });
+    } else {
+      console.log('[GoogleCalendar] ⚠️ Nenhum horário disponível encontrado para este dia');
+    }
+    console.log('[GoogleCalendar] ============================================');
 
     return slots;
   }

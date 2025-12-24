@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AppointmentModal } from "@/components/appointments/AppointmentModal";
 import { EditAppointmentModal } from "@/components/appointments/EditAppointmentModal";
 import { GoogleCalendarModal } from "@/components/appointments/GoogleCalendarModal";
-import { buttons, cards, typography, spacing, badges, icons } from "@/lib/design-system";
+import { buttons, cards, badges, icons } from "@/lib/design-system";
 // ✅ NOVOS IMPORTS
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useCustomers } from "@/hooks/use-customers";
@@ -220,6 +220,10 @@ function CalendarioPageContent() {
         break;
     }
 
+    // Verifica se o evento já passou
+    const isPast = new Date(appointment.endTime) < new Date();
+    const opacity = isPast ? 0.5 : 1;
+
     return {
       style: {
         backgroundColor,
@@ -230,6 +234,7 @@ function CalendarioPageContent() {
         padding: "2px 5px",
         fontSize: "0.875rem",
         fontWeight: "500",
+        opacity,
       },
     };
   }, []);
@@ -292,33 +297,11 @@ function CalendarioPageContent() {
     return <LoadingErrorState resource="agendamentos" onRetry={loadAppointments} />;
   }
 
-  // Calculate metrics
-  const totalAppointments = appointments.length;
-  const todayAppointments = appointments.filter((apt) => {
-    const aptDate = new Date(apt.startTime);
-    const today = new Date();
-    return (
-      aptDate.getDate() === today.getDate() &&
-      aptDate.getMonth() === today.getMonth() &&
-      aptDate.getFullYear() === today.getFullYear()
-    );
-  });
-  const upcomingAppointments = appointments.filter((apt) => {
-    const aptDate = new Date(apt.startTime);
-    const today = new Date();
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    return aptDate >= today && aptDate <= nextWeek;
-  });
-  const confirmedAppointments = appointments.filter(
-    (apt) => apt.status === AppointmentStatus.CONFIRMED
-  );
-
   return (
-    <div className="p-6">
-      <div className={spacing.section}>
-        {/* Header */}
-        <div className="flex items-center justify-end gap-4 mb-6">
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      {/* Header */}
+      <div className="flex-shrink-0 p-6 pb-4">
+        <div className="flex items-center justify-end gap-4">
           {googleStatus?.connected ? (
             <button
               onClick={() => setShowGoogleCalendar(true)}
@@ -341,42 +324,12 @@ function CalendarioPageContent() {
             Novo Agendamento
           </button>
         </div>
+      </div>
 
-        {/* Metrics Cards */}
-        <div className={`grid grid-cols-1 md:grid-cols-4 ${spacing.cardGap} mb-8`}>
-          <div className={cards.stats}>
-            <div className="flex flex-col">
-              <p className={typography.caption}>Total de Agendamentos</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">{totalAppointments}</p>
-              <p className={`${typography.caption} mt-1`}>Todos os agendamentos</p>
-            </div>
-          </div>
-          <div className={cards.stats}>
-            <div className="flex flex-col">
-              <p className={typography.caption}>Hoje</p>
-              <p className="text-3xl font-bold text-blue-600 mt-2">{todayAppointments.length}</p>
-              <p className={`${typography.caption} mt-1`}>Agendamentos hoje</p>
-            </div>
-          </div>
-          <div className={cards.stats}>
-            <div className="flex flex-col">
-              <p className={typography.caption}>Próximos 7 dias</p>
-              <p className="text-3xl font-bold text-green-600 mt-2">{upcomingAppointments.length}</p>
-              <p className={`${typography.caption} mt-1`}>Agendamentos próximos</p>
-            </div>
-          </div>
-          <div className={cards.stats}>
-            <div className="flex flex-col">
-              <p className={typography.caption}>Confirmados</p>
-              <p className="text-3xl font-bold text-green-600 mt-2">{confirmedAppointments.length}</p>
-              <p className={`${typography.caption} mt-1`}>Confirmados</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Calendar */}
-        <div className={cards.default}>
-          <div className="calendar-container" style={{ height: "700px" }}>
+      {/* Calendar */}
+      <div className="flex-1 px-6 pb-6">
+        <div className={`${cards.default} h-full`}>
+          <div className="calendar-container h-full p-4">
             <BigCalendar
               localizer={localizer}
               events={events}
@@ -412,9 +365,10 @@ function CalendarioPageContent() {
             />
           </div>
         </div>
+      </div>
 
-        {/* Event Details Modal */}
-        <Dialog open={showEventDetails} onOpenChange={setShowEventDetails}>
+      {/* Event Details Modal */}
+      <Dialog open={showEventDetails} onOpenChange={setShowEventDetails}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -737,7 +691,6 @@ function CalendarioPageContent() {
           }
         }
       `}</style>
-      </div>
     </div>
   );
 }
