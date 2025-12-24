@@ -28,8 +28,6 @@ class WebSocketService {
   initialize(httpServer: HTTPServer) {
     const corsOrigins = this.getCorsOrigins();
 
-    console.log('[WebSocket] Initializing with CORS origins:', corsOrigins);
-
     this.io = new SocketIOServer(httpServer, {
       cors: {
         origin: corsOrigins,
@@ -44,7 +42,6 @@ class WebSocketService {
     });
 
     this.setupEventHandlers();
-    console.log('[WebSocket] Server initialized successfully');
   }
 
   /**
@@ -54,7 +51,6 @@ class WebSocketService {
     if (!this.io) return;
 
     this.io.on('connection', (socket: AuthenticatedSocket) => {
-      console.log(`[WebSocket] New connection: ${socket.id} from ${socket.handshake.address}`);
 
       // Autenticação via token JWT
       socket.on('authenticate', (token: string) => {
@@ -74,7 +70,6 @@ class WebSocketService {
           // Entra em sala específica da empresa
           socket.join(`company:${socket.companyId}`);
 
-          console.log(`[WebSocket] User ${socket.userId} authenticated, joined company:${socket.companyId}`);
           socket.emit('authenticated', { userId: socket.userId, companyId: socket.companyId });
         } catch (error) {
           console.error('[WebSocket] Authentication failed:', error);
@@ -100,7 +95,6 @@ class WebSocketService {
 
       // Desconexão
       socket.on('disconnect', (reason) => {
-        console.log(`[WebSocket] Client ${socket.id} disconnected. Reason: ${reason}`);
         if (socket.userId) {
           const userSocketSet = this.userSockets.get(socket.userId);
           if (userSocketSet) {
@@ -129,16 +123,12 @@ class WebSocketService {
     }
 
     const companyRoom = `company:${companyId}`;
-    const roomSize = this.io.sockets.adapter.rooms.get(companyRoom)?.size || 0;
 
-    console.log(`[WebSocket] Emitting new_message to ${companyRoom} (${roomSize} clients)`);
     this.io.to(companyRoom).emit('new_message', message);
 
     // Também emite para sala específica da conversa
     if (message.customerId) {
       const conversationRoom = `conversation:${message.customerId}`;
-      const convRoomSize = this.io.sockets.adapter.rooms.get(conversationRoom)?.size || 0;
-      console.log(`[WebSocket] Emitting message_update to ${conversationRoom} (${convRoomSize} clients)`);
       this.io.to(conversationRoom).emit('message_update', message);
     }
   }

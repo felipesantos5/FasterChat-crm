@@ -15,6 +15,25 @@ enum UserRole {
   USER
 }
 
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+enum PermissionPage {
+  DASHBOARD
+  CUSTOMERS
+  CONVERSATIONS
+  PIPELINE
+  CALENDAR
+  CAMPAIGNS
+  WHATSAPP_LINKS
+  AI_CONFIG
+  WHATSAPP_CONFIG
+}
+
 model Company {
   id         String   @id @default(uuid())
   name       String
@@ -31,6 +50,7 @@ model Company {
   googleCalendar     GoogleCalendar?
   appointments       Appointment[]
   whatsappLinks      WhatsAppLink[]
+  invites            Invite[]
 
   @@map("companies")
 }
@@ -53,9 +73,11 @@ model Tag {
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
-  passwordHash String   @map("password_hash")
+  passwordHash String?  @map("password_hash")
   name         String
   role         UserRole @default(USER)
+  cargo        String?
+  status       String   @default("ACTIVE")
   companyId    String   @map("company_id")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -63,9 +85,13 @@ model User {
   company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   conversations   Conversation[]
   customerNotes   CustomerNote[]
+  permissions     Permission[]
+  sentInvites     Invite[]       @relation("InviteSender")
+  receivedInvite  Invite?        @relation("InviteReceiver")
 
   @@index([companyId])
   @@index([email])
+  @@index([status])
   @@map("users")
 }
 
@@ -499,5 +525,52 @@ model LinkClick {
   @@index([deviceType])
   @@index([converted])
   @@map("link_clicks")
+}
+
+model Invite {
+  id          String       @id @default(uuid())
+  companyId   String       @map("company_id")
+  email       String
+  name        String
+  cargo       String?
+  token       String       @unique
+  status      InviteStatus @default(PENDING)
+  invitedById String       @map("invited_by_id")
+  userId      String?      @unique @map("user_id")
+  expiresAt   DateTime     @map("expires_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invitedBy   User         @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  user        User?        @relation("InviteReceiver", fields: [userId], references: [id], onDelete: Cascade)
+  permissions Permission[]
+
+  @@index([companyId])
+  @@index([email])
+  @@index([token])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("invites")
+}
+
+model Permission {
+  id        String         @id @default(uuid())
+  userId    String?        @map("user_id")
+  inviteId  String?        @map("invite_id")
+  page      PermissionPage
+  canView   Boolean        @default(true) @map("can_view")
+  canEdit   Boolean        @default(false) @map("can_edit")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  user      User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invite    Invite?        @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, page])
+  @@index([userId])
+  @@index([inviteId])
+  @@index([page])
+  @@map("permissions")
 }
 

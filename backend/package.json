@@ -31,6 +31,7 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/nodemailer": "^7.0.4",
     "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.65.1",
@@ -44,6 +45,7 @@
     "helmet": "^8.0.0",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^7.0.12",
     "openai": "^6.9.1",
     "prisma": "^5.22.0",
     "socket.io": "^4.8.1",

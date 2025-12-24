@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     description: "Plataforma de CRM com Chatbot de Inteligencia Artificial para WhatsApp. Automatize atendimentos, gerencie clientes e aumente suas vendas.",
     images: [
       {
-        url: "/logo2.webp",
+        url: "/logo.png",
         width: 512,
         height: 512,
         alt: "FasterChat logo"
@@ -62,17 +62,17 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "FasterChat - CRM com Inteligencia Artificial",
     description: "Plataforma de CRM com Chatbot de IA para WhatsApp. Automatize atendimentos e aumente suas vendas.",
-    images: ["/logo2.webp"],
+    images: ["/logo.png"],
   },
   icons: {
     icon: [
-      { url: "/logo2.webp", sizes: "32x32", type: "image/png" },
-      { url: "/logo2.webp", sizes: "192x192", type: "image/png" },
+      { url: "/logo.png", sizes: "32x32", type: "image/png" },
+      { url: "/logo.png", sizes: "192x192", type: "image/png" },
     ],
     apple: [
-      { url: "/logo2.webp", sizes: "180x180", type: "image/png" },
+      { url: "/logo.png", sizes: "180x180", type: "image/png" },
     ],
-    shortcut: "/logo2.webp",
+    shortcut: "/logo.png",
   },
   manifest: "/manifest.json",
   category: "technology",

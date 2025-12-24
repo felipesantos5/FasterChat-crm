@@ -73,6 +73,11 @@ const menuItems: MenuItem[] = [
     icon: Settings,
     children: [
       {
+        label: "Colaboradores",
+        icon: Users,
+        href: "/dashboard/configuracoes/colaboradores",
+      },
+      {
         label: "IA",
         icon: Bot,
         href: "/dashboard/settings/ai",

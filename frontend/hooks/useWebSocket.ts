@@ -45,8 +45,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       return;
     }
 
-    console.log('[WebSocket] Connecting to:', BACKEND_URL);
-
     const socket = io(BACKEND_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -58,13 +56,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     });
 
     socket.on('connect', () => {
-      console.log('[WebSocket] Connected with ID:', socket.id);
       setIsConnected(true);
 
       // Autentica automaticamente se houver token
       const token = localStorage.getItem('token');
       if (token) {
-        console.log('[WebSocket] Sending authentication...');
         socket.emit('authenticate', token);
       } else {
         console.warn('[WebSocket] No token found for authentication');
@@ -72,7 +68,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     });
 
     socket.on('authenticated', (data) => {
-      console.log('[WebSocket] Authenticated successfully:', data);
       setIsAuthenticated(true);
     });
 
@@ -81,8 +76,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       setIsAuthenticated(false);
     });
 
-    socket.on('disconnect', (reason) => {
-      console.log('[WebSocket] Disconnected. Reason:', reason);
+    socket.on('disconnect', (_reason) => {
       setIsConnected(false);
       setIsAuthenticated(false);
     });
@@ -91,8 +85,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       console.error('[WebSocket] Connection error:', error.message);
     });
 
-    socket.on('reconnect', (attemptNumber) => {
-      console.log('[WebSocket] Reconnected after', attemptNumber, 'attempts');
+    socket.on('reconnect', (_attemptNumber) => {
     });
 
     socket.on('reconnect_error', (error) => {
