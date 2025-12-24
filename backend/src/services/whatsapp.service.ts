@@ -268,7 +268,6 @@ class WhatsAppService {
       switch (apiState) {
         case "open":
           status = WhatsAppStatus.CONNECTED;
-          console.log(`✅ Evolution API: ${instance.instanceName} CONNECTED`);
           break;
         case "connecting":
           status = WhatsAppStatus.CONNECTING;

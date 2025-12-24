@@ -26,8 +26,7 @@ export const getAvailableSlotsTool: ChatCompletionTool = {
       properties: {
         service_type: {
           type: 'string',
-          enum: ['INSTALLATION', 'MAINTENANCE', 'CONSULTATION', 'REPAIR'],
-          description: 'Tipo de serviço desejado pelo cliente. Influencia a duração dos slots (Instalação: 2h, Manutenção: 1h, Consulta: 30min)',
+          description: 'Nome do serviço desejado pelo cliente conforme cadastrado no seu catálogo de produtos/serviços. Use EXATAMENTE o nome do serviço que está na LISTA OFICIAL DE PRODUTOS.',
         },
         preferred_date: {
           type: 'string',
@@ -104,8 +103,7 @@ export const calculateQuoteTool: ChatCompletionTool = {
       properties: {
         service_type: {
           type: 'string',
-          enum: ['INSTALLATION', 'MAINTENANCE', 'REPAIR', 'CONSULTATION'],
-          description: 'Tipo de serviço',
+          description: 'Nome do serviço conforme cadastrado no seu catálogo de produtos/serviços. Use o nome EXATO da LISTA OFICIAL DE PRODUTOS.',
         },
         product_specs: {
           type: 'object',
@@ -173,8 +171,7 @@ export const createAppointmentTool: ChatCompletionTool = {
       properties: {
         service_type: {
           type: 'string',
-          enum: ['INSTALLATION', 'MAINTENANCE', 'CONSULTATION', 'VISIT', 'OTHER'],
-          description: 'Tipo de serviço a ser agendado',
+          description: 'Nome do serviço a ser agendado conforme cadastrado no seu catálogo. Use o nome EXATO da LISTA OFICIAL DE PRODUTOS/SERVIÇOS.',
         },
         date: {
           type: 'string',

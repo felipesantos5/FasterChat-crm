@@ -161,15 +161,6 @@ class AIService {
         console.warn("[AIService] Erro ao verificar Google Calendar:", error);
       }
 
-      // Durações de serviços (em minutos)
-      const serviceDurations = {
-        INSTALLATION: 120, // 2 horas
-        MAINTENANCE: 60,   // 1 hora
-        CONSULTATION: 30,  // 30 minutos
-        VISIT: 60,         // 1 hora
-        OTHER: 60,         // 1 hora
-      };
-
       // Configurações do modelo
       const providerConfig = aiKnowledge?.provider as AIProvider | undefined;
       const modelConfig = aiKnowledge?.model ?? CHATBOT_CONFIG.DEFAULT_MODEL;
@@ -202,7 +193,6 @@ class AIService {
         customerNotes: customer.notes,
         objective: aiKnowledge?.aiObjective, // Objetivo específico do cliente
         googleCalendarStatus, // Status do Google Calendar
-        serviceDurations, // Durações dos serviços
       });
 
       const userPrompt = this.buildUserPrompt(historyText, message);
@@ -264,7 +254,6 @@ class AIService {
       customerName,
       objective,
       googleCalendarStatus,
-      serviceDurations,
     } = data;
 
     // Cabeçalho de Identidade e Segurança (Fixo)
@@ -293,21 +282,16 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
     }
 
     // Informações de Agendamento
-    if (googleCalendarStatus && serviceDurations) {
+    if (googleCalendarStatus) {
       businessContext += `\n### 📅 SISTEMA DE AGENDAMENTOS\n`;
-      businessContext += `\n**Durações de Serviços:**\n`;
-      businessContext += `- Instalação: ${serviceDurations.INSTALLATION} minutos (${serviceDurations.INSTALLATION / 60}h)\n`;
-      businessContext += `- Manutenção: ${serviceDurations.MAINTENANCE} minutos (${serviceDurations.MAINTENANCE / 60}h)\n`;
-      businessContext += `- Consultoria: ${serviceDurations.CONSULTATION} minutos\n`;
-      businessContext += `- Visita: ${serviceDurations.VISIT} minutos (${serviceDurations.VISIT / 60}h)\n`;
-      businessContext += `- Outros serviços: ${serviceDurations.OTHER} minutos (${serviceDurations.OTHER / 60}h)\n`;
       businessContext += `\n**INSTRUÇÕES PARA AGENDAMENTO:**\n`;
       businessContext += `1. Quando o cliente quiser agendar, SEMPRE use a ferramenta 'get_available_slots' primeiro para verificar horários disponíveis\n`;
-      businessContext += `2. Apresente os horários disponíveis de forma clara ao cliente\n`;
-      businessContext += `3. Após o cliente escolher data e horário, colete: tipo de serviço, endereço completo\n`;
-      businessContext += `4. Confirme TODOS os dados com o cliente antes de criar o agendamento\n`;
-      businessContext += `5. Use a ferramenta 'create_appointment' SOMENTE após confirmação explícita do cliente\n`;
-      businessContext += `6. IMPORTANTE: Não mencione detalhes técnicos como "Google Calendar" ou "sincronização automática". Apenas confirme que o agendamento foi realizado com sucesso\n`;
+      businessContext += `2. Use o nome do serviço EXATAMENTE como está na LISTA OFICIAL DE PRODUTOS ao buscar disponibilidade\n`;
+      businessContext += `3. Apresente os horários disponíveis de forma clara ao cliente\n`;
+      businessContext += `4. Após o cliente escolher data e horário, colete: serviço desejado, endereço completo\n`;
+      businessContext += `5. Confirme TODOS os dados com o cliente antes de criar o agendamento\n`;
+      businessContext += `6. Use a ferramenta 'create_appointment' SOMENTE após confirmação explícita do cliente\n`;
+      businessContext += `7. IMPORTANTE: Não mencione detalhes técnicos como "Google Calendar" ou "sincronização automática". Apenas confirme que o agendamento foi realizado com sucesso\n`;
     }
 
     // Seção de Produtos (A mais importante para a confiabilidade)

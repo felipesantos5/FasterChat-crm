@@ -26,16 +26,10 @@ async function testEvolutionConnection() {
   try {
     // 1. Testar se Evolution API está online
     console.log('1️⃣  Verificando se Evolution API está online...');
-    const healthResponse = await axios.get(`${EVOLUTION_API_URL}`, {
+    await axios.get(`${EVOLUTION_API_URL}`, {
       timeout: 5000,
       validateStatus: () => true, // Aceita qualquer status
     });
-
-    if (healthResponse.status === 200 || healthResponse.status === 404) {
-      console.log('   ✅ Evolution API está online!\n');
-    } else {
-      console.log(`   ⚠️  Evolution API retornou status ${healthResponse.status}\n`);
-    }
 
     // 2. Testar autenticação
     console.log('2️⃣  Testando autenticação...');

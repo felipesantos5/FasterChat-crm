@@ -201,7 +201,6 @@ class WebhookController {
           switch (connectionState) {
             case "open":
               newStatus = WhatsAppStatus.CONNECTED;
-              console.log(`✅ Evolution API: ${payload.instance} CONNECTED`);
               break;
             case "connecting":
               newStatus = WhatsAppStatus.CONNECTING;

@@ -3,6 +3,7 @@ import { addDays, format, startOfDay, addMinutes } from 'date-fns';
 import Fuse from 'fuse.js'; // npm install fuse.js
 import { googleCalendarService } from '../google-calendar.service';
 import { appointmentService } from '../appointment.service';
+import { AppointmentType } from '@prisma/client';
 
 // ==========================================
 // TYPES & INTERFACES
@@ -277,17 +278,35 @@ export async function handleGetAvailableSlots(args: {
   try {
     const { preferred_date, companyId, service_type } = args;
 
-    // Determina a duração do serviço
-    const serviceDurations: Record<string, number> = {
-      INSTALLATION: 120,
-      MAINTENANCE: 60,
-      CONSULTATION: 30,
-      REPAIR: 60,
-    };
-    const slotDuration = serviceDurations[service_type] || 60;
+    // Busca a duração do serviço do catálogo da empresa
+    let slotDuration = 60; // Duração padrão
+    try {
+      const aiKnowledge = await prisma.aIKnowledge.findUnique({
+        where: { companyId },
+        select: { products: true }
+      });
+
+      if (aiKnowledge?.products) {
+        const products = Array.isArray(aiKnowledge.products)
+          ? aiKnowledge.products
+          : JSON.parse(typeof aiKnowledge.products === 'string' ? aiKnowledge.products : '[]');
+
+        // Busca o serviço pelo nome (case-insensitive)
+        const service = products.find((p: any) =>
+          p.name?.toLowerCase() === service_type.toLowerCase()
+        );
+
+        // Se o serviço tiver duração configurada, usa; senão mantém o padrão
+        if (service?.duration) {
+          slotDuration = parseInt(service.duration);
+        }
+      }
+    } catch (error) {
+      console.warn('[Tool] GetAvailableSlots: Erro ao buscar duração do serviço, usando padrão:', error);
+    }
 
     console.log('[Tool] GetAvailableSlots: Buscando horários disponíveis');
-    console.log('[Tool] GetAvailableSlots: Tipo de serviço:', service_type, '- Duração:', slotDuration, 'min');
+    console.log('[Tool] GetAvailableSlots: Serviço:', service_type, '- Duração:', slotDuration, 'min');
 
     // Busca horários para os próximos 7 dias
     const startDate = preferred_date ? new Date(preferred_date) : new Date();
@@ -417,28 +436,36 @@ export async function handleCreateAppointment(args: {
   try {
     const { service_type, date, time, address, title, notes, customerId, companyId } = args;
 
-    // Valida o tipo de serviço
-    const validTypes = ['INSTALLATION', 'MAINTENANCE', 'CONSULTATION', 'VISIT', 'OTHER'];
-    if (!validTypes.includes(service_type)) {
-      return {
-        success: false,
-        error: `Tipo de serviço inválido: ${service_type}. Use: ${validTypes.join(', ')}`
-      };
+    // Busca a duração do serviço do catálogo da empresa
+    let duration = 60; // Duração padrão
+    try {
+      const aiKnowledge = await prisma.aIKnowledge.findUnique({
+        where: { companyId },
+        select: { products: true }
+      });
+
+      if (aiKnowledge?.products) {
+        const products = Array.isArray(aiKnowledge.products)
+          ? aiKnowledge.products
+          : JSON.parse(typeof aiKnowledge.products === 'string' ? aiKnowledge.products : '[]');
+
+        // Busca o serviço pelo nome (case-insensitive)
+        const service = products.find((p: any) =>
+          p.name?.toLowerCase() === service_type.toLowerCase()
+        );
+
+        // Se o serviço tiver duração configurada, usa; senão mantém o padrão
+        if (service?.duration) {
+          duration = parseInt(service.duration);
+        }
+      }
+    } catch (error) {
+      console.warn('[CreateAppointment] Erro ao buscar duração do serviço, usando padrão:', error);
     }
-
-    // Duração padrão por tipo de serviço (em minutos)
-    const serviceDurations: Record<string, number> = {
-      INSTALLATION: 120,
-      MAINTENANCE: 60,
-      CONSULTATION: 30,
-      VISIT: 60,
-      OTHER: 60,
-    };
-
-    const duration = serviceDurations[service_type] || 60;
 
     // Parse da data e hora no timezone do Brasil (America/Sao_Paulo)
     console.log('[CreateAppointment] Criando agendamento para:', date, time, '(horário de Brasília)');
+    console.log('[CreateAppointment] Serviço:', service_type, '- Duração:', duration, 'min');
     const dateTime = createBrazilDate(date, time);
     const endTime = addMinutes(dateTime, duration);
 
@@ -446,11 +473,12 @@ export async function handleCreateAppointment(args: {
     console.log('[CreateAppointment] Data/hora fim:', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
     // Cria o agendamento usando o serviço existente
+    // Usa AppointmentType.OTHER e armazena o nome real do serviço no title/description
     const appointment = await appointmentService.create(companyId, {
       customerId,
-      title,
-      description: notes || `${service_type} - ${title}`,
-      type: service_type as any,
+      title: `${service_type} - ${title}`,
+      description: notes || `Serviço: ${service_type}`,
+      type: AppointmentType.OTHER,
       startTime: dateTime,
       endTime: endTime,
       duration,

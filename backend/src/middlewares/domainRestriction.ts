@@ -30,10 +30,6 @@ function getRestrictedDomains(): string[] {
       .split(',')
       .map(d => d.trim().toLowerCase())
       .filter(d => d.length > 0);
-
-    if (restrictedDomainsCache.length > 0) {
-      console.log(`[DomainRestriction] Domínios restritos configurados: ${restrictedDomainsCache.join(', ')}`);
-    }
   }
   return restrictedDomainsCache;
 }
@@ -89,9 +85,6 @@ export function domainRestriction(req: Request, res: Response, next: NextFunctio
     return next();
   }
 
-  // Domínio restrito tentando acessar rota não permitida
-  console.warn(`[DomainRestriction] Blocked: ${requestHost} trying to access ${path}`);
-
   // Retorna 404 genérico (não revela que a rota existe)
   return res.status(404).send('Not Found');
 }
@@ -112,7 +105,6 @@ export function blockApiForRestrictedDomains(req: Request, res: Response, next: 
 
   if (isRestrictedDomain) {
     // Domínio restrito tentando acessar API
-    console.warn(`[DomainRestriction] API blocked for: ${requestHost}${req.path}`);
     return res.status(404).send('Not Found');
   }
 
