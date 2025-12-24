@@ -47,7 +47,7 @@ export class EmailService {
             <p>Olá <strong>${name}</strong>,</p>
             <p><strong>${inviterName}</strong> convidou você para colaborar no CRM da empresa <strong>${companyName}</strong>.</p>
             <p>Clique no botão abaixo para aceitar o convite e criar sua senha:</p>
-            <p style="text-align: center;">
+            <p style="text-align: center; color: white;">
               <a href="${inviteUrl}" class="button">Aceitar Convite</a>
             </p>
             <p style="color: #666; font-size: 14px;">Ou copie e cole este link no navegador:</p>

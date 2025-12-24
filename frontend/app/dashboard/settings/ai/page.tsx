@@ -200,7 +200,7 @@ function AISettingsPageContent() {
         setDeliveryInfo(response.data.deliveryInfo || "");
         setWarrantyInfo(response.data.warrantyInfo || "");
 
-        setProducts(response.data.products || []);
+        setProducts(Array.isArray(response.data.products) ? response.data.products : []);
         setAutoReplyEnabled(response.data.autoReplyEnabled ?? true);
         setGeneratedContext(response.data.generatedContext || "");
         setSetupCompleted(response.data.setupCompleted ?? false);
@@ -773,7 +773,7 @@ function AISettingsPageContent() {
               )}
 
               {/* Lista de Produtos */}
-              {products.length > 0 ? (
+              {Array.isArray(products) && products.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {products.map((product) => (
                     <Card key={product.id} className="relative group hover:shadow-md transition-shadow">
