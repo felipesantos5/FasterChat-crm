@@ -175,7 +175,7 @@ export default function CollaboratorsPage() {
                         </div>
                         <p className="text-sm text-muted-foreground">{collaborator.email}</p>
                         {collaborator.cargo && (
-                          <p className="text-sm text-muted-foreground">{collaborator.cargo}</p>
+                          <p className="text-xs text-muted-foreground">{collaborator.cargo}</p>
                         )}
                         <div className="flex flex-wrap gap-1 mt-2">
                           {collaborator.permissions.length > 0 ? (
