@@ -200,7 +200,9 @@ function AISettingsPageContent() {
         setDeliveryInfo(response.data.deliveryInfo || "");
         setWarrantyInfo(response.data.warrantyInfo || "");
 
+        // CORREÇÃO DA TELA BRANCA: Garante que products é sempre um array
         setProducts(Array.isArray(response.data.products) ? response.data.products : []);
+
         setAutoReplyEnabled(response.data.autoReplyEnabled ?? true);
         setGeneratedContext(response.data.generatedContext || "");
         setSetupCompleted(response.data.setupCompleted ?? false);
@@ -238,7 +240,9 @@ function AISettingsPageContent() {
         paymentMethods,
         deliveryInfo,
         warrantyInfo,
-        products,
+        products, // Importante: Salva os produtos atuais
+        // Preserva o FAQ se existir no objeto knowledge original
+        faq: knowledge?.faq || undefined,
         autoReplyEnabled: overrides?.autoReplyEnabled ?? autoReplyEnabled,
         setupStep: nextStep ?? currentStep,
         setupCompleted,
@@ -272,7 +276,7 @@ function AISettingsPageContent() {
         return;
       }
 
-      // Primeiro salva todas as informações
+      // Primeiro salva todas as informações (incluindo produtos)
       await saveKnowledge();
 
       // Depois gera o contexto
@@ -282,11 +286,25 @@ function AISettingsPageContent() {
         setGeneratedContext(response.data.generatedContext);
         setSetupCompleted(true);
 
-        // Salva com setupCompleted = true
+        // CORREÇÃO DO ERRO DE SALVAMENTO:
+        // Envia TODOS os dados novamente, INCLUINDO os produtos.
+        // Se enviarmos sem produtos, o backend entende como [] e apaga tudo.
         await aiKnowledgeApi.updateKnowledge({
           companyId,
-          setupCompleted: true,
+          companyName,
+          companySegment,
+          companyDescription,
+          objectiveType,
+          aiObjective: objectiveType === 'custom' ? aiObjective : undefined,
+          workingHours,
+          paymentMethods,
+          deliveryInfo,
+          warrantyInfo,
+          products, // <--- OBRIGATÓRIO PARA NÃO APAGAR OS PRODUTOS
+          faq: knowledge?.faq || undefined, // Preserva FAQ
+          autoReplyEnabled,
           setupStep: 4,
+          setupCompleted: true, // Força o status de completo
         });
 
         toast.success("Contexto gerado com sucesso! Sua IA está pronta para atender.");
@@ -772,7 +790,7 @@ function AISettingsPageContent() {
                 </Card>
               )}
 
-              {/* Lista de Produtos */}
+              {/* Lista de Produtos - CORREÇÃO TELA BRANCA */}
               {Array.isArray(products) && products.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {products.map((product) => (
@@ -1102,19 +1120,19 @@ function CompletedView({
           </CardContent>
         </Card>
 
-        {/* Produtos */}
+        {/* Produtos - CORREÇÃO TELA BRANCA */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Package className="h-5 w-5" />
               Produtos/Serviços
               <Badge variant="secondary" className="ml-auto">
-                {products.length}
+                {Array.isArray(products) ? products.length : 0}
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {products.length > 0 ? (
+            {Array.isArray(products) && products.length > 0 ? (
               <div className="space-y-2">
                 {products.slice(0, 4).map((product) => (
                   <div key={product.id} className="flex items-center justify-between text-sm">
