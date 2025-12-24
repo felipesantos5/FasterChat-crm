@@ -26,6 +26,10 @@ const inviteSchema = z.object({
 
 type InviteFormData = z.infer<typeof inviteSchema>;
 
+interface InviteDataWithPermissions extends InviteFormData {
+  permissions: { page: string; canView: boolean; canEdit: boolean }[];
+}
+
 export function InviteCollaboratorModal({
   open,
   onClose,
@@ -33,7 +37,7 @@ export function InviteCollaboratorModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: InviteFormData) => Promise<void>;
+  onSubmit: (data: InviteDataWithPermissions) => Promise<void>;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());

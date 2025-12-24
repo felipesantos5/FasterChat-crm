@@ -67,7 +67,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       }
     });
 
-    socket.on('authenticated', (data) => {
+    socket.on('authenticated', () => {
       setIsAuthenticated(true);
     });
 

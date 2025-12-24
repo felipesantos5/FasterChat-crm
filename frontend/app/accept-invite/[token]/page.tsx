@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { collaboratorApi } from "@/lib/collaborator";
-import { useAuthStore } from "@/lib/store/auth.store";
+import { setAuthToken, setUser } from "@/lib/auth";
 import { toast } from "sonner";
 
 const acceptInviteSchema = z.object({
@@ -23,9 +23,13 @@ const acceptInviteSchema = z.object({
 
 type AcceptInviteForm = z.infer<typeof acceptInviteSchema>;
 
-export default function AcceptInvitePage({ params }: { params: { token: string } }) {
+interface PageProps {
+  params: Promise<{ token: string }>;
+}
+
+export default function AcceptInvitePage(props: PageProps) {
+  const params = use(props.params);
   const router = useRouter();
-  const { setAuth } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -40,7 +44,8 @@ export default function AcceptInvitePage({ params }: { params: { token: string }
     setIsSubmitting(true);
     try {
       const result = await collaboratorApi.acceptInvite(params.token, data.password);
-      setAuth(result.user, result.token);
+      setAuthToken(result.token);
+      setUser(result.user);
       toast.success("Bem-vindo! Convite aceito com sucesso");
       router.push("/dashboard");
     } catch (error: any) {
