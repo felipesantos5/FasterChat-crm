@@ -12,8 +12,7 @@ import { customerApi } from "@/lib/customer";
 import { whatsappApi } from "@/lib/whatsapp";
 import { Customer } from "@/types/customer";
 import { WhatsAppInstance } from "@/types/whatsapp";
-import { MessageSquare, Search, X, Bot, User, ChevronRight, MessageSquarePlus, Smartphone, ArrowLeft } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { MessageSquare, Search, X, Bot, User, ChevronRight, Smartphone, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConversationListSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { LoadingErrorState } from "@/components/ui/error-state";
 
 type FilterType = "all" | "ai" | "human" | "unread" | "needsHelp";
 type SortType = "recent" | "oldest" | "name";
@@ -341,15 +341,7 @@ function ConversationsPageContent() {
   }
 
   if (isError) {
-    return (
-      <div className="p-6">
-        <Card className="border-destructive">
-          <CardContent className="pt-6">
-            <p className="text-sm text-destructive">Erro ao carregar conversas</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <LoadingErrorState resource="conversas" onRetry={mutate} />;
   }
 
   return (
@@ -376,7 +368,8 @@ function ConversationsPageContent() {
                 <NewConversationDialog
                   trigger={
                     <Button size="sm" variant="default">
-                      <MessageSquarePlus className="h-4 w-4" />
+                      {/* <MessageSquarePlus className="h-4 w-4" /> */}
+                      Nova Conversa
                     </Button>
                   }
                   onConversationCreated={async (customer) => {

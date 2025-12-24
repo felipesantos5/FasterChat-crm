@@ -27,6 +27,8 @@ import { useAuthStore } from "@/lib/store/auth.store";
 import { useCustomers } from "@/hooks/use-customers";
 import { CalendarSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { LoadingErrorState } from "@/components/ui/error-state";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 
 const locales = { "pt-BR": ptBR };
 
@@ -77,6 +79,7 @@ function CalendarioPageContent() {
 
   // ✅ 2. Recuperar clientes reais da API
   const { customers } = useCustomers(companyId || null);
+  const { hasError, handleError, clearError } = useErrorHandler();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,6 +102,7 @@ function CalendarioPageContent() {
 
     try {
       setLoading(true);
+      clearError();
       const dbAppointments = await appointmentApi.getAll(companyId);
 
       try {
@@ -151,13 +155,14 @@ function CalendarioPageContent() {
         console.warn("Erro ao buscar eventos do Google Calendar:", googleError);
         setAppointments(dbAppointments);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao carregar agendamentos:", error);
+      handleError(error);
       setAppointments([]);
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, clearError, handleError]);
 
   const checkGoogleConnection = useCallback(async () => {
     if (!companyId) return;
@@ -281,6 +286,10 @@ function CalendarioPageContent() {
 
   if (loading && appointments.length === 0) {
     return <CalendarSkeleton />;
+  }
+
+  if (hasError) {
+    return <LoadingErrorState resource="agendamentos" onRetry={loadAppointments} />;
   }
 
   // Calculate metrics

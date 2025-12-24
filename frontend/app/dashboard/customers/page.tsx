@@ -34,6 +34,8 @@ import { tagApi } from "@/lib/tag";
 import { Card } from "@/components/ui/card";
 import { CustomerGridSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { LoadingErrorState } from "@/components/ui/error-state";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 
 export default function CustomersPage() {
   return (
@@ -52,6 +54,7 @@ function CustomersPageContent() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const { hasError, handleError, clearError } = useErrorHandler();
 
   // Paginação
   const [page, setPage] = useState(1);
@@ -87,6 +90,7 @@ function CustomersPageContent() {
   // Load customers
   const loadCustomers = async () => {
     setIsLoading(true);
+    clearError();
     try {
       const response = await customerApi.getAll({
         search: debouncedSearch || undefined,
@@ -95,8 +99,9 @@ function CustomersPageContent() {
         limit,
       });
       setData(response);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading customers:", error);
+      handleError(error);
     } finally {
       setIsLoading(false);
     }
@@ -236,6 +241,8 @@ function CustomersPageContent() {
       <div className="flex-1 overflow-auto p-3 sm:p-4">
         {isLoading ? (
           <CustomerGridSkeleton />
+        ) : hasError ? (
+          <LoadingErrorState resource="clientes" onRetry={loadCustomers} />
         ) : customers.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <Users className="h-12 w-12 text-muted-foreground/50 mb-3" />
@@ -254,7 +261,7 @@ function CustomersPageContent() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {customers.map((customer) => (
               <Card
                 key={customer.id}

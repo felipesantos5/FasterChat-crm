@@ -10,6 +10,8 @@ import { whatsappApi } from "@/lib/whatsapp";
 import { WhatsAppInstance, WhatsAppStatus } from "@/types/whatsapp";
 import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle, Trash2, RefreshCw } from "lucide-react";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { LoadingErrorState } from "@/components/ui/error-state";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 
 export default function WhatsAppSettingsPage() {
   return (
@@ -22,10 +24,11 @@ export default function WhatsAppSettingsPage() {
 function WhatsAppSettingsPageContent() {
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [loading, setLoading] = useState(true);
+  const { hasError, handleError, clearError } = useErrorHandler();
   const [creating, setCreating] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [operationError, setOperationError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<{ [key: string]: boolean }>({});
 
   // Estados para os modais de confirmação
@@ -46,10 +49,10 @@ function WhatsAppSettingsPageContent() {
   // Carrega as instâncias
   const loadInstances = useCallback(async () => {
     try {
-      setError(null);
+      clearError();
       const companyId = getCompanyId();
       if (!companyId) {
-        setError("Empresa não encontrada");
+        handleError("Empresa não encontrada");
         return;
       }
 
@@ -57,11 +60,11 @@ function WhatsAppSettingsPageContent() {
       setInstances(response.data);
     } catch (err: any) {
       console.error("Error loading instances:", err);
-      setError(err.response?.data?.message || "Erro ao carregar instâncias");
+      handleError(err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [clearError, handleError]);
 
   useEffect(() => {
     loadInstances();
@@ -86,11 +89,11 @@ function WhatsAppSettingsPageContent() {
   const handleCreateInstance = async () => {
     try {
       setCreating(true);
-      setError(null);
+      setOperationError(null);
 
       const companyId = getCompanyId();
       if (!companyId) {
-        setError("Empresa não encontrada");
+        setOperationError("Empresa não encontrada");
         return;
       }
 
@@ -102,7 +105,7 @@ function WhatsAppSettingsPageContent() {
       await loadInstances();
     } catch (err: any) {
       console.error("Error creating instance:", err);
-      setError(err.response?.data?.message || "Erro ao criar instância");
+      setOperationError(err.response?.data?.message || "Erro ao criar instância");
     } finally {
       setCreating(false);
     }
@@ -123,7 +126,7 @@ function WhatsAppSettingsPageContent() {
       await loadInstances();
     } catch (err: any) {
       console.error("Error disconnecting:", err);
-      setError(err.response?.data?.message || "Erro ao desconectar");
+      setOperationError(err.response?.data?.message || "Erro ao desconectar");
     }
   };
 
@@ -142,7 +145,7 @@ function WhatsAppSettingsPageContent() {
       await loadInstances();
     } catch (err: any) {
       console.error("Error deleting:", err);
-      setError(err.response?.data?.message || "Erro ao deletar instância");
+      setOperationError(err.response?.data?.message || "Erro ao deletar instância");
     }
   };
 
@@ -193,15 +196,33 @@ function WhatsAppSettingsPageContent() {
     }
   };
 
+  if (loading && !instances.length) {
+    return (
+      <div className="space-y-6 p-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return <LoadingErrorState resource="configurações do WhatsApp" onRetry={loadInstances} />;
+  }
+
   return (
     <div className="space-y-6 p-6">
-      {/* Error Message */}
-      {error && (
+      {/* Operation Error Message */}
+      {operationError && (
         <Card className="border-destructive">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-destructive">
               <XCircle className="h-4 w-4" />
-              <p className="text-sm">{error}</p>
+              <p className="text-sm">{operationError}</p>
             </div>
           </CardContent>
         </Card>
@@ -225,15 +246,7 @@ function WhatsAppSettingsPageContent() {
       </Card>
 
       {/* Instances List */}
-      {loading ? (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-      ) : instances.length > 0 ? (
+      {instances.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Conexões Ativas</CardTitle>

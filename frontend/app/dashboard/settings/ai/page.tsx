@@ -42,6 +42,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { LoadingErrorState } from "@/components/ui/error-state";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 
 // Mapeamento de ícones para os objetivos
 const OBJECTIVE_ICONS: Record<string, LucideIcon> = {
@@ -91,6 +93,7 @@ export default function AISettingsPage() {
 function AISettingsPageContent() {
   const [knowledge, setKnowledge] = useState<AIKnowledge | null>(null);
   const [loading, setLoading] = useState(true);
+  const { hasError, handleError, clearError } = useErrorHandler();
   const [saving, setSaving] = useState(false);
   const [generatingContext, setGeneratingContext] = useState(false);
 
@@ -145,11 +148,6 @@ function AISettingsPageContent() {
     });
   };
 
-  // Função para remover formatação de moeda
-  const unformatCurrency = (value: string): string => {
-    return value.replace(/\D/g, "");
-  };
-
   // Handler para mudança de preço com máscara
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCurrency(e.target.value);
@@ -167,9 +165,10 @@ function AISettingsPageContent() {
 
   const loadKnowledge = async () => {
     try {
+      clearError();
       const companyId = getCompanyId();
       if (!companyId) {
-        toast.error("Empresa não encontrada");
+        handleError("Empresa não encontrada");
         return;
       }
 
@@ -209,7 +208,7 @@ function AISettingsPageContent() {
       }
     } catch (err: any) {
       console.error("Error loading knowledge:", err);
-      toast.error("Erro ao carregar configurações");
+      handleError(err);
     } finally {
       setLoading(false);
     }
@@ -356,6 +355,10 @@ function AISettingsPageContent() {
         </div>
       </div>
     );
+  }
+
+  if (hasError) {
+    return <LoadingErrorState resource="configurações da IA" onRetry={loadKnowledge} />;
   }
 
   // Se setup completo, mostra visão geral

@@ -11,6 +11,8 @@ import { Plus, User, Trash, Edit, Clock, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useRouter } from "next/navigation";
+import { LoadingErrorState } from "@/components/ui/error-state";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 
 export default function CollaboratorsPage() {
   const { user } = useAuthStore();
@@ -37,6 +39,7 @@ export default function CollaboratorsPage() {
 function CollaboratorsPageContent() {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const { hasError, handleError, clearError } = useErrorHandler();
   const [users, setUsers] = useState<Collaborator[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
@@ -45,11 +48,13 @@ function CollaboratorsPageContent() {
   const loadCollaborators = async () => {
     try {
       setLoading(true);
+      clearError();
       const data = await collaboratorApi.list();
       setUsers(data.users);
       setPendingInvites(data.pendingInvites);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Erro ao carregar colaboradores");
+      console.error("Error loading collaborators:", error);
+      handleError(error);
     } finally {
       setLoading(false);
     }
@@ -117,6 +122,20 @@ function CollaboratorsPageContent() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return <LoadingErrorState resource="colaboradores" onRetry={loadCollaborators} />;
+  }
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -130,116 +149,110 @@ function CollaboratorsPageContent() {
         </Button>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {pendingInvites.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Convites Pendentes</h2>
-              <div className="grid gap-4">
-                {pendingInvites.map((invite) => (
-                  <Card key={invite.id} className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-4">
-                        <div className="p-2 bg-yellow-100 rounded-lg">
-                          <Clock className="h-5 w-5 text-yellow-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">{invite.name}</h3>
-                          <p className="text-sm text-muted-foreground">{invite.email}</p>
-                          {invite.cargo && (
-                            <p className="text-sm text-muted-foreground">{invite.cargo}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Convidado por {invite.invitedBy.name}
-                          </p>
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {invite.permissions.map((p) => (
-                              <Badge key={p.page} variant="outline" className="text-xs">
-                                {p.page}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCancelInvite(invite.id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
+      <div className="space-y-6">
+        {pendingInvites.length > 0 && (
           <div>
-            <h2 className="text-xl font-semibold mb-4">Colaboradores Ativos</h2>
+            <h2 className="text-xl font-semibold mb-4">Convites Pendentes</h2>
             <div className="grid gap-4">
-              {users.map((collaborator) => (
-                <Card key={collaborator.id} className="p-4">
+              {pendingInvites.map((invite) => (
+                <Card key={invite.id} className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <User className="h-5 w-5 text-green-600" />
+                      <div className="p-2 bg-yellow-100 rounded-lg">
+                        <Clock className="h-5 w-5 text-yellow-600" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{collaborator.name}</h3>
-                          <Badge variant={collaborator.role === 'ADMIN' ? 'default' : 'secondary'}>
-                            {collaborator.role}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{collaborator.email}</p>
-                        {collaborator.cargo && (
-                          <p className="text-xs text-muted-foreground">{collaborator.cargo}</p>
+                        <h3 className="font-semibold">{invite.name}</h3>
+                        <p className="text-sm text-muted-foreground">{invite.email}</p>
+                        {invite.cargo && (
+                          <p className="text-sm text-muted-foreground">{invite.cargo}</p>
                         )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Convidado por {invite.invitedBy.name}
+                        </p>
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {collaborator.permissions.length > 0 ? (
-                            collaborator.permissions.map((p) => (
-                              <Badge key={p.page} variant="outline" className="text-xs">
-                                {p.page}
-                              </Badge>
-                            ))
-                          ) : (
-                            <p className="text-xs text-muted-foreground">
-                              Acesso total (Admin)
-                            </p>
-                          )}
+                          {invite.permissions.map((p) => (
+                            <Badge key={p.page} variant="outline" className="text-xs">
+                              {p.page}
+                            </Badge>
+                          ))}
                         </div>
                       </div>
                     </div>
-                    {collaborator.role !== 'ADMIN' && (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingCollaborator(collaborator)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemove(collaborator.id)}
-                        >
-                          <Trash className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCancelInvite(invite.id)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 </Card>
               ))}
             </div>
           </div>
+        )}
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Colaboradores Ativos</h2>
+          <div className="grid gap-4">
+            {users.map((collaborator) => (
+              <Card key={collaborator.id} className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <User className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{collaborator.name}</h3>
+                        <Badge variant={collaborator.role === 'ADMIN' ? 'default' : 'secondary'}>
+                          {collaborator.role}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{collaborator.email}</p>
+                      {collaborator.cargo && (
+                        <p className="text-xs text-muted-foreground">{collaborator.cargo}</p>
+                      )}
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {collaborator.permissions.length > 0 ? (
+                          collaborator.permissions.map((p) => (
+                            <Badge key={p.page} variant="outline" className="text-xs">
+                              {p.page}
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Acesso total (Admin)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {collaborator.role !== 'ADMIN' && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingCollaborator(collaborator)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemove(collaborator.id)}
+                      >
+                        <Trash className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
-      )}
+      </div>
 
       <InviteCollaboratorModal
         open={inviteModalOpen}

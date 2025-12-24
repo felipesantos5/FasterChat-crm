@@ -9,6 +9,8 @@ import CreateLinkModal from "@/components/links/CreateLinkModal";
 import DeleteConfirmModal from "@/components/links/DeleteConfirmModal";
 import { buttons, cards, typography, spacing, badges, icons } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { LoadingErrorState } from "@/components/ui/error-state";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 
 export default function LinksPage() {
   return (
@@ -25,6 +27,7 @@ function LinksPageContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingLink, setEditingLink] = useState<WhatsAppLink | null>(null);
   const [deletingLink, setDeletingLink] = useState<WhatsAppLink | null>(null);
+  const { hasError, handleError, clearError } = useErrorHandler();
 
   useEffect(() => {
     loadLinks();
@@ -33,10 +36,12 @@ function LinksPageContent() {
   const loadLinks = async () => {
     try {
       setLoading(true);
+      clearError();
       const data = await whatsappLinkService.getAll();
       setLinks(data);
     } catch (error: any) {
-      toast.error("Erro ao carregar links");
+      console.error("Error loading links:", error);
+      handleError(error);
     } finally {
       setLoading(false);
     }
@@ -45,9 +50,11 @@ function LinksPageContent() {
   const handleCopyLink = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copiado para área de transferência!");
+      toast.success("✅ Link copiado para área de transferência!", {
+        duration: 3000,
+      });
     } catch (error) {
-      toast.error("Erro ao copiar link");
+      console.error("Error copying link:", error);
     }
   };
 
@@ -59,9 +66,12 @@ function LinksPageContent() {
 
       setLinks(links.map((l) => (l.id === link.id ? { ...l, isActive: !l.isActive } : l)));
 
-      toast.success(`Link ${!link.isActive ? "ativado" : "desativado"} com sucesso`);
+      const statusText = !link.isActive ? "ativado" : "desativado";
+      toast.success(`✅ Link ${statusText} com sucesso!`, {
+        duration: 3000,
+      });
     } catch (error: any) {
-      toast.error("Erro ao atualizar link");
+      console.error("Error toggling link status:", error);
     }
   };
 
@@ -76,10 +86,12 @@ function LinksPageContent() {
     try {
       await whatsappLinkService.delete(deletingLink.id);
       setLinks(links.filter((l) => l.id !== deletingLink.id));
-      toast.success("Link deletado com sucesso");
+      toast.success("✅ Link deletado com sucesso!", {
+        duration: 3000,
+      });
       setDeletingLink(null);
     } catch (error: any) {
-      toast.error("Erro ao deletar link");
+      console.error("Error deleting link:", error);
     }
   };
 
@@ -115,6 +127,10 @@ function LinksPageContent() {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
       </div>
     );
+  }
+
+  if (hasError) {
+    return <LoadingErrorState resource="links" onRetry={loadLinks} />;
   }
 
   return (

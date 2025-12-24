@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { EditCampaignDialog } from '@/components/campaigns/edit-campaign-dialog';
 import { ScheduleCampaignDialog } from '@/components/campaigns/schedule-campaign-dialog';
 import { ProtectedPage } from '@/components/layout/protected-page';
+import { LoadingErrorState } from "@/components/ui/error-state";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 
 export default function CampaignsPage() {
   return (
@@ -27,6 +29,7 @@ function CampaignsPageContent() {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const { hasError, handleError, clearError } = useErrorHandler();
   const [sendingCampaignId, setSendingCampaignId] = useState<string | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -45,16 +48,18 @@ function CampaignsPageContent() {
   const loadCampaigns = async () => {
     try {
       setLoading(true);
+      clearError();
       const companyId = getCompanyId();
       if (!companyId) {
-        console.error('Company ID not found');
+        handleError('Company ID not found');
         return;
       }
 
       const response = await campaignApi.getAll(companyId);
       setCampaigns(response.campaigns);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading campaigns:', error);
+      handleError(error);
     } finally {
       setLoading(false);
     }
@@ -201,6 +206,8 @@ function CampaignsPageContent() {
             <Loader2 className="h-12 w-12 animate-spin text-green-600 mx-auto" />
             <p className={`${typography.body} mt-4 text-gray-600`}>Carregando campanhas...</p>
           </div>
+        ) : hasError ? (
+          <LoadingErrorState resource="campanhas" onRetry={loadCampaigns} />
         ) : campaigns.length === 0 ? (
           <div className={`${cards.default} text-center py-16`}>
             <Megaphone className="h-16 w-16 text-gray-400 mx-auto mb-4" />

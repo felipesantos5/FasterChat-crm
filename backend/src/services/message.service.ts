@@ -309,16 +309,12 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
       // Verifica se é uma mensagem vinda de um ID de Business (@lid)
       if (remoteJid.includes("@lid")) {
         isLid = true;
-        console.log(`[MessageService] ⚠️ Mensagem recebida de um LID (Business): ${remoteJid}`);
 
         // Tenta extrair o número real do campo participant (comum na Evolution API para LIDs)
         // O participant geralmente contém o JID real do usuário (ex: 5511999999999@s.whatsapp.net)
         if (data.key?.participant && data.key.participant.includes("@s.whatsapp.net")) {
           realJid = data.key.participant;
-          console.log(`[MessageService] ✅ Número real recuperado do participant: ${realJid}`);
         } else {
-          // Se não tiver participant, teremos que usar o LID mesmo, mas removemos o sufixo para salvar
-          console.warn(`[MessageService] ❌ Não foi possível recuperar número real. Usando LID.`);
         }
       }
 
@@ -328,7 +324,6 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
       // Validação
       const phoneValidation = this.isValidPhoneNumber(phone);
       if (!phoneValidation.valid) {
-        console.warn(`⚠️ [MessageService] Número inválido - ignorando: ${phone} (${phoneValidation.reason})`);
         return null;
       }
 
@@ -371,7 +366,6 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
           },
         });
         
-        console.log(`[MessageService] 🆕 Novo cliente criado: ${customer.name} (${customer.phone})`);
       } else {
         // ... (Lógica de atualização existente mantida) ...
          const updates: any = {};

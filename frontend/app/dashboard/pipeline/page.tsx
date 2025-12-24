@@ -11,12 +11,13 @@ import { ManageStagesModal } from "@/components/pipeline/manage-stages-modal";
 import { Settings2, GripVertical, Phone, Calendar, Users, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { spacing } from "@/lib/design-system";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "react-hot-toast";
 import { PipelineSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { LoadingErrorState } from "@/components/ui/error-state";
+import { useErrorHandler } from "@/hooks/use-error-handler";
 
 export default function PipelinePage() {
   return (
@@ -30,7 +31,7 @@ function PipelinePageContent() {
   const router = useRouter();
   const [board, setBoard] = useState<PipelineBoard | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { hasError, handleError, clearError } = useErrorHandler();
   const [draggedCustomer, setDraggedCustomer] = useState<Customer | null>(null);
   const [draggedFromStage, setDraggedFromStage] = useState<string | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
@@ -50,12 +51,12 @@ function PipelinePageContent() {
 
   const loadBoard = async () => {
     try {
-      setError(null);
+      clearError();
       const cId = getCompanyId();
       setCompanyId(cId);
 
       if (!cId) {
-        setError("Empresa não encontrada");
+        handleError("Empresa não encontrada");
         return;
       }
 
@@ -76,7 +77,7 @@ function PipelinePageContent() {
       }
     } catch (err: any) {
       console.error("Error loading board:", err);
-      setError(err.response?.data?.message || "Erro ao carregar pipeline");
+      handleError(err);
     } finally {
       setLoading(false);
     }
@@ -284,14 +285,8 @@ function PipelinePageContent() {
     return <PipelineSkeleton />;
   }
 
-  if (error) {
-    return (
-      <div className={spacing.page}>
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
-      </div>
-    );
+  if (hasError) {
+    return <LoadingErrorState resource="pipeline" onRetry={loadBoard} />;
   }
 
   return (

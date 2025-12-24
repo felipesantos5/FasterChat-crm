@@ -64,6 +64,7 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
     e.preventDefault();
 
     if (!validateForm()) {
+      toast.error("Por favor, corrija os erros no formulário");
       return;
     }
 
@@ -72,16 +73,53 @@ export default function CreateLinkModal({ link, onClose, onSuccess }: CreateLink
 
       if (isEditing && link) {
         await whatsappLinkService.update(link.id, formData);
-        toast.success("Link atualizado com sucesso!");
+        toast.success("✅ Link atualizado com sucesso!");
       } else {
         await whatsappLinkService.create(formData);
-        toast.success("Link criado com sucesso!");
+        toast.success("✅ Link criado com sucesso!");
       }
 
       onSuccess();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message;
-      toast.error(errorMessage || "Erro ao salvar link");
+      console.error("Error saving link:", error);
+
+      // Extrai a mensagem de erro do backend
+      const errorMessage = error.response?.data?.error || error.message || "Erro desconhecido";
+
+      // Tratamento específico para diferentes tipos de erro
+      if (errorMessage.includes("slug já está em uso") || errorMessage.includes("slug") && errorMessage.includes("uso")) {
+        toast.error("❌ Este slug já existe! Escolha outro nome para o link.", {
+          duration: 5000,
+        });
+        setErrors({ ...errors, slug: "Este slug já está em uso" });
+      } else if (errorMessage.includes("Número de telefone inválido") || errorMessage.includes("telefone")) {
+        toast.error("❌ Número de telefone inválido. Use o formato: 5511999999999", {
+          duration: 5000,
+        });
+        setErrors({ ...errors, phoneNumber: "Formato inválido" });
+      } else if (errorMessage.includes("Nome") && errorMessage.includes("obrigatório")) {
+        toast.error("❌ O nome do link é obrigatório", {
+          duration: 4000,
+        });
+        setErrors({ ...errors, name: "Campo obrigatório" });
+      } else if (errorMessage.includes("Slug") && errorMessage.includes("obrigatório")) {
+        toast.error("❌ O slug é obrigatório", {
+          duration: 4000,
+        });
+        setErrors({ ...errors, slug: "Campo obrigatório" });
+      } else if (error.response?.data?.details) {
+        // Erros de validação do Zod
+        const details = error.response.data.details;
+        const firstError = details[0];
+        toast.error(`❌ ${firstError.message}`, {
+          duration: 5000,
+        });
+      } else {
+        // Erro genérico
+        toast.error(`❌ Erro ao salvar link: ${errorMessage}`, {
+          duration: 5000,
+        });
+      }
     } finally {
       setLoading(false);
     }

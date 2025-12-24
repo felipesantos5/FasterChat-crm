@@ -22,6 +22,7 @@ import { NewConversationDialog } from "@/components/chat/new-conversation-dialog
 import { Users, MessageSquare, Bot, Activity } from "lucide-react";
 import { cards, typography, spacing } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { LoadingErrorState } from "@/components/ui/error-state";
 
 type PeriodType = "today" | "week" | "month";
 type ChartPeriodType = "week" | "month" | "quarter";
@@ -40,10 +41,10 @@ function DashboardPageContent() {
   const [chartPeriod] = useState<ChartPeriodType>("month");
 
   // Usa SWR para gerenciar stats com cache e refresh automático
-  const { stats, isLoading } = useDashboardStats(period);
+  const { stats, isLoading, isError: statsError, mutate: refetchStats } = useDashboardStats(period);
 
   // Usa SWR para gerenciar charts data
-  const { chartsData, isLoading: isLoadingCharts } = useDashboardCharts(chartPeriod);
+  const { chartsData, isLoading: isLoadingCharts, isError: chartsError, mutate: refetchCharts } = useDashboardCharts(chartPeriod);
 
   // Transforma o objeto stats em um array para renderização
   const statCards = stats
@@ -122,6 +123,18 @@ function DashboardPageContent() {
           <Skeleton className="h-64 w-full rounded-lg" />
         </div>
       </div>
+    );
+  }
+
+  if (statsError || chartsError) {
+    return (
+      <LoadingErrorState
+        resource="dashboard"
+        onRetry={() => {
+          refetchStats();
+          refetchCharts();
+        }}
+      />
     );
   }
 
