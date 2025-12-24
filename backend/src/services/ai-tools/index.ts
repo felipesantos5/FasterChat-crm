@@ -187,7 +187,7 @@ export const createAppointmentTool: ChatCompletionTool = {
         },
         title: {
           type: 'string',
-          description: 'Título descritivo do agendamento (ex: "Instalação de Ar Condicionado")',
+          description: 'Título descritivo do agendamento',
         },
         notes: {
           type: 'string',

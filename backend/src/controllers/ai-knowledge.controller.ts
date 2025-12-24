@@ -46,19 +46,12 @@ class AIKnowledgeController {
 
       const knowledge = await aiKnowledgeService.getKnowledge(companyId as string);
 
-      // Parse JSON fields de forma segura
-      let result = knowledge;
-      if (knowledge) {
-        result = {
-          ...knowledge,
-          products: safeJsonParse(knowledge.products, []),
-          faq: safeJsonParse(knowledge.faq, []),
-        };
-      }
+      console.log(`[AI Knowledge Controller] Get knowledge - Products:`, JSON.stringify(knowledge?.products, null, 2));
 
+      // O service já retorna os dados no formato correto
       return res.status(200).json({
         success: true,
-        data: result,
+        data: knowledge,
       });
     } catch (error: any) {
       console.error('Error in getKnowledge controller:', error);

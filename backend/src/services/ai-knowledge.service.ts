@@ -56,14 +56,18 @@ class AIKnowledgeService {
       const knowledge = await prisma.aIKnowledge.findUnique({
         where: { companyId },
       });
-      
+
       if (!knowledge) return null;
 
-      // Garante que campos JSON retornem como objetos, não strings
+      console.log(`[AI Knowledge] Get knowledge - Products type:`, typeof knowledge.products);
+      console.log(`[AI Knowledge] Get knowledge - Products is array:`, Array.isArray(knowledge.products));
+      console.log(`[AI Knowledge] Get knowledge - Products:`, JSON.stringify(knowledge.products, null, 2));
+
+      // O Prisma já retorna campos Json como objetos/arrays
       return {
         ...knowledge,
-        products: this.safeJsonParse(knowledge.products, []),
-        faq: this.safeJsonParse(knowledge.faq, []),
+        products: knowledge.products || [],
+        faq: knowledge.faq || [],
       };
     } catch (error: any) {
       console.error('Error getting AI knowledge:', error);
@@ -77,10 +81,12 @@ class AIKnowledgeService {
   async upsertKnowledge(companyId: string, data: UpdateAIKnowledgeRequest) {
     try {
       console.log(`[AI Knowledge] Upserting for company ${companyId}`);
+      console.log(`[AI Knowledge] Products data:`, JSON.stringify(data.products, null, 2));
 
-      // Tratamento prévio dos dados JSON para garantir formato correto no banco
-      const productsJson = data.products ? JSON.stringify(data.products) : '[]';
-      const faqJson = data.faq ? JSON.stringify(data.faq) : '[]';
+      // O Prisma já faz JSON.stringify automaticamente para campos do tipo Json
+      // Passamos o array/objeto diretamente sem fazer stringify manualmente
+      const productsJson = (data.products || []) as any;
+      const faqJson = (data.faq || []) as any;
 
       const knowledge = await prisma.aIKnowledge.upsert({
         where: { companyId },
@@ -145,20 +151,28 @@ class AIKnowledgeService {
       });
 
       console.log(`✓ AI knowledge updated for company ${companyId}`);
-      
+      console.log(`✓ Products saved:`, JSON.stringify(knowledge.products, null, 2));
+      console.log(`✓ Products type:`, typeof knowledge.products);
+      console.log(`✓ Products is array:`, Array.isArray(knowledge.products));
+
       // Se tivermos descrição, tentamos gerar o contexto enriquecido automaticamente
       if (data.companyDescription && data.companyDescription.length > 20) {
         // Executa em background para não travar a resposta da API
-        this.generateContext(companyId).catch(err => 
+        this.generateContext(companyId).catch(err =>
           console.error('[AI Knowledge] Background context generation failed:', err)
         );
       }
 
-      return {
+      // O Prisma já retorna campos Json como objetos/arrays, não precisa parsear
+      const result = {
         ...knowledge,
-        products: this.safeJsonParse(knowledge.products, []),
-        faq: this.safeJsonParse(knowledge.faq, []),
+        products: knowledge.products || [],
+        faq: knowledge.faq || [],
       };
+
+      console.log(`✓ Returning products:`, JSON.stringify(result.products, null, 2));
+
+      return result;
     } catch (error: any) {
       console.error('✗ Error upserting AI knowledge:', error);
       throw new Error(`Failed to upsert AI knowledge: ${error.message}`);
