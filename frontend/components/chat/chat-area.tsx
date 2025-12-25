@@ -476,8 +476,8 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
         {/* Ações */}
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {/* Toggle IA */}
-          <div className="hidden sm:flex items-center gap-2 border-r pr-3 mr-1">
-            <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={handleToggleAi} disabled={togglingAi} className="scale-90" />
+          <div className="flex items-center gap-2 border-r pr-3 mr-1">
+            <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={handleToggleAi} disabled={togglingAi} className="scale-75 sm:scale-90" />
             <Label htmlFor="ai-toggle" className="text-xs cursor-pointer whitespace-nowrap">
               {togglingAi ? (
                 <Loader2 className="h-3 w-3 animate-spin" />

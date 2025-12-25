@@ -537,14 +537,31 @@ function ConversationsPageContent() {
         )}
       </div>
 
-      {/* Sidebar Direita: Detalhes do Cliente - oculto no mobile */}
+      {/* Sidebar Direita: Detalhes do Cliente */}
       {selectedConversation && showCustomerDetails && (
-        <div className="hidden lg:block w-[280px] border-l bg-background overflow-hidden">
-          <CustomerDetails
-            customerId={selectedConversation.customerId}
-            customerName={selectedConversation.customerName}
-            customerPhone={selectedConversation.customerPhone}
-          />
+        <div
+          className={cn(
+            "border-l bg-background overflow-hidden flex flex-col transition-all duration-300",
+            // Mobile: fixo em tela cheia
+            "fixed inset-0 z-50 lg:static lg:z-auto lg:w-[280px]"
+          )}
+        >
+          {/* Header Mobile para Detalhes */}
+          <div className="lg:hidden flex items-center p-2 border-b bg-muted/30">
+            <Button variant="ghost" size="sm" onClick={() => setShowCustomerDetails(false)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+            <span className="font-semibold ml-2">Detalhes do Contato</span>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <CustomerDetails
+              customerId={selectedConversation.customerId}
+              customerName={selectedConversation.customerName}
+              customerPhone={selectedConversation.customerPhone}
+            />
+          </div>
         </div>
       )}
     </div>

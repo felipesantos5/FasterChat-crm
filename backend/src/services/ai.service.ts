@@ -289,9 +289,10 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
       businessContext += `2. Use o nome do serviço EXATAMENTE como está na LISTA OFICIAL DE PRODUTOS ao buscar disponibilidade\n`;
       businessContext += `3. Apresente os horários disponíveis de forma clara ao cliente\n`;
       businessContext += `4. Após o cliente escolher data e horário, colete: serviço desejado, endereço completo\n`;
-      businessContext += `5. Confirme TODOS os dados com o cliente antes de criar o agendamento\n`;
-      businessContext += `6. Use a ferramenta 'create_appointment' SOMENTE após confirmação explícita do cliente\n`;
-      businessContext += `7. IMPORTANTE: Não mencione detalhes técnicos como "Google Calendar" ou "sincronização automática". Apenas confirme que o agendamento foi realizado com sucesso\n`;
+      businessContext += `5. **IMPORTANTE ENDEREÇO:** Se o cliente fornecer um endereço SEM o número da casa/prédio, você DEVE solicitar explicitamente: "Qual é o número da casa/prédio?" ou "Me passa o número da casa também!". Não avance sem o número!\n`;
+      businessContext += `6. Confirme TODOS os dados com o cliente antes de criar o agendamento\n`;
+      businessContext += `7. Use a ferramenta 'create_appointment' SOMENTE após confirmação explícita do cliente\n`;
+      businessContext += `8. IMPORTANTE: Não mencione detalhes técnicos como "Google Calendar" ou "sincronização automática". Apenas confirme que o agendamento foi realizado com sucesso\n`;
     }
 
     // Seção de Produtos (A mais importante para a confiabilidade)

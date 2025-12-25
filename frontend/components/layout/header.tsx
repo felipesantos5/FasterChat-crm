@@ -150,24 +150,24 @@ export function Header() {
   const PageIcon = currentPage.icon;
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background px-4 lg:px-6">
-      <div className="flex flex-1 items-center justify-between gap-4">
+    <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background px-2 md:px-4 lg:px-6">
+      <div className="flex flex-1 items-center justify-between gap-2 md:gap-4">
         {/* Mobile Menu Button + Current Page Info */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
           {/* Botão Hamburger - apenas mobile */}
           <button
             onClick={toggle}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground lg:hidden flex-shrink-0"
             aria-label="Abrir menu"
           >
-            <Menu className="h-6 w-6" />
+            <Menu className="h-5 w-5" />
           </button>
 
-          <div className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg bg-green-100">
-            <PageIcon className="h-5 w-5 text-green-600" />
+          <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-green-100 flex-shrink-0">
+            <PageIcon className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
           </div>
-          <div className="min-w-0">
-            <h1 className="text-sm sm:text-base font-semibold text-gray-900 truncate">{currentPage.label}</h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 truncate">{currentPage.label}</h1>
             <p className="text-xs text-gray-500 hidden sm:block">{currentPage.description}</p>
           </div>
         </div>
@@ -175,13 +175,13 @@ export function Header() {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 gap-2 rounded-full pl-2 pr-2 sm:pr-3">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
+            <Button variant="ghost" className="relative h-9 gap-2 rounded-full pl-1 pr-1 sm:pl-2 sm:pr-2 flex-shrink-0">
+              <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                   {user?.name ? getInitials(user.name) : "U"}
                 </AvatarFallback>
               </Avatar>
-              <div className="hidden sm:flex flex-col items-start text-sm">
+              <div className="hidden sm:flex flex-col items-start text-xs sm:text-sm">
                 <span className="font-medium truncate max-w-[120px]">{user?.name || "Usuário"}</span>
               </div>
             </Button>

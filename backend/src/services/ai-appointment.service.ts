@@ -12,14 +12,38 @@ function createBrazilDateTime(dateString: string, timeString: string): Date {
   // Parse da hora HH:mm
   const [hours, minutes] = timeString.split(':').map(Number);
 
-  // Cria a data no timezone local
-  const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  // FIX: Criar data interpretando como se fosse São Paulo
+  // new Date(y,m,d,h,m) cria no timezone da máquina (pode ser UTC)
+  // Solução: criar em UTC e depois ajustar pelo offset de São Paulo
+
+  const tempDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+
+  // Calcular a diferença entre a hora em São Paulo e UTC
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(tempDate);
+
+  const brazilHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+  const brazilMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+
+  // Calcular offset em minutos
+  const offsetMinutes = (hours - brazilHour) * 60 + (minutes - brazilMinute);
+
+  // Criar a data final ajustando pelo offset
+  const correctDate = new Date(tempDate.getTime() - offsetMinutes * 60000);
 
   console.log('[AIAppointment] Criando data Brasil:', dateString, timeString);
-  console.log('[AIAppointment]   ISO:', date.toISOString());
-  console.log('[AIAppointment]   BR:', date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+  console.log('[AIAppointment]   Offset aplicado:', offsetMinutes, 'minutos');
+  console.log('[AIAppointment]   ISO:', correctDate.toISOString());
+  console.log('[AIAppointment]   BR:', correctDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
-  return date;
+  return correctDate;
 }
 
 /**
@@ -651,7 +675,7 @@ export class AIAppointmentService {
 
         return {
           shouldContinue: true,
-          response: `Perfeito! 👍 Horário das **${state.time}** reservado.\n\nAgora só preciso saber o endereço onde vou fazer o serviço.\n\nMe manda aí:\n📍 O endereço completo (rua e número)\n🏢 Se for apartamento, o número do AP e bloco também\n\nPode mandar tudo junto mesmo! 😊`
+          response: `Perfeito! 👍 Horário das **${state.time}** reservado.\n\nAgora só preciso saber o endereço onde vou fazer o serviço.\n\nMe manda aí:\n📍 **Rua/Avenida + número da casa** (obrigatório!)\n🏢 Se for apartamento, me passa o AP e bloco também\n🏢 CEP (se souber)\n\nPode mandar tudo junto mesmo! 😊`
         };
       }
     }
@@ -672,7 +696,7 @@ export class AIAppointmentService {
 
         return {
           shouldContinue: true,
-          response: `Beleza! 👍 Horário das **${time}** está reservado.\n\nAgora só preciso saber o endereço onde vou fazer o serviço.\n\nMe manda:\n📍 Endereço completo (rua e número)\n🏢 Se for apartamento/prédio, me passa o número do AP e bloco\n\nPode mandar tudo junto! 😊`
+          response: `Beleza! 👍 Horário das **${time}** está reservado.\n\nAgora só preciso saber o endereço onde vou fazer o serviço.\n\nMe manda:\n📍 **Rua/Avenida + número da casa** (obrigatório!)\n🏢 Se for apartamento/prédio, me passa o número do AP e bloco\n🏢 CEP (se souber)\n\nPode mandar tudo junto! 😊`
         };
       }
 
@@ -757,7 +781,6 @@ export class AIAppointmentService {
     // Endereço incompleto, pede informações faltantes
     await this.saveAppointmentState(customerId, state);
 
-    const missingInfo = validation.missing.join(' e ');
     let response = `Legal! Já anotei aqui: 📝\n\n`;
 
     if (state.address.cep) {
@@ -773,7 +796,13 @@ export class AIAppointmentService {
       response += `✓ Complemento: ${state.address.complement}\n`;
     }
 
-    response += `\nSó falta me mandar o **${missingInfo}** e a gente fecha! 😊`;
+    // Mensagens customizadas baseadas no que está faltando
+    if (!state.address.number && validation.missing.includes('número')) {
+      response += `\n⚠️ Para finalizar o agendamento, **preciso do número da casa/prédio** onde vou fazer o serviço. Me manda só esse detalhe! 🏠`;
+    } else {
+      const missingInfo = validation.missing.join(' e ');
+      response += `\nSó falta me mandar o **${missingInfo}** e a gente fecha! 😊`;
+    }
 
     return {
       shouldContinue: true,
