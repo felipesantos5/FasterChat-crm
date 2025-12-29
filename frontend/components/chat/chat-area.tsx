@@ -13,7 +13,7 @@ import { messageApi } from "@/lib/message";
 import { conversationApi } from "@/lib/conversation";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Square, Check, CheckCheck } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, CheckCheck } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
