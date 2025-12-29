@@ -49,6 +49,7 @@ interface AppointmentState {
   duration?: number; // minutos
   description?: string;
   availableSlots?: Array<{ start: Date; end: Date }>;
+  currentSlotPage?: number; // Controla qual "página" de slots está mostrando (0 = primeiros 6, 1 = próximos 6, etc.)
 
   // Dados de endereço
   address?: {
@@ -724,27 +725,37 @@ export class AIAppointmentService {
       }
 
       state.availableSlots = slots;
+      state.currentSlotPage = 0; // Inicia na primeira página (primeiros 6 horários)
       state.step = 'COLLECTING_TIME';
       await this.saveAppointmentState(customerId, state);
 
-      // Formata os primeiros 6 slots
+      // Formata a data para exibição
       const dateFormatted = selectedDate.toLocaleDateString('pt-BR', {
         weekday: 'long',
         day: '2-digit',
         month: 'long'
       });
 
-      const slotsText = slots
-        .slice(0, 6)
+      // Mostra os primeiros 6 slots
+      const slotsToShow = slots.slice(0, 6);
+      const slotsText = slotsToShow
         .map((slot, index) => {
           const time = this.slotToTimeString(slot.start);
           return `${index + 1}️⃣ ${time}`;
         })
         .join('\n');
 
+      // Mensagem com dica sobre horários alternativos
+      let responseMessage = `Boa! Entendi que é pra ${dateFormatted} 📅\n\nHorários disponíveis:\n\n${slotsText}\n\nQual desses é melhor pra você? Pode mandar o número ou o horário direto`;
+
+      // Se tem mais horários disponíveis, avisa
+      if (slots.length > 6) {
+        responseMessage += `\n\n💡 Tenho mais ${slots.length - 6} horários disponíveis. Se quiser ver mais opções, fala "mais tarde" ou "mais cedo"`;
+      }
+
       return {
         shouldContinue: true,
-        response: `Boa! Entendi que é pra ${dateFormatted} 📅\n\nHorários disponíveis:\n\n${slotsText}\n\nQual desses é melhor pra você? Pode mandar o número ou o horário direto`,
+        response: responseMessage,
       };
     } catch (error: any) {
       console.error('[AIAppointment] Error fetching slots:', error);
@@ -764,12 +775,89 @@ export class AIAppointmentService {
     message: string,
     state: AppointmentState
   ): Promise<{ shouldContinue: boolean; response: string }> {
+    const lowerMessage = message.toLowerCase();
 
-    // Tenta detectar por número (1-6)
+    if (!state.availableSlots || state.availableSlots.length === 0) {
+      return {
+        shouldContinue: true,
+        response: `Ops, perdi os horários disponíveis 😅\n\nPode me falar o dia de novo?`,
+      };
+    }
+
+    const currentPage = state.currentSlotPage || 0;
+
+    // Detecta solicitação de "mais tarde" ou "mais cedo"
+    const wantsLater = lowerMessage.includes('mais tarde') || lowerMessage.includes('depois') || lowerMessage.includes('outro') || lowerMessage.includes('outros horários');
+    const wantsEarlier = lowerMessage.includes('mais cedo') || lowerMessage.includes('antes') || lowerMessage.includes('anterior');
+
+    if (wantsLater) {
+      // Mostra próximos 6 horários
+      const startIndex = (currentPage + 1) * 6;
+
+      if (startIndex >= state.availableSlots.length) {
+        return {
+          shouldContinue: true,
+          response: `Esses são todos os horários disponíveis que tenho 😊\n\nPode escolher um dos que mostrei?`,
+        };
+      }
+
+      const slotsToShow = state.availableSlots.slice(startIndex, startIndex + 6);
+      const slotsText = slotsToShow
+        .map((slot, index) => {
+          const time = this.slotToTimeString(slot.start);
+          return `${index + 1}️⃣ ${time}`;
+        })
+        .join('\n');
+
+      state.currentSlotPage = currentPage + 1;
+      await this.saveAppointmentState(customerId, state);
+
+      const hasMore = state.availableSlots.length > startIndex + 6;
+      let response = `Aqui vão horários mais tarde:\n\n${slotsText}\n\nQual desses funciona pra você?`;
+
+      if (hasMore) {
+        response += `\n\n💡 Ainda tenho mais opções. Quer ver?`;
+      }
+
+      return {
+        shouldContinue: true,
+        response,
+      };
+    }
+
+    if (wantsEarlier) {
+      // Mostra 6 horários anteriores
+      if (currentPage === 0) {
+        return {
+          shouldContinue: true,
+          response: `Esses já são os horários mais cedo que tenho disponíveis 😊\n\nPode escolher um deles?`,
+        };
+      }
+
+      const startIndex = (currentPage - 1) * 6;
+      const slotsToShow = state.availableSlots.slice(startIndex, startIndex + 6);
+      const slotsText = slotsToShow
+        .map((slot, index) => {
+          const time = this.slotToTimeString(slot.start);
+          return `${index + 1}️⃣ ${time}`;
+        })
+        .join('\n');
+
+      state.currentSlotPage = currentPage - 1;
+      await this.saveAppointmentState(customerId, state);
+
+      return {
+        shouldContinue: true,
+        response: `Aqui vão horários mais cedo:\n\n${slotsText}\n\nQual desses funciona?`,
+      };
+    }
+
+    // Tenta detectar seleção por número (1-6)
     const numberMatch = message.match(/^[1-6]$/);
-    if (numberMatch && state.availableSlots) {
+    if (numberMatch) {
       const index = parseInt(numberMatch[0]) - 1;
-      const selectedSlot = state.availableSlots[index];
+      const startIndex = currentPage * 6;
+      const selectedSlot = state.availableSlots[startIndex + index];
 
       if (selectedSlot) {
         state.time = this.slotToTimeString(selectedSlot.start);
@@ -785,7 +873,7 @@ export class AIAppointmentService {
 
     // Tenta detectar horário no formato HH:mm
     const time = this.detectTime(message);
-    if (time && state.availableSlots) {
+    if (time) {
       // Verifica se o horário está nos slots disponíveis
       const matchingSlot = state.availableSlots.find(slot => {
         const slotTime = this.slotToTimeString(slot.start);
@@ -805,13 +893,13 @@ export class AIAppointmentService {
 
       return {
         shouldContinue: true,
-        response: `Poxa, esse horário não tá disponível 😔\n\nDá uma olhada nos horários que mostrei e escolhe um deles?`,
+        response: `Poxa, esse horário ${time} não tá disponível 😔\n\nDá uma olhada nos horários que mostrei e escolhe um deles? Ou fala "mais tarde" pra ver outras opções`,
       };
     }
 
     return {
       shouldContinue: true,
-      response: `Não entendi o horário 🤔\n\nPode escolher um dos números (1 a 6) que mostrei? Ou mandar o horário tipo 10:00`,
+      response: `Não entendi o horário 🤔\n\nPode escolher um dos números (1 a 6) que mostrei? Ou mandar o horário tipo 10:00\n\nSe quiser ver outros horários, fala "mais tarde" ou "mais cedo"`,
     };
   }
 
