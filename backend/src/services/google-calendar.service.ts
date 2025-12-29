@@ -161,51 +161,81 @@ export class GoogleCalendarService {
    * Carrega tokens do banco e configura OAuth2 client
    */
   private async loadTokens(companyId: string) {
-    console.log('[GoogleCalendar] Carregando tokens para company:', companyId);
+    console.log('[GoogleCalendar] 🔑 Carregando tokens para company:', companyId);
 
     const calendar = await prisma.googleCalendar.findUnique({
       where: { companyId },
     });
 
     if (!calendar) {
-      console.error('[GoogleCalendar] Nenhum registro encontrado na tabela GoogleCalendar');
+      console.error('[GoogleCalendar] ❌ Nenhum registro encontrado na tabela GoogleCalendar');
       throw new Error('Google Calendar não configurado para esta empresa');
     }
 
-    console.log('[GoogleCalendar] Registro encontrado:');
-    console.log('[GoogleCalendar] - Email:', calendar.email);
-    console.log('[GoogleCalendar] - Calendar ID:', calendar.calendarId);
-    console.log('[GoogleCalendar] - Token Expiry:', calendar.tokenExpiry);
-    console.log('[GoogleCalendar] - Has Access Token:', !!calendar.accessToken);
-    console.log('[GoogleCalendar] - Has Refresh Token:', !!calendar.refreshToken);
+    console.log('[GoogleCalendar] 📋 Registro encontrado:');
+    console.log('[GoogleCalendar]   - Email:', calendar.email);
+    console.log('[GoogleCalendar]   - Calendar ID:', calendar.calendarId || 'primary');
+    console.log('[GoogleCalendar]   - Token Expiry:', calendar.tokenExpiry.toISOString());
+    console.log('[GoogleCalendar]   - Has Access Token:', calendar.accessToken ? 'SIM ✅' : 'NÃO ❌');
+    console.log('[GoogleCalendar]   - Has Refresh Token:', calendar.refreshToken ? 'SIM ✅' : 'NÃO ❌');
+
+    // Verifica se tem refresh token (essencial para renovação)
+    if (!calendar.refreshToken) {
+      console.error('[GoogleCalendar] ❌ CRÍTICO: Não há refresh token! Reconecte o Google Calendar.');
+      throw new Error('Refresh token ausente. Reconecte o Google Calendar na página de Calendário.');
+    }
 
     // Verifica se token expirou
     const now = new Date();
-    if (calendar.tokenExpiry <= now) {
-      console.log('[GoogleCalendar] ⚠️ Token expirado, renovando...');
+    const tokenExpiry = new Date(calendar.tokenExpiry);
+    const isExpired = tokenExpiry <= now;
+    const expiresInMinutes = Math.round((tokenExpiry.getTime() - now.getTime()) / 60000);
 
-      // Renova token
+    console.log('[GoogleCalendar]   - Token expirado:', isExpired ? 'SIM ⚠️' : 'NÃO ✅');
+    if (!isExpired) {
+      console.log('[GoogleCalendar]   - Expira em:', expiresInMinutes, 'minutos');
+    }
+
+    if (isExpired) {
+      console.log('[GoogleCalendar] 🔄 Token expirado, tentando renovar...');
+
+      // Configura apenas o refresh token para renovação
       this.oauth2Client.setCredentials({
         refresh_token: calendar.refreshToken,
       });
 
       try {
         const { credentials } = await this.oauth2Client.refreshAccessToken();
-        console.log('[GoogleCalendar] ✅ Token renovado com sucesso');
+
+        if (!credentials.access_token) {
+          throw new Error('Google retornou credenciais sem access_token');
+        }
+
+        console.log('[GoogleCalendar] ✅ Token renovado com sucesso!');
+        console.log('[GoogleCalendar]   - Novo expiry:', new Date(credentials.expiry_date || Date.now() + 3600000).toISOString());
 
         // Atualiza no banco
         await prisma.googleCalendar.update({
           where: { companyId },
           data: {
-            accessToken: credentials.access_token!,
+            accessToken: credentials.access_token,
             tokenExpiry: new Date(credentials.expiry_date || Date.now() + 3600 * 1000),
           },
         });
 
         this.oauth2Client.setCredentials(credentials);
       } catch (error: any) {
-        console.error('[GoogleCalendar] ❌ Erro ao renovar token:', error.message);
-        throw new Error('Não foi possível renovar o token do Google Calendar. Reautorize a integração.');
+        console.error('[GoogleCalendar] ❌ FALHA ao renovar token:');
+        console.error('[GoogleCalendar]   - Erro:', error.message);
+
+        // Verifica se é erro de revogação
+        if (error.message.includes('invalid_grant') || error.message.includes('Token has been expired or revoked')) {
+          console.error('[GoogleCalendar] ⚠️ O refresh token foi revogado ou expirou permanentemente.');
+          console.error('[GoogleCalendar] ⚠️ O usuário precisa reconectar o Google Calendar.');
+          throw new Error('Conexão com Google Calendar perdida. Reconecte na página de Calendário.');
+        }
+
+        throw new Error(`Falha ao renovar token: ${error.message}`);
       }
     } else {
       console.log('[GoogleCalendar] ✅ Token válido, configurando credenciais...');
