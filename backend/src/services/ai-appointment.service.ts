@@ -1,49 +1,41 @@
 import { prisma } from '../utils/prisma';
 import { appointmentService } from './appointment.service';
 import { AppointmentType } from '@prisma/client';
+import { toZonedTime, fromZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { parse, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 /**
  * Cria uma data no timezone do Brasil (America/Sao_Paulo)
  * Garante que quando o cliente fala "08:00", é realmente 08:00 no horário de Brasília
+ *
+ * Usa date-fns-tz para conversão precisa e confiável de timezones
  */
 function createBrazilDateTime(dateString: string, timeString: string): Date {
-  // Parse da data YYYY-MM-DD
-  const [year, month, day] = dateString.split('-').map(Number);
-  // Parse da hora HH:mm
-  const [hours, minutes] = timeString.split(':').map(Number);
+  const timeZone = 'America/Sao_Paulo';
 
-  // FIX: Criar data interpretando como se fosse São Paulo
-  // new Date(y,m,d,h,m) cria no timezone da máquina (pode ser UTC)
-  // Solução: criar em UTC e depois ajustar pelo offset de São Paulo
+  // Combina data e hora em um único string: "2024-12-30 08:00"
+  const dateTimeString = `${dateString} ${timeString}`;
 
-  const tempDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  // Parseia a string de data/hora em um objeto Date
+  // IMPORTANTE: Este Date está "sem timezone" (naive), precisamos especificar que é BR
+  const naiveDate = parse(dateTimeString, 'yyyy-MM-dd HH:mm', new Date());
 
-  // Calcular a diferença entre a hora em São Paulo e UTC
-  const parts = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(tempDate);
+  // Converte a data "naive" para UTC, informando que ela está no timezone de São Paulo
+  // fromZonedTime: pega uma data no timezone especificado e converte para UTC
+  const utcDate = fromZonedTime(naiveDate, timeZone);
 
-  const brazilHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
-  const brazilMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+  console.log('[AIAppointment] ============================================');
+  console.log('[AIAppointment] Criando agendamento no timezone do Brasil');
+  console.log('[AIAppointment] ============================================');
+  console.log('[AIAppointment] Input:', dateString, timeString);
+  console.log('[AIAppointment] Timezone:', timeZone);
+  console.log('[AIAppointment] Data parseada (naive):', format(naiveDate, 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }));
+  console.log('[AIAppointment] Data UTC (armazenamento):', utcDate.toISOString());
+  console.log('[AIAppointment] Confirmação no horário BR:', formatInTimeZone(utcDate, timeZone, 'dd/MM/yyyy HH:mm:ss zzz', { locale: ptBR }));
+  console.log('[AIAppointment] ============================================');
 
-  // Calcular offset em minutos
-  const offsetMinutes = (hours - brazilHour) * 60 + (minutes - brazilMinute);
-
-  // Criar a data final ajustando pelo offset
-  const correctDate = new Date(tempDate.getTime() - offsetMinutes * 60000);
-
-  console.log('[AIAppointment] Criando data Brasil:', dateString, timeString);
-  console.log('[AIAppointment]   Offset aplicado:', offsetMinutes, 'minutos');
-  console.log('[AIAppointment]   ISO:', correctDate.toISOString());
-  console.log('[AIAppointment]   BR:', correctDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-
-  return correctDate;
+  return utcDate;
 }
 
 /**
@@ -207,21 +199,29 @@ export class AIAppointmentService {
 
   /**
    * Detecta data na mensagem
+   * IMPORTANTE: Sempre trabalha no timezone do Brasil para evitar bugs de timezone
    */
   detectDate(message: string): string | null {
-    const today = new Date();
+    const timeZone = 'America/Sao_Paulo';
     const lowerMessage = message.toLowerCase();
+
+    // Pega a data ATUAL no timezone do Brasil (não UTC!)
+    const nowInBrazil = new Date(formatInTimeZone(new Date(), timeZone, 'yyyy-MM-dd HH:mm:ss'));
 
     // Amanhã
     if (lowerMessage.includes('amanhã') || lowerMessage.includes('amanha')) {
-      const tomorrow = new Date(today);
+      const tomorrow = new Date(nowInBrazil);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      return tomorrow.toISOString().split('T')[0];
+      const result = format(tomorrow, 'yyyy-MM-dd');
+      console.log(`[AIAppointment] Detectado: amanhã = ${result}`);
+      return result;
     }
 
     // Hoje
     if (lowerMessage.includes('hoje')) {
-      return today.toISOString().split('T')[0];
+      const result = format(nowInBrazil, 'yyyy-MM-dd');
+      console.log(`[AIAppointment] Detectado: hoje = ${result}`);
+      return result;
     }
 
     // Formato DD/MM ou DD/MM/YYYY
@@ -229,11 +229,15 @@ export class AIAppointmentService {
     if (dateMatch) {
       const day = parseInt(dateMatch[1]);
       const month = parseInt(dateMatch[2]) - 1; // JS months are 0-indexed
-      const year = dateMatch[3] ? (dateMatch[3].length === 2 ? 2000 + parseInt(dateMatch[3]) : parseInt(dateMatch[3])) : today.getFullYear();
+      const year = dateMatch[3]
+        ? (dateMatch[3].length === 2 ? 2000 + parseInt(dateMatch[3]) : parseInt(dateMatch[3]))
+        : nowInBrazil.getFullYear();
 
       const date = new Date(year, month, day);
       if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
+        const result = format(date, 'yyyy-MM-dd');
+        console.log(`[AIAppointment] Detectado: data formatada ${day}/${month + 1}/${year} = ${result}`);
+        return result;
       }
     }
 
@@ -252,18 +256,26 @@ export class AIAppointmentService {
 
     for (const [weekdayName, weekdayIndex] of Object.entries(weekdayMap)) {
       if (lowerMessage.includes(weekdayName)) {
-        let daysUntil = weekdayIndex - today.getDay();
+        const todayWeekday = nowInBrazil.getDay();
+        let daysUntil = weekdayIndex - todayWeekday;
 
         // Se o dia já passou nesta semana, pega na próxima
         if (daysUntil <= 0) {
           daysUntil += 7;
         }
 
-        const targetDate = new Date(today);
+        const targetDate = new Date(nowInBrazil);
         targetDate.setDate(targetDate.getDate() + daysUntil);
 
-        console.log(`[AIAppointment] Detectado: ${weekdayName} (índice ${weekdayIndex}), hoje é ${today.getDay()}, dias até: ${daysUntil}`);
-        return targetDate.toISOString().split('T')[0];
+        const result = format(targetDate, 'yyyy-MM-dd');
+
+        console.log(`[AIAppointment] Detectado: ${weekdayName}`);
+        console.log(`[AIAppointment]   - Índice do dia: ${weekdayIndex}`);
+        console.log(`[AIAppointment]   - Hoje é: ${todayWeekday} (${format(nowInBrazil, 'EEEE', { locale: ptBR })})`);
+        console.log(`[AIAppointment]   - Dias até: ${daysUntil}`);
+        console.log(`[AIAppointment]   - Data final: ${result} (${format(targetDate, 'EEEE, dd/MM/yyyy', { locale: ptBR })})`);
+
+        return result;
       }
     }
 
