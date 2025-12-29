@@ -377,7 +377,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     hearts: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎"],
   };
 
-  const allEmojis = [...emojis.faces, ...emojis.hands, ...emojis.hearts];
+  // const allEmojis = [...emojis.faces, ...emojis.hands, ...emojis.hearts];
 
   // Toggle IA
   const handleToggleAi = async () => {

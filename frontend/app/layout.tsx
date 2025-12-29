@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "FasterChat - CRM com Inteligencia Artificial",
+    default: "FasterChat - CRM",
     template: "%s | FasterChat",
   },
   description: "Plataforma de CRM com Chatbot de Inteligencia Artificial para WhatsApp. Automatize atendimentos, gerencie clientes e aumente suas vendas com IA.",
