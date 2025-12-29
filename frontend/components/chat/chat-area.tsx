@@ -865,12 +865,12 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                 <X className="h-4 w-4" />
               </Button>
 
-              <div className="flex-1 flex items-center gap-3 bg-red-50 dark:bg-red-900/20 rounded-full px-4 py-2">
+              <div className="flex-1 flex items-center gap-3 bg-gray-100rounded-full px-4 py-2">
                 <Mic className="h-4 w-4 text-red-500 animate-pulse" />
                 <span className="text-sm font-medium text-red-600 dark:text-red-400">{formatRecordingTime(recordingTime)}</span>
                 <div className="flex-1 flex gap-1">
                   {Array.from({ length: Math.min(20, recordingTime) }).map((_, i) => (
-                    <div key={i} className="h-3 w-1 bg-red-400 rounded-full animate-pulse" style={{ animationDelay: `${i * 50}ms` }} />
+                    <div key={i} className="h-3 w-1 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: `${i * 50}ms` }} />
                   ))}
                 </div>
               </div>

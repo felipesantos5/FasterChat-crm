@@ -615,7 +615,7 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
   }
 
   /**
-   * Envia uma imagem para um customer via WhatsApp
+   * Envia uma mídia (imagem ou áudio) para um customer via WhatsApp
    */
   async sendMedia(
     customerId: string,
@@ -625,6 +625,11 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
     whatsappInstanceId?: string
   ) {
     try {
+      // Detecta o tipo de mídia pelo header base64
+      const isAudio = mediaBase64.startsWith('data:audio/');
+      const isImage = mediaBase64.startsWith('data:image/');
+      const mediaType = isAudio ? 'audio' : isImage ? 'image' : 'image'; // Default para image se não detectar
+
       // Busca o customer com sua empresa e instâncias
       const customer = await prisma.customer.findUnique({
         where: { id: customerId },
@@ -692,8 +697,11 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
         to: customer.phone,
         mediaBase64,
         caption,
-        mediaType: "image",
+        mediaType: mediaType as any, // Usa o tipo detectado (audio ou image)
       });
+
+      // Define conteúdo padrão baseado no tipo
+      const defaultContent = isAudio ? "[Áudio enviado]" : "[Imagem enviada]";
 
       // Salva a mensagem no banco
       const message = await prisma.message.create({
@@ -701,12 +709,12 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
           customerId: customer.id,
           whatsappInstanceId: whatsappInstance.id,
           direction: MessageDirection.OUTBOUND,
-          content: caption || "[Imagem enviada]",
+          content: caption || defaultContent,
           timestamp: new Date(),
           messageId: result.messageId,
           status: MessageStatus.SENT,
           senderType: sentBy,
-          mediaType: "image",
+          mediaType: mediaType as any, // Usa o tipo detectado
           mediaUrl: mediaBase64, // Salva o base64 para exibição no chat
         },
         include: {
@@ -717,7 +725,8 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
 
       // Emite evento WebSocket
       if (websocketService.isInitialized()) {
-        console.log(`📤 Emitindo imagem via WebSocket para customer ${customer.id}`);
+        const mediaLabel = isAudio ? 'áudio' : 'imagem';
+        console.log(`📤 Emitindo ${mediaLabel} via WebSocket para customer ${customer.id}`);
         websocketService.emitNewMessage(customer.companyId, {
           id: message.id,
           customerId: message.customerId,
