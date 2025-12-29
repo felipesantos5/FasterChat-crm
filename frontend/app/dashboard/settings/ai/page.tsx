@@ -261,6 +261,13 @@ function AISettingsPageContent() {
     const nextStep = currentStep + 1;
     await saveKnowledge(nextStep);
     setCurrentStep(nextStep);
+
+    // Se chegou no último step (Finalizar), gera o contexto automaticamente
+    if (nextStep === 4) {
+      setTimeout(() => {
+        handleGenerateContext();
+      }, 500); // Pequeno delay para garantir que o step foi atualizado
+    }
   };
 
   const handlePrevStep = () => {
@@ -931,13 +938,34 @@ function AISettingsPageContent() {
                 Voltar
               </Button>
 
-              <Button onClick={handleNextStep} disabled={saving}>
-                {saving ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : null}
-                Próximo
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
+              <div className="flex gap-2">
+                {/* Botão de Salvar (se já passou pelo setup antes) */}
+                {setupCompleted && (
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      await saveKnowledge();
+                      await handleGenerateContext();
+                    }}
+                    disabled={saving || generatingContext}
+                  >
+                    {saving || generatingContext ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-1" />
+                    )}
+                    Salvar e Regenerar
+                  </Button>
+                )}
+
+                <Button onClick={handleNextStep} disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : null}
+                  Próximo
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
