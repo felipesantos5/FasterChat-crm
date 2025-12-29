@@ -46,7 +46,6 @@ const allowedOrigins = [
   // Domínios de produção
   'https://admin.fasterchat.com.br',
   'https://api.fasterchat.com.br',
-  'https://api2.fasterchat.com.br',
   'https://www.fasterchat.com.br',
   'https://fasterchat.com.br',
   // Domínio de redirect WhatsApp

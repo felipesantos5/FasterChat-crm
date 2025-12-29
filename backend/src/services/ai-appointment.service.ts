@@ -112,7 +112,7 @@ export class AIAppointmentService {
 
       const typeLabel = this.getServiceTypeLabel(serviceType);
       return {
-        response: `Beleza! Vou agendar uma **${typeLabel}** pra você. 👍\n\nQue dia funciona melhor? Me fala o dia da semana ou a data mesmo (ex: segunda-feira, 05/12).`
+        response: `Opa, beleza! Vou agendar ${typeLabel} pra você 👍\n\nQual dia funciona melhor? Pode falar o dia da semana ou a data direto (tipo: terça-feira, ou 05/12)`
       };
     }
 
@@ -124,7 +124,7 @@ export class AIAppointmentService {
     await this.saveAppointmentState(customerId, state);
 
     return {
-      response: `Show! Vou agendar pra você. 😊\n\nQue tipo de serviço você precisa?\n\n1️⃣ Instalação\n2️⃣ Manutenção\n3️⃣ Consulta/Orçamento\n4️⃣ Outro serviço\n\nÉ só mandar o número ou falar o que precisa!`
+      response: `Show! Posso agendar pra você sim 😊\n\nQue tipo de serviço você precisa?\n\n1️⃣ Instalação\n2️⃣ Manutenção\n3️⃣ Consulta/Orçamento\n4️⃣ Outro\n\nPode mandar o número ou falar direto o que precisa!`
     };
   }
 
@@ -503,7 +503,7 @@ export class AIAppointmentService {
       await this.clearAppointmentState(customerId);
       return {
         shouldContinue: true,
-        response: `Tranquilo! Cancelei o agendamento. 👍\n\nSe precisar de qualquer outra coisa, é só me chamar! 😊`
+        response: `Tranquilo! Cancelei o agendamento 👍\n\nQualquer coisa é só chamar!`
       };
     }
 
@@ -562,7 +562,7 @@ export class AIAppointmentService {
     if (!serviceType) {
       return {
         shouldContinue: true,
-        response: `Não consegui entender... 😅\n\nEscolhe uma dessas opções:\n\n1️⃣ Instalação\n2️⃣ Manutenção\n3️⃣ Consulta/Orçamento\n4️⃣ Outro serviço\n\nÉ só mandar o número!`,
+        response: `Não entendi qual serviço você precisa 😅\n\nEscolhe uma opção:\n\n1️⃣ Instalação\n2️⃣ Manutenção\n3️⃣ Consulta/Orçamento\n4️⃣ Outro\n\nPode mandar o número`,
       };
     }
 
@@ -573,7 +573,7 @@ export class AIAppointmentService {
 
     return {
       shouldContinue: true,
-      response: `Perfeito! ${this.getServiceTypeLabel(serviceType)} agendada. 👍\n\nQue dia é melhor pra você? Me fala o dia da semana ou a data (ex: terça-feira, 10/12).`,
+      response: `Perfeito! ${this.getServiceTypeLabel(serviceType)} anotado aqui 👍\n\nQual dia é melhor pra você? Pode falar o dia da semana ou mandar a data direto (tipo: terça-feira ou 10/12)`,
     };
   }
 
@@ -591,7 +591,7 @@ export class AIAppointmentService {
     if (!date) {
       return {
         shouldContinue: true,
-        response: `Não entendi a data... 🤔\n\nTenta me falar assim:\n- Segunda-feira\n- Amanhã\n- 10/12\n- 10/12/2025`,
+        response: `Não consegui entender a data 🤔\n\nPode tentar de novo? Pode ser:\n- Segunda-feira\n- Amanhã\n- 10/12\n- 10/12/2025`,
       };
     }
 
@@ -603,7 +603,7 @@ export class AIAppointmentService {
     if (selectedDate < today) {
       return {
         shouldContinue: true,
-        response: `Opa! Essa data já passou... 😅\n\nMe fala uma data a partir de hoje?`,
+        response: `Ops, essa data já passou 😅\n\nPode me falar uma data a partir de hoje?`,
       };
     }
 
@@ -616,7 +616,7 @@ export class AIAppointmentService {
       if (slots.length === 0) {
         return {
           shouldContinue: true,
-          response: `Puts, esse dia tá lotado... 😔\n\nTem algum outro dia que funciona pra você?`,
+          response: `Putz, esse dia tá lotado 😔\n\nTem outro dia que funciona pra você?`,
         };
       }
 
@@ -641,13 +641,13 @@ export class AIAppointmentService {
 
       return {
         shouldContinue: true,
-        response: `Show! 😊 Tenho vários horários livres para **${dateFormatted}**:\n\n${slotsText}\n\nQual desses funciona melhor pra você? Pode mandar o número ou o horário mesmo.`,
+        response: `Boa! Tenho vários horários livres pra ${dateFormatted}:\n\n${slotsText}\n\nQual desses é melhor pra você? Pode mandar o número ou o horário direto`,
       };
     } catch (error: any) {
       console.error('[AIAppointment] Error fetching slots:', error);
       return {
         shouldContinue: true,
-        response: `Tive um problema ao buscar os horários. Pode tentar novamente?`,
+        response: `Ops, tive um problema ao buscar os horários. Pode tentar de novo?`,
       };
     }
   }
@@ -675,7 +675,7 @@ export class AIAppointmentService {
 
         return {
           shouldContinue: true,
-          response: `Perfeito! 👍 Horário das **${state.time}** reservado.\n\nAgora só preciso saber o endereço onde vou fazer o serviço.\n\nMe manda aí:\n📍 **Rua/Avenida + número da casa** (obrigatório!)\n🏢 Se for apartamento, me passa o AP e bloco também\n🏢 CEP (se souber)\n\nPode mandar tudo junto mesmo! 😊`
+          response: `Fechado! Horário das ${state.time} tá reservado 👍\n\nAgora só preciso do endereço onde vou fazer o serviço\n\nMe manda:\n📍 Rua/Avenida e número da casa\n🏢 Se for apartamento, manda o AP e bloco também\n🏢 CEP se souber\n\nPode mandar tudo junto!`
         };
       }
     }
@@ -696,19 +696,19 @@ export class AIAppointmentService {
 
         return {
           shouldContinue: true,
-          response: `Beleza! 👍 Horário das **${time}** está reservado.\n\nAgora só preciso saber o endereço onde vou fazer o serviço.\n\nMe manda:\n📍 **Rua/Avenida + número da casa** (obrigatório!)\n🏢 Se for apartamento/prédio, me passa o número do AP e bloco\n🏢 CEP (se souber)\n\nPode mandar tudo junto! 😊`
+          response: `Beleza! Horário das ${time} tá reservado 👍\n\nAgora preciso do endereço onde vou fazer o serviço\n\nMe manda:\n📍 Rua/Avenida e número da casa\n🏢 Se for apartamento/prédio, o AP e bloco\n🏢 CEP se souber\n\nPode mandar tudo de uma vez!`
         };
       }
 
       return {
         shouldContinue: true,
-        response: `Poxa, esse horário não tá disponível... 😔\n\nDá uma olhada nos horários que te mostrei e escolhe um deles?`,
+        response: `Poxa, esse horário não tá disponível 😔\n\nDá uma olhada nos horários que mostrei e escolhe um deles?`,
       };
     }
 
     return {
       shouldContinue: true,
-      response: `Não consegui entender o horário... 🤔\n\nPode escolher um dos números (1 a 6) que mostrei? Ou me falar o horário tipo "10:00"?`,
+      response: `Não entendi o horário 🤔\n\nPode escolher um dos números (1 a 6) que mostrei? Ou mandar o horário tipo 10:00`,
     };
   }
 
@@ -798,10 +798,10 @@ export class AIAppointmentService {
 
     // Mensagens customizadas baseadas no que está faltando
     if (!state.address.number && validation.missing.includes('número')) {
-      response += `\n⚠️ Para finalizar o agendamento, **preciso do número da casa/prédio** onde vou fazer o serviço. Me manda só esse detalhe! 🏠`;
+      response += `\n\nPra finalizar, só falta o número da casa/prédio. Pode mandar? 🏠`;
     } else {
       const missingInfo = validation.missing.join(' e ');
-      response += `\nSó falta me mandar o **${missingInfo}** e a gente fecha! 😊`;
+      response += `\n\nSó falta o ${missingInfo} e a gente fecha!`;
     }
 
     return {
@@ -830,7 +830,7 @@ export class AIAppointmentService {
     // Formata endereço
     let addressText = '';
     if (state.address?.street || state.address?.cep) {
-      addressText = '\n📍 **Endereço:**\n';
+      addressText = '\n📍 Endereço:\n';
       if (state.address.street) {
         addressText += `   ${state.address.street}`;
         if (state.address.number) {
@@ -851,7 +851,7 @@ export class AIAppointmentService {
 
     return {
       shouldContinue: true,
-      response: `Show! Deixa eu confirmar os dados com você:\n\n📋 **Serviço:** ${serviceLabel}\n📅 **Data:** ${dateFormatted}\n🕐 **Horário:** ${state.time}\n⏱️ **Duração:** ${state.duration} minutos${addressText}\nTá tudo certo? 🤔\n\nÉ só responder **SIM** pra confirmar ou **NÃO** se quiser mudar algo.`,
+      response: `Show! Deixa eu confirmar os dados:\n\n📋 Serviço: ${serviceLabel}\n📅 Data: ${dateFormatted}\n🕐 Horário: ${state.time}\n⏱️ Duração: ${state.duration} minutos${addressText}\nTá tudo certo?\n\nÉ só responder SIM pra confirmar ou NÃO se quiser mudar algo`,
     };
   }
 
@@ -945,7 +945,7 @@ export class AIAppointmentService {
 
         return {
           shouldContinue: true,
-          response: `✅ Pronto! Agendamento confirmado!\n\nSua ${serviceLabel.toLowerCase()} tá marcada pra ${startTime.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às ${state.time}.\n\nVou te mandar um lembrete no dia anterior, beleza?\n\nPrecisa de mais alguma coisa?`,
+          response: `Pronto! Agendamento confirmado 🎉\n\nSua ${serviceLabel.toLowerCase()} tá marcada pra ${startTime.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às ${state.time}\n\nVou te mandar um lembrete no dia anterior, combinado?`,
         };
       } catch (error: any) {
         console.error('[AIAppointment] Error creating appointment:', error);
@@ -953,7 +953,7 @@ export class AIAppointmentService {
 
         return {
           shouldContinue: true,
-          response: `Ops! Deu um problema aqui ao confirmar... 😔\n\nPode tentar de novo? Ou se preferir, falo com um atendente pra te ajudar!`,
+          response: `Opa, deu um problema aqui 😔\n\nPode tentar de novo? Ou posso chamar um atendente pra te ajudar`,
         };
       }
     }
@@ -963,13 +963,13 @@ export class AIAppointmentService {
 
       return {
         shouldContinue: true,
-        response: `Tranquilo! Cancelei o agendamento. 👍\n\nQuando quiser marcar é só me chamar! 😊`,
+        response: `Tranquilo! Cancelei o agendamento 👍\n\nQuando quiser marcar é só chamar`,
       };
     }
 
     return {
       shouldContinue: true,
-      response: `Não entendi... 🤔\n\nÉ só responder **SIM** pra confirmar ou **NÃO** pra cancelar.`,
+      response: `Não entendi... 🤔\n\nÉ só responder SIM pra confirmar ou NÃO pra cancelar`,
     };
   }
 

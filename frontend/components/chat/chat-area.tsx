@@ -13,11 +13,12 @@ import { messageApi } from "@/lib/message";
 import { conversationApi } from "@/lib/conversation";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageFeedbackComponent } from "@/components/chat/message-feedback";
 import { AudioPlayer } from "@/components/chat/audio-player";
@@ -52,6 +53,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
   const [imageCaption, setImageCaption] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [showImageTooLargeModal, setShowImageTooLargeModal] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -360,6 +362,22 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     setSelectedImage(null);
     setImageCaption("");
   };
+
+  // Insere emoji no input
+  const handleEmojiSelect = (emoji: string) => {
+    setInputValue((prev) => prev + emoji);
+    setShowEmojiPicker(false);
+    inputRef.current?.focus();
+  };
+
+  // 50 emojis mais usados organizados por categoria
+  const emojis = {
+    faces: ["😊", "😂", "🤣", "😅", "😁", "😉", "😍", "🥰", "😘", "😋", "😎", "🤔", "😐", "😑", "😶", "🙄", "😬", "😮", "😯", "😴", "😔", "😕", "🙁", "😞", "😢", "😭"],
+    hands: ["👍", "👎", "👏", "🙌", "👋", "🤝", "🙏", "✌️", "🤞", "🤙", "👌", "🤌", "✊", "👊", "🤛", "🤜"],
+    hearts: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎"],
+  };
+
+  const allEmojis = [...emojis.faces, ...emojis.hands, ...emojis.hearts];
 
   // Toggle IA
   const handleToggleAi = async () => {
@@ -728,6 +746,77 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
           >
             <Plus className="h-4 w-4" />
           </Button>
+
+          {/* Botão de Emojis */}
+          <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={sending || !!selectedImage}
+                title="Adicionar emoji"
+              >
+                <Smile className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-2" align="start">
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground px-2">Emojis mais usados</p>
+
+                {/* Rostos */}
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground px-2">Rostos</p>
+                  <div className="grid grid-cols-9 gap-1">
+                    {emojis.faces.map((emoji, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleEmojiSelect(emoji)}
+                        className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mãos */}
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground px-2">Mãos</p>
+                  <div className="grid grid-cols-9 gap-1">
+                    {emojis.hands.map((emoji, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleEmojiSelect(emoji)}
+                        className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Corações */}
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground px-2">Corações</p>
+                  <div className="grid grid-cols-9 gap-1">
+                    {emojis.hearts.map((emoji, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleEmojiSelect(emoji)}
+                        className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <Input
             ref={inputRef}
