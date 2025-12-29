@@ -112,7 +112,7 @@ export class AIAppointmentService {
 
       const typeLabel = this.getServiceTypeLabel(serviceType);
       return {
-        response: `Opa, beleza! Vou agendar ${typeLabel} pra você 👍\n\nQual dia funciona melhor? Pode falar o dia da semana ou a data direto (tipo: terça-feira, ou 05/12)`
+        response: `Opa, beleza! Vou agendar ${typeLabel} pra você 👍\n\nQual dia fica bom para você?`
       };
     }
 
@@ -266,13 +266,32 @@ export class AIAppointmentService {
       }
     }
 
-    // Dias da semana
-    const weekdays = ['domingo', 'segunda', 'terça', 'terca', 'quarta', 'quinta', 'sexta', 'sábado', 'sabado'];
-    for (let i = 0; i < weekdays.length; i++) {
-      if (lowerMessage.includes(weekdays[i])) {
-        const daysUntil = (i - today.getDay() + 7) % 7 || 7;
+    // Dias da semana - CORRIGIDO: mapeia corretamente para getDay()
+    const weekdayMap: { [key: string]: number } = {
+      'domingo': 0,
+      'segunda': 1,
+      'terca': 2,
+      'terça': 2,
+      'quarta': 3,
+      'quinta': 4,
+      'sexta': 5,
+      'sabado': 6,
+      'sábado': 6
+    };
+
+    for (const [weekdayName, weekdayIndex] of Object.entries(weekdayMap)) {
+      if (lowerMessage.includes(weekdayName)) {
+        let daysUntil = weekdayIndex - today.getDay();
+
+        // Se o dia já passou nesta semana, pega na próxima
+        if (daysUntil <= 0) {
+          daysUntil += 7;
+        }
+
         const targetDate = new Date(today);
         targetDate.setDate(targetDate.getDate() + daysUntil);
+
+        console.log(`[AIAppointment] Detectado: ${weekdayName} (índice ${weekdayIndex}), hoje é ${today.getDay()}, dias até: ${daysUntil}`);
         return targetDate.toISOString().split('T')[0];
       }
     }
@@ -514,6 +533,62 @@ export class AIAppointmentService {
       return { shouldContinue: false };
     }
 
+    // 🔄 DETECÇÃO DE MUDANÇA: Cliente quer alterar algo que já informou
+    const changeDetected = this.detectChangeIntent(message, state);
+    if (changeDetected) {
+      const { field, value } = changeDetected;
+
+      console.log(`[AIAppointment] Mudança detectada: ${field} = ${value}`);
+
+      // Aplica a mudança
+      if (field === 'date' && value) {
+        const date = this.detectDate(value);
+        if (date) {
+          state.date = date;
+          state.time = undefined; // Limpa horário pois precisa buscar novos slots
+          state.availableSlots = undefined;
+          state.step = 'COLLECTING_DATE';
+          await this.saveAppointmentState(customerId, state);
+
+          return {
+            shouldContinue: true,
+            response: `Tranquilo! Vou mudar pra esse dia. Me dá só um segundo pra ver os horários disponíveis...`
+          };
+        }
+      } else if (field === 'time' && value) {
+        const time = this.detectTime(value);
+        if (time) {
+          state.time = time;
+          state.step = state.address?.number ? 'CONFIRMING' : 'COLLECTING_ADDRESS';
+          await this.saveAppointmentState(customerId, state);
+
+          if (state.step === 'CONFIRMING') {
+            return await this.sendConfirmation(customerId, state);
+          } else {
+            return {
+              shouldContinue: true,
+              response: `Show! Mudei o horário pra ${time} 👍\n\nAgora só preciso do endereço. Me manda aí!`
+            };
+          }
+        }
+      } else if (field === 'type' && value) {
+        const serviceType = this.detectServiceType(value);
+        if (serviceType) {
+          state.serviceType = serviceType;
+          state.duration = this.getDefaultDuration(serviceType);
+          state.time = undefined; // Limpa horário pois duração mudou
+          state.availableSlots = undefined;
+          await this.saveAppointmentState(customerId, state);
+
+          const typeLabel = this.getServiceTypeLabel(serviceType);
+          return {
+            shouldContinue: true,
+            response: `Beleza! Mudei pra ${typeLabel} 👍\n\nQual dia é melhor pra você?`
+          };
+        }
+      }
+    }
+
     // Processa baseado no step atual
     switch (state.step) {
       case 'COLLECTING_TYPE':
@@ -534,6 +609,51 @@ export class AIAppointmentService {
       default:
         return { shouldContinue: false };
     }
+  }
+
+  /**
+   * Detecta se o cliente quer mudar alguma informação já fornecida
+   */
+  private detectChangeIntent(message: string, state: AppointmentState): { field: string; value: string } | null {
+    const lowerMessage = message.toLowerCase();
+
+    // Palavras que indicam mudança
+    const changeKeywords = [
+      'mudar', 'trocar', 'alterar', 'na verdade', 'melhor',
+      'prefiro', 'mudei de ideia', 'outro', 'outra'
+    ];
+
+    const hasChangeKeyword = changeKeywords.some(keyword => lowerMessage.includes(keyword));
+
+    if (!hasChangeKeyword) {
+      return null;
+    }
+
+    // Detecta qual campo quer mudar
+    if (state.date && (lowerMessage.includes('dia') || lowerMessage.includes('data'))) {
+      return { field: 'date', value: message };
+    }
+
+    if (state.time && (lowerMessage.includes('horário') || lowerMessage.includes('horario') || lowerMessage.includes('hora'))) {
+      return { field: 'time', value: message };
+    }
+
+    if (state.serviceType && (lowerMessage.includes('serviço') || lowerMessage.includes('servico') || lowerMessage.includes('tipo'))) {
+      return { field: 'type', value: message };
+    }
+
+    // Se detectou palavra de mudança mas não especificou o campo, tenta detectar pelo valor
+    const detectedDate = this.detectDate(message);
+    if (detectedDate && state.date) {
+      return { field: 'date', value: message };
+    }
+
+    const detectedTime = this.detectTime(message);
+    if (detectedTime && state.time) {
+      return { field: 'time', value: message };
+    }
+
+    return null;
   }
 
   /**
@@ -641,7 +761,7 @@ export class AIAppointmentService {
 
       return {
         shouldContinue: true,
-        response: `Boa! Tenho vários horários livres pra ${dateFormatted}:\n\n${slotsText}\n\nQual desses é melhor pra você? Pode mandar o número ou o horário direto`,
+        response: `Boa! Entendi que é pra ${dateFormatted} 📅\n\nTenho vários horários livres:\n\n${slotsText}\n\nQual desses é melhor pra você? Pode mandar o número ou o horário direto\n\n(Se o dia tá errado, é só falar "mudar dia" e me dizer o dia certo!)`,
       };
     } catch (error: any) {
       console.error('[AIAppointment] Error fetching slots:', error);
