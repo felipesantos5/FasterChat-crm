@@ -251,7 +251,7 @@ export function Sidebar() {
           {/* Header da Sidebar */}
           <div className="flex h-16 items-center justify-between border-b px-3 lg:px-6">
             <Link href="/dashboard" prefetch={true} className="flex items-center space-x-2">
-              <Image src={logo} alt="Logo" width={48} height={48} className="h-10 w-10 md:h-14 md:w-14" />
+              <Image src={logo} alt="Logo" width={38} height={38} className="h-10 w-10 md:h-14 md:w-14" />
             </Link>
 
             {/* Botão fechar - apenas mobile */}
