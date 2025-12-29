@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Calendar as BigCalendar, dateFnsLocalizer, View } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay } from "date-fns";
+import { format, parse, startOfWeek, getDay, addDays, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar, Plus, Settings, Clock, MapPin, User, Edit, Trash2, CheckCircle } from "lucide-react";
+import { Calendar, Plus, Settings, Clock, MapPin, User, Edit, Trash2, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { appointmentApi } from "@/lib/appointment";
 import { googleCalendarApi, GoogleCalendarStatus } from "@/lib/google-calendar";
@@ -86,6 +86,7 @@ function CalendarioPageContent() {
   const [googleStatus, setGoogleStatus] = useState<GoogleCalendarStatus | null>(null);
   const [view, setView] = useState<View>("week");
   const [date, setDate] = useState(new Date());
+  const [isMobile, setIsMobile] = useState(false);
   const [showNewAppointment, setShowNewAppointment] = useState(false);
   const [showEditAppointment, setShowEditAppointment] = useState(false);
   const [showGoogleCalendar, setShowGoogleCalendar] = useState(false);
@@ -173,6 +174,23 @@ function CalendarioPageContent() {
       setGoogleStatus(null);
     }
   }, [companyId]);
+
+  // ✅ Detectar tamanho da tela (mobile vs desktop)
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      // Se for mobile, muda para view de dia
+      if (window.innerWidth < 768) {
+        setView("day");
+      } else if (view === "day") {
+        setView("week");
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [view]);
 
   // ✅ 4. Atualizar useEffect para depender do companyId
   useEffect(() => {
@@ -277,6 +295,19 @@ function CalendarioPageContent() {
     }
   };
 
+  // ✅ Funções de navegação para mobile
+  const handlePreviousDay = () => {
+    setDate(subDays(date, 1));
+  };
+
+  const handleNextDay = () => {
+    setDate(addDays(date, 1));
+  };
+
+  const handleToday = () => {
+    setDate(new Date());
+  };
+
   // ✅ Loading state inicial enquanto não temos companyId
   if (!companyId) {
     return (
@@ -300,36 +331,85 @@ function CalendarioPageContent() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
-      <div className="flex-shrink-0 p-6 pb-4">
-        <div className="flex items-center justify-end gap-4">
-          {googleStatus?.connected ? (
-            <button
-              onClick={() => setShowGoogleCalendar(true)}
-              className={badges.success + " cursor-pointer hover:shadow-sm transition-all"}
-            >
-              <CheckCircle className={`${icons.small} mr-1`} />
-              Google Calendar Conectado
+      <div className="flex-shrink-0 p-3 md:p-6 pb-2 md:pb-4 bg-white border-b">
+        {isMobile ? (
+          <div className="space-y-3">
+            {/* Mobile Navigation */}
+            <div className="flex items-center justify-between gap-2">
+              <button
+                onClick={handlePreviousDay}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Dia anterior"
+              >
+                <ChevronLeft className="h-5 w-5 text-gray-700" />
+              </button>
+              <div className="text-center flex-1">
+                <p className="text-sm font-medium text-gray-500">
+                  {format(date, "EEEE", { locale: ptBR })}
+                </p>
+                <p className="text-lg font-bold text-gray-900">
+                  {format(date, "dd 'de' MMMM", { locale: ptBR })}
+                </p>
+              </div>
+              <button
+                onClick={handleNextDay}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Próximo dia"
+              >
+                <ChevronRight className="h-5 w-5 text-gray-700" />
+              </button>
+            </div>
+
+            {/* Mobile Action Buttons */}
+            <div className="flex gap-2">
+              {new Date().toDateString() !== date.toDateString() && (
+                <button
+                  onClick={handleToday}
+                  className="flex-1 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Hoje
+                </button>
+              )}
+              <button
+                onClick={() => setShowNewAppointment(true)}
+                className="flex-1 px-3 py-2 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-1"
+              >
+                <Plus className="h-4 w-4" />
+                Novo
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-end gap-4">
+            {googleStatus?.connected ? (
+              <button
+                onClick={() => setShowGoogleCalendar(true)}
+                className={badges.success + " cursor-pointer hover:shadow-sm transition-all"}
+              >
+                <CheckCircle className={`${icons.small} mr-1`} />
+                Google Calendar Conectado
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowGoogleCalendar(true)}
+                className={badges.warning + " cursor-pointer hover:shadow-sm transition-all"}
+              >
+                <Settings className={`${icons.small} mr-1`} />
+                Conectar Google Calendar
+              </button>
+            )}
+            <button onClick={() => setShowNewAppointment(true)} className={buttons.primary}>
+              <Plus className={`${icons.default} inline-block mr-2`} />
+              Novo Agendamento
             </button>
-          ) : (
-            <button
-              onClick={() => setShowGoogleCalendar(true)}
-              className={badges.warning + " cursor-pointer hover:shadow-sm transition-all"}
-            >
-              <Settings className={`${icons.small} mr-1`} />
-              Conectar Google Calendar
-            </button>
-          )}
-          <button onClick={() => setShowNewAppointment(true)} className={buttons.primary}>
-            <Plus className={`${icons.default} inline-block mr-2`} />
-            Novo Agendamento
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Calendar */}
-      <div className="flex-1 px-6 pb-6">
+      <div className="flex-1 px-3 md:px-6 pb-3 md:pb-6">
         <div className={`${cards.default} h-full`}>
-          <div className="calendar-container h-full p-4">
+          <div className="calendar-container h-full p-2 md:p-4">
             <BigCalendar
               localizer={localizer}
               events={events}
@@ -346,9 +426,9 @@ function CalendarioPageContent() {
               onSelectSlot={handleSelectSlot}
               selectable
               popup
-              views={["month", "week", "day", "agenda"]}
-              step={30}
-              timeslots={2}
+              views={isMobile ? ["day"] : ["month", "week", "day", "agenda"]}
+              step={isMobile ? 60 : 30}
+              timeslots={isMobile ? 1 : 2}
               min={new Date(2024, 0, 1, 6, 0, 0)} // 06:00
               max={new Date(2024, 0, 1, 23, 0, 0)} // 23:00
               showMultiDayTimes
@@ -683,11 +763,38 @@ function CalendarioPageContent() {
         /* Responsividade */
         @media (max-width: 768px) {
           .rbc-toolbar {
-            flex-direction: column;
+            display: none;
           }
 
           .rbc-toolbar-label {
             margin: 8px 0;
+          }
+
+          .rbc-header {
+            padding: 12px 4px;
+            font-size: 11px;
+          }
+
+          .rbc-event {
+            font-size: 11px;
+            padding: 2px 4px;
+          }
+
+          .rbc-event-content {
+            font-size: 10px;
+          }
+
+          .rbc-time-gutter {
+            width: 40px;
+          }
+
+          .rbc-label {
+            font-size: 11px;
+            padding: 0 4px;
+          }
+
+          .calendar-container {
+            padding: 8px !important;
           }
         }
       `}</style>

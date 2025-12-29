@@ -185,14 +185,14 @@ export function Sidebar() {
           <button
             onClick={() => toggleMenu(item.label)}
             className={cn(
-              "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              "flex w-full items-center justify-between rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-colors",
               isParentActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             )}
             style={{ paddingLeft: `${depth * 12 + 12}px` }}
           >
-            <div className="flex items-center space-x-3">
-              <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
+            <div className="flex items-center space-x-2 md:space-x-3">
+              <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+              <span className="truncate">{item.label}</span>
             </div>
             <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")} />
           </button>
@@ -217,13 +217,13 @@ export function Sidebar() {
         href={item.href!}
         prefetch={true}
         className={cn(
-          "flex items-center space-x-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+          "flex items-center space-x-2 md:space-x-3 rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-colors",
           isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         )}
         style={{ paddingLeft: `${depth * 12 + 12}px` }}
       >
-        <Icon className="h-5 w-5" />
-        <span>{item.label}</span>
+        <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+        <span className="truncate">{item.label}</span>
       </Link>
     );
   };
@@ -242,16 +242,16 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen w-72 border-r bg-card transition-transform duration-300 ease-in-out",
-          "lg:w-64 lg:translate-x-0",
+          "fixed left-0 top-0 z-50 h-screen w-64 border-r bg-card transition-transform duration-300 ease-in-out",
+          "lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="flex h-full flex-col">
           {/* Header da Sidebar */}
-          <div className="flex h-16 items-center justify-between border-b px-4 lg:px-6">
+          <div className="flex h-16 items-center justify-between border-b px-3 lg:px-6">
             <Link href="/dashboard" prefetch={true} className="flex items-center space-x-2">
-              <Image src={logo} alt="Logo" width={55} height={55} />
+              <Image src={logo} alt="Logo" width={48} height={48} className="h-10 w-10 md:h-14 md:w-14" />
             </Link>
 
             {/* Botão fechar - apenas mobile */}
@@ -264,7 +264,7 @@ export function Sidebar() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+          <nav className="flex-1 space-y-1 overflow-y-auto p-2 md:p-4">
             {loading ? (
               <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
                 Carregando...

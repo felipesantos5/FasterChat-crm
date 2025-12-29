@@ -34,20 +34,57 @@ interface SearchResult {
  * @returns Date object no timezone correto
  */
 function createBrazilDate(dateString: string, timeString: string): Date {
-  // Parse manual para garantir que está no timezone correto
+  // Parse manual da data e hora
   const [year, month, day] = dateString.split('-').map(Number);
   const [hours, minutes] = timeString.split(':').map(Number);
 
-  // Cria a data no timezone local (que deve ser configurado como America/Sao_Paulo)
-  // Se o servidor estiver em UTC, isso criará a data errada, então vamos garantir
-  const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  // FIX: Criar data interpretando como se fosse São Paulo
+  // new Date(y,m,d,h,m) cria no timezone da máquina (pode ser UTC)
+  // Solução: criar em UTC e depois ajustar pelo offset de São Paulo
+
+  // São Paulo tem offset de UTC-3 (ou UTC-2 em horário de verão)
+  // Vamos usar o offset correto baseado na data
+  const tempDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+
+  // Formatar como string em PT-BR com São Paulo timezone para pegar o offset
+  const brazilFormatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  // Calcular a diferença entre a hora em São Paulo e UTC
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(tempDate);
+
+  const brazilHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+  const brazilMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+
+  // Calcular offset em minutos
+  const offsetMinutes = (hours - brazilHour) * 60 + (minutes - brazilMinute);
+
+  // Criar a data final ajustando pelo offset
+  const correctDate = new Date(tempDate.getTime() - offsetMinutes * 60000);
 
   console.log('[Helper] Criando data Brasil:');
   console.log('[Helper]   Input:', dateString, timeString);
-  console.log('[Helper]   Output:', date.toISOString());
-  console.log('[Helper]   Output (BR):', date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+  console.log('[Helper]   Offset aplicado:', offsetMinutes, 'minutos');
+  console.log('[Helper]   Output ISO:', correctDate.toISOString());
+  console.log('[Helper]   Output (BR):', correctDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
-  return date;
+  return correctDate;
 }
 
 /**
@@ -309,7 +346,18 @@ export async function handleGetAvailableSlots(args: {
     console.log('[Tool] GetAvailableSlots: Serviço:', service_type, '- Duração:', slotDuration, 'min');
 
     // Busca horários para os próximos 7 dias
-    const startDate = preferred_date ? new Date(preferred_date) : new Date();
+    // FIX: Corrigir parsing de preferred_date para interpretar no timezone de São Paulo
+    let startDate: Date;
+    if (preferred_date) {
+      // preferred_date vem em YYYY-MM-DD (ex: "2024-12-26")
+      // new Date("2024-12-26") interpreta como UTC, então ajustamos
+      const [year, month, day] = preferred_date.split('-').map(Number);
+      // Cria no timezone local (depois startOfDay vai ajustar)
+      startDate = new Date(year, month - 1, day);
+    } else {
+      startDate = new Date();
+    }
+
     const allSlots: Array<{ date: string; time: string; datetime: string }> = [];
 
     for (let i = 0; i < 7; i++) {
