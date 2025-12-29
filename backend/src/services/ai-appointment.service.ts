@@ -130,84 +130,55 @@ export class AIAppointmentService {
 
   /**
    * Detecta se a mensagem do cliente indica intenção de agendamento
+   *
+   * ⚠️ REGRA CRÍTICA: Esta função DEVE ser EXTREMAMENTE restritiva!
+   * Apenas detecta intenção quando o cliente EXPLICITAMENTE pede para agendar.
+   * Perguntas, dúvidas, solicitações de informação NÃO são intenção de agendamento.
    */
   detectAppointmentIntent(message: string): boolean {
     const lowerMessage = message.toLowerCase();
 
-    // Palavras MUITO FORTES - praticamente garantem intenção de agendamento
-    const veryStrongKeywords = [
-      'quero agendar', 'quero marcar', 'gostaria de agendar', 'gostaria de marcar',
-      'preciso agendar', 'preciso marcar', 'vou agendar', 'vou marcar',
-      'posso agendar', 'posso marcar', 'como agendar', 'como marcar',
-      'queria agendar', 'queria marcar', 'agendar uma', 'marcar uma',
-      'fazer um agendamento', 'fazer uma marcação'
+    // 🚫 BLOQUEIO PRIORITÁRIO: Perguntas e dúvidas NUNCA são intenção de agendamento
+    const questionIndicators = [
+      'qual', 'quais', 'que', 'como', 'onde', 'quando', 'quanto', 'quantos', 'quantas',
+      'tem', 'possui', 'possuem', 'oferece', 'oferecem', 'vende', 'vendem',
+      'fazem', 'faz', 'atendem', 'atende', 'trabalham', 'trabalha',
+      'me fala', 'me diz', 'pode falar', 'pode me dizer', 'pode me falar',
+      'gostaria de saber', 'queria saber', 'quero saber',
+      'me explica', 'explica', 'explicar', 'informação', 'informações', 'informacao', 'informacoes',
+      'dúvida', 'duvida', 'dúvidas', 'duvidas'
     ];
 
-    // Se tem palavra MUITO forte, é intenção clara
-    if (veryStrongKeywords.some(keyword => lowerMessage.includes(keyword))) {
-      console.log('[AIAppointment] Very strong intent detected:', message);
+    // Se detectar qualquer indicador de pergunta, NÃO é agendamento
+    if (questionIndicators.some(word => lowerMessage.includes(word))) {
+      console.log('[AIAppointment] ❌ Question/doubt detected - NOT appointment intent:', message);
+      return false;
+    }
+
+    // ✅ APENAS palavras EXTREMAMENTE específicas de agendamento
+    const explicitAppointmentKeywords = [
+      'quero agendar', 'quero marcar',
+      'gostaria de agendar', 'gostaria de marcar',
+      'preciso agendar', 'preciso marcar',
+      'vou agendar', 'vou marcar',
+      'posso agendar', 'posso marcar',
+      'queria agendar', 'queria marcar',
+      'agendar uma', 'marcar uma',
+      'fazer um agendamento', 'fazer uma marcação',
+      'agendar um horário', 'marcar um horário',
+      'agendar visita', 'marcar visita',
+      'quero um horário', 'quero horário',
+      'preciso de um horário'
+    ];
+
+    // Se tem palavra explícita de agendamento, É intenção clara
+    if (explicitAppointmentKeywords.some(keyword => lowerMessage.includes(keyword))) {
+      console.log('[AIAppointment] ✅ Explicit appointment keyword detected:', message);
       return true;
     }
 
-    // Palavras FORTES - verbos de ação + serviço
-    const strongKeywords = [
-      'agendar', 'marcar',
-      'visita técnica', 'vistoria',
-      'quando podem vir', 'que dia podem', 'qual dia podem',
-      'que horário', 'qual horário',
-      'vocês atendem', 'você atende', 'vocês fazem', 'você faz',
-      'tem disponibilidade', 'tem horário', 'tem vaga',
-      'podem vir', 'pode vir', 'conseguem vir', 'consegue vir',
-      'dá pra ir', 'da pra ir', 'dá pra vir', 'da pra vir'
-    ];
-
-    // Se tem palavra forte E menciona serviço, é intenção
-    const serviceWords = [
-      'instalação', 'instalacao', 'instalar',
-      'manutenção', 'manutencao', 'manter',
-      'reparo', 'reparação', 'reparacao', 'consertar', 'conserto',
-      'limpeza', 'limpar', 'higienização', 'higienizacao',
-      'visita', 'atendimento', 'serviço', 'servico'
-    ];
-
-    const hasStrongKeyword = strongKeywords.some(keyword => lowerMessage.includes(keyword));
-    const hasService = serviceWords.some(word => lowerMessage.includes(word));
-
-    if (hasStrongKeyword && hasService) {
-      console.log('[AIAppointment] Strong keyword + service detected:', message);
-      return true;
-    }
-
-    // Contexto: serviço + necessidade/desejo + (opcional: temporal)
-    const needWords = [
-      'preciso', 'precisa', 'necessito', 'necessita',
-      'quero', 'quer', 'gostaria', 'queria',
-      'preciso de', 'quero fazer', 'quero uma',
-      'preciso fazer', 'preciso de uma'
-    ];
-
-    const temporalWords = [
-      'hoje', 'amanhã', 'amanha',
-      'essa semana', 'próxima semana', 'próximo', 'proximo',
-      'segunda', 'terça', 'terca', 'quarta', 'quinta', 'sexta', 'sábado', 'sabado', 'domingo',
-      'urgente', 'rápido', 'rapido', 'logo'
-    ];
-
-    const hasNeed = needWords.some(word => lowerMessage.includes(word));
-    const hasTemporal = temporalWords.some(word => lowerMessage.includes(word));
-
-    // Se tem necessidade + serviço (com ou sem temporal), é intenção
-    if (hasNeed && hasService) {
-      console.log('[AIAppointment] Need + service detected:', message);
-      return true;
-    }
-
-    // Se tem serviço + temporal, também é intenção (ex: "limpeza amanhã")
-    if (hasService && hasTemporal) {
-      console.log('[AIAppointment] Service + temporal detected:', message);
-      return true;
-    }
-
+    // Mais nada! Se não tem palavra EXPLÍCITA de agendamento, retorna false
+    console.log('[AIAppointment] ❌ No explicit appointment intent detected');
     return false;
   }
 
