@@ -605,7 +605,7 @@ class WhatsAppService {
   }
 
   /**
-   * Envia uma imagem via WhatsApp
+   * Envia uma mídia (imagem ou áudio) via WhatsApp
    */
   async sendMedia(data: { instanceId: string; to: string; mediaBase64: string; caption?: string; mediaType?: string }) {
     try {
@@ -636,22 +636,46 @@ class WhatsAppService {
 
       const base64Data = mediaBase64.includes("base64,") ? mediaBase64.split("base64,")[1] : mediaBase64;
 
+      // ========================================
+      // ENVIO DE ÁUDIO (Endpoint específico)
+      // ========================================
+      if (mediaType === "audio") {
+        console.log(`[WhatsApp Service] 🎤 Sending audio to ${to} (${remoteJid})...`);
+
+        const response = await this.axiosInstance.post(`/message/sendWhatsAppAudio/${instance.instanceName}`, {
+          number: remoteJid,
+          audio: base64Data, // Evolution API aceita base64 direto para áudio
+          encoding: true, // Habilita encoding automático para formato compatível com WhatsApp
+        });
+
+        console.log(`[WhatsApp Service] ✅ Audio sent successfully to ${to}`);
+
+        return {
+          success: true,
+          messageId: response.data.key?.id,
+          timestamp: response.data.messageTimestamp,
+        };
+      }
+
+      // ========================================
+      // ENVIO DE IMAGEM (Endpoint sendMedia)
+      // ========================================
       let mimetype = "image/jpeg";
       if (mediaBase64.includes("data:image/png")) mimetype = "image/png";
       else if (mediaBase64.includes("data:image/gif")) mimetype = "image/gif";
       else if (mediaBase64.includes("data:image/webp")) mimetype = "image/webp";
 
-      console.log(`[WhatsApp Service] 📷 Sending ${mediaType} to ${to} (${remoteJid})...`);
+      console.log(`[WhatsApp Service] 📷 Sending image to ${to} (${remoteJid})...`);
 
       const response = await this.axiosInstance.post(`/message/sendMedia/${instance.instanceName}`, {
         number: remoteJid,
-        mediatype: mediaType,
+        mediatype: "image",
         mimetype,
         caption: caption || "",
         media: base64Data,
       });
 
-      console.log(`[WhatsApp Service] ✅ Media sent successfully to ${to}`);
+      console.log(`[WhatsApp Service] ✅ Image sent successfully to ${to}`);
 
       return {
         success: true,
