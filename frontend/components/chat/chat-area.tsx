@@ -13,7 +13,7 @@ import { messageApi } from "@/lib/message";
 import { conversationApi } from "@/lib/conversation";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Square, Check, CheckCheck } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -54,9 +54,13 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
   const [isDragging, setIsDragging] = useState(false);
   const [showImageTooLargeModal, setShowImageTooLargeModal] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handler para novas mensagens via WebSocket
   const handleWebSocketMessage = useCallback(
@@ -377,7 +381,109 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     hearts: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎"],
   };
 
-  // const allEmojis = [...emojis.faces, ...emojis.hands, ...emojis.hearts];
+  // Inicia gravação de áudio
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = async () => {
+          const base64Audio = reader.result as string;
+          await handleSendAudio(base64Audio);
+        };
+
+        // Para o stream
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      // Inicia contador de tempo
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+
+      toast.success("Gravação iniciada");
+    } catch (error) {
+      console.error("Erro ao iniciar gravação:", error);
+      toast.error("Erro ao acessar microfone. Verifique as permissões.");
+    }
+  };
+
+  // Para gravação
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+    }
+  };
+
+  // Cancela gravação
+  const cancelRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      setMediaRecorder(null);
+      setIsRecording(false);
+      setRecordingTime(0);
+
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+
+      toast.info("Gravação cancelada");
+    }
+  };
+
+  // Envia áudio
+  const handleSendAudio = async (base64Audio: string) => {
+    setSending(true);
+    try {
+      const response = await messageApi.sendMedia(customerId, base64Audio, undefined, "HUMAN");
+
+      if (!isConnected || !isAuthenticated) {
+        setMessages((prev) => {
+          const exists = prev.some((m) => m.id === response.data.message.id);
+          if (exists) return prev;
+          return [...prev, response.data.message];
+        });
+      }
+
+      toast.success("Áudio enviado com sucesso!");
+    } catch (error: any) {
+      showErrorToast(error, router, "Erro ao enviar áudio");
+    } finally {
+      setSending(false);
+      setRecordingTime(0);
+    }
+  };
+
+  // Formata tempo de gravação
+  const formatRecordingTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Toggle IA
   const handleToggleAi = async () => {
@@ -540,7 +646,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
       {/* Messages Area - Com Drag and Drop */}
       <div
         className={cn(
-          "flex-1 overflow-y-auto p-4 space-y-4 relative transition-colors",
+          "flex-1 overflow-y-auto p-4 space-y-3 relative transition-colors bg-gray-50 dark:bg-gray-950",
           isDragging && "bg-primary/5 border-2 border-dashed border-primary"
         )}
         onDragOver={handleDragOver}
@@ -571,8 +677,12 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
               <div key={message.id} className={cn("flex", isInbound ? "justify-start" : "justify-end")}>
                 <div
                   className={cn(
-                    "max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-3 py-2 sm:px-4",
-                    isInbound ? "bg-muted text-foreground" : isAi ? "bg-green-500 text-white" : "bg-primary text-primary-foreground"
+                    "max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 shadow-sm",
+                    isInbound
+                      ? "bg-white dark:bg-gray-800 text-foreground rounded-tl-none"
+                      : isAi
+                        ? "bg-[#DCF8C6] dark:bg-green-900/40 text-gray-900 dark:text-white rounded-tr-none"
+                        : "bg-[#DCF8C6] dark:bg-green-900/40 text-gray-900 dark:text-white rounded-tr-none"
                   )}
                 >
                   {!isInbound && (
@@ -625,7 +735,13 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                     )}
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-1">
-                    <p className={cn("text-xs", isInbound ? "text-muted-foreground" : "text-white/70")}>{formatMessageTime(message.timestamp)}</p>
+                    <div className="flex items-center gap-1">
+                      <p className={cn("text-xs", isInbound ? "text-muted-foreground" : "text-gray-600 dark:text-gray-300")}>{formatMessageTime(message.timestamp)}</p>
+                      {/* Checkmarks para mensagens enviadas */}
+                      {!isInbound && (
+                        <CheckCheck className={cn("h-3 w-3", isInbound ? "text-muted-foreground" : "text-blue-500 dark:text-blue-400")} />
+                      )}
+                    </div>
                     {/* Mostra feedback apenas para mensagens da IA */}
                     {!isInbound && isAi && (
                       <MessageFeedbackComponent
@@ -725,7 +841,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
         )}
 
         {/* Input de mensagem */}
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-2 sm:p-4 border-t">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-3 sm:p-4 bg-white dark:bg-gray-900 border-t">
           {/* Input de arquivo oculto */}
           <input
             ref={fileInputRef}
@@ -735,101 +851,165 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
             className="hidden"
           />
 
-          {/* Botão + para adicionar imagem */}
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={sending || !!selectedImage}
-            title="Adicionar imagem"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-
-          {/* Botão de Emojis */}
-          <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
-            <PopoverTrigger asChild>
+          {/* Se estiver gravando, mostra interface de gravação */}
+          {isRecording ? (
+            <>
               <Button
                 type="button"
-                variant="outline"
+                variant="destructive"
                 size="icon"
-                disabled={sending || !!selectedImage}
-                title="Adicionar emoji"
+                onClick={cancelRecording}
+                title="Cancelar gravação"
+                className="rounded-full"
               >
-                <Smile className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-2" align="start">
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground px-2">Emojis mais usados</p>
 
-                {/* Rostos */}
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground px-2">Rostos</p>
-                  <div className="grid grid-cols-9 gap-1">
-                    {emojis.faces.map((emoji, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleEmojiSelect(emoji)}
-                        className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Mãos */}
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground px-2">Mãos</p>
-                  <div className="grid grid-cols-9 gap-1">
-                    {emojis.hands.map((emoji, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleEmojiSelect(emoji)}
-                        className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Corações */}
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground px-2">Corações</p>
-                  <div className="grid grid-cols-9 gap-1">
-                    {emojis.hearts.map((emoji, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleEmojiSelect(emoji)}
-                        className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
+              <div className="flex-1 flex items-center gap-3 bg-red-50 dark:bg-red-900/20 rounded-full px-4 py-2">
+                <Mic className="h-4 w-4 text-red-500 animate-pulse" />
+                <span className="text-sm font-medium text-red-600 dark:text-red-400">{formatRecordingTime(recordingTime)}</span>
+                <div className="flex-1 flex gap-1">
+                  {Array.from({ length: Math.min(20, recordingTime) }).map((_, i) => (
+                    <div key={i} className="h-3 w-1 bg-red-400 rounded-full animate-pulse" style={{ animationDelay: `${i * 50}ms` }} />
+                  ))}
                 </div>
               </div>
-            </PopoverContent>
-          </Popover>
 
-          <Input
-            ref={inputRef}
-            type="text"
-            placeholder="Digite sua mensagem..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            disabled={sending || !!selectedImage}
-            className="flex-1"
-          />
-          <Button type="submit" disabled={!inputValue.trim() || !!selectedImage} isLoading={sending} size="icon">
-            <Send className="h-4 w-4" />
-          </Button>
+              <Button
+                type="button"
+                variant="default"
+                size="icon"
+                onClick={stopRecording}
+                disabled={sending}
+                title="Enviar áudio"
+                className="rounded-full bg-green-500 hover:bg-green-600"
+              >
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* Botão + para adicionar imagem */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sending || !!selectedImage}
+                title="Adicionar imagem"
+                className="rounded-full"
+              >
+                <Plus className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+              </Button>
+
+              {/* Botão de Emojis */}
+              <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={sending || !!selectedImage}
+                    title="Adicionar emoji"
+                    className="rounded-full"
+                  >
+                    <Smile className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-2" align="start">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground px-2">Emojis mais usados</p>
+
+                    {/* Rostos */}
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground px-2">Rostos</p>
+                      <div className="grid grid-cols-9 gap-1">
+                        {emojis.faces.map((emoji, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleEmojiSelect(emoji)}
+                            className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Mãos */}
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground px-2">Mãos</p>
+                      <div className="grid grid-cols-9 gap-1">
+                        {emojis.hands.map((emoji, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleEmojiSelect(emoji)}
+                            className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Corações */}
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground px-2">Corações</p>
+                      <div className="grid grid-cols-9 gap-1">
+                        {emojis.hearts.map((emoji, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleEmojiSelect(emoji)}
+                            className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="Digite uma mensagem"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                disabled={sending || !!selectedImage}
+                className="flex-1 rounded-full border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus-visible:ring-1"
+              />
+
+              {/* Botão Send (aparece quando tem texto) ou Microfone (quando não tem) */}
+              {inputValue.trim() ? (
+                <Button
+                  type="submit"
+                  disabled={!!selectedImage}
+                  isLoading={sending}
+                  size="icon"
+                  className="rounded-full bg-green-500 hover:bg-green-600"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={startRecording}
+                  disabled={sending || !!selectedImage}
+                  title="Gravar áudio"
+                  className="rounded-full"
+                >
+                  <Mic className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                </Button>
+              )}
+            </>
+          )}
         </form>
       </div>
 
