@@ -15,6 +15,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import Image from "next/image";
+import logo from "@/assets/logo2.webp"
 
 export default function SignupPage() {
   const router = useRouter();
@@ -45,7 +47,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="flex flex-col gap-10 min-h-screen items-center justify-center bg-background p-4">
+      <Image src={logo} alt="Logo" width={100} height={100} className="h-24 w-24" />
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Criar conta</CardTitle>
