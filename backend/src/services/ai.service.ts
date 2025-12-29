@@ -3,6 +3,7 @@ import conversationExampleService from "./conversation-example.service";
 import openaiService from "./ai-providers/openai.service";
 import { AIProvider } from "../types/ai-provider";
 import { essentialTools } from "./ai-tools";
+import { aiAppointmentService } from "./ai-appointment.service";
 
 /**
  * ============================================
@@ -104,6 +105,49 @@ class AIService {
     options?: { provider?: AIProvider; model?: string; temperature?: number; maxTokens?: number }
   ): Promise<string> {
     try {
+      // ========================================
+      // ROTEADOR DE INTENÇÃO (GUARDRAIL)
+      // Política "Limited Use" do Google
+      // ========================================
+      // Passo A: Verifica se há fluxo de agendamento ativo
+      const hasActiveFlow = await aiAppointmentService.hasActiveAppointmentFlow(customerId);
+      if (hasActiveFlow) {
+        console.log('[AIService] 🔀 Roteando para fluxo de agendamento ATIVO');
+        const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+        if (!customer) throw new Error("Customer not found");
+
+        const result = await aiAppointmentService.processAppointmentMessage(
+          customerId,
+          customer.companyId,
+          message
+        );
+
+        if (result.shouldContinue && result.response) {
+          return result.response;
+        }
+      }
+
+      // Passo B: Verifica se há intenção NOVA de agendamento
+      const hasAppointmentIntent = aiAppointmentService.detectAppointmentIntent(message);
+      if (hasAppointmentIntent) {
+        console.log('[AIService] 🔀 Roteando para NOVO fluxo de agendamento');
+        const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+        if (!customer) throw new Error("Customer not found");
+
+        const result = await aiAppointmentService.startAppointmentFlow(
+          customerId,
+          customer.companyId,
+          message
+        );
+
+        if (result.response) {
+          return result.response;
+        }
+      }
+
+      // Passo C: Fluxo normal (sem agendamento) - processa com OpenAI
+      console.log('[AIService] ✅ Processando com IA (sem dados do Google Calendar)');
+
       // Busca customer e dados da empresa
       const customer = await prisma.customer.findUnique({
         where: { id: customerId },
@@ -284,15 +328,13 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
     // Informações de Agendamento
     if (googleCalendarStatus) {
       businessContext += `\n### 📅 SISTEMA DE AGENDAMENTOS\n`;
-      businessContext += `\n**INSTRUÇÕES PARA AGENDAMENTO:**\n`;
-      businessContext += `1. Quando o cliente quiser agendar, SEMPRE use a ferramenta 'get_available_slots' primeiro para verificar horários disponíveis\n`;
-      businessContext += `2. Use o nome do serviço EXATAMENTE como está na LISTA OFICIAL DE PRODUTOS ao buscar disponibilidade\n`;
-      businessContext += `3. Apresente os horários disponíveis de forma clara ao cliente\n`;
-      businessContext += `4. Após o cliente escolher data e horário, colete: serviço desejado, endereço completo\n`;
-      businessContext += `5. **IMPORTANTE ENDEREÇO:** Se o cliente fornecer um endereço SEM o número da casa/prédio, você DEVE solicitar explicitamente: "Qual é o número da casa/prédio?" ou "Me passa o número da casa também!". Não avance sem o número!\n`;
-      businessContext += `6. Confirme TODOS os dados com o cliente antes de criar o agendamento\n`;
-      businessContext += `7. Use a ferramenta 'create_appointment' SOMENTE após confirmação explícita do cliente\n`;
-      businessContext += `8. IMPORTANTE: Não mencione detalhes técnicos como "Google Calendar" ou "sincronização automática". Apenas confirme que o agendamento foi realizado com sucesso\n`;
+      businessContext += `\n**IMPORTANTE:** Agendamentos são processados por um sistema especializado separado.\n`;
+      businessContext += `\nSe o cliente quiser agendar um serviço ou perguntar sobre horários disponíveis:\n`;
+      businessContext += `- Informe que você pode ajudar a agendar\n`;
+      businessContext += `- Diga para ele mencionar "quero agendar" ou "agendar um serviço"\n`;
+      businessContext += `- O sistema de agendamento especializado irá coletar todos os dados necessários\n`;
+      businessContext += `\nNÃO tente processar agendamentos você mesmo. Não use ferramentas de agendamento.\n`;
+      businessContext += `Deixe o sistema especializado cuidar de todo o fluxo de agendamento.\n`;
     }
 
     // Seção de Produtos (A mais importante para a confiabilidade)
@@ -322,19 +364,30 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
 **REGRA FUNDAMENTAL: NUNCA diga "vou verificar", "vou consultar", "deixa eu ver" - USE AS FERRAMENTAS IMEDIATAMENTE!**
 
 1. **Perguntas sobre PRODUTOS/SERVIÇOS:**
-   - Cliente pergunta: "vocês vendem X?", "tem X?", "trabalham com X?", "quanto custa X?"
+   - Cliente pergunta: "vocês vendem X?", "tem X?", "trabalham com X?", "quanto custa X?", "o que é X?"
    - ❌ ERRADO: "Vou verificar essa informação para você"
    - ✅ CORRETO: Use get_product_info IMEDIATAMENTE com o termo X
-   - Exemplo: Cliente: "vocês vendem controle?" → Use get_product_info(query="controle", category="PRODUCT") e responda com base no resultado
+   - Exemplo: Cliente: "vocês vendem controle?" → Use get_product_info(query="controle", category="PRODUCT")
 
-2. **Perguntas sobre HORÁRIOS DISPONÍVEIS:**
-   - Cliente pergunta: "que horas vocês têm?", "quais horários estão livres?"
-   - ✅ Use get_available_slots IMEDIATAMENTE
+   **IMPORTANTE - Como usar o resultado da ferramenta:**
+   - A ferramenta retorna: nome, preço, descrição E categoria
+   - Você DEVE usar TODAS essas informações na resposta
+   - A DESCRIÇÃO é especialmente importante - ela contém detalhes técnicos, especificações e diferenciais
+   - Se a descrição existe, SEMPRE mencione os detalhes dela na resposta
+   - Não resuma demais - o cliente quer saber os detalhes do que está comprando
+   - Seja completo mas natural na linguagem
+
+2. **Perguntas sobre HORÁRIOS DISPONÍVEIS ou AGENDAMENTOS:**
+   - Cliente pergunta: "que horas vocês têm?", "quais horários estão livres?", "quero agendar"
+   - ✅ CORRETO: Informe que você pode ajudar e peça para ele dizer "quero agendar"
+   - ❌ ERRADO: NÃO tente buscar horários ou criar agendamentos você mesmo
+   - O sistema de agendamento especializado cuidará de todo o processo
 
 3. **SEMPRE confie nas ferramentas:**
-   - Se a ferramenta retorna que NÃO encontrou o produto, diga claramente que não trabalha com aquele item
-   - Se a ferramenta retorna dados, use-os com confiança na resposta
-   - As ferramentas consultam a base de dados oficial da empresa
+   - Se a ferramenta retorna found: false, diga que não encontrou esse produto no catálogo
+   - Se a ferramenta retorna found: true, use TODOS os dados (nome, preço, descrição, categoria)
+   - As ferramentas consultam a base de dados oficial e atualizada da empresa
+   - A ferramenta faz busca inteligente (fuzzy search) - pode encontrar variações do nome
 `.trim();
 
     // Estilo e regras de resposta

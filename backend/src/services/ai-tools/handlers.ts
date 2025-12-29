@@ -106,25 +106,38 @@ function parsePrice(value: string | number | undefined): number | null {
 
 /**
  * Busca produtos usando Fuse.js (Fuzzy Search)
+ * Melhorado para buscar em nome, categoria E descrição com pesos balanceados
  */
 function searchProducts(
-  products: Product[], 
-  query: string, 
-  threshold = 0.4
+  products: Product[],
+  query: string,
+  threshold = 0.6  // Aumentado para ser mais permissivo (era 0.4)
 ): Product[] {
   if (!products.length) return [];
 
+  console.log(`[SearchProducts] Buscando "${query}" em ${products.length} produtos`);
+
   const fuse = new Fuse(products, {
     keys: [
-      { name: 'name', weight: 0.7 },       // Nome tem prioridade
-      { name: 'category', weight: 0.2 },
-      { name: 'description', weight: 0.1 }
+      { name: 'name', weight: 0.5 },       // Nome tem prioridade, mas não tanto
+      { name: 'description', weight: 0.3 }, // Descrição agora tem peso significativo (era 0.1)
+      { name: 'category', weight: 0.2 }
     ],
-    threshold, // 0.0 = exato, 1.0 = qualquer coisa
-    includeScore: true
+    threshold, // 0.0 = exato, 1.0 = qualquer coisa | 0.6 = balanceado
+    includeScore: true,
+    ignoreLocation: true, // Ignora posição do termo na string (busca em qualquer lugar)
+    minMatchCharLength: 2, // Mínimo 2 caracteres para match
+    findAllMatches: true, // Encontra todos os matches, não apenas o primeiro
   });
 
-  return fuse.search(query).map(r => r.item);
+  const results = fuse.search(query);
+
+  console.log(`[SearchProducts] Encontrados ${results.length} resultados para "${query}"`);
+  results.forEach((r, i) => {
+    console.log(`[SearchProducts]   ${i + 1}. ${r.item.name} (score: ${r.score?.toFixed(3)})`);
+  });
+
+  return results.map(r => r.item);
 }
 
 /**
@@ -203,46 +216,80 @@ export async function handleGetProductInfo(args: {
   try {
     const { query, companyId } = args;
 
+    console.log(`[Tool] GetProductInfo: Buscando "${query}" para company ${companyId}`);
+
     const aiKnowledge = await prisma.aIKnowledge.findUnique({
       where: { companyId },
     });
 
-    if (!aiKnowledge) return { error: 'Dados da empresa não encontrados' };
+    if (!aiKnowledge) {
+      console.error('[Tool] GetProductInfo: Empresa não encontrada');
+      return { error: 'Dados da empresa não encontrados' };
+    }
 
     // 1. Parse dos produtos do JSON (Fonte da Verdade)
     let products: Product[] = [];
     try {
-      products = JSON.parse(typeof aiKnowledge.products === 'string' ? aiKnowledge.products : '[]');
-    } catch { 
-      products = []; 
+      const rawProducts = aiKnowledge.products;
+      products = Array.isArray(rawProducts)
+        ? rawProducts
+        : JSON.parse(typeof rawProducts === 'string' ? rawProducts : '[]');
+
+      console.log(`[Tool] GetProductInfo: Produtos carregados do banco: ${products.length}`);
+    } catch (error) {
+      console.error('[Tool] GetProductInfo: Erro ao parsear produtos:', error);
+      products = [];
     }
 
-    // 2. Busca Inteligente
+    // 2. Busca Inteligente com Fuzzy Search
     const results = searchProducts(products, query);
 
     // 3. Se não achou no JSON, tenta fallback no texto (menos confiável)
     let fallbackInfo = null;
     if (results.length === 0 && aiKnowledge.productsServices) {
+      console.log('[Tool] GetProductInfo: Tentando fallback em productsServices (texto legado)');
       const lines = aiKnowledge.productsServices.split('\n');
       const matchedLines = lines.filter(l => l.toLowerCase().includes(query.toLowerCase()));
       if (matchedLines.length > 0) {
-        fallbackInfo = matchedLines.slice(0, 3).join('\n');
+        fallbackInfo = matchedLines.slice(0, 5).join('\n');
+        console.log(`[Tool] GetProductInfo: Encontradas ${matchedLines.length} linhas no fallback`);
       }
     }
 
+    // 4. Formatar resultado para a IA
+    if (results.length > 0) {
+      const topResults = results.slice(0, 5); // Top 5 resultados (aumentado de 3)
+
+      return {
+        query,
+        found: true,
+        total_found: results.length,
+        products: topResults.map(p => ({
+          name: p.name,
+          price: p.price,
+          description: p.description || 'Sem descrição cadastrada',
+          category: p.category || 'Sem categoria'
+        })),
+        instruction: `Encontrei ${results.length} produto(s) relacionado(s). Use TODAS as informações acima (nome, preço, descrição e categoria) para responder ao cliente de forma completa e precisa. A DESCRIÇÃO contém detalhes importantes sobre o produto/serviço.`
+      };
+    }
+
+    // Nenhum resultado encontrado
+    console.warn(`[Tool] GetProductInfo: Nenhum produto encontrado para "${query}"`);
+
     return {
       query,
-      found_structured: results.length > 0,
-      products: results.slice(0, 3), // Top 3 resultados
+      found: false,
+      products: [],
       fallback_text: fallbackInfo,
-      instruction: results.length > 0 
-        ? "Use os dados estruturados acima para responder." 
-        : "Nenhum produto exato encontrado no cadastro oficial. Verifique se o termo está correto."
+      instruction: fallbackInfo
+        ? "Encontrei algumas informações no texto complementar. Use com cautela e informe ao cliente que pode haver mais detalhes em contato direto."
+        : "Não encontrei produtos/serviços com esse nome no cadastro oficial. Informe ao cliente que esse item não consta no catálogo atual e ofereça alternativas ou contato com atendimento humano."
     };
 
   } catch (error) {
     console.error('[Tool] GetProductInfo Error:', error);
-    return { error: 'Erro ao buscar informações' };
+    return { error: 'Erro ao buscar informações. Tente novamente ou entre em contato com o atendimento.' };
   }
 }
 
