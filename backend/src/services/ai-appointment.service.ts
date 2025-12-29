@@ -732,7 +732,7 @@ export class AIAppointmentService {
 
       return {
         shouldContinue: true,
-        response: `Boa! Entendi que é pra ${dateFormatted} 📅\n\nTenho vários horários livres:\n\n${slotsText}\n\nQual desses é melhor pra você? Pode mandar o número ou o horário direto\n\n(Se o dia tá errado, é só falar "mudar dia" e me dizer o dia certo!)`,
+        response: `Boa! Entendi que é pra ${dateFormatted} 📅\n\nHorários disponíveis:\n\n${slotsText}\n\nQual desses é melhor pra você? Pode mandar o número ou o horário direto`,
       };
     } catch (error: any) {
       console.error('[AIAppointment] Error fetching slots:', error);
@@ -1027,16 +1027,38 @@ export class AIAppointmentService {
         // Limpa o estado
         await this.clearAppointmentState(customerId);
 
-        // Log interno apenas - nunca expor detalhes técnicos para o cliente
+        // Log detalhado do resultado
+        console.log('[AIAppointment] ============================================');
+        console.log('[AIAppointment] 📋 RESULTADO DO AGENDAMENTO');
+        console.log('[AIAppointment] ============================================');
+        console.log('[AIAppointment] Appointment ID:', appointmentResult.id);
+        console.log('[AIAppointment] Google Calendar sincronizado:', appointmentResult.googleCalendarSynced ? 'SIM ✅' : 'NÃO ❌');
+
         if (appointmentResult.googleCalendarSynced) {
-          console.log('[AIAppointment] ✅ Agendamento sincronizado com Google Calendar');
+          console.log('[AIAppointment] ✅ Evento criado no Google Calendar com sucesso!');
         } else if (appointmentResult.googleCalendarError) {
-          console.warn('[AIAppointment] ⚠️ Google Calendar error (interno):', appointmentResult.googleCalendarError);
+          console.warn('[AIAppointment] ⚠️ Erro Google Calendar:', appointmentResult.googleCalendarError);
+        }
+        console.log('[AIAppointment] ============================================');
+
+        // Formata a data para a mensagem
+        const dateFormatted = startTime.toLocaleDateString('pt-BR', {
+          weekday: 'long',
+          day: '2-digit',
+          month: 'long'
+        });
+
+        // Monta resposta de sucesso
+        let successMessage = `Pronto! Agendamento confirmado 🎉\n\nSua ${serviceLabel.toLowerCase()} tá marcada pra ${dateFormatted} às ${state.time}`;
+
+        // Adiciona nota sobre endereço se informado
+        if (location) {
+          successMessage += `\n📍 Local: ${location}`;
         }
 
         return {
           shouldContinue: true,
-          response: `Pronto! Agendamento confirmado 🎉\n\nSua ${serviceLabel.toLowerCase()} tá marcada pra ${startTime.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às ${state.time}\n\nVou te mandar um lembrete no dia anterior, combinado?`,
+          response: successMessage,
         };
       } catch (error: any) {
         console.error('[AIAppointment] Error creating appointment:', error);

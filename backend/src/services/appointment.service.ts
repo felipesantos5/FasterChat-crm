@@ -32,11 +32,19 @@ export class AppointmentService {
    * @returns Appointment com metadata sobre sucesso da sincronização
    */
   async create(companyId: string, data: CreateAppointmentDTO): Promise<Appointment & { googleCalendarSynced?: boolean; googleCalendarError?: string }> {
-    console.log('[Appointment] Criando novo agendamento...');
+    console.log('[Appointment] ============================================');
+    console.log('[Appointment] 🆕 CRIANDO NOVO AGENDAMENTO');
+    console.log('[Appointment] ============================================');
     console.log('[Appointment] Company ID:', companyId);
     console.log('[Appointment] Customer ID:', data.customerId);
+    console.log('[Appointment] Title:', data.title);
     console.log('[Appointment] Type:', data.type);
-    console.log('[Appointment] Start:', data.startTime.toISOString());
+    console.log('[Appointment] Start (ISO):', data.startTime.toISOString());
+    console.log('[Appointment] Start (BR):', data.startTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+    console.log('[Appointment] End (ISO):', data.endTime.toISOString());
+    console.log('[Appointment] End (BR):', data.endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+    console.log('[Appointment] Duration:', data.duration, 'minutos');
+    console.log('[Appointment] Location:', data.location || 'Não informado');
 
     // Busca informações do cliente
     const customer = await prisma.customer.findFirst({
@@ -46,6 +54,8 @@ export class AppointmentService {
     if (!customer) {
       throw new Error('Cliente não encontrado');
     }
+
+    console.log('[Appointment] Cliente:', customer.name, '- Email:', customer.email || 'Não informado');
 
     // Verifica se horário está disponível
     const isAvailable = await this.checkAvailability(
@@ -58,49 +68,69 @@ export class AppointmentService {
       throw new Error('Horário não disponível');
     }
 
+    console.log('[Appointment] ✅ Horário disponível confirmado');
+
     // 🔥 CRÍTICO: Cria evento no Google Calendar com validação rigorosa
     let googleEventId: string | undefined;
     let googleCalendarSynced = false;
     let googleCalendarError: string | undefined;
 
-    try {
-      console.log('[Appointment] 🔄 Tentando sincronizar com Google Calendar...');
+    // Primeiro, verifica se o Google Calendar está configurado
+    const isGoogleCalendarConfigured = await googleCalendarService.isConfigured(companyId);
+    console.log('[Appointment] Google Calendar configurado:', isGoogleCalendarConfigured ? 'SIM ✅' : 'NÃO ❌');
 
-      const googleEvent = await googleCalendarService.createEvent(companyId, {
-        summary: data.title,
-        description: data.description || `${data.type} - ${customer.name}`,
-        start: data.startTime,
-        end: data.endTime,
-        location: data.location,
-        attendees: customer.email ? [customer.email] : undefined,
-      });
+    if (isGoogleCalendarConfigured) {
+      try {
+        console.log('[Appointment] 🔄 Tentando criar evento no Google Calendar...');
+        console.log('[Appointment] Dados do evento:');
+        console.log('[Appointment]   - Summary:', data.title);
+        console.log('[Appointment]   - Start:', data.startTime.toISOString());
+        console.log('[Appointment]   - End:', data.endTime.toISOString());
+        console.log('[Appointment]   - Location:', data.location || 'N/A');
+        console.log('[Appointment]   - Attendees:', customer.email || 'Nenhum');
 
-      if (googleEvent && googleEvent.id) {
-        googleEventId = googleEvent.id;
-        googleCalendarSynced = true;
-        console.log('[Appointment] ✅ Google Calendar sincronizado com sucesso!');
-        console.log('[Appointment] Event ID:', googleEventId);
-        console.log('[Appointment] Event Link:', googleEvent.htmlLink);
-      } else {
-        throw new Error('Google Calendar retornou resposta sem ID de evento');
+        const googleEvent = await googleCalendarService.createEvent(companyId, {
+          summary: data.title,
+          description: data.description || `${data.type} - ${customer.name}`,
+          start: data.startTime,
+          end: data.endTime,
+          location: data.location,
+          attendees: customer.email ? [customer.email] : undefined,
+        });
+
+        if (googleEvent && googleEvent.id) {
+          googleEventId = googleEvent.id;
+          googleCalendarSynced = true;
+          console.log('[Appointment] ✅ SUCESSO! Evento criado no Google Calendar');
+          console.log('[Appointment]   - Event ID:', googleEventId);
+          console.log('[Appointment]   - Event Link:', googleEvent.htmlLink);
+          console.log('[Appointment]   - Status:', googleEvent.status);
+        } else {
+          throw new Error('Google Calendar retornou resposta sem ID de evento');
+        }
+      } catch (error: any) {
+        googleCalendarError = error.message;
+        console.error('[Appointment] ❌ FALHA ao criar evento no Google Calendar:');
+        console.error('[Appointment]   - Erro:', error.message);
+
+        if (error.response?.data) {
+          console.error('[Appointment]   - Response:', JSON.stringify(error.response.data));
+        }
+
+        // Classifica o tipo de erro
+        if (error.message.includes('não configurado') || error.message.includes('not found')) {
+          googleCalendarError = 'Google Calendar não configurado';
+        } else if (error.message.includes('expired') || error.message.includes('invalid') || error.message.includes('401')) {
+          googleCalendarError = 'Credenciais do Google Calendar expiradas - reconecte na página de Calendário';
+        } else if (error.message.includes('403') || error.message.includes('permission')) {
+          googleCalendarError = 'Sem permissão para criar eventos no Google Calendar';
+        }
+
+        console.warn('[Appointment] ⚠️ Agendamento será criado apenas no sistema local');
       }
-    } catch (error: any) {
-      googleCalendarError = error.message;
-      console.error('[Appointment] ❌ ERRO ao sincronizar com Google Calendar:');
-      console.error('[Appointment] Erro:', error.message);
-      console.error('[Appointment] Stack:', error.stack);
-
-      // Verifica se é erro de autenticação/configuração
-      if (error.message.includes('não configurado') || error.message.includes('not found')) {
-        console.warn('[Appointment] ⚠️ Google Calendar não está configurado para esta empresa');
-        googleCalendarError = 'Google Calendar não configurado';
-      } else if (error.message.includes('expired') || error.message.includes('invalid')) {
-        console.warn('[Appointment] ⚠️ Credenciais do Google Calendar expiradas ou inválidas');
-        googleCalendarError = 'Credenciais do Google Calendar expiradas';
-      }
-
-      // IMPORTANTE: Continua criando o agendamento no banco mesmo sem Google Calendar
-      console.warn('[Appointment] ⚠️ Continuando criação do agendamento sem sincronização com Google Calendar');
+    } else {
+      googleCalendarError = 'Google Calendar não está conectado para esta empresa';
+      console.warn('[Appointment] ⚠️ Google Calendar não configurado - criando apenas no banco local');
     }
 
     // Cria appointment no banco
@@ -125,9 +155,18 @@ export class AppointmentService {
       },
     });
 
-    console.log('[Appointment] ✅ Agendamento criado com sucesso no banco!');
-    console.log('[Appointment] Appointment ID:', appointment.id);
-    console.log('[Appointment] Google Calendar synced:', googleCalendarSynced);
+    console.log('[Appointment] ============================================');
+    console.log('[Appointment] 📋 RESUMO DA CRIAÇÃO');
+    console.log('[Appointment] ============================================');
+    console.log('[Appointment] ✅ Agendamento criado no banco: ID', appointment.id);
+    console.log('[Appointment] 📅 Google Calendar sincronizado:', googleCalendarSynced ? 'SIM ✅' : 'NÃO ❌');
+    if (googleEventId) {
+      console.log('[Appointment] 📎 Google Event ID:', googleEventId);
+    }
+    if (googleCalendarError) {
+      console.log('[Appointment] ⚠️ Erro Google Calendar:', googleCalendarError);
+    }
+    console.log('[Appointment] ============================================');
 
     // Retorna appointment com metadata de sincronização
     return {

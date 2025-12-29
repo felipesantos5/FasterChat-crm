@@ -407,7 +407,7 @@ function CalendarioPageContent() {
       </div>
 
       {/* Calendar */}
-      <div className="flex-1 px-3 md:px-6 pb-3 md:pb-6">
+      <div className="flex-1 px-3 md:px-6 pb-3 md:pb-6 pt-0">
         <div className={`${cards.default} h-full`}>
           <div className="calendar-container h-full p-2 md:p-4">
             <BigCalendar
@@ -449,151 +449,151 @@ function CalendarioPageContent() {
 
       {/* Event Details Modal */}
       <Dialog open={showEventDetails} onOpenChange={setShowEventDetails}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Detalhes do Agendamento
-              </DialogTitle>
-            </DialogHeader>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Detalhes do Agendamento
+            </DialogTitle>
+          </DialogHeader>
 
-            {selectedAppointment && (
-              <div className="space-y-4">
-                {/* Title and Badges */}
-                <div>
-                  <h3 className="text-2xl font-bold mb-2">{selectedAppointment.title}</h3>
-                  <div className="flex gap-2">
-                    <Badge variant="outline">
-                      {AppointmentTypeLabels[selectedAppointment.type]}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={
-                        selectedAppointment.status === AppointmentStatus.CONFIRMED
-                          ? "bg-green-50 text-green-700 border-green-200"
-                          : selectedAppointment.status === AppointmentStatus.CANCELLED
-                            ? "bg-red-50 text-red-700 border-red-200"
-                            : "bg-blue-50 text-blue-700 border-blue-200"
-                      }
-                    >
-                      {AppointmentStatusLabels[selectedAppointment.status]}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Details Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Horário</p>
-                      <p className="text-muted-foreground">
-                        {format(new Date(selectedAppointment.startTime), "PPP 'às' HH:mm", { locale: ptBR })}
-                        {" - "}
-                        {format(new Date(selectedAppointment.endTime), "HH:mm")}
-                      </p>
-                    </div>
-                  </div>
-
-                  {selectedAppointment.customer && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">Cliente</p>
-                        <p className="text-muted-foreground">{selectedAppointment.customer.name}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedAppointment.location && (
-                    <div className="flex items-center gap-2 text-sm col-span-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">Localização</p>
-                        <p className="text-muted-foreground">{selectedAppointment.location}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {selectedAppointment.description && (
-                  <div>
-                    <p className="font-medium mb-1">Descrição</p>
-                    <p className="text-sm text-muted-foreground">{selectedAppointment.description}</p>
-                  </div>
-                )}
-
-                {selectedAppointment.notes && (
-                  <div>
-                    <p className="font-medium mb-1">Notas Internas</p>
-                    <p className="text-sm text-muted-foreground italic">{selectedAppointment.notes}</p>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-4 border-t">
-                  <Button
+          {selectedAppointment && (
+            <div className="space-y-4">
+              {/* Title and Badges */}
+              <div>
+                <h3 className="text-2xl font-bold mb-2">{selectedAppointment.title}</h3>
+                <div className="flex gap-2">
+                  <Badge variant="outline">
+                    {AppointmentTypeLabels[selectedAppointment.type]}
+                  </Badge>
+                  <Badge
                     variant="outline"
-                    onClick={() => handleEditAppointment(selectedAppointment)}
-                    className="flex-1"
+                    className={
+                      selectedAppointment.status === AppointmentStatus.CONFIRMED
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : selectedAppointment.status === AppointmentStatus.CANCELLED
+                          ? "bg-red-50 text-red-700 border-red-200"
+                          : "bg-blue-50 text-blue-700 border-blue-200"
+                    }
                   >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Editar
-                  </Button>
-                  {selectedAppointment.status === AppointmentStatus.SCHEDULED && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleConfirmAppointment(selectedAppointment.id)}
-                      className="flex-1"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Confirmar
-                    </Button>
-                  )}
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleDeleteAppointment(selectedAppointment.id)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Deletar
-                  </Button>
+                    {AppointmentStatusLabels[selectedAppointment.status]}
+                  </Badge>
                 </div>
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
 
-        {/* Modals */}
-        <AppointmentModal
-          open={showNewAppointment}
-          onClose={() => setShowNewAppointment(false)}
-          onSuccess={loadAppointments}
-          companyId={companyId}
-          customers={customers.map((c) => ({
-            id: c.id,
-            name: c.name,
-            email: c.email ?? undefined, // Convert null to undefined
-          }))}
-        />
+              {/* Details Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">Horário</p>
+                    <p className="text-muted-foreground">
+                      {format(new Date(selectedAppointment.startTime), "PPP 'às' HH:mm", { locale: ptBR })}
+                      {" - "}
+                      {format(new Date(selectedAppointment.endTime), "HH:mm")}
+                    </p>
+                  </div>
+                </div>
 
-        <EditAppointmentModal
-          open={showEditAppointment}
-          onClose={() => setShowEditAppointment(false)}
-          onSuccess={loadAppointments}
-          companyId={companyId}
-          appointment={selectedAppointment}
-        />
+                {selectedAppointment.customer && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">Cliente</p>
+                      <p className="text-muted-foreground">{selectedAppointment.customer.name}</p>
+                    </div>
+                  </div>
+                )}
 
-        <GoogleCalendarModal
-          open={showGoogleCalendar}
-          onClose={() => setShowGoogleCalendar(false)}
-          onSuccess={checkGoogleConnection}
-          companyId={companyId}
-          currentStatus={googleStatus}
-        />
+                {selectedAppointment.location && (
+                  <div className="flex items-center gap-2 text-sm col-span-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">Localização</p>
+                      <p className="text-muted-foreground">{selectedAppointment.location}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
-        {/* Custom Styles */}
-        <style jsx global>{`
+              {selectedAppointment.description && (
+                <div>
+                  <p className="font-medium mb-1">Descrição</p>
+                  <p className="text-sm text-muted-foreground">{selectedAppointment.description}</p>
+                </div>
+              )}
+
+              {selectedAppointment.notes && (
+                <div>
+                  <p className="font-medium mb-1">Notas Internas</p>
+                  <p className="text-sm text-muted-foreground italic">{selectedAppointment.notes}</p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => handleEditAppointment(selectedAppointment)}
+                  className="flex-1"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+                {selectedAppointment.status === AppointmentStatus.SCHEDULED && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleConfirmAppointment(selectedAppointment.id)}
+                    className="flex-1"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Confirmar
+                  </Button>
+                )}
+                <Button
+                  variant="destructive"
+                  onClick={() => handleDeleteAppointment(selectedAppointment.id)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Deletar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modals */}
+      <AppointmentModal
+        open={showNewAppointment}
+        onClose={() => setShowNewAppointment(false)}
+        onSuccess={loadAppointments}
+        companyId={companyId}
+        customers={customers.map((c) => ({
+          id: c.id,
+          name: c.name,
+          email: c.email ?? undefined, // Convert null to undefined
+        }))}
+      />
+
+      <EditAppointmentModal
+        open={showEditAppointment}
+        onClose={() => setShowEditAppointment(false)}
+        onSuccess={loadAppointments}
+        companyId={companyId}
+        appointment={selectedAppointment}
+      />
+
+      <GoogleCalendarModal
+        open={showGoogleCalendar}
+        onClose={() => setShowGoogleCalendar(false)}
+        onSuccess={checkGoogleConnection}
+        companyId={companyId}
+        currentStatus={googleStatus}
+      />
+
+      {/* Custom Styles */}
+      <style jsx global>{`
         .rbc-calendar {
           font-family: inherit;
           font-size: 14px;
