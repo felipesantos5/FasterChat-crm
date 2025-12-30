@@ -468,8 +468,8 @@ async getAvailableSlots(
     console.log('[GoogleCalendar] 🔄 Iniciando criação de evento...');
     console.log('[GoogleCalendar] Company ID:', companyId);
     console.log('[GoogleCalendar] Event summary:', eventData.summary);
-    console.log('[GoogleCalendar] Start:', eventData.start.toISOString());
-    console.log('[GoogleCalendar] End:', eventData.end.toISOString());
+    console.log('[GoogleCalendar] Start (UTC):', eventData.start.toISOString());
+    console.log('[GoogleCalendar] End (UTC):', eventData.end.toISOString());
 
     try {
       // Carrega e valida tokens
@@ -482,17 +482,31 @@ async getAvailableSlots(
       // Cria cliente do Google Calendar
       const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
+      // 🔥 CORREÇÃO CRÍTICA DE TIMEZONE:
+      // Quando especificamos timeZone, devemos enviar a data no horário LOCAL (sem 'Z')
+      // NÃO usar toISOString() pois ele adiciona 'Z' (UTC)
+      const timeZone = 'America/Sao_Paulo';
+
+      // Formata as datas no timezone de São Paulo SEM o 'Z' do UTC
+      const { formatInTimeZone } = await import('date-fns-tz');
+      const startDateTime = formatInTimeZone(eventData.start, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
+      const endDateTime = formatInTimeZone(eventData.end, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
+
+      console.log('[GoogleCalendar] 🕐 Datas formatadas para Google Calendar:');
+      console.log('[GoogleCalendar]   Start (São Paulo):', startDateTime);
+      console.log('[GoogleCalendar]   End (São Paulo):', endDateTime);
+
       // Monta o evento
       const event: calendar_v3.Schema$Event = {
         summary: eventData.summary,
         description: eventData.description,
         location: eventData.location,
         start: {
-          dateTime: eventData.start.toISOString(),
+          dateTime: startDateTime, // Formato: "2025-01-02T08:00:00" (SEM o 'Z'!)
           timeZone: 'America/Sao_Paulo',
         },
         end: {
-          dateTime: eventData.end.toISOString(),
+          dateTime: endDateTime, // Formato: "2025-01-02T09:00:00" (SEM o 'Z'!)
           timeZone: 'America/Sao_Paulo',
         },
         attendees: eventData.attendees?.map((email) => ({ email })),
@@ -607,16 +621,21 @@ async getAvailableSlots(
       location: eventData.location,
     };
 
+    const timeZone = 'America/Sao_Paulo';
+    const { formatInTimeZone } = await import('date-fns-tz');
+
     if (eventData.start) {
+      const startDateTime = formatInTimeZone(eventData.start, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
       updates.start = {
-        dateTime: eventData.start.toISOString(),
+        dateTime: startDateTime, // Sem o 'Z'!
         timeZone: 'America/Sao_Paulo',
       };
     }
 
     if (eventData.end) {
+      const endDateTime = formatInTimeZone(eventData.end, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
       updates.end = {
-        dateTime: eventData.end.toISOString(),
+        dateTime: endDateTime, // Sem o 'Z'!
         timeZone: 'America/Sao_Paulo',
       };
     }

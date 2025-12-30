@@ -92,6 +92,12 @@ services:
       # Conexão interna com a Evolution API
       EVOLUTION_API_URL: http://evolution-api:8080
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-crm-api-key-secure-2024}
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      
+      # 👇 ADICIONE ESTAS LINHAS AQUI 👇
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       # URL que a Evolution vai chamar (comunicação interna docker-to-docker)
       WEBHOOK_URL: http://api:3051
       # Seus segredos (Configure no Coolify)
@@ -99,7 +105,6 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       # Configurações de IA
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      AI_PROVIDER: ${AI_PROVIDER:-openai}
 
   # ----------------------------------------------------------------
   # EVOLUTION API
