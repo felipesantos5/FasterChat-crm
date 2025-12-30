@@ -366,22 +366,26 @@ export async function handleCalculateQuote(args: {
  * Integrado com Google Calendar quando disponível
  */
 export async function handleGetAvailableSlots(args: {
-  service_type: string;
+  service_type?: string;
   preferred_date?: string;
   companyId: string;
 }) {
   try {
     const { preferred_date, companyId, service_type } = args;
 
+    console.log('[Tool] GetAvailableSlots: Iniciando busca');
+    console.log('[Tool] GetAvailableSlots: service_type =', service_type || '(não especificado)');
+    console.log('[Tool] GetAvailableSlots: preferred_date =', preferred_date || '(próximos 7 dias)');
+
     // Busca a duração do serviço do catálogo da empresa
-    let slotDuration = 60; // Duração padrão
+    let slotDuration = 60; // Duração padrão de 1 hora
     try {
       const aiKnowledge = await prisma.aIKnowledge.findUnique({
         where: { companyId },
         select: { products: true }
       });
 
-      if (aiKnowledge?.products) {
+      if (aiKnowledge?.products && service_type) {
         const products = Array.isArray(aiKnowledge.products)
           ? aiKnowledge.products
           : JSON.parse(typeof aiKnowledge.products === 'string' ? aiKnowledge.products : '[]');
@@ -394,6 +398,7 @@ export async function handleGetAvailableSlots(args: {
         // Se o serviço tiver duração configurada, usa; senão mantém o padrão
         if (service?.duration) {
           slotDuration = parseInt(service.duration);
+          console.log('[Tool] GetAvailableSlots: Duração do serviço encontrada:', slotDuration, 'min');
         }
       }
     } catch (error) {

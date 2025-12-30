@@ -636,7 +636,7 @@ function AISettingsPageContent() {
               <div className="space-y-4">
                 <Label className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  Horário de Funcionamento (para Agendamentos)
+                  Horário de Funcionamento
                 </Label>
                 <p className="text-sm text-muted-foreground -mt-2">
                   Defina o horário comercial que a IA usará para mostrar horários disponíveis ao agendar
