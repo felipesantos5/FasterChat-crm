@@ -482,19 +482,36 @@ async getAvailableSlots(
       // Cria cliente do Google Calendar
       const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
-      // 🔥 CORREÇÃO CRÍTICA DE TIMEZONE:
-      // Quando especificamos timeZone, devemos enviar a data no horário LOCAL (sem 'Z')
-      // NÃO usar toISOString() pois ele adiciona 'Z' (UTC)
-      const timeZone = 'America/Sao_Paulo';
+      // 🔥 SOLUÇÃO DEFINITIVA DE TIMEZONE:
+      // O Google Calendar API aceita dateTime no formato ISO COM offset
+      // Exemplo: "2025-01-02T14:00:00-03:00"
+      // Isso elimina qualquer ambiguidade de timezone!
 
-      // Formata as datas no timezone de São Paulo SEM o 'Z' do UTC
-      const { formatInTimeZone } = await import('date-fns-tz');
-      const startDateTime = formatInTimeZone(eventData.start, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
-      const endDateTime = formatInTimeZone(eventData.end, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
+      // Função helper para formatar Date para ISO com offset de São Paulo
+      const formatForGoogleCalendar = (date: Date): string => {
+        // Converte UTC para horário de São Paulo (UTC-3)
+        const saoPauloOffset = -3 * 60; // -180 minutos
+        const localDate = new Date(date.getTime() + (saoPauloOffset * 60 * 1000) + (date.getTimezoneOffset() * 60 * 1000));
+
+        const year = localDate.getFullYear();
+        const month = String(localDate.getMonth() + 1).padStart(2, '0');
+        const day = String(localDate.getDate()).padStart(2, '0');
+        const hours = String(localDate.getHours()).padStart(2, '0');
+        const minutes = String(localDate.getMinutes()).padStart(2, '0');
+        const seconds = String(localDate.getSeconds()).padStart(2, '0');
+
+        // Retorna no formato ISO com offset de São Paulo
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`;
+      };
+
+      const startDateTime = formatForGoogleCalendar(eventData.start);
+      const endDateTime = formatForGoogleCalendar(eventData.end);
 
       console.log('[GoogleCalendar] 🕐 Datas formatadas para Google Calendar:');
-      console.log('[GoogleCalendar]   Start (São Paulo):', startDateTime);
-      console.log('[GoogleCalendar]   End (São Paulo):', endDateTime);
+      console.log('[GoogleCalendar]   Input Start (UTC):', eventData.start.toISOString());
+      console.log('[GoogleCalendar]   Input End (UTC):', eventData.end.toISOString());
+      console.log('[GoogleCalendar]   Output Start (São Paulo):', startDateTime);
+      console.log('[GoogleCalendar]   Output End (São Paulo):', endDateTime);
 
       // Monta o evento
       const event: calendar_v3.Schema$Event = {
@@ -615,27 +632,35 @@ async getAvailableSlots(
     const calendarConfig = await this.loadTokens(companyId);
     const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
+    // Função helper para formatar Date para ISO com offset de São Paulo
+    const formatForGoogleCalendar = (date: Date): string => {
+      const saoPauloOffset = -3 * 60;
+      const localDate = new Date(date.getTime() + (saoPauloOffset * 60 * 1000) + (date.getTimezoneOffset() * 60 * 1000));
+      const year = localDate.getFullYear();
+      const month = String(localDate.getMonth() + 1).padStart(2, '0');
+      const day = String(localDate.getDate()).padStart(2, '0');
+      const hours = String(localDate.getHours()).padStart(2, '0');
+      const minutes = String(localDate.getMinutes()).padStart(2, '0');
+      const seconds = String(localDate.getSeconds()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`;
+    };
+
     const updates: calendar_v3.Schema$Event = {
       summary: eventData.summary,
       description: eventData.description,
       location: eventData.location,
     };
 
-    const timeZone = 'America/Sao_Paulo';
-    const { formatInTimeZone } = await import('date-fns-tz');
-
     if (eventData.start) {
-      const startDateTime = formatInTimeZone(eventData.start, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
       updates.start = {
-        dateTime: startDateTime, // Sem o 'Z'!
+        dateTime: formatForGoogleCalendar(eventData.start),
         timeZone: 'America/Sao_Paulo',
       };
     }
 
     if (eventData.end) {
-      const endDateTime = formatInTimeZone(eventData.end, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
       updates.end = {
-        dateTime: endDateTime, // Sem o 'Z'!
+        dateTime: formatForGoogleCalendar(eventData.end),
         timeZone: 'America/Sao_Paulo',
       };
     }

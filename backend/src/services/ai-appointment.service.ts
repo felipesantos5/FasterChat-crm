@@ -1,41 +1,38 @@
 import { prisma } from '../utils/prisma';
 import { appointmentService } from './appointment.service';
 import { AppointmentType } from '@prisma/client';
-import { toZonedTime, fromZonedTime, formatInTimeZone } from 'date-fns-tz';
-import { parse, format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 /**
  * Cria uma data no timezone do Brasil (America/Sao_Paulo)
- * Garante que quando o cliente fala "08:00", é realmente 08:00 no horário de Brasília
  *
- * Usa date-fns-tz para conversão precisa e confiável de timezones
+ * ABORDAGEM SIMPLIFICADA:
+ * - Cria a Date diretamente usando o offset de São Paulo (-03:00)
+ * - Evita conversões desnecessárias que causam bugs de timezone
+ * - O Google Calendar receberá a data no formato correto
  */
 function createBrazilDateTime(dateString: string, timeString: string): Date {
-  const timeZone = 'America/Sao_Paulo';
+  // São Paulo está em UTC-3 (Brasil não usa mais horário de verão desde 2019)
+  const SAO_PAULO_OFFSET = '-03:00';
 
-  // Combina data e hora em um único string: "2024-12-30 08:00"
-  const dateTimeString = `${dateString} ${timeString}`;
+  // Cria a data diretamente no formato ISO com o offset correto
+  // Exemplo: "2025-01-02T14:00:00-03:00"
+  const isoString = `${dateString}T${timeString}:00${SAO_PAULO_OFFSET}`;
 
-  // Parseia a string de data/hora em um objeto Date
-  // IMPORTANTE: Este Date está "sem timezone" (naive), precisamos especificar que é BR
-  const naiveDate = parse(dateTimeString, 'yyyy-MM-dd HH:mm', new Date());
-
-  // Converte a data "naive" para UTC, informando que ela está no timezone de São Paulo
-  // fromZonedTime: pega uma data no timezone especificado e converte para UTC
-  const utcDate = fromZonedTime(naiveDate, timeZone);
+  const date = new Date(isoString);
 
   console.log('[AIAppointment] ============================================');
-  console.log('[AIAppointment] Criando agendamento no timezone do Brasil');
+  console.log('[AIAppointment] CRIANDO AGENDAMENTO - TIMEZONE BRASIL');
   console.log('[AIAppointment] ============================================');
   console.log('[AIAppointment] Input:', dateString, timeString);
-  console.log('[AIAppointment] Timezone:', timeZone);
-  console.log('[AIAppointment] Data parseada (naive):', format(naiveDate, 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }));
-  console.log('[AIAppointment] Data UTC (armazenamento):', utcDate.toISOString());
-  console.log('[AIAppointment] Confirmação no horário BR:', formatInTimeZone(utcDate, timeZone, 'dd/MM/yyyy HH:mm:ss zzz', { locale: ptBR }));
+  console.log('[AIAppointment] ISO String criada:', isoString);
+  console.log('[AIAppointment] Date UTC (interno):', date.toISOString());
+  console.log('[AIAppointment] Hora em São Paulo:', timeString, '(o que o cliente pediu)');
   console.log('[AIAppointment] ============================================');
 
-  return utcDate;
+  return date;
 }
 
 /**
