@@ -436,21 +436,41 @@ export class AppointmentService {
     // Busca horário de funcionamento configurado no sistema
     const aiKnowledge = await prisma.aIKnowledge.findUnique({
       where: { companyId },
-      select: { workingHours: true },
+      select: {
+        workingHours: true,
+        businessHoursStart: true,
+        businessHoursEnd: true,
+      },
     });
 
-    console.log('[Appointment] Horário de funcionamento configurado:', aiKnowledge?.workingHours || 'NÃO CONFIGURADO');
+    console.log('[Appointment] Horário de funcionamento:');
+    console.log('[Appointment]   - Texto (legado):', aiKnowledge?.workingHours || 'NÃO CONFIGURADO');
+    console.log('[Appointment]   - Início (estruturado):', aiKnowledge?.businessHoursStart ?? 'NÃO CONFIGURADO');
+    console.log('[Appointment]   - Fim (estruturado):', aiKnowledge?.businessHoursEnd ?? 'NÃO CONFIGURADO');
 
-    // Parse dos horários configurados
-    const businessHours = this.parseWorkingHoursConfig(aiKnowledge?.workingHours || null);
+    // Prioriza campos estruturados, faz fallback para texto legado
+    let businessHours: { start: number; end: number } | null = null;
 
-    if (!businessHours) {
-      console.log('[Appointment] ❌ ERRO: Horário de funcionamento não configurado no sistema');
-      console.log('[Appointment] Por favor, configure o horário de funcionamento em Configurações > IA');
-      return [];
+    // Se tem os campos estruturados preenchidos, usa eles
+    if (aiKnowledge?.businessHoursStart != null && aiKnowledge?.businessHoursEnd != null) {
+      businessHours = {
+        start: aiKnowledge.businessHoursStart,
+        end: aiKnowledge.businessHoursEnd,
+      };
+      console.log('[Appointment] ✅ Usando horário estruturado:', businessHours.start, 'h às', businessHours.end, 'h');
+    } else {
+      // Fallback: tenta parsear do texto legado
+      businessHours = this.parseWorkingHoursConfig(aiKnowledge?.workingHours || null);
+      if (businessHours) {
+        console.log('[Appointment] ✅ Usando horário parseado do texto:', businessHours.start, 'h às', businessHours.end, 'h');
+      }
     }
 
-    console.log('[Appointment] ✅ Horário de funcionamento parseado:', businessHours.start, 'h às', businessHours.end, 'h');
+    if (!businessHours) {
+      // Último fallback: usa horário padrão comercial (9h às 18h)
+      businessHours = { start: 9, end: 18 };
+      console.log('[Appointment] ⚠️ Horário não configurado, usando padrão:', businessHours.start, 'h às', businessHours.end, 'h');
+    }
 
     // Tenta buscar do Google Calendar primeiro
     try {

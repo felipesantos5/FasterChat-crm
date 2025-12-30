@@ -198,6 +198,13 @@ export class AIAppointmentService {
   /**
    * Detecta data na mensagem
    * IMPORTANTE: Sempre trabalha no timezone do Brasil para evitar bugs de timezone
+   *
+   * Detecta:
+   * - "hoje", "amanhã"
+   * - "dia 2", "dia 15", "no dia 3"
+   * - "segunda-feira", "terça", etc.
+   * - "10/12", "10/12/2025"
+   * - "semana que vem", "próxima semana"
    */
   detectDate(message: string): string | null {
     const timeZone = 'America/Sao_Paulo';
@@ -239,6 +246,38 @@ export class AIAppointmentService {
       }
     }
 
+    // 🆕 NOVO: Detecta "dia X" (ex: "dia 2", "dia 15", "no dia 3", "pro dia 10")
+    const dayOnlyMatch = lowerMessage.match(/(?:dia|no dia|pro dia|para o dia|pra o dia|para dia|pra dia)\s+(\d{1,2})/);
+    if (dayOnlyMatch) {
+      const dayNumber = parseInt(dayOnlyMatch[1]);
+
+      // Validação básica do dia (1-31)
+      if (dayNumber >= 1 && dayNumber <= 31) {
+        let targetDate = new Date(nowInBrazil);
+        targetDate.setDate(dayNumber);
+
+        // Se o dia já passou neste mês, vai pro próximo mês
+        if (targetDate <= nowInBrazil) {
+          targetDate.setMonth(targetDate.getMonth() + 1);
+          targetDate.setDate(dayNumber);
+        }
+
+        // Verifica se o dia existe no mês alvo (ex: 31 de fevereiro não existe)
+        if (targetDate.getDate() !== dayNumber) {
+          // Dia inválido para o mês, tenta próximo mês válido
+          targetDate.setMonth(targetDate.getMonth() + 1);
+          targetDate.setDate(dayNumber);
+        }
+
+        const result = format(targetDate, 'yyyy-MM-dd');
+        console.log(`[AIAppointment] Detectado: "dia ${dayNumber}"`);
+        console.log(`[AIAppointment]   - Mês alvo: ${format(targetDate, 'MMMM/yyyy', { locale: ptBR })}`);
+        console.log(`[AIAppointment]   - Data final: ${result} (${format(targetDate, 'EEEE, dd/MM/yyyy', { locale: ptBR })})`);
+
+        return result;
+      }
+    }
+
     // Dias da semana - CORRIGIDO: mapeia corretamente para getDay()
     const weekdayMap: { [key: string]: number } = {
       'domingo': 0,
@@ -275,6 +314,20 @@ export class AIAppointmentService {
 
         return result;
       }
+    }
+
+    // 🆕 NOVO: Detecta "semana que vem" ou "próxima semana" (assume segunda-feira)
+    if (lowerMessage.includes('semana que vem') || lowerMessage.includes('proxima semana') || lowerMessage.includes('próxima semana')) {
+      const todayWeekday = nowInBrazil.getDay();
+      // Segunda-feira da próxima semana
+      const daysUntilMonday = todayWeekday === 0 ? 1 : 8 - todayWeekday;
+
+      const targetDate = new Date(nowInBrazil);
+      targetDate.setDate(targetDate.getDate() + daysUntilMonday);
+
+      const result = format(targetDate, 'yyyy-MM-dd');
+      console.log(`[AIAppointment] Detectado: próxima semana (segunda-feira) = ${result}`);
+      return result;
     }
 
     return null;

@@ -14,6 +14,7 @@ interface Product {
   price?: string | number;
   description?: string;
   category?: string;
+  salesLink?: string; // Link de venda/checkout para produtos virtuais ou mensalidades
 }
 
 interface SearchResult {
@@ -260,6 +261,9 @@ export async function handleGetProductInfo(args: {
     if (results.length > 0) {
       const topResults = results.slice(0, 5); // Top 5 resultados (aumentado de 3)
 
+      // Verifica se algum produto tem link de venda
+      const hasSalesLinks = topResults.some(p => p.salesLink);
+
       return {
         query,
         found: true,
@@ -268,9 +272,12 @@ export async function handleGetProductInfo(args: {
           name: p.name,
           price: p.price,
           description: p.description || 'Sem descrição cadastrada',
-          category: p.category || 'Sem categoria'
+          category: p.category || 'Sem categoria',
+          salesLink: p.salesLink || null // Link de compra/checkout quando disponível
         })),
-        instruction: `Encontrei ${results.length} produto(s) relacionado(s). Use TODAS as informações acima (nome, preço, descrição e categoria) para responder ao cliente de forma completa e precisa. A DESCRIÇÃO contém detalhes importantes sobre o produto/serviço.`
+        instruction: hasSalesLinks
+          ? `Encontrei ${results.length} produto(s) relacionado(s). Use TODAS as informações acima (nome, preço, descrição e categoria) para responder ao cliente. IMPORTANTE: Quando o cliente demonstrar interesse em comprar, envie o link de venda (salesLink) para ele finalizar a compra. Exemplo: "Você pode adquirir pelo link: [link]"`
+          : `Encontrei ${results.length} produto(s) relacionado(s). Use TODAS as informações acima (nome, preço, descrição e categoria) para responder ao cliente de forma completa e precisa. A DESCRIÇÃO contém detalhes importantes sobre o produto/serviço.`
       };
     }
 
@@ -338,9 +345,13 @@ export async function handleCalculateQuote(args: {
         description: bestMatch.description,
         original_price_string: bestMatch.price,
         numeric_price: price, // IMPORTANTE: IA usa isso para contas
-        currency: "BRL"
+        currency: "BRL",
+        salesLink: bestMatch.salesLink || null // Link de compra/checkout quando disponível
       },
-      disclaimer: "Este valor é baseado na tabela oficial. Custos adicionais de deslocamento ou peças podem aplicar."
+      disclaimer: "Este valor é baseado na tabela oficial. Custos adicionais de deslocamento ou peças podem aplicar.",
+      instruction: bestMatch.salesLink
+        ? `Se o cliente quiser comprar, envie o link de venda: ${bestMatch.salesLink}`
+        : undefined
     };
 
   } catch (error) {
