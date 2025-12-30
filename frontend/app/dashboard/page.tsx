@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+// import { useRouter } from "next/navigation";
 import { useDashboardStats, useDashboardCharts } from "@/hooks/use-dashboard";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+// import {
+//   Card,
+//   CardContent,
+//   CardHeader,
+//   CardTitle,
+// } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
 import {
@@ -18,7 +18,7 @@ import {
   // AppointmentsStatusChart,
   CustomerActivityChart,
 } from "@/components/dashboard/charts";
-import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
+// import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
 import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, CalendarClock, CheckCircle } from "lucide-react";
 import { cards, typography, spacing } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
@@ -38,7 +38,7 @@ export default function DashboardPage() {
 }
 
 function DashboardPageContent() {
-  const router = useRouter();
+  // const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const [period] = useState<PeriodType>("week");
   const [chartPeriod] = useState<ChartPeriodType>("month");
