@@ -483,25 +483,38 @@ async getAvailableSlots(
       const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
       // 🔥 SOLUÇÃO DEFINITIVA DE TIMEZONE:
-      // O Google Calendar API aceita dateTime no formato ISO COM offset
-      // Exemplo: "2025-01-02T14:00:00-03:00"
-      // Isso elimina qualquer ambiguidade de timezone!
+      // Usa Intl.DateTimeFormat nativo do JavaScript
+      // Funciona corretamente independente do timezone do servidor!
 
-      // Função helper para formatar Date para ISO com offset de São Paulo
       const formatForGoogleCalendar = (date: Date): string => {
-        // Converte UTC para horário de São Paulo (UTC-3)
-        const saoPauloOffset = -3 * 60; // -180 minutos
-        const localDate = new Date(date.getTime() + (saoPauloOffset * 60 * 1000) + (date.getTimezoneOffset() * 60 * 1000));
+        // Usa Intl.DateTimeFormat para formatar no timezone de São Paulo
+        // Isso funciona mesmo se o servidor estiver em UTC, AWS, Docker, etc.
+        const options: Intl.DateTimeFormatOptions = {
+          timeZone: 'America/Sao_Paulo',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        };
 
-        const year = localDate.getFullYear();
-        const month = String(localDate.getMonth() + 1).padStart(2, '0');
-        const day = String(localDate.getDate()).padStart(2, '0');
-        const hours = String(localDate.getHours()).padStart(2, '0');
-        const minutes = String(localDate.getMinutes()).padStart(2, '0');
-        const seconds = String(localDate.getSeconds()).padStart(2, '0');
+        const formatter = new Intl.DateTimeFormat('sv-SE', options); // sv-SE usa formato ISO
+        const parts = formatter.formatToParts(date);
 
-        // Retorna no formato ISO com offset de São Paulo
-        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`;
+        const getPart = (type: string) => parts.find(p => p.type === type)?.value || '00';
+
+        const year = getPart('year');
+        const month = getPart('month');
+        const day = getPart('day');
+        const hour = getPart('hour');
+        const minute = getPart('minute');
+        const second = getPart('second');
+
+        // Retorna no formato que Google Calendar espera
+        // SEM offset, porque já especificamos timeZone no objeto
+        return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
       };
 
       const startDateTime = formatForGoogleCalendar(eventData.start);
@@ -632,17 +645,22 @@ async getAvailableSlots(
     const calendarConfig = await this.loadTokens(companyId);
     const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
-    // Função helper para formatar Date para ISO com offset de São Paulo
+    // Função helper usando Intl.DateTimeFormat
     const formatForGoogleCalendar = (date: Date): string => {
-      const saoPauloOffset = -3 * 60;
-      const localDate = new Date(date.getTime() + (saoPauloOffset * 60 * 1000) + (date.getTimezoneOffset() * 60 * 1000));
-      const year = localDate.getFullYear();
-      const month = String(localDate.getMonth() + 1).padStart(2, '0');
-      const day = String(localDate.getDate()).padStart(2, '0');
-      const hours = String(localDate.getHours()).padStart(2, '0');
-      const minutes = String(localDate.getMinutes()).padStart(2, '0');
-      const seconds = String(localDate.getSeconds()).padStart(2, '0');
-      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`;
+      const options: Intl.DateTimeFormatOptions = {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      };
+      const formatter = new Intl.DateTimeFormat('sv-SE', options);
+      const parts = formatter.formatToParts(date);
+      const getPart = (type: string) => parts.find(p => p.type === type)?.value || '00';
+      return `${getPart('year')}-${getPart('month')}-${getPart('day')}T${getPart('hour')}:${getPart('minute')}:${getPart('second')}`;
     };
 
     const updates: calendar_v3.Schema$Event = {
