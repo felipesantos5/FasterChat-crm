@@ -387,49 +387,128 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
          }
       }
 
-      // ... (O resto do método processInboundMessage continua igual: processamento de áudio, imagem, criação da mensagem) ...
-      // Certifique-se de manter todo o bloco de processamento de mídia e o createMessage final
-      
-      // --- BLOCO DE MÍDIA E CRIAÇÃO (MANTIDO RESUMIDO AQUI PARA CONTEXTO) ---
+      // ==================================================================================
+      // PROCESSAMENTO DE MÍDIA E CONTEÚDO
+      // ==================================================================================
       let content = "";
       let mediaType = "text";
-      let mediaUrl = null;
+      let mediaUrl: string | null = null;
       const msgData = data.message;
 
+      console.log(`[MessageService] 📨 Processando mensagem de ${customer.name} (${phone})`);
+      console.log(`[MessageService] Tipo de mensagem disponíveis:`, Object.keys(msgData || {}));
+
+      // 1. MENSAGEM DE TEXTO
       if (msgData?.conversation || msgData?.extendedTextMessage?.text) {
         content = msgData.conversation || msgData.extendedTextMessage.text;
-      } else if (msgData?.audioMessage) {
-        // ... (seu código de áudio existente) ...
+        console.log(`[MessageService] ✅ Mensagem de texto: ${content.substring(0, 50)}...`);
+      }
+      // 2. MENSAGEM DE ÁUDIO
+      else if (msgData?.audioMessage) {
         mediaType = "audio";
-        // Recupere a lógica original do áudio aqui
-         // Exemplo rápido para não quebrar:
-         if (msgData.audioMessage.base64) {
-             const buffer = Buffer.from(msgData.audioMessage.base64, "base64");
-             content = await openaiService.transcribeAudio(msgData.audioMessage.base64);
-             mediaUrl = `data:audio/ogg;base64,${msgData.audioMessage.base64}`;
-         }
-      } else if (msgData?.imageMessage) {
-         // ... (seu código de imagem existente) ...
-         mediaType = "image";
-         if (msgData.imageMessage.base64) {
-             mediaUrl = `data:${msgData.imageMessage.mimetype};base64,${msgData.imageMessage.base64}`;
-             content = msgData.imageMessage.caption || "Imagem recebida";
-         }
+        console.log(`[MessageService] 🎤 Áudio recebido - tentando baixar e transcrever...`);
+
+        try {
+          // Baixa o áudio da Evolution API
+          const audioBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+          const base64Audio = audioBuffer.toString("base64");
+
+          // Define a URL do áudio em base64
+          const mimetype = msgData.audioMessage.mimetype || "audio/ogg";
+          mediaUrl = `data:${mimetype};base64,${base64Audio}`;
+
+          console.log(`[MessageService] ✅ Áudio baixado: ${(base64Audio.length / 1024).toFixed(2)} KB`);
+
+          // Transcreve o áudio com OpenAI
+          try {
+            content = await openaiService.transcribeAudio(base64Audio);
+            console.log(`[MessageService] ✅ Áudio transcrito: ${content.substring(0, 50)}...`);
+          } catch (transcribeError: any) {
+            console.error(`[MessageService] ⚠️ Erro ao transcrever áudio:`, transcribeError.message);
+            content = "[Áudio recebido - transcrição indisponível]";
+          }
+        } catch (downloadError: any) {
+          console.error(`[MessageService] ❌ Erro ao baixar áudio:`, downloadError.message);
+          content = "[Áudio recebido - erro ao processar]";
+        }
+      }
+      // 3. MENSAGEM DE IMAGEM
+      else if (msgData?.imageMessage) {
+        mediaType = "image";
+        console.log(`[MessageService] 🖼️ Imagem recebida - tentando baixar...`);
+
+        try {
+          // Baixa a imagem da Evolution API
+          const imageBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+          const base64Image = imageBuffer.toString("base64");
+
+          // Define a URL da imagem em base64
+          const mimetype = msgData.imageMessage.mimetype || "image/jpeg";
+          mediaUrl = `data:${mimetype};base64,${base64Image}`;
+
+          // Usa a legenda se disponível
+          content = msgData.imageMessage.caption || "Imagem recebida";
+
+          console.log(`[MessageService] ✅ Imagem baixada: ${(base64Image.length / 1024).toFixed(2)} KB`);
+        } catch (downloadError: any) {
+          console.error(`[MessageService] ❌ Erro ao baixar imagem:`, downloadError.message);
+          content = "[Imagem recebida - erro ao processar]";
+        }
+      }
+      // 4. MENSAGEM DE VÍDEO
+      else if (msgData?.videoMessage) {
+        mediaType = "video";
+        console.log(`[MessageService] 🎬 Vídeo recebido`);
+        content = msgData.videoMessage.caption || "Vídeo recebido";
+        // Vídeos são muito grandes para baixar, apenas registra a mensagem
+      }
+      // 5. MENSAGEM DE DOCUMENTO
+      else if (msgData?.documentMessage) {
+        mediaType = "document";
+        console.log(`[MessageService] 📄 Documento recebido`);
+        content = msgData.documentMessage.fileName || "Documento recebido";
+      }
+      // 6. MENSAGEM DE STICKER
+      else if (msgData?.stickerMessage) {
+        mediaType = "sticker";
+        console.log(`[MessageService] 🎨 Sticker recebido`);
+        content = "[Sticker]";
+      }
+      // 7. MENSAGEM DE LOCALIZAÇÃO
+      else if (msgData?.locationMessage) {
+        mediaType = "location";
+        console.log(`[MessageService] 📍 Localização recebida`);
+        content = `Localização: ${msgData.locationMessage.degreesLatitude}, ${msgData.locationMessage.degreesLongitude}`;
+      }
+      // 8. MENSAGEM DE CONTATO
+      else if (msgData?.contactMessage) {
+        mediaType = "contact";
+        console.log(`[MessageService] 👤 Contato recebido`);
+        content = msgData.contactMessage.displayName || "Contato recebido";
       }
 
-      if (!content && !mediaUrl) return null;
+      // Se não conseguiu extrair conteúdo, retorna null
+      if (!content && !mediaUrl) {
+        console.log(`[MessageService] ⚠️ Mensagem sem conteúdo válido - ignorando`);
+        return null;
+      }
 
+      // ==================================================================================
+      // CRIA A MENSAGEM NO BANCO
+      // ==================================================================================
       const message = await this.createMessage({
         customerId: customer.id,
         whatsappInstanceId: instance.id,
         direction: MessageDirection.INBOUND,
         content,
-        timestamp: new Date((data.messageTimestamp || Date.now()) * 1000),
+        timestamp: new Date((data.messageTimestamp || Date.now() / 1000) * 1000),
         messageId: data.key.id,
         status: MessageStatus.DELIVERED,
         mediaType,
         mediaUrl,
       });
+
+      console.log(`[MessageService] ✅ Mensagem salva: ID ${message.id}, Tipo: ${mediaType}`);
 
       return { message, customer, instance };
 
