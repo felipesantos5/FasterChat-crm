@@ -14,7 +14,6 @@ import {
   DollarSign,
   Loader2,
   HelpCircle,
-  AlertCircle,
 } from "lucide-react";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import api from "@/lib/api";
