@@ -14,6 +14,7 @@ interface Product {
   price?: string | number;
   description?: string;
   category?: string;
+  salesLink?: string; // Link de venda/checkout para produtos virtuais ou mensalidades
 }
 
 interface SearchResult {
@@ -29,62 +30,34 @@ interface SearchResult {
  * Cria uma data no timezone do Brasil (America/Sao_Paulo)
  * Garante que quando o cliente fala "08:00", é realmente 08:00 no horário de Brasília
  *
+ * ABORDAGEM SIMPLIFICADA E CONFIÁVEL:
+ * - Cria a Date diretamente usando o offset de São Paulo (-03:00)
+ * - Funciona independente do timezone do servidor (UTC, AWS, Docker, etc.)
+ *
  * @param dateString Data no formato YYYY-MM-DD (ex: "2024-12-25")
  * @param timeString Hora no formato HH:mm (ex: "08:00")
  * @returns Date object no timezone correto
  */
 function createBrazilDate(dateString: string, timeString: string): Date {
-  // Parse manual da data e hora
-  const [year, month, day] = dateString.split('-').map(Number);
-  const [hours, minutes] = timeString.split(':').map(Number);
+  // São Paulo está em UTC-3 (Brasil não usa mais horário de verão desde 2019)
+  const SAO_PAULO_OFFSET = '-03:00';
 
-  // FIX: Criar data interpretando como se fosse São Paulo
-  // new Date(y,m,d,h,m) cria no timezone da máquina (pode ser UTC)
-  // Solução: criar em UTC e depois ajustar pelo offset de São Paulo
+  // Cria a data diretamente no formato ISO com o offset correto
+  // Exemplo: "2025-01-02T14:00:00-03:00"
+  const isoString = `${dateString}T${timeString}:00${SAO_PAULO_OFFSET}`;
 
-  // São Paulo tem offset de UTC-3 (ou UTC-2 em horário de verão)
-  // Vamos usar o offset correto baseado na data
-  const tempDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  const date = new Date(isoString);
 
-  // Formatar como string em PT-BR com São Paulo timezone para pegar o offset
-  const brazilFormatter = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
+  console.log('[Helper] ============================================');
+  console.log('[Helper] CRIANDO DATA - TIMEZONE BRASIL');
+  console.log('[Helper] ============================================');
+  console.log('[Helper] Input:', dateString, timeString);
+  console.log('[Helper] ISO String criada:', isoString);
+  console.log('[Helper] Date UTC (interno):', date.toISOString());
+  console.log('[Helper] Verificação - Hora em São Paulo:', date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+  console.log('[Helper] ============================================');
 
-  // Calcular a diferença entre a hora em São Paulo e UTC
-  const parts = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(tempDate);
-
-  const brazilHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
-  const brazilMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
-
-  // Calcular offset em minutos
-  const offsetMinutes = (hours - brazilHour) * 60 + (minutes - brazilMinute);
-
-  // Criar a data final ajustando pelo offset
-  const correctDate = new Date(tempDate.getTime() - offsetMinutes * 60000);
-
-  console.log('[Helper] Criando data Brasil:');
-  console.log('[Helper]   Input:', dateString, timeString);
-  console.log('[Helper]   Offset aplicado:', offsetMinutes, 'minutos');
-  console.log('[Helper]   Output ISO:', correctDate.toISOString());
-  console.log('[Helper]   Output (BR):', correctDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-
-  return correctDate;
+  return date;
 }
 
 /**
@@ -260,6 +233,9 @@ export async function handleGetProductInfo(args: {
     if (results.length > 0) {
       const topResults = results.slice(0, 5); // Top 5 resultados (aumentado de 3)
 
+      // Verifica se algum produto tem link de venda
+      const hasSalesLinks = topResults.some(p => p.salesLink);
+
       return {
         query,
         found: true,
@@ -268,9 +244,12 @@ export async function handleGetProductInfo(args: {
           name: p.name,
           price: p.price,
           description: p.description || 'Sem descrição cadastrada',
-          category: p.category || 'Sem categoria'
+          category: p.category || 'Sem categoria',
+          salesLink: p.salesLink || null // Link de compra/checkout quando disponível
         })),
-        instruction: `Encontrei ${results.length} produto(s) relacionado(s). Use TODAS as informações acima (nome, preço, descrição e categoria) para responder ao cliente de forma completa e precisa. A DESCRIÇÃO contém detalhes importantes sobre o produto/serviço.`
+        instruction: hasSalesLinks
+          ? `Encontrei ${results.length} produto(s) relacionado(s). Use TODAS as informações acima (nome, preço, descrição e categoria) para responder ao cliente. IMPORTANTE: Quando o cliente demonstrar interesse em comprar, envie o link de venda (salesLink) para ele finalizar a compra. Exemplo: "Você pode adquirir pelo link: [link]"`
+          : `Encontrei ${results.length} produto(s) relacionado(s). Use TODAS as informações acima (nome, preço, descrição e categoria) para responder ao cliente de forma completa e precisa. A DESCRIÇÃO contém detalhes importantes sobre o produto/serviço.`
       };
     }
 
@@ -338,9 +317,13 @@ export async function handleCalculateQuote(args: {
         description: bestMatch.description,
         original_price_string: bestMatch.price,
         numeric_price: price, // IMPORTANTE: IA usa isso para contas
-        currency: "BRL"
+        currency: "BRL",
+        salesLink: bestMatch.salesLink || null // Link de compra/checkout quando disponível
       },
-      disclaimer: "Este valor é baseado na tabela oficial. Custos adicionais de deslocamento ou peças podem aplicar."
+      disclaimer: "Este valor é baseado na tabela oficial. Custos adicionais de deslocamento ou peças podem aplicar.",
+      instruction: bestMatch.salesLink
+        ? `Se o cliente quiser comprar, envie o link de venda: ${bestMatch.salesLink}`
+        : undefined
     };
 
   } catch (error) {
@@ -355,22 +338,26 @@ export async function handleCalculateQuote(args: {
  * Integrado com Google Calendar quando disponível
  */
 export async function handleGetAvailableSlots(args: {
-  service_type: string;
+  service_type?: string;
   preferred_date?: string;
   companyId: string;
 }) {
   try {
     const { preferred_date, companyId, service_type } = args;
 
+    console.log('[Tool] GetAvailableSlots: Iniciando busca');
+    console.log('[Tool] GetAvailableSlots: service_type =', service_type || '(não especificado)');
+    console.log('[Tool] GetAvailableSlots: preferred_date =', preferred_date || '(próximos 7 dias)');
+
     // Busca a duração do serviço do catálogo da empresa
-    let slotDuration = 60; // Duração padrão
+    let slotDuration = 60; // Duração padrão de 1 hora
     try {
       const aiKnowledge = await prisma.aIKnowledge.findUnique({
         where: { companyId },
         select: { products: true }
       });
 
-      if (aiKnowledge?.products) {
+      if (aiKnowledge?.products && service_type) {
         const products = Array.isArray(aiKnowledge.products)
           ? aiKnowledge.products
           : JSON.parse(typeof aiKnowledge.products === 'string' ? aiKnowledge.products : '[]');
@@ -383,6 +370,7 @@ export async function handleGetAvailableSlots(args: {
         // Se o serviço tiver duração configurada, usa; senão mantém o padrão
         if (service?.duration) {
           slotDuration = parseInt(service.duration);
+          console.log('[Tool] GetAvailableSlots: Duração do serviço encontrada:', slotDuration, 'min');
         }
       }
     } catch (error) {

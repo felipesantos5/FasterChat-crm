@@ -1,49 +1,38 @@
 import { prisma } from '../utils/prisma';
 import { appointmentService } from './appointment.service';
 import { AppointmentType } from '@prisma/client';
+import { formatInTimeZone } from 'date-fns-tz';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 /**
  * Cria uma data no timezone do Brasil (America/Sao_Paulo)
- * Garante que quando o cliente fala "08:00", é realmente 08:00 no horário de Brasília
+ *
+ * ABORDAGEM SIMPLIFICADA:
+ * - Cria a Date diretamente usando o offset de São Paulo (-03:00)
+ * - Evita conversões desnecessárias que causam bugs de timezone
+ * - O Google Calendar receberá a data no formato correto
  */
 function createBrazilDateTime(dateString: string, timeString: string): Date {
-  // Parse da data YYYY-MM-DD
-  const [year, month, day] = dateString.split('-').map(Number);
-  // Parse da hora HH:mm
-  const [hours, minutes] = timeString.split(':').map(Number);
+  // São Paulo está em UTC-3 (Brasil não usa mais horário de verão desde 2019)
+  const SAO_PAULO_OFFSET = '-03:00';
 
-  // FIX: Criar data interpretando como se fosse São Paulo
-  // new Date(y,m,d,h,m) cria no timezone da máquina (pode ser UTC)
-  // Solução: criar em UTC e depois ajustar pelo offset de São Paulo
+  // Cria a data diretamente no formato ISO com o offset correto
+  // Exemplo: "2025-01-02T14:00:00-03:00"
+  const isoString = `${dateString}T${timeString}:00${SAO_PAULO_OFFSET}`;
 
-  const tempDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  const date = new Date(isoString);
 
-  // Calcular a diferença entre a hora em São Paulo e UTC
-  const parts = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(tempDate);
+  console.log('[AIAppointment] ============================================');
+  console.log('[AIAppointment] CRIANDO AGENDAMENTO - TIMEZONE BRASIL');
+  console.log('[AIAppointment] ============================================');
+  console.log('[AIAppointment] Input:', dateString, timeString);
+  console.log('[AIAppointment] ISO String criada:', isoString);
+  console.log('[AIAppointment] Date UTC (interno):', date.toISOString());
+  console.log('[AIAppointment] Hora em São Paulo:', timeString, '(o que o cliente pediu)');
+  console.log('[AIAppointment] ============================================');
 
-  const brazilHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
-  const brazilMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
-
-  // Calcular offset em minutos
-  const offsetMinutes = (hours - brazilHour) * 60 + (minutes - brazilMinute);
-
-  // Criar a data final ajustando pelo offset
-  const correctDate = new Date(tempDate.getTime() - offsetMinutes * 60000);
-
-  console.log('[AIAppointment] Criando data Brasil:', dateString, timeString);
-  console.log('[AIAppointment]   Offset aplicado:', offsetMinutes, 'minutos');
-  console.log('[AIAppointment]   ISO:', correctDate.toISOString());
-  console.log('[AIAppointment]   BR:', correctDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-
-  return correctDate;
+  return date;
 }
 
 /**
@@ -57,6 +46,7 @@ interface AppointmentState {
   duration?: number; // minutos
   description?: string;
   availableSlots?: Array<{ start: Date; end: Date }>;
+  currentSlotPage?: number; // Controla qual "página" de slots está mostrando (0 = primeiros 6, 1 = próximos 6, etc.)
 
   // Dados de endereço
   address?: {
@@ -207,21 +197,36 @@ export class AIAppointmentService {
 
   /**
    * Detecta data na mensagem
+   * IMPORTANTE: Sempre trabalha no timezone do Brasil para evitar bugs de timezone
+   *
+   * Detecta:
+   * - "hoje", "amanhã"
+   * - "dia 2", "dia 15", "no dia 3"
+   * - "segunda-feira", "terça", etc.
+   * - "10/12", "10/12/2025"
+   * - "semana que vem", "próxima semana"
    */
   detectDate(message: string): string | null {
-    const today = new Date();
+    const timeZone = 'America/Sao_Paulo';
     const lowerMessage = message.toLowerCase();
+
+    // Pega a data ATUAL no timezone do Brasil (não UTC!)
+    const nowInBrazil = new Date(formatInTimeZone(new Date(), timeZone, 'yyyy-MM-dd HH:mm:ss'));
 
     // Amanhã
     if (lowerMessage.includes('amanhã') || lowerMessage.includes('amanha')) {
-      const tomorrow = new Date(today);
+      const tomorrow = new Date(nowInBrazil);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      return tomorrow.toISOString().split('T')[0];
+      const result = format(tomorrow, 'yyyy-MM-dd');
+      console.log(`[AIAppointment] Detectado: amanhã = ${result}`);
+      return result;
     }
 
     // Hoje
     if (lowerMessage.includes('hoje')) {
-      return today.toISOString().split('T')[0];
+      const result = format(nowInBrazil, 'yyyy-MM-dd');
+      console.log(`[AIAppointment] Detectado: hoje = ${result}`);
+      return result;
     }
 
     // Formato DD/MM ou DD/MM/YYYY
@@ -229,11 +234,47 @@ export class AIAppointmentService {
     if (dateMatch) {
       const day = parseInt(dateMatch[1]);
       const month = parseInt(dateMatch[2]) - 1; // JS months are 0-indexed
-      const year = dateMatch[3] ? (dateMatch[3].length === 2 ? 2000 + parseInt(dateMatch[3]) : parseInt(dateMatch[3])) : today.getFullYear();
+      const year = dateMatch[3]
+        ? (dateMatch[3].length === 2 ? 2000 + parseInt(dateMatch[3]) : parseInt(dateMatch[3]))
+        : nowInBrazil.getFullYear();
 
       const date = new Date(year, month, day);
       if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
+        const result = format(date, 'yyyy-MM-dd');
+        console.log(`[AIAppointment] Detectado: data formatada ${day}/${month + 1}/${year} = ${result}`);
+        return result;
+      }
+    }
+
+    // 🆕 NOVO: Detecta "dia X" (ex: "dia 2", "dia 15", "no dia 3", "pro dia 10")
+    const dayOnlyMatch = lowerMessage.match(/(?:dia|no dia|pro dia|para o dia|pra o dia|para dia|pra dia)\s+(\d{1,2})/);
+    if (dayOnlyMatch) {
+      const dayNumber = parseInt(dayOnlyMatch[1]);
+
+      // Validação básica do dia (1-31)
+      if (dayNumber >= 1 && dayNumber <= 31) {
+        let targetDate = new Date(nowInBrazil);
+        targetDate.setDate(dayNumber);
+
+        // Se o dia já passou neste mês, vai pro próximo mês
+        if (targetDate <= nowInBrazil) {
+          targetDate.setMonth(targetDate.getMonth() + 1);
+          targetDate.setDate(dayNumber);
+        }
+
+        // Verifica se o dia existe no mês alvo (ex: 31 de fevereiro não existe)
+        if (targetDate.getDate() !== dayNumber) {
+          // Dia inválido para o mês, tenta próximo mês válido
+          targetDate.setMonth(targetDate.getMonth() + 1);
+          targetDate.setDate(dayNumber);
+        }
+
+        const result = format(targetDate, 'yyyy-MM-dd');
+        console.log(`[AIAppointment] Detectado: "dia ${dayNumber}"`);
+        console.log(`[AIAppointment]   - Mês alvo: ${format(targetDate, 'MMMM/yyyy', { locale: ptBR })}`);
+        console.log(`[AIAppointment]   - Data final: ${result} (${format(targetDate, 'EEEE, dd/MM/yyyy', { locale: ptBR })})`);
+
+        return result;
       }
     }
 
@@ -252,19 +293,41 @@ export class AIAppointmentService {
 
     for (const [weekdayName, weekdayIndex] of Object.entries(weekdayMap)) {
       if (lowerMessage.includes(weekdayName)) {
-        let daysUntil = weekdayIndex - today.getDay();
+        const todayWeekday = nowInBrazil.getDay();
+        let daysUntil = weekdayIndex - todayWeekday;
 
         // Se o dia já passou nesta semana, pega na próxima
         if (daysUntil <= 0) {
           daysUntil += 7;
         }
 
-        const targetDate = new Date(today);
+        const targetDate = new Date(nowInBrazil);
         targetDate.setDate(targetDate.getDate() + daysUntil);
 
-        console.log(`[AIAppointment] Detectado: ${weekdayName} (índice ${weekdayIndex}), hoje é ${today.getDay()}, dias até: ${daysUntil}`);
-        return targetDate.toISOString().split('T')[0];
+        const result = format(targetDate, 'yyyy-MM-dd');
+
+        console.log(`[AIAppointment] Detectado: ${weekdayName}`);
+        console.log(`[AIAppointment]   - Índice do dia: ${weekdayIndex}`);
+        console.log(`[AIAppointment]   - Hoje é: ${todayWeekday} (${format(nowInBrazil, 'EEEE', { locale: ptBR })})`);
+        console.log(`[AIAppointment]   - Dias até: ${daysUntil}`);
+        console.log(`[AIAppointment]   - Data final: ${result} (${format(targetDate, 'EEEE, dd/MM/yyyy', { locale: ptBR })})`);
+
+        return result;
       }
+    }
+
+    // 🆕 NOVO: Detecta "semana que vem" ou "próxima semana" (assume segunda-feira)
+    if (lowerMessage.includes('semana que vem') || lowerMessage.includes('proxima semana') || lowerMessage.includes('próxima semana')) {
+      const todayWeekday = nowInBrazil.getDay();
+      // Segunda-feira da próxima semana
+      const daysUntilMonday = todayWeekday === 0 ? 1 : 8 - todayWeekday;
+
+      const targetDate = new Date(nowInBrazil);
+      targetDate.setDate(targetDate.getDate() + daysUntilMonday);
+
+      const result = format(targetDate, 'yyyy-MM-dd');
+      console.log(`[AIAppointment] Detectado: próxima semana (segunda-feira) = ${result}`);
+      return result;
     }
 
     return null;
@@ -712,27 +775,37 @@ export class AIAppointmentService {
       }
 
       state.availableSlots = slots;
+      state.currentSlotPage = 0; // Inicia na primeira página (primeiros 6 horários)
       state.step = 'COLLECTING_TIME';
       await this.saveAppointmentState(customerId, state);
 
-      // Formata os primeiros 6 slots
+      // Formata a data para exibição
       const dateFormatted = selectedDate.toLocaleDateString('pt-BR', {
         weekday: 'long',
         day: '2-digit',
         month: 'long'
       });
 
-      const slotsText = slots
-        .slice(0, 6)
+      // Mostra os primeiros 6 slots
+      const slotsToShow = slots.slice(0, 6);
+      const slotsText = slotsToShow
         .map((slot, index) => {
           const time = this.slotToTimeString(slot.start);
           return `${index + 1}️⃣ ${time}`;
         })
         .join('\n');
 
+      // Mensagem com dica sobre horários alternativos
+      let responseMessage = `Boa! Entendi que é pra ${dateFormatted} 📅\n\nHorários disponíveis:\n\n${slotsText}\n\nQual desses é melhor pra você? Pode mandar o número ou o horário direto`;
+
+      // Se tem mais horários disponíveis, avisa
+      if (slots.length > 6) {
+        responseMessage += `\n\n💡 Tenho mais ${slots.length - 6} horários disponíveis. Se quiser ver mais opções, fala "mais tarde" ou "mais cedo"`;
+      }
+
       return {
         shouldContinue: true,
-        response: `Boa! Entendi que é pra ${dateFormatted} 📅\n\nHorários disponíveis:\n\n${slotsText}\n\nQual desses é melhor pra você? Pode mandar o número ou o horário direto`,
+        response: responseMessage,
       };
     } catch (error: any) {
       console.error('[AIAppointment] Error fetching slots:', error);
@@ -752,12 +825,89 @@ export class AIAppointmentService {
     message: string,
     state: AppointmentState
   ): Promise<{ shouldContinue: boolean; response: string }> {
+    const lowerMessage = message.toLowerCase();
 
-    // Tenta detectar por número (1-6)
+    if (!state.availableSlots || state.availableSlots.length === 0) {
+      return {
+        shouldContinue: true,
+        response: `Ops, perdi os horários disponíveis 😅\n\nPode me falar o dia de novo?`,
+      };
+    }
+
+    const currentPage = state.currentSlotPage || 0;
+
+    // Detecta solicitação de "mais tarde" ou "mais cedo"
+    const wantsLater = lowerMessage.includes('mais tarde') || lowerMessage.includes('depois') || lowerMessage.includes('outro') || lowerMessage.includes('outros horários');
+    const wantsEarlier = lowerMessage.includes('mais cedo') || lowerMessage.includes('antes') || lowerMessage.includes('anterior');
+
+    if (wantsLater) {
+      // Mostra próximos 6 horários
+      const startIndex = (currentPage + 1) * 6;
+
+      if (startIndex >= state.availableSlots.length) {
+        return {
+          shouldContinue: true,
+          response: `Esses são todos os horários disponíveis que tenho 😊\n\nPode escolher um dos que mostrei?`,
+        };
+      }
+
+      const slotsToShow = state.availableSlots.slice(startIndex, startIndex + 6);
+      const slotsText = slotsToShow
+        .map((slot, index) => {
+          const time = this.slotToTimeString(slot.start);
+          return `${index + 1}️⃣ ${time}`;
+        })
+        .join('\n');
+
+      state.currentSlotPage = currentPage + 1;
+      await this.saveAppointmentState(customerId, state);
+
+      const hasMore = state.availableSlots.length > startIndex + 6;
+      let response = `Aqui vão horários mais tarde:\n\n${slotsText}\n\nQual desses funciona pra você?`;
+
+      if (hasMore) {
+        response += `\n\n💡 Ainda tenho mais opções. Quer ver?`;
+      }
+
+      return {
+        shouldContinue: true,
+        response,
+      };
+    }
+
+    if (wantsEarlier) {
+      // Mostra 6 horários anteriores
+      if (currentPage === 0) {
+        return {
+          shouldContinue: true,
+          response: `Esses já são os horários mais cedo que tenho disponíveis 😊\n\nPode escolher um deles?`,
+        };
+      }
+
+      const startIndex = (currentPage - 1) * 6;
+      const slotsToShow = state.availableSlots.slice(startIndex, startIndex + 6);
+      const slotsText = slotsToShow
+        .map((slot, index) => {
+          const time = this.slotToTimeString(slot.start);
+          return `${index + 1}️⃣ ${time}`;
+        })
+        .join('\n');
+
+      state.currentSlotPage = currentPage - 1;
+      await this.saveAppointmentState(customerId, state);
+
+      return {
+        shouldContinue: true,
+        response: `Aqui vão horários mais cedo:\n\n${slotsText}\n\nQual desses funciona?`,
+      };
+    }
+
+    // Tenta detectar seleção por número (1-6)
     const numberMatch = message.match(/^[1-6]$/);
-    if (numberMatch && state.availableSlots) {
+    if (numberMatch) {
       const index = parseInt(numberMatch[0]) - 1;
-      const selectedSlot = state.availableSlots[index];
+      const startIndex = currentPage * 6;
+      const selectedSlot = state.availableSlots[startIndex + index];
 
       if (selectedSlot) {
         state.time = this.slotToTimeString(selectedSlot.start);
@@ -773,7 +923,7 @@ export class AIAppointmentService {
 
     // Tenta detectar horário no formato HH:mm
     const time = this.detectTime(message);
-    if (time && state.availableSlots) {
+    if (time) {
       // Verifica se o horário está nos slots disponíveis
       const matchingSlot = state.availableSlots.find(slot => {
         const slotTime = this.slotToTimeString(slot.start);
@@ -793,13 +943,13 @@ export class AIAppointmentService {
 
       return {
         shouldContinue: true,
-        response: `Poxa, esse horário não tá disponível 😔\n\nDá uma olhada nos horários que mostrei e escolhe um deles?`,
+        response: `Poxa, esse horário ${time} não tá disponível 😔\n\nDá uma olhada nos horários que mostrei e escolhe um deles? Ou fala "mais tarde" pra ver outras opções`,
       };
     }
 
     return {
       shouldContinue: true,
-      response: `Não entendi o horário 🤔\n\nPode escolher um dos números (1 a 6) que mostrei? Ou mandar o horário tipo 10:00`,
+      response: `Não entendi o horário 🤔\n\nPode escolher um dos números (1 a 6) que mostrei? Ou mandar o horário tipo 10:00\n\nSe quiser ver outros horários, fala "mais tarde" ou "mais cedo"`,
     };
   }
 

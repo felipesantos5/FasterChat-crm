@@ -15,33 +15,29 @@ import { ChatCompletionTool } from 'openai/resources/chat/completions';
 
 /**
  * Tool: Buscar disponibilidade de horários para agendamento
- *
- * ⚠️ REMOVIDA POR POLÍTICA DE "LIMITED USE" DO GOOGLE
- * Esta tool foi removida para cumprir a política de segregação de dados do Google.
- * Agendamentos agora são processados localmente pelo AIAppointmentService,
- * sem enviar dados do Google Calendar para a OpenAI.
+ * Consulta o Google Calendar para encontrar horários livres
  */
-// export const getAvailableSlotsTool: ChatCompletionTool = {
-//   type: 'function',
-//   function: {
-//     name: 'get_available_slots',
-//     description: 'Busca APENAS as brechas de tempo (horários LIVRES) na agenda dentro do horário de funcionamento. Retorna horários REAIS sem conflitos no Google Calendar. Use quando o cliente perguntar: "que horas vocês têm disponível?", "quais horários estão livres?", "quando vocês podem vir?", ou quando precisar verificar disponibilidade antes de agendar. IMPORTANTE: Estes são horários confirmados e disponíveis, não são sugestões.',
-//     parameters: {
-//       type: 'object',
-//       properties: {
-//         service_type: {
-//           type: 'string',
-//           description: 'Nome do serviço desejado pelo cliente conforme cadastrado no seu catálogo de produtos/serviços. Use EXATAMENTE o nome do serviço que está na LISTA OFICIAL DE PRODUTOS.',
-//         },
-//         preferred_date: {
-//           type: 'string',
-//           description: 'Data preferida pelo cliente no formato YYYY-MM-DD (ex: 2024-12-25). Se não especificada, busca nos próximos 7 dias.',
-//         },
-//       },
-//       required: ['service_type'],
-//     },
-//   },
-// };
+export const getAvailableSlotsTool: ChatCompletionTool = {
+  type: 'function',
+  function: {
+    name: 'get_available_slots',
+    description: 'Busca os horários DISPONÍVEIS na agenda do Google Calendar. Use SEMPRE que o cliente perguntar sobre horários livres, disponibilidade, ou quando vocês podem atender. Exemplos: "que horas tem disponível?", "quais horários estão livres na sexta?", "quando vocês podem vir?", "tem horário amanhã?". Retorna horários REAIS e CONFIRMADOS sem conflitos na agenda.',
+    parameters: {
+      type: 'object',
+      properties: {
+        service_type: {
+          type: 'string',
+          description: 'Nome do serviço desejado pelo cliente (ex: "instalação", "manutenção", "consulta"). Usado para calcular a duração do atendimento. Se não souber, use "atendimento".',
+        },
+        preferred_date: {
+          type: 'string',
+          description: 'Data preferida pelo cliente no formato YYYY-MM-DD (ex: 2024-12-25). Se o cliente disser "sexta", "amanhã", "dia 15", converta para o formato correto. Se não especificada, busca nos próximos 7 dias.',
+        },
+      },
+      required: [],
+    },
+  },
+};
 
 /**
  * Tool: Buscar informações sobre produtos/serviços
@@ -208,7 +204,7 @@ export const createAppointmentTool: ChatCompletionTool = {
  * Lista de todas as tools disponíveis
  */
 export const allTools: ChatCompletionTool[] = [
-  // getAvailableSlotsTool, // REMOVIDA - Política Limited Use do Google
+  getAvailableSlotsTool,
   getProductInfoTool,
   getCustomerHistoryTool,
   calculateQuoteTool,
@@ -221,7 +217,7 @@ export const allTools: ChatCompletionTool[] = [
  * Use esta lista para conversas iniciais ou quando precisar economizar
  */
 export const essentialTools: ChatCompletionTool[] = [
-  // getAvailableSlotsTool, // REMOVIDA - Política Limited Use do Google
+  getAvailableSlotsTool,
   createAppointmentTool,
   getProductInfoTool,
   calculateQuoteTool,

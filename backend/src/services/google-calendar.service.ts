@@ -468,8 +468,8 @@ async getAvailableSlots(
     console.log('[GoogleCalendar] 🔄 Iniciando criação de evento...');
     console.log('[GoogleCalendar] Company ID:', companyId);
     console.log('[GoogleCalendar] Event summary:', eventData.summary);
-    console.log('[GoogleCalendar] Start:', eventData.start.toISOString());
-    console.log('[GoogleCalendar] End:', eventData.end.toISOString());
+    console.log('[GoogleCalendar] Start (UTC):', eventData.start.toISOString());
+    console.log('[GoogleCalendar] End (UTC):', eventData.end.toISOString());
 
     try {
       // Carrega e valida tokens
@@ -482,17 +482,61 @@ async getAvailableSlots(
       // Cria cliente do Google Calendar
       const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
+      // 🔥 SOLUÇÃO DEFINITIVA DE TIMEZONE:
+      // Usa Intl.DateTimeFormat nativo do JavaScript
+      // Funciona corretamente independente do timezone do servidor!
+
+      const formatForGoogleCalendar = (date: Date): string => {
+        // Usa Intl.DateTimeFormat para formatar no timezone de São Paulo
+        // Isso funciona mesmo se o servidor estiver em UTC, AWS, Docker, etc.
+        const options: Intl.DateTimeFormatOptions = {
+          timeZone: 'America/Sao_Paulo',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        };
+
+        const formatter = new Intl.DateTimeFormat('sv-SE', options); // sv-SE usa formato ISO
+        const parts = formatter.formatToParts(date);
+
+        const getPart = (type: string) => parts.find(p => p.type === type)?.value || '00';
+
+        const year = getPart('year');
+        const month = getPart('month');
+        const day = getPart('day');
+        const hour = getPart('hour');
+        const minute = getPart('minute');
+        const second = getPart('second');
+
+        // Retorna no formato que Google Calendar espera
+        // SEM offset, porque já especificamos timeZone no objeto
+        return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+      };
+
+      const startDateTime = formatForGoogleCalendar(eventData.start);
+      const endDateTime = formatForGoogleCalendar(eventData.end);
+
+      console.log('[GoogleCalendar] 🕐 Datas formatadas para Google Calendar:');
+      console.log('[GoogleCalendar]   Input Start (UTC):', eventData.start.toISOString());
+      console.log('[GoogleCalendar]   Input End (UTC):', eventData.end.toISOString());
+      console.log('[GoogleCalendar]   Output Start (São Paulo):', startDateTime);
+      console.log('[GoogleCalendar]   Output End (São Paulo):', endDateTime);
+
       // Monta o evento
       const event: calendar_v3.Schema$Event = {
         summary: eventData.summary,
         description: eventData.description,
         location: eventData.location,
         start: {
-          dateTime: eventData.start.toISOString(),
+          dateTime: startDateTime, // Formato: "2025-01-02T08:00:00" (SEM o 'Z'!)
           timeZone: 'America/Sao_Paulo',
         },
         end: {
-          dateTime: eventData.end.toISOString(),
+          dateTime: endDateTime, // Formato: "2025-01-02T09:00:00" (SEM o 'Z'!)
           timeZone: 'America/Sao_Paulo',
         },
         attendees: eventData.attendees?.map((email) => ({ email })),
@@ -601,6 +645,24 @@ async getAvailableSlots(
     const calendarConfig = await this.loadTokens(companyId);
     const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
+    // Função helper usando Intl.DateTimeFormat
+    const formatForGoogleCalendar = (date: Date): string => {
+      const options: Intl.DateTimeFormatOptions = {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      };
+      const formatter = new Intl.DateTimeFormat('sv-SE', options);
+      const parts = formatter.formatToParts(date);
+      const getPart = (type: string) => parts.find(p => p.type === type)?.value || '00';
+      return `${getPart('year')}-${getPart('month')}-${getPart('day')}T${getPart('hour')}:${getPart('minute')}:${getPart('second')}`;
+    };
+
     const updates: calendar_v3.Schema$Event = {
       summary: eventData.summary,
       description: eventData.description,
@@ -609,14 +671,14 @@ async getAvailableSlots(
 
     if (eventData.start) {
       updates.start = {
-        dateTime: eventData.start.toISOString(),
+        dateTime: formatForGoogleCalendar(eventData.start),
         timeZone: 'America/Sao_Paulo',
       };
     }
 
     if (eventData.end) {
       updates.end = {
-        dateTime: eventData.end.toISOString(),
+        dateTime: formatForGoogleCalendar(eventData.end),
         timeZone: 'America/Sao_Paulo',
       };
     }

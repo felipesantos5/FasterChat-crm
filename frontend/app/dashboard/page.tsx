@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+// import { useRouter } from "next/navigation";
 import { useDashboardStats, useDashboardCharts } from "@/hooks/use-dashboard";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+// import {
+//   Card,
+//   CardContent,
+//   CardHeader,
+//   CardTitle,
+// } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
 import {
@@ -18,11 +18,13 @@ import {
   // AppointmentsStatusChart,
   CustomerActivityChart,
 } from "@/components/dashboard/charts";
-import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
+// import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
 import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, CalendarClock, CheckCircle } from "lucide-react";
 import { cards, typography, spacing } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
+import { googleCalendarApi } from "@/lib/google-calendar";
+import { useAuthStore } from "@/lib/store/auth.store";
 
 type PeriodType = "today" | "week" | "month";
 type ChartPeriodType = "week" | "month" | "quarter";
@@ -36,15 +38,36 @@ export default function DashboardPage() {
 }
 
 function DashboardPageContent() {
-  const router = useRouter();
+  // const router = useRouter();
+  const user = useAuthStore((state) => state.user);
   const [period] = useState<PeriodType>("week");
   const [chartPeriod] = useState<ChartPeriodType>("month");
+  const [isGoogleCalendarConnected, setIsGoogleCalendarConnected] = useState(false);
 
   // Usa SWR para gerenciar stats com cache e refresh automático
   const { stats, isLoading, isError: statsError, mutate: refetchStats } = useDashboardStats(period);
 
   // Usa SWR para gerenciar charts data
   const { chartsData, isLoading: isLoadingCharts, isError: chartsError, mutate: refetchCharts } = useDashboardCharts(chartPeriod);
+
+  // Verifica se Google Calendar está conectado
+  useEffect(() => {
+    async function checkGoogleCalendar() {
+      if (!user?.companyId) {
+        return;
+      }
+
+      try {
+        const status = await googleCalendarApi.getStatus(user.companyId);
+        setIsGoogleCalendarConnected(status.connected);
+      } catch (error) {
+        console.error('[Dashboard] Error checking Google Calendar status:', error);
+        setIsGoogleCalendarConnected(false);
+      }
+    }
+
+    checkGoogleCalendar();
+  }, [user?.companyId]);
 
   // Transforma o objeto stats em um array para renderização
   const statCards = stats
@@ -213,42 +236,13 @@ function DashboardPageContent() {
               <MessagesChart data={chartsData.messagesOverTime} />
             </div>
 
-            {/* Segunda linha: Agendamentos ao longo do tempo */}
-            <div className="mb-4 sm:mb-6">
-              <AppointmentsChart data={chartsData.appointmentsOverTime} />
-            </div>
-
-            {/* Terceira linha: Status de Agendamentos e Atividade de Clientes */}
-            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 mb-4 sm:mb-6">
-              {/* <AppointmentsStatusChart data={chartsData.appointmentsByStatus} /> */}
+            {/* Segunda linha: Agendamentos ao longo do tempo (se Google Calendar conectado) e Atividade de Clientes */}
+            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 mb-4 sm:mb-6">
+              {/* Só mostra Agendamentos se Google Calendar estiver conectado */}
+              {isGoogleCalendarConnected && (
+                <AppointmentsChart data={chartsData.appointmentsOverTime} />
+              )}
               <CustomerActivityChart data={chartsData.customerActivity} />
-
-              {/* Ações Rápidas */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Ações Rápidas</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <button
-                    onClick={() => router.push("/dashboard/customers")}
-                    className="flex w-full items-center space-x-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent"
-                  >
-                    <Users className="h-4 w-4" />
-                    <span>Adicionar Cliente</span>
-                  </button>
-                  <NewConversationDialog
-                    trigger={
-                      <button className="flex w-full items-center space-x-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent">
-                        <MessageSquare className="h-4 w-4" />
-                        <span>Nova Conversa</span>
-                      </button>
-                    }
-                    onConversationCreated={(customerId) => {
-                      router.push(`/dashboard/conversations?customer=${customerId}`);
-                    }}
-                  />
-                </CardContent>
-              </Card>
             </div>
           </>
         ) : null}

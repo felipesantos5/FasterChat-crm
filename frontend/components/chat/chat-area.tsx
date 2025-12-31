@@ -246,6 +246,10 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
       setInputValue(messageContent); // Restaura o texto
     } finally {
       setSending(false);
+      // Restaura o foco no input após enviar
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
     }
   };
 
@@ -358,6 +362,10 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
       showErrorToast(error, router, "Erro ao enviar imagem");
     } finally {
       setSending(false);
+      // Restaura o foco no input após enviar
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
     }
   };
 
@@ -475,6 +483,10 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     } finally {
       setSending(false);
       setRecordingTime(0);
+      // Restaura o foco no input após enviar
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
     }
   };
 

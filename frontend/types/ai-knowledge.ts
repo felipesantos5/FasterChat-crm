@@ -6,6 +6,7 @@ export interface Product {
   price?: string;
   category?: string;
   duration?: number; // Duração em minutos (para serviços)
+  salesLink?: string; // Link de venda/checkout (para produtos virtuais, mensalidades, etc.)
 }
 
 // Tipo para FAQ
@@ -41,7 +42,9 @@ export interface AIKnowledge {
 
   // Políticas
   policies?: string | null;
-  workingHours?: string | null;
+  workingHours?: string | null; // texto legado
+  businessHoursStart?: number | null; // hora de início (0-23)
+  businessHoursEnd?: number | null; // hora de fim (0-23)
   paymentMethods?: string | null;
   deliveryInfo?: string | null;
   warrantyInfo?: string | null;
@@ -95,7 +98,9 @@ export interface UpdateAIKnowledgeRequest {
 
   // Políticas
   policies?: string;
-  workingHours?: string;
+  workingHours?: string; // texto legado
+  businessHoursStart?: number; // hora de início (0-23)
+  businessHoursEnd?: number; // hora de fim (0-23)
   paymentMethods?: string;
   deliveryInfo?: string;
   warrantyInfo?: string;

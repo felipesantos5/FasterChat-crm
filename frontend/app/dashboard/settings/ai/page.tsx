@@ -111,6 +111,8 @@ function AISettingsPageContent() {
   const [aiObjective, setAiObjective] = useState(""); // Usado apenas quando objectiveType === 'custom'
 
   const [workingHours, setWorkingHours] = useState("");
+  const [businessHoursStart, setBusinessHoursStart] = useState<number>(9);
+  const [businessHoursEnd, setBusinessHoursEnd] = useState<number>(18);
   const [paymentMethods, setPaymentMethods] = useState("");
   const [deliveryInfo, setDeliveryInfo] = useState("");
   const [warrantyInfo, setWarrantyInfo] = useState("");
@@ -129,6 +131,7 @@ function AISettingsPageContent() {
     price: "",
     category: "",
     duration: "", // Duração em minutos
+    salesLink: "", // Link de venda/checkout
   });
 
   // Função para formatar valor monetário
@@ -196,6 +199,8 @@ function AISettingsPageContent() {
         setAiObjective(response.data.aiObjective || "");
 
         setWorkingHours(response.data.workingHours || "");
+        setBusinessHoursStart(response.data.businessHoursStart ?? 9);
+        setBusinessHoursEnd(response.data.businessHoursEnd ?? 18);
         setPaymentMethods(response.data.paymentMethods || "");
         setDeliveryInfo(response.data.deliveryInfo || "");
         setWarrantyInfo(response.data.warrantyInfo || "");
@@ -237,6 +242,8 @@ function AISettingsPageContent() {
         objectiveType,
         aiObjective: objectiveType === 'custom' ? aiObjective : undefined,
         workingHours,
+        businessHoursStart,
+        businessHoursEnd,
         paymentMethods,
         deliveryInfo,
         warrantyInfo,
@@ -261,6 +268,13 @@ function AISettingsPageContent() {
     const nextStep = currentStep + 1;
     await saveKnowledge(nextStep);
     setCurrentStep(nextStep);
+
+    // Se chegou no último step (Finalizar), gera o contexto automaticamente
+    if (nextStep === 4) {
+      setTimeout(() => {
+        handleGenerateContext();
+      }, 500); // Pequeno delay para garantir que o step foi atualizado
+    }
   };
 
   const handlePrevStep = () => {
@@ -297,6 +311,8 @@ function AISettingsPageContent() {
           objectiveType,
           aiObjective: objectiveType === 'custom' ? aiObjective : undefined,
           workingHours,
+          businessHoursStart,
+          businessHoursEnd,
           paymentMethods,
           deliveryInfo,
           warrantyInfo,
@@ -330,6 +346,7 @@ function AISettingsPageContent() {
       price: productForm.price.trim(),
       category: productForm.category.trim(),
       duration: productForm.duration ? parseInt(productForm.duration) : undefined,
+      salesLink: productForm.salesLink.trim() || undefined,
     };
 
     if (editingProduct) {
@@ -338,7 +355,7 @@ function AISettingsPageContent() {
       setProducts([...products, newProduct]);
     }
 
-    setProductForm({ name: "", description: "", price: "", category: "", duration: "" });
+    setProductForm({ name: "", description: "", price: "", category: "", duration: "", salesLink: "" });
     setEditingProduct(null);
     setShowProductForm(false);
   };
@@ -351,6 +368,7 @@ function AISettingsPageContent() {
       price: product.price || "",
       category: product.category || "",
       duration: product.duration ? product.duration.toString() : "",
+      salesLink: product.salesLink || "",
     });
     setShowProductForm(true);
   };
@@ -390,6 +408,8 @@ function AISettingsPageContent() {
       objectivePresets={objectivePresets}
       aiObjective={aiObjective}
       workingHours={workingHours}
+      businessHoursStart={businessHoursStart}
+      businessHoursEnd={businessHoursEnd}
       paymentMethods={paymentMethods}
       deliveryInfo={deliveryInfo}
       warrantyInfo={warrantyInfo}
@@ -613,19 +633,63 @@ function AISettingsPageContent() {
           {/* Step 2: Políticas */}
           {currentStep === 2 && (
             <>
+              <div className="space-y-4">
+                <Label className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Horário de Funcionamento
+                </Label>
+                <p className="text-sm text-muted-foreground -mt-2">
+                  Defina o horário comercial que a IA usará para mostrar horários disponíveis ao agendar
+                </p>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="businessHoursStart" className="text-sm font-normal">Das</Label>
+                    <select
+                      id="businessHoursStart"
+                      value={businessHoursStart}
+                      onChange={(e) => setBusinessHoursStart(parseInt(e.target.value))}
+                      className="flex h-9 w-[85px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="businessHoursEnd" className="text-sm font-normal">até</Label>
+                    <select
+                      id="businessHoursEnd"
+                      value={businessHoursEnd}
+                      onChange={(e) => setBusinessHoursEnd(parseInt(e.target.value))}
+                      className="flex h-9 w-[85px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {businessHoursStart >= businessHoursEnd && (
+                  <p className="text-sm text-destructive">O horário de início deve ser menor que o de fim</p>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="workingHours" className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  Horário de Atendimento
+                  Detalhes do Horário de Atendimento (opcional)
                 </Label>
                 <Textarea
                   id="workingHours"
                   value={workingHours}
                   onChange={(e) => setWorkingHours(e.target.value)}
-                  placeholder="Ex: Segunda a Sexta: 8h às 18h | Sábado: 8h às 13h | Domingo: Fechado"
-                  rows={3}
-                  className="min-h-[80px]"
+                  placeholder="Ex: Segunda a Sexta: 8h às 18h | Sábado: 8h às 13h | Domingo: Fechado (informação adicional para a IA)"
+                  rows={2}
+                  className="min-h-[60px]"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Informação textual que a IA pode usar para responder sobre horário de funcionamento
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -705,7 +769,7 @@ function AISettingsPageContent() {
                         onClick={() => {
                           setShowProductForm(false);
                           setEditingProduct(null);
-                          setProductForm({ name: "", description: "", price: "", category: "", duration: "" });
+                          setProductForm({ name: "", description: "", price: "", category: "", duration: "", salesLink: "" });
                         }}
                       >
                         <X className="h-4 w-4" />
@@ -783,6 +847,23 @@ function AISettingsPageContent() {
                       />
                     </div>
 
+                    <div className="space-y-2">
+                      <Label htmlFor="product-salesLink" className="flex items-center gap-1">
+                        Link de Venda
+                        <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+                      </Label>
+                      <Input
+                        id="product-salesLink"
+                        type="url"
+                        value={productForm.salesLink}
+                        onChange={(e) => setProductForm({ ...productForm, salesLink: e.target.value })}
+                        placeholder="https://seusite.com/checkout/produto"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Link de checkout ou página de compra. A IA usará esse link para direcionar o cliente na hora da venda.
+                      </p>
+                    </div>
+
                     <Button onClick={handleAddProduct} className="w-full">
                       {editingProduct ? "Salvar Alterações" : "Adicionar Produto"}
                     </Button>
@@ -808,7 +889,7 @@ function AISettingsPageContent() {
                               )}
                             </div>
 
-                            {/* Preço e Duração */}
+                            {/* Preço, Duração e Link */}
                             <div className="flex flex-wrap gap-3 mb-2">
                               {product.price && (
                                 <div className="flex items-center gap-1.5 text-sm">
@@ -824,6 +905,12 @@ function AISettingsPageContent() {
                                   <span className="text-muted-foreground">
                                     {product.duration} min {product.duration >= 60 && `(${Math.floor(product.duration / 60)}h${product.duration % 60 > 0 ? ` ${product.duration % 60}min` : ''})`}
                                   </span>
+                                </div>
+                              )}
+                              {product.salesLink && (
+                                <div className="flex items-center gap-1.5 text-sm">
+                                  <ShoppingCart className="h-4 w-4 text-purple-600" />
+                                  <span className="text-purple-600 dark:text-purple-400">Link de venda</span>
                                 </div>
                               )}
                             </div>
@@ -931,13 +1018,34 @@ function AISettingsPageContent() {
                 Voltar
               </Button>
 
-              <Button onClick={handleNextStep} disabled={saving}>
-                {saving ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : null}
-                Próximo
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
+              <div className="flex gap-2">
+                {/* Botão de Salvar (se já passou pelo setup antes) */}
+                {setupCompleted && (
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      await saveKnowledge();
+                      await handleGenerateContext();
+                    }}
+                    disabled={saving || generatingContext}
+                  >
+                    {saving || generatingContext ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-1" />
+                    )}
+                    Salvar e Regenerar
+                  </Button>
+                )}
+
+                <Button onClick={handleNextStep} disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : null}
+                  Próximo
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -955,6 +1063,8 @@ function CompletedView({
   objectivePresets,
   aiObjective,
   workingHours,
+  businessHoursStart,
+  businessHoursEnd,
   paymentMethods,
   deliveryInfo,
   warrantyInfo,
@@ -975,6 +1085,8 @@ function CompletedView({
   objectivePresets: ObjectivePreset[];
   aiObjective: string;
   workingHours: string;
+  businessHoursStart: number;
+  businessHoursEnd: number;
   paymentMethods: string;
   deliveryInfo: string;
   warrantyInfo: string;
@@ -1093,10 +1205,15 @@ function CompletedView({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">
+                {String(businessHoursStart).padStart(2, '0')}:00 às {String(businessHoursEnd).padStart(2, '0')}:00
+              </span>
+            </div>
             {workingHours && (
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{workingHours}</span>
+              <div className="flex items-start gap-2 pl-6">
+                <span className="text-sm text-muted-foreground">{workingHours}</span>
               </div>
             )}
             {paymentMethods && (
