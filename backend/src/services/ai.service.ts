@@ -4,6 +4,7 @@ import openaiService from "./ai-providers/openai.service";
 import { AIProvider } from "../types/ai-provider";
 import { essentialTools } from "./ai-tools";
 import { aiAppointmentService } from "./ai-appointment.service";
+import { serviceService } from "./service.service";
 
 /**
  * ============================================
@@ -58,6 +59,58 @@ interface GroupedMessage {
 class AIService {
   private getProvider(providerName?: AIProvider) {
     return openaiService;
+  }
+
+  /**
+   * Formata os serviços com variáveis de preço para o prompt da IA
+   */
+  private formatServicesForPrompt(services: any[]): string {
+    if (!services || services.length === 0) {
+      return "";
+    }
+
+    let formatted = "### 🛠️ SERVIÇOS E TABELA DE PREÇOS (FONTE OFICIAL)\n\n";
+    formatted += "Use esta tabela para calcular orçamentos. O preço final = preço base + soma dos modificadores selecionados.\n\n";
+
+    for (const service of services) {
+      formatted += `**${service.name}**\n`;
+      if (service.description) {
+        formatted += `${service.description}\n`;
+      }
+      formatted += `- Preço Base: R$ ${service.basePrice.toFixed(2)}\n`;
+
+      if (service.variables && service.variables.length > 0) {
+        formatted += "\nVariáveis que afetam o preço:\n";
+
+        for (const variable of service.variables) {
+          formatted += `\n📌 ${variable.name}${variable.isRequired ? " (obrigatório)" : " (opcional)"}:\n`;
+
+          for (const option of variable.options) {
+            const modifier = option.priceModifier;
+            const modifierStr = modifier >= 0 ? `+R$ ${modifier.toFixed(2)}` : `-R$ ${Math.abs(modifier).toFixed(2)}`;
+            formatted += `   • ${option.name}: ${modifierStr}\n`;
+          }
+        }
+      }
+
+      formatted += "\n---\n\n";
+    }
+
+    formatted += `**COMO CALCULAR O ORÇAMENTO:**
+1. Pergunte ao cliente sobre cada variável obrigatória
+2. Some o preço base + todos os modificadores
+3. Apresente o orçamento detalhado mostrando cada item
+
+**EXEMPLO DE RESPOSTA DE ORÇAMENTO:**
+"Vou calcular seu orçamento:
+- Serviço base: R$ 200,00
+- [Variável 1]: [Opção escolhida] +R$ 50,00
+- [Variável 2]: [Opção escolhida] +R$ 100,00
+━━━━━━━━━━━━━━━
+Total: R$ 350,00"
+`;
+
+    return formatted;
   }
 
   /**
@@ -181,9 +234,13 @@ class AIService {
       
       // AQUI ESTÁ A MELHORIA CHAVE: Processamento inteligente dos produtos
       const formattedProducts = this.formatProductsForPrompt(
-        aiKnowledge?.products, 
+        aiKnowledge?.products,
         aiKnowledge?.productsServices || null
       );
+
+      // Busca serviços com variáveis de preço
+      const servicesData = await serviceService.getServicesForAI(customer.companyId);
+      const formattedServices = this.formatServicesForPrompt(servicesData);
 
       const policies = aiKnowledge?.policies || "";
       const paymentMethods = aiKnowledge?.paymentMethods || null;
@@ -243,6 +300,7 @@ class AIService {
         companyName: customer.company.name,
         companyInfo,
         formattedProducts, // Passamos a lista processada
+        formattedServices, // Serviços com variáveis de preço
         policies,
         examplesText,
         negativeExamples,
@@ -308,6 +366,7 @@ class AIService {
       companyName,
       companyInfo,
       formattedProducts,
+      formattedServices,
       policies,
       serviceArea,
       workingHours,
@@ -363,6 +422,9 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
 
     // Seção de Produtos (A mais importante para a confiabilidade)
     const productSection = `\n${formattedProducts}`;
+
+    // Seção de Serviços com Variáveis de Preço
+    const servicesSection = formattedServices ? `\n${formattedServices}` : "";
 
     // Objetivo do Cliente (Se configurado)
     const objectiveSection = objective 
@@ -444,12 +506,13 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
       securityAndIdentity,
       businessContext,
       productSection,
+      servicesSection,
       objectiveSection,
       constraintsSection,
       contextSection,
       toolsSection,
       styleSection
-    ].join("\n\n");
+    ].filter(Boolean).join("\n\n");
   }
 
   // ... (buildOptimizedHistory, removeMarkdown e buildUserPrompt mantidos como estão ou levemente ajustados)

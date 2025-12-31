@@ -17,6 +17,7 @@ import whatsappLinkRoutes from "./whatsapp-link.routes";
 import customerNoteRoutes from "./customer-note.routes";
 import collaboratorRoutes from "./collaborator.routes";
 import adminRoutes from "./admin.routes";
+import serviceRoutes from "./service.routes";
 import conversationExampleController from "../controllers/conversation-example.controller";
 import { authenticate } from "../middlewares/auth";
 
@@ -40,6 +41,7 @@ router.use("/whatsapp-links", whatsappLinkRoutes);
 router.use("/customer-notes", customerNoteRoutes);
 router.use("/collaborators", collaboratorRoutes);
 router.use("/admin", adminRoutes);
+router.use("/services", serviceRoutes);
 
 // Rotas públicas (sem /api prefix) - devem ser registradas no server.ts
 // router.use('/l', linkRedirectRoutes);
