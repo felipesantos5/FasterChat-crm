@@ -19,7 +19,7 @@ const CHATBOT_CONFIG = {
   // Temperatura mais baixa aumenta a fidelidade aos dados (menos criatividade = mais precisão)
   TEMPERATURE: 0.2,
 
-  MAX_TOKENS: 500,
+  MAX_TOKENS: 800,
   MAX_RETRIES: 2,
   RETRY_DELAY_MS: 1000,
   DEFAULT_MODEL: "gpt-4o-mini",
@@ -37,6 +37,14 @@ interface Product {
   price?: string | number;
   description?: string;
   category?: string;
+}
+
+/**
+ * Interface para tipar FAQ
+ */
+interface FAQItem {
+  question: string;
+  answer: string;
 }
 
 /**
@@ -62,41 +70,80 @@ class AIService {
   }
 
   /**
-   * Formata os serviços com variáveis de preço para o prompt da IA
+   * Formata os serviços e produtos com variáveis de preço para o prompt da IA
+   * Agora unificado: produtos e serviços vêm da mesma tabela, diferenciados por type
    */
-  private formatServicesForPrompt(services: any[]): string {
-    if (!services || services.length === 0) {
+  private formatServicesForPrompt(items: any[]): string {
+    if (!items || items.length === 0) {
       return "";
     }
 
-    let formatted = "### 🛠️ SERVIÇOS E TABELA DE PREÇOS (FONTE OFICIAL)\n\n";
-    formatted += "Use esta tabela para calcular orçamentos. O preço final = preço base + soma dos modificadores selecionados.\n\n";
+    // Separa produtos e serviços
+    const products = items.filter(item => item.type === "PRODUCT");
+    const services = items.filter(item => item.type === "SERVICE");
 
-    for (const service of services) {
-      formatted += `**${service.name}**\n`;
-      if (service.description) {
-        formatted += `${service.description}\n`;
-      }
-      formatted += `- Preço Base: R$ ${service.basePrice.toFixed(2)}\n`;
+    let formatted = "";
 
-      if (service.variables && service.variables.length > 0) {
-        formatted += "\nVariáveis que afetam o preço:\n";
+    // Formata PRODUTOS (geralmente sem variáveis ou com variáveis simples)
+    if (products.length > 0) {
+      formatted += "### 📦 PRODUTOS E PREÇOS (FONTE OFICIAL)\n\n";
 
-        for (const variable of service.variables) {
-          formatted += `\n📌 ${variable.name}${variable.isRequired ? " (obrigatório)" : " (opcional)"}:\n`;
+      for (const product of products) {
+        const categoryStr = product.category ? ` [${product.category}]` : "";
+        formatted += `**${product.name}**${categoryStr}\n`;
+        if (product.description) {
+          formatted += `${product.description}\n`;
+        }
+        formatted += `- Preço: R$ ${product.basePrice.toFixed(2)}\n`;
 
-          for (const option of variable.options) {
-            const modifier = option.priceModifier;
-            const modifierStr = modifier >= 0 ? `+R$ ${modifier.toFixed(2)}` : `-R$ ${Math.abs(modifier).toFixed(2)}`;
-            formatted += `   • ${option.name}: ${modifierStr}\n`;
+        // Produtos também podem ter variáveis (ex: tamanhos, cores)
+        if (product.variables && product.variables.length > 0) {
+          formatted += "Opções:\n";
+          for (const variable of product.variables) {
+            formatted += `  📌 ${variable.name}:\n`;
+            for (const option of variable.options) {
+              const modifier = option.priceModifier;
+              const modifierStr = modifier > 0 ? ` (+R$ ${modifier.toFixed(2)})` : modifier < 0 ? ` (-R$ ${Math.abs(modifier).toFixed(2)})` : "";
+              formatted += `     • ${option.name}${modifierStr}\n`;
+            }
           }
         }
-      }
 
-      formatted += "\n---\n\n";
+        formatted += "\n";
+      }
     }
 
-    formatted += `**COMO CALCULAR O ORÇAMENTO:**
+    // Formata SERVIÇOS (com sistema completo de variáveis)
+    if (services.length > 0) {
+      formatted += "### 🛠️ SERVIÇOS E TABELA DE PREÇOS (FONTE OFICIAL)\n\n";
+      formatted += "Use esta tabela para calcular orçamentos. O preço final = preço base + soma dos modificadores selecionados.\n\n";
+
+      for (const service of services) {
+        const categoryStr = service.category ? ` [${service.category}]` : "";
+        formatted += `**${service.name}**${categoryStr}\n`;
+        if (service.description) {
+          formatted += `${service.description}\n`;
+        }
+        formatted += `- Preço Base: R$ ${service.basePrice.toFixed(2)}\n`;
+
+        if (service.variables && service.variables.length > 0) {
+          formatted += "\nVariáveis que afetam o preço:\n";
+
+          for (const variable of service.variables) {
+            formatted += `\n📌 ${variable.name}${variable.isRequired ? " (obrigatório)" : " (opcional)"}:\n`;
+
+            for (const option of variable.options) {
+              const modifier = option.priceModifier;
+              const modifierStr = modifier >= 0 ? `+R$ ${modifier.toFixed(2)}` : `-R$ ${Math.abs(modifier).toFixed(2)}`;
+              formatted += `   • ${option.name}: ${modifierStr}\n`;
+            }
+          }
+        }
+
+        formatted += "\n---\n\n";
+      }
+
+      formatted += `**COMO CALCULAR O ORÇAMENTO:**
 1. Pergunte ao cliente sobre cada variável obrigatória
 2. Some o preço base + todos os modificadores
 3. Apresente o orçamento detalhado mostrando cada item
@@ -109,47 +156,76 @@ class AIService {
 ━━━━━━━━━━━━━━━
 Total: R$ 350,00"
 `;
+    }
 
     return formatted;
   }
 
   /**
+   * Formata o FAQ para o prompt da IA
+   */
+  private formatFAQForPrompt(faq: any): string {
+    if (!faq) return "";
+
+    try {
+      const faqItems: FAQItem[] = Array.isArray(faq)
+        ? faq
+        : JSON.parse(typeof faq === 'string' ? faq : '[]');
+
+      if (faqItems.length === 0) return "";
+
+      let formatted = "### ❓ PERGUNTAS FREQUENTES (FAQ)\n";
+      formatted += "Use estas respostas quando o cliente fizer perguntas similares:\n\n";
+
+      faqItems.forEach((item, index) => {
+        formatted += `**${index + 1}. ${item.question}**\n`;
+        formatted += `R: ${item.answer}\n\n`;
+      });
+
+      return formatted;
+    } catch (e) {
+      console.warn("[AIService] Erro ao parsear FAQ:", e);
+      return "";
+    }
+  }
+
+  /**
    * Formata a lista de produtos do JSON para texto legível pela IA
+   * IMPORTANTE: Prioriza JSON estruturado e só usa texto como FALLBACK
    */
   private formatProductsForPrompt(productsJson: any, textDescription: string | null): string {
-    let formatted = "";
-
-    // 1. Tenta processar o JSON estruturado (Mais confiável)
+    // 1. Tenta processar o JSON estruturado (PRIORIDADE - Mais confiável)
     if (productsJson) {
       try {
-        const products: Product[] = Array.isArray(productsJson) 
-          ? productsJson 
+        const products: Product[] = Array.isArray(productsJson)
+          ? productsJson
           : JSON.parse(typeof productsJson === 'string' ? productsJson : '[]');
 
         if (products.length > 0) {
-          formatted += "### LISTA OFICIAL DE PRODUTOS E PREÇOS (FONTE DA VERDADE)\n";
+          let formatted = "### 📦 LISTA OFICIAL DE PRODUTOS E PREÇOS (FONTE DA VERDADE)\n";
           formatted += "Use ESTA lista para responder sobre preços e disponibilidade. Não invente valores.\n\n";
-          
+
           products.forEach(p => {
             const priceStr = p.price ? ` - Preço: ${p.price}` : "";
             const catStr = p.category ? ` [${p.category}]` : "";
             const descStr = p.description ? `\n  Detalhes: ${p.description}` : "";
             formatted += `- **${p.name}**${catStr}${priceStr}${descStr}\n`;
           });
-          formatted += "\n";
+
+          // Se tem JSON estruturado válido, retorna SEM adicionar texto (evita duplicação)
+          return formatted;
         }
       } catch (e) {
         console.warn("[AIService] Erro ao parsear produtos:", e);
       }
     }
 
-    // 2. Adiciona a descrição textual como complemento (se houver)
+    // 2. FALLBACK: Só usa texto se NÃO tiver JSON estruturado válido
     if (textDescription && textDescription.trim().length > 0) {
-      formatted += "### INFORMAÇÕES ADICIONAIS DE SERVIÇOS/PRODUTOS\n";
-      formatted += textDescription + "\n";
+      return "### 📦 INFORMAÇÕES DE PRODUTOS/SERVIÇOS\n" + textDescription + "\n";
     }
 
-    return formatted || "Nenhum produto ou serviço cadastrado.";
+    return "";
   }
 
   async generateResponse(
@@ -231,22 +307,29 @@ Total: R$ 350,00"
 
       // Preparação dos dados do contexto
       const companyInfo = aiKnowledge?.companyInfo || "Empresa de atendimento.";
-      
-      // AQUI ESTÁ A MELHORIA CHAVE: Processamento inteligente dos produtos
-      const formattedProducts = this.formatProductsForPrompt(
-        aiKnowledge?.products,
-        aiKnowledge?.productsServices || null
-      );
 
-      // Busca serviços com variáveis de preço
+      // Busca produtos e serviços unificados da tabela Service
       const servicesData = await serviceService.getServicesForAI(customer.companyId);
       const formattedServices = this.formatServicesForPrompt(servicesData);
+
+      // Fallback para produtos legados (se existirem e não houver serviços cadastrados)
+      // Isso garante retrocompatibilidade durante a migração
+      let formattedProducts = "";
+      if (servicesData.length === 0) {
+        formattedProducts = this.formatProductsForPrompt(
+          aiKnowledge?.products,
+          aiKnowledge?.productsServices || null
+        );
+      }
 
       const policies = aiKnowledge?.policies || "";
       const paymentMethods = aiKnowledge?.paymentMethods || null;
       const deliveryInfo = aiKnowledge?.deliveryInfo || null;
       const serviceArea = aiKnowledge?.serviceArea || null;
       const negativeExamples = aiKnowledge?.negativeExamples || null;
+
+      // FAQ formatado para o contexto
+      const formattedFAQ = this.formatFAQForPrompt(aiKnowledge?.faq);
 
       // Formata horário de funcionamento (prioriza campos estruturados)
       let workingHours: string | null = null;
@@ -301,6 +384,7 @@ Total: R$ 350,00"
         companyInfo,
         formattedProducts, // Passamos a lista processada
         formattedServices, // Serviços com variáveis de preço
+        formattedFAQ, // FAQ para respostas precisas
         policies,
         examplesText,
         negativeExamples,
@@ -367,6 +451,7 @@ Total: R$ 350,00"
       companyInfo,
       formattedProducts,
       formattedServices,
+      formattedFAQ,
       policies,
       serviceArea,
       workingHours,
@@ -421,10 +506,13 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
     }
 
     // Seção de Produtos (A mais importante para a confiabilidade)
-    const productSection = `\n${formattedProducts}`;
+    const productSection = formattedProducts ? `\n${formattedProducts}` : "";
 
     // Seção de Serviços com Variáveis de Preço
     const servicesSection = formattedServices ? `\n${formattedServices}` : "";
+
+    // Seção de FAQ (Perguntas Frequentes)
+    const faqSection = formattedFAQ ? `\n${formattedFAQ}` : "";
 
     // Objetivo do Cliente (Se configurado)
     const objectiveSection = objective 
@@ -507,6 +595,7 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
       businessContext,
       productSection,
       servicesSection,
+      faqSection,
       objectiveSection,
       constraintsSection,
       contextSection,

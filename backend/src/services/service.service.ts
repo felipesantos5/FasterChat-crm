@@ -1,10 +1,13 @@
 import { prisma } from "../utils/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import { ServiceType } from "@prisma/client";
 
 interface CreateServiceDTO {
   name: string;
   description?: string;
   basePrice: number;
+  type?: ServiceType;
+  category?: string;
   isActive?: boolean;
 }
 
@@ -12,6 +15,8 @@ interface UpdateServiceDTO {
   name?: string;
   description?: string;
   basePrice?: number;
+  type?: ServiceType;
+  category?: string;
   isActive?: boolean;
   order?: number;
 }
@@ -91,6 +96,8 @@ export const serviceService = {
         name: data.name,
         description: data.description,
         basePrice: new Decimal(data.basePrice),
+        type: data.type ?? "SERVICE",
+        category: data.category,
         isActive: data.isActive ?? true,
         order: (lastService?.order ?? -1) + 1,
       },
@@ -119,6 +126,8 @@ export const serviceService = {
         name: data.name,
         description: data.description,
         basePrice: data.basePrice !== undefined ? new Decimal(data.basePrice) : undefined,
+        type: data.type,
+        category: data.category,
         isActive: data.isActive,
         order: data.order,
       },
@@ -376,6 +385,8 @@ export const serviceService = {
       name: string;
       description?: string;
       basePrice: number;
+      type?: ServiceType;
+      category?: string;
       isActive?: boolean;
       variables: {
         id?: string;
@@ -408,6 +419,8 @@ export const serviceService = {
           name: serviceData.name,
           description: serviceData.description,
           basePrice: new Decimal(serviceData.basePrice),
+          type: serviceData.type ?? "SERVICE",
+          category: serviceData.category,
           isActive: serviceData.isActive ?? true,
         },
       });
@@ -456,6 +469,8 @@ export const serviceService = {
           name: serviceData.name,
           description: serviceData.description,
           basePrice: new Decimal(serviceData.basePrice),
+          type: serviceData.type ?? "SERVICE",
+          category: serviceData.category,
           isActive: serviceData.isActive ?? true,
           order: (lastService?.order ?? -1) + 1,
         },
@@ -514,6 +529,8 @@ export const serviceService = {
       name: service.name,
       description: service.description,
       basePrice: Number(service.basePrice),
+      type: service.type,
+      category: service.category,
       variables: service.variables.map((variable) => ({
         id: variable.id,
         name: variable.name,

@@ -19,7 +19,7 @@ import {
   CustomerActivityChart,
 } from "@/components/dashboard/charts";
 // import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
-import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, CalendarClock, CheckCircle } from "lucide-react";
+import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, CalendarClock, CheckCircle, AlertTriangle } from "lucide-react";
 import { cards, typography, spacing } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
@@ -109,6 +109,15 @@ function DashboardPageContent() {
         description: "Automação de respostas",
       },
       {
+        title: "Transbordos",
+        value: stats.handoffConversations.current,
+        percentageChange: stats.handoffConversations.percentageChange,
+        icon: AlertTriangle,
+        color: "text-red-600",
+        bgColor: "bg-red-100 dark:bg-red-900/30",
+        description: "IA transferiu para humano",
+      },
+      {
         title: "Agendamentos Totais",
         value: stats.totalAppointments.current,
         percentageChange: stats.totalAppointments.percentageChange,
@@ -154,8 +163,8 @@ function DashboardPageContent() {
     return (
       <div className="p-4 sm:p-6 space-y-6">
         {/* Stats Skeletons */}
-        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-4`}>
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-3`}>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
             <div key={i} className={cards.stats}>
               <div className="flex items-center justify-between mb-4">
                 <Skeleton className="h-4 w-24" />
@@ -201,7 +210,7 @@ function DashboardPageContent() {
     <div className="p-4 sm:p-6">
       <div className={spacing.section}>
         {/* Stats Grid */}
-        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-4 mb-4 sm:mb-6`}>
+        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-3 mb-4 sm:mb-6`}>
           {statCards.map((stat) => {
             const Icon = stat.icon;
             return (

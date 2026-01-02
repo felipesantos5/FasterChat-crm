@@ -14,6 +14,8 @@ import {
   DollarSign,
   Loader2,
   HelpCircle,
+  Wrench,
+  ShoppingBag,
 } from "lucide-react";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import api from "@/lib/api";
@@ -32,11 +34,15 @@ interface ServiceVariable {
   options: ServiceOption[];
 }
 
+type ServiceType = "PRODUCT" | "SERVICE";
+
 interface Service {
   id?: string;
   name: string;
   description?: string;
   basePrice: number;
+  type: ServiceType;
+  category?: string;
   isActive: boolean;
   variables: ServiceVariable[];
 }
@@ -59,6 +65,8 @@ export default function ServicesPage() {
         name: s.name,
         description: s.description || "",
         basePrice: Number(s.basePrice),
+        type: s.type || "SERVICE",
+        category: s.category || "",
         isActive: s.isActive,
         variables: s.variables.map((v: any) => ({
           id: v.id,
@@ -85,7 +93,7 @@ export default function ServicesPage() {
     }
   };
 
-  const addService = () => {
+  const addService = (type: ServiceType = "SERVICE") => {
     const newIndex = services.length;
     setServices([
       ...services,
@@ -93,6 +101,8 @@ export default function ServicesPage() {
         name: "",
         description: "",
         basePrice: 0,
+        type,
+        category: "",
         isActive: true,
         variables: [],
       },
@@ -264,10 +274,10 @@ export default function ServicesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-              Serviços e Preços
+              Produtos e Serviços
             </h1>
             <p className="text-gray-500 mt-1">
-              Configure seus serviços com variáveis de preço para orçamentos automáticos
+              Configure seus produtos e serviços com variáveis de preço para orçamentos automáticos
             </p>
           </div>
           <button
@@ -290,10 +300,9 @@ export default function ServicesPage() {
           <div className="text-sm text-blue-800">
             <p className="font-medium mb-1">Como funciona?</p>
             <p>
-              Cadastre seus serviços com um <strong>preço base</strong> e adicione{" "}
-              <strong>variáveis</strong> que modificam o preço final. Por exemplo: uma
-              instalação de ar condicionado pode ter variáveis como BTUs, tipo de acesso
-              (escada/rapel) e região.
+              Cadastre <strong>produtos</strong> (itens com preço fixo) ou <strong>serviços</strong> (com variáveis de preço).
+              Serviços podem ter variáveis como BTUs, tipo de acesso (escada/rapel), região, etc.
+              A IA usará essas informações para responder sobre preços e fazer orçamentos.
             </p>
           </div>
         </div>
@@ -314,8 +323,14 @@ export default function ServicesPage() {
                   <GripVertical className="w-5 h-5" />
                 </div>
 
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Package className="w-5 h-5 text-green-600" />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                  service.type === "PRODUCT" ? "bg-blue-100" : "bg-green-100"
+                }`}>
+                  {service.type === "PRODUCT" ? (
+                    <ShoppingBag className="w-5 h-5 text-blue-600" />
+                  ) : (
+                    <Wrench className="w-5 h-5 text-green-600" />
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -354,8 +369,34 @@ export default function ServicesPage() {
               {/* Service Content (Expanded) */}
               {expandedServices.has(serviceIndex) && (
                 <div className="border-t border-gray-100 p-4 space-y-6">
+                  {/* Type Selector */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => updateService(serviceIndex, "type", "SERVICE")}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border-2 transition-colors ${
+                        service.type === "SERVICE"
+                          ? "border-green-500 bg-green-50 text-green-700"
+                          : "border-gray-200 text-gray-600 hover:border-gray-300"
+                      }`}
+                    >
+                      <Wrench className="w-4 h-4" />
+                      <span className="font-medium">Serviço</span>
+                    </button>
+                    <button
+                      onClick={() => updateService(serviceIndex, "type", "PRODUCT")}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border-2 transition-colors ${
+                        service.type === "PRODUCT"
+                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          : "border-gray-200 text-gray-600 hover:border-gray-300"
+                      }`}
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span className="font-medium">Produto</span>
+                    </button>
+                  </div>
+
                   {/* Basic Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
                         Descrição (opcional)
@@ -366,13 +407,27 @@ export default function ServicesPage() {
                         onChange={(e) =>
                           updateService(serviceIndex, "description", e.target.value)
                         }
-                        placeholder="Breve descrição do serviço"
+                        placeholder="Breve descrição"
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                        Preço Base (R$)
+                        Categoria (opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={service.category || ""}
+                        onChange={(e) =>
+                          updateService(serviceIndex, "category", e.target.value)
+                        }
+                        placeholder="Ex: Ar Condicionado, Elétrica"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        {service.type === "PRODUCT" ? "Preço (R$)" : "Preço Base (R$)"}
                       </label>
                       <div className="relative">
                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -567,14 +622,23 @@ export default function ServicesPage() {
           ))}
         </div>
 
-        {/* Add Service Button */}
-        <button
-          onClick={addService}
-          className="w-full mt-4 py-4 flex items-center justify-center gap-2 text-gray-500 hover:text-green-600 bg-white hover:bg-green-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-green-300 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          <span className="font-medium">Adicionar Serviço</span>
-        </button>
+        {/* Add Buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <button
+            onClick={() => addService("SERVICE")}
+            className="py-4 flex items-center justify-center gap-2 text-gray-500 hover:text-green-600 bg-white hover:bg-green-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-green-300 transition-colors"
+          >
+            <Wrench className="w-5 h-5" />
+            <span className="font-medium">Adicionar Serviço</span>
+          </button>
+          <button
+            onClick={() => addService("PRODUCT")}
+            className="py-4 flex items-center justify-center gap-2 text-gray-500 hover:text-blue-600 bg-white hover:bg-blue-50 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-300 transition-colors"
+          >
+            <ShoppingBag className="w-5 h-5" />
+            <span className="font-medium">Adicionar Produto</span>
+          </button>
+        </div>
 
         {/* Empty State */}
         {services.length === 0 && (
@@ -583,18 +647,27 @@ export default function ServicesPage() {
               <Package className="w-8 h-8 text-gray-400" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-1">
-              Nenhum serviço cadastrado
+              Nenhum produto ou serviço cadastrado
             </h3>
             <p className="text-gray-500 mb-4">
-              Comece criando seu primeiro serviço com variáveis de preço
+              Comece criando seu primeiro produto ou serviço para a IA usar
             </p>
-            <button
-              onClick={addService}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Criar primeiro serviço
-            </button>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => addService("SERVICE")}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+              >
+                <Wrench className="w-5 h-5" />
+                Criar serviço
+              </button>
+              <button
+                onClick={() => addService("PRODUCT")}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+              >
+                <ShoppingBag className="w-5 h-5" />
+                Criar produto
+              </button>
+            </div>
           </div>
         )}
       </div>

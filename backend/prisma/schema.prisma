@@ -578,25 +578,33 @@ model Permission {
 }
 
 // ============================================
-// SERVICES - Sistema de Serviços com Variáveis
+// SERVICES - Sistema de Serviços/Produtos com Variáveis
 // ============================================
 
+enum ServiceType {
+  PRODUCT
+  SERVICE
+}
+
 model Service {
-  id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
+  id          String      @id @default(uuid())
+  companyId   String      @map("company_id")
   name        String
-  description String?  @db.Text
-  basePrice   Decimal  @map("base_price") @db.Decimal(10, 2)
-  isActive    Boolean  @default(true) @map("is_active")
-  order       Int      @default(0)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  description String?     @db.Text
+  basePrice   Decimal     @map("base_price") @db.Decimal(10, 2)
+  type        ServiceType @default(SERVICE)
+  category    String?     // Categoria do produto/serviço
+  isActive    Boolean     @default(true) @map("is_active")
+  order       Int         @default(0)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
 
   company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   variables ServiceVariable[]
 
   @@index([companyId])
   @@index([isActive])
+  @@index([type])
   @@map("services")
 }
 
