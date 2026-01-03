@@ -19,7 +19,6 @@ import {
   Link2,
   FunnelPlus,
   X,
-  Wrench,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import logo from "@/assets/logo2.webp";
@@ -84,12 +83,6 @@ const menuItems: MenuItem[] = [
     label: "Configurações",
     icon: Settings,
     children: [
-      {
-        label: "Serviços",
-        icon: Wrench,
-        href: "/dashboard/settings/services",
-        permission: "AI_CONFIG",
-      },
       {
         label: "IA",
         icon: Bot,

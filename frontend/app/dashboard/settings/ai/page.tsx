@@ -66,11 +66,15 @@ interface ServiceVariable {
   options: ServiceOption[];
 }
 
+type ServiceType = "PRODUCT" | "SERVICE";
+
 interface Service {
   id?: string;
   name: string;
   description?: string;
   basePrice: number;
+  type: ServiceType;
+  category?: string;
   isActive: boolean;
   variables: ServiceVariable[];
 }
@@ -210,6 +214,8 @@ function AISettingsPageContent() {
         name: s.name,
         description: s.description || "",
         basePrice: Number(s.basePrice),
+        type: s.type || "SERVICE",
+        category: s.category || "",
         isActive: s.isActive,
         variables: s.variables.map((v: any) => ({
           id: v.id,
@@ -465,6 +471,8 @@ function AISettingsPageContent() {
         name: "",
         description: "",
         basePrice: 0,
+        type: "SERVICE",
+        category: "",
         isActive: true,
         variables: [],
       },

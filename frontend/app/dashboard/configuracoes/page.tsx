@@ -16,18 +16,17 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
-    companyName: "Minha Empresa", // Idealmente viria do backend se tivermos endpoint pra isso
+    companyName: "",
   });
+
+  const isAdmin = user?.role === "ADMIN";
 
   useEffect(() => {
     if (user) {
       setFormData({
         name: user.name,
-        email: user.email,
-        companyName: "Carregando...", // Placeholder
+        companyName: user.companyName || "",
       });
-      // Aqui você poderia fazer um fetch específico da empresa se necessário
     }
   }, [user]);
 
@@ -36,11 +35,15 @@ export default function SettingsPage() {
     setLoading(true);
 
     try {
-      const updatedUser = await authApi.updateProfile({
+      const updateData: { name: string; companyName?: string } = {
         name: formData.name,
-        email: formData.email,
-        // companyName: formData.companyName // Enviar se o backend suportar
-      });
+      };
+
+      if (isAdmin) {
+        updateData.companyName = formData.companyName;
+      }
+
+      const updatedUser = await authApi.updateProfile(updateData);
 
       // Atualiza o store global
       useAuthStore.getState().user = { ...user!, ...updatedUser };
@@ -77,8 +80,8 @@ export default function SettingsPage() {
                   <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">E-mail</Label>
-                  <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                  <Label>E-mail</Label>
+                  <p className="text-sm text-muted-foreground py-2 px-3 bg-muted rounded-md">{user?.email}</p>
                 </div>
               </CardContent>
             </Card>
@@ -99,12 +102,23 @@ export default function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="companyName">Nome da Empresa</Label>
-                  <Input
-                    id="companyName"
-                    value={formData.companyName}
-                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                    placeholder="Nome da sua empresa"
-                  />
+                  {isAdmin ? (
+                    <Input
+                      id="companyName"
+                      value={formData.companyName}
+                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                      placeholder="Nome da sua empresa"
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-2 px-3 bg-muted rounded-md">
+                      {user?.companyName || "Não definido"}
+                    </p>
+                  )}
+                  {!isAdmin && (
+                    <p className="text-xs text-muted-foreground">
+                      Apenas administradores podem alterar o nome da empresa.
+                    </p>
+                  )}
                 </div>
                 <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
                   <p>
