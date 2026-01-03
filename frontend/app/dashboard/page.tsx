@@ -1,25 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// import { useRouter } from "next/navigation";
 import { useDashboardStats, useDashboardCharts } from "@/hooks/use-dashboard";
-// import {
-//   Card,
-//   CardContent,
-//   CardHeader,
-//   CardTitle,
-// } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
 import {
   PipelineFunnelChart,
   MessagesChart,
   AppointmentsChart,
-  // AppointmentsStatusChart,
   CustomerActivityChart,
 } from "@/components/dashboard/charts";
-// import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
-import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, CalendarClock, CheckCircle, AlertTriangle } from "lucide-react";
+import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, CalendarClock, AlertTriangle } from "lucide-react";
 import { cards, typography, spacing } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
@@ -143,16 +134,7 @@ function DashboardPageContent() {
         color: "text-orange-600",
         bgColor: "bg-orange-100 dark:bg-orange-900/30",
         description: "Agendamentos futuros",
-      },
-      {
-        title: "Confirmados",
-        value: stats.confirmedAppointments.current,
-        percentageChange: stats.confirmedAppointments.percentageChange,
-        icon: CheckCircle,
-        color: "text-green-600",
-        bgColor: "bg-green-100 dark:bg-green-900/30",
-        description: "Agendamentos confirmados",
-      },
+      }
     ]
     : [];
 
@@ -210,7 +192,7 @@ function DashboardPageContent() {
     <div className="p-4 sm:p-6">
       <div className={spacing.section}>
         {/* Stats Grid */}
-        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-3 mb-4 sm:mb-6`}>
+        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-4 mb-4 sm:mb-6`}>
           {statCards.map((stat) => {
             const Icon = stat.icon;
             return (
@@ -240,13 +222,13 @@ function DashboardPageContent() {
         {chartsData ? (
           <>
             {/* Primeira linha: Funil de Pipeline e Mensagens */}
-            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 mb-4 sm:mb-6">
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2 mb-4 sm:mb-6">
               <PipelineFunnelChart data={chartsData.pipelineFunnel} />
               <MessagesChart data={chartsData.messagesOverTime} />
             </div>
 
             {/* Segunda linha: Agendamentos ao longo do tempo (se Google Calendar conectado) e Atividade de Clientes */}
-            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 mb-4 sm:mb-6">
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2 mb-4 sm:mb-6">
               {/* Só mostra Agendamentos se Google Calendar estiver conectado */}
               {isGoogleCalendarConnected && (
                 <AppointmentsChart data={chartsData.appointmentsOverTime} />
