@@ -25,19 +25,19 @@ export const colors = {
 
 export const buttons = {
   // Tamanhos padronizados (sempre médio ou maior)
-  default: "px-6 py-2.5 text-base font-medium rounded-lg transition-all duration-200",
+  default: "px-6 py-[7px] text-base font-medium rounded-lg transition-all duration-200",
   large: "px-8 py-3 text-lg font-medium rounded-lg transition-all duration-200",
 
   // Variantes
   primary:
-    "px-6 py-2.5 text-base font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white transition-all duration-200 shadow-sm hover:shadow-md h-10",
+    "px-6 py-[7px] text-base font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white transition-all duration-200 shadow-sm hover:shadow-md h-10",
   secondary:
-    "px-6 py-2.5 text-base font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-300 transition-all duration-200",
+    "px-6 py-[7px] text-base font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-300 transition-all duration-200",
   success:
-    "px-6 py-2.5 text-base font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white transition-all duration-200 shadow-sm hover:shadow-md",
-  danger: "px-6 py-2.5 text-base font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all duration-200 shadow-sm hover:shadow-md",
-  outline: "px-6 py-2.5 text-base font-medium rounded-lg border-2 border-green-600 text-green-600 hover:bg-green-50 transition-all duration-200",
-  ghost: "px-6 py-2.5 text-base font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition-all duration-200",
+    "px-6 py-[7px] text-base font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white transition-all duration-200 shadow-sm hover:shadow-md",
+  danger: "px-6 py-[7px] text-base font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all duration-200 shadow-sm hover:shadow-md",
+  outline: "px-6 py-[7px] text-base font-medium rounded-lg border-2 border-green-600 text-green-600 hover:bg-green-50 transition-all duration-200",
+  ghost: "px-6 py-[7px] text-base font-medium rounded-lg text-gray-700 hover:bg-gray-100 transition-all duration-200",
 };
 
 export const cards = {

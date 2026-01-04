@@ -11,6 +11,7 @@ export interface DashboardStats {
   activeConversations: PeriodStats;
   messagesReceived: PeriodStats;
   messagesWithAI: PeriodStats;
+  handoffConversations: PeriodStats;
   totalAppointments: PeriodStats;
   todayAppointments: PeriodStats;
   upcomingAppointments: PeriodStats;

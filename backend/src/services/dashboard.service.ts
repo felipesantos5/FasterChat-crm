@@ -12,6 +12,7 @@ interface DashboardStats {
   activeConversations: PeriodStats;
   messagesReceived: PeriodStats;
   messagesWithAI: PeriodStats;
+  handoffConversations: PeriodStats;
   totalAppointments: PeriodStats;
   todayAppointments: PeriodStats;
   upcomingAppointments: PeriodStats;
@@ -191,6 +192,24 @@ class DashboardService {
       }),
     ]);
 
+    // Handoff stats (transbordos)
+    const [currentHandoffs, previousHandoffs] = await Promise.all([
+      prisma.conversation.count({
+        where: {
+          companyId,
+          needsHelp: true,
+          updatedAt: { gte: currentStart },
+        },
+      }),
+      prisma.conversation.count({
+        where: {
+          companyId,
+          needsHelp: true,
+          updatedAt: { gte: previousStart, lt: previousEnd },
+        },
+      }),
+    ]);
+
     // Appointment stats
     const [currentTotalAppointments, previousTotalAppointments] = await Promise.all([
       prisma.appointment.count({
@@ -283,6 +302,11 @@ class DashboardService {
         current: currentMessagesWithAI,
         previous: previousMessagesWithAI,
         percentageChange: this.calculatePercentageChange(currentMessagesWithAI, previousMessagesWithAI),
+      },
+      handoffConversations: {
+        current: currentHandoffs,
+        previous: previousHandoffs,
+        percentageChange: this.calculatePercentageChange(currentHandoffs, previousHandoffs),
       },
       totalAppointments: {
         current: currentTotalAppointments,

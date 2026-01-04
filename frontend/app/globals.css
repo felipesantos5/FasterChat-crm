@@ -28,6 +28,10 @@
   transform: rotate(3deg) translate(0px, -4px);
 }
 
+.rbc-time-header-cell {
+  height: 78px;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

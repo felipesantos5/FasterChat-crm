@@ -51,6 +51,7 @@ model Company {
   appointments       Appointment[]
   whatsappLinks      WhatsAppLink[]
   invites            Invite[]
+  services           Service[]
 
   @@map("companies")
 }
@@ -574,5 +575,68 @@ model Permission {
   @@index([inviteId])
   @@index([page])
   @@map("permissions")
+}
+
+// ============================================
+// SERVICES - Sistema de Serviços/Produtos com Variáveis
+// ============================================
+
+enum ServiceType {
+  PRODUCT
+  SERVICE
+}
+
+model Service {
+  id          String      @id @default(uuid())
+  companyId   String      @map("company_id")
+  name        String
+  description String?     @db.Text
+  basePrice   Decimal     @map("base_price") @db.Decimal(10, 2)
+  type        ServiceType @default(SERVICE)
+  category    String?     // Categoria do produto/serviço
+  isActive    Boolean     @default(true) @map("is_active")
+  order       Int         @default(0)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  variables ServiceVariable[]
+
+  @@index([companyId])
+  @@index([isActive])
+  @@index([type])
+  @@map("services")
+}
+
+model ServiceVariable {
+  id          String   @id @default(uuid())
+  serviceId   String   @map("service_id")
+  name        String
+  description String?  @db.Text
+  isRequired  Boolean  @default(true) @map("is_required")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  service Service                 @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  options ServiceVariableOption[]
+
+  @@index([serviceId])
+  @@map("service_variables")
+}
+
+model ServiceVariableOption {
+  id            String   @id @default(uuid())
+  variableId    String   @map("variable_id")
+  name          String
+  priceModifier Decimal  @map("price_modifier") @db.Decimal(10, 2)
+  order         Int      @default(0)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  variable ServiceVariable @relation(fields: [variableId], references: [id], onDelete: Cascade)
+
+  @@index([variableId])
+  @@map("service_variable_options")
 }
 

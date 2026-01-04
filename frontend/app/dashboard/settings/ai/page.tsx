@@ -38,12 +38,46 @@ import {
   PackageSearch,
   Settings,
   LucideIcon,
+  Wrench,
+  ChevronDown,
+  ChevronUp,
+  Variable,
+  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
 import { useErrorHandler } from "@/hooks/use-error-handler";
+import api from "@/lib/api";
+
+// Interfaces para Serviços com Variações
+interface ServiceOption {
+  id?: string;
+  name: string;
+  priceModifier: number;
+}
+
+interface ServiceVariable {
+  id?: string;
+  name: string;
+  description?: string;
+  isRequired: boolean;
+  options: ServiceOption[];
+}
+
+type ServiceType = "PRODUCT" | "SERVICE";
+
+interface Service {
+  id?: string;
+  name: string;
+  description?: string;
+  basePrice: number;
+  type: ServiceType;
+  category?: string;
+  isActive: boolean;
+  variables: ServiceVariable[];
+}
 
 // Mapeamento de ícones para os objetivos
 const OBJECTIVE_ICONS: Record<string, LucideIcon> = {
@@ -63,7 +97,8 @@ const STEPS = [
   { id: 1, title: "Objetivo da IA", icon: Target, description: "Como a IA deve agir" },
   { id: 2, title: "Políticas", icon: FileText, description: "Regras do negócio" },
   { id: 3, title: "Produtos", icon: Package, description: "O que você oferece" },
-  { id: 4, title: "Finalizar", icon: Sparkles, description: "Gerar contexto" },
+  { id: 4, title: "Serviços", icon: Wrench, description: "Serviços com variações" },
+  { id: 5, title: "Finalizar", icon: Sparkles, description: "Gerar contexto" },
 ];
 
 // Segmentos de negócio sugeridos
@@ -124,6 +159,10 @@ function AISettingsPageContent() {
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(true);
   const [generatedContext, setGeneratedContext] = useState("");
 
+  // Estados para Serviços com Variações
+  const [services, setServices] = useState<Service[]>([]);
+  const [expandedServices, setExpandedServices] = useState<Set<number>>(new Set());
+
   // Produto em edição
   const [productForm, setProductForm] = useState({
     name: "",
@@ -166,6 +205,40 @@ function AISettingsPageContent() {
     return null;
   };
 
+  // Função para carregar serviços
+  const loadServices = async () => {
+    try {
+      const response = await api.get("/services");
+      const loadedServices = response.data.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description || "",
+        basePrice: Number(s.basePrice),
+        type: s.type || "SERVICE",
+        category: s.category || "",
+        isActive: s.isActive,
+        variables: s.variables.map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          description: v.description || "",
+          isRequired: v.isRequired,
+          options: v.options.map((o: any) => ({
+            id: o.id,
+            name: o.name,
+            priceModifier: Number(o.priceModifier),
+          })),
+        })),
+      }));
+      setServices(loadedServices);
+      // Expandir todos por padrão se houver poucos
+      if (loadedServices.length <= 3) {
+        setExpandedServices(new Set(loadedServices.map((_: any, i: number) => i)));
+      }
+    } catch (error) {
+      console.error("Erro ao carregar serviços:", error);
+    }
+  };
+
   const loadKnowledge = async () => {
     try {
       clearError();
@@ -184,6 +257,9 @@ function AISettingsPageContent() {
       } catch (err) {
         console.error("Error loading presets:", err);
       }
+
+      // Carrega os serviços em paralelo
+      loadServices();
 
       const response = await aiKnowledgeApi.getKnowledge(companyId);
 
@@ -266,11 +342,20 @@ function AISettingsPageContent() {
 
   const handleNextStep = async () => {
     const nextStep = currentStep + 1;
+
+    // Se está saindo do step de serviços (step 4), salva os serviços primeiro
+    if (currentStep === 4 && services.length > 0) {
+      const servicesSaved = await saveServices();
+      if (!servicesSaved) {
+        return; // Se falhou a validação, não avança
+      }
+    }
+
     await saveKnowledge(nextStep);
     setCurrentStep(nextStep);
 
     // Se chegou no último step (Finalizar), gera o contexto automaticamente
-    if (nextStep === 4) {
+    if (nextStep === 5) {
       setTimeout(() => {
         handleGenerateContext();
       }, 500); // Pequeno delay para garantir que o step foi atualizado
@@ -377,6 +462,167 @@ function AISettingsPageContent() {
     setProducts(products.filter(p => p.id !== productId));
   };
 
+  // === Funções de Serviços com Variações ===
+  const addService = () => {
+    const newIndex = services.length;
+    setServices([
+      ...services,
+      {
+        name: "",
+        description: "",
+        basePrice: 0,
+        type: "SERVICE",
+        category: "",
+        isActive: true,
+        variables: [],
+      },
+    ]);
+    setExpandedServices(new Set([...expandedServices, newIndex]));
+  };
+
+  const removeService = (index: number) => {
+    setServices(services.filter((_, i) => i !== index));
+    const newExpanded = new Set(expandedServices);
+    newExpanded.delete(index);
+    setExpandedServices(newExpanded);
+  };
+
+  const updateService = (index: number, field: keyof Service, value: any) => {
+    const updated = [...services];
+    updated[index] = { ...updated[index], [field]: value };
+    setServices(updated);
+  };
+
+  const toggleServiceExpanded = (index: number) => {
+    const newExpanded = new Set(expandedServices);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedServices(newExpanded);
+  };
+
+  // Variables
+  const addVariable = (serviceIndex: number) => {
+    const updated = [...services];
+    updated[serviceIndex].variables.push({
+      name: "",
+      description: "",
+      isRequired: true,
+      options: [{ name: "", priceModifier: 0 }],
+    });
+    setServices(updated);
+  };
+
+  const removeVariable = (serviceIndex: number, varIndex: number) => {
+    const updated = [...services];
+    updated[serviceIndex].variables = updated[serviceIndex].variables.filter(
+      (_, i) => i !== varIndex
+    );
+    setServices(updated);
+  };
+
+  const updateVariable = (
+    serviceIndex: number,
+    varIndex: number,
+    field: keyof ServiceVariable,
+    value: any
+  ) => {
+    const updated = [...services];
+    updated[serviceIndex].variables[varIndex] = {
+      ...updated[serviceIndex].variables[varIndex],
+      [field]: value,
+    };
+    setServices(updated);
+  };
+
+  // Options
+  const addOption = (serviceIndex: number, varIndex: number) => {
+    const updated = [...services];
+    updated[serviceIndex].variables[varIndex].options.push({
+      name: "",
+      priceModifier: 0,
+    });
+    setServices(updated);
+  };
+
+  const removeOption = (serviceIndex: number, varIndex: number, optIndex: number) => {
+    const updated = [...services];
+    updated[serviceIndex].variables[varIndex].options = updated[serviceIndex].variables[
+      varIndex
+    ].options.filter((_, i) => i !== optIndex);
+    setServices(updated);
+  };
+
+  const updateOption = (
+    serviceIndex: number,
+    varIndex: number,
+    optIndex: number,
+    field: keyof ServiceOption,
+    value: any
+  ) => {
+    const updated = [...services];
+    updated[serviceIndex].variables[varIndex].options[optIndex] = {
+      ...updated[serviceIndex].variables[varIndex].options[optIndex],
+      [field]: value,
+    };
+    setServices(updated);
+  };
+
+  const saveServices = async () => {
+    // Validação básica
+    for (const service of services) {
+      if (!service.name.trim()) {
+        toast.error("Todos os serviços precisam ter um nome");
+        return false;
+      }
+      for (const variable of service.variables) {
+        if (!variable.name.trim()) {
+          toast.error(`Todas as variáveis do serviço "${service.name}" precisam ter um nome`);
+          return false;
+        }
+        for (const option of variable.options) {
+          if (!option.name.trim()) {
+            toast.error(
+              `Todas as opções da variável "${variable.name}" precisam ter um nome`
+            );
+            return false;
+          }
+        }
+      }
+    }
+
+    try {
+      // Salvar cada serviço
+      for (const service of services) {
+        await api.post("/services/save-complete", service);
+      }
+      return true;
+    } catch (error) {
+      console.error("Erro ao salvar serviços:", error);
+      toast.error("Erro ao salvar serviços");
+      return false;
+    }
+  };
+
+  const formatServicePrice = (value: number) => {
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  };
+
+  const calculateExamplePrice = (service: Service) => {
+    let total = service.basePrice;
+    service.variables.forEach((variable) => {
+      if (variable.options.length > 0) {
+        total += variable.options[0].priceModifier;
+      }
+    });
+    return total;
+  };
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-4 sm:p-6">
@@ -414,6 +660,7 @@ function AISettingsPageContent() {
       deliveryInfo={deliveryInfo}
       warrantyInfo={warrantyInfo}
       products={products}
+      services={services}
       generatedContext={generatedContext}
       autoReplyEnabled={autoReplyEnabled}
       onEdit={() => setSetupCompleted(false)}
@@ -957,8 +1204,308 @@ function AISettingsPageContent() {
             </>
           )}
 
-          {/* Step 4: Finalizar */}
+          {/* Step 4: Serviços com Variações */}
           {currentStep === 4 && (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-medium">Serviços com Variações de Preço</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Configure serviços com variáveis que modificam o preço final (ex: BTUs, tipo de acesso, região)
+                  </p>
+                </div>
+                <Button onClick={addService} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Adicionar Serviço
+                </Button>
+              </div>
+
+              {/* Info Card */}
+              <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 flex gap-3">
+                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-medium mb-1">Como funciona?</p>
+                  <p>
+                    Cadastre serviços com um <strong>preço base</strong> e adicione{" "}
+                    <strong>variáveis</strong> que modificam o preço final. Por exemplo: uma
+                    instalação de ar condicionado pode ter variáveis como BTUs, tipo de acesso
+                    (escada/rapel) e região.
+                  </p>
+                </div>
+              </div>
+
+              {/* Lista de Serviços */}
+              {services.length > 0 ? (
+                <div className="space-y-4">
+                  {services.map((service, serviceIndex) => (
+                    <Card key={serviceIndex} className="overflow-hidden">
+                      {/* Service Header */}
+                      <div
+                        className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => toggleServiceExpanded(serviceIndex)}
+                      >
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Wrench className="w-5 h-5 text-primary" />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <Input
+                            value={service.name}
+                            onChange={(e) => updateService(serviceIndex, "name", e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            placeholder="Nome do serviço (ex: Instalação de Ar Condicionado)"
+                            className="text-lg font-semibold bg-transparent border-none focus:ring-0 p-0 h-auto"
+                          />
+                          <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                            <span>Base: {formatServicePrice(service.basePrice)}</span>
+                            <span>•</span>
+                            <span>{service.variables.length} variáveis</span>
+                          </div>
+                        </div>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeService(serviceIndex);
+                          }}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </Button>
+
+                        {expandedServices.has(serviceIndex) ? (
+                          <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                        )}
+                      </div>
+
+                      {/* Service Content (Expanded) */}
+                      {expandedServices.has(serviceIndex) && (
+                        <CardContent className="border-t space-y-6 pt-4">
+                          {/* Basic Info */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Descrição (opcional)</Label>
+                              <Input
+                                value={service.description || ""}
+                                onChange={(e) =>
+                                  updateService(serviceIndex, "description", e.target.value)
+                                }
+                                placeholder="Breve descrição do serviço"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Preço Base (R$)</Label>
+                              <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={service.basePrice}
+                                  onChange={(e) =>
+                                    updateService(
+                                      serviceIndex,
+                                      "basePrice",
+                                      parseFloat(e.target.value) || 0
+                                    )
+                                  }
+                                  className="pl-9"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Variables Section */}
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <Label className="flex items-center gap-2">
+                                <Variable className="w-4 h-4" />
+                                Variáveis de Preço
+                              </Label>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => addVariable(serviceIndex)}
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Adicionar Variável
+                              </Button>
+                            </div>
+
+                            {service.variables.length === 0 ? (
+                              <div className="text-center py-6 bg-muted/30 rounded-lg border-2 border-dashed">
+                                <Variable className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+                                <p className="text-sm text-muted-foreground">
+                                  Nenhuma variável cadastrada
+                                </p>
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  onClick={() => addVariable(serviceIndex)}
+                                >
+                                  + Adicionar primeira variável
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="space-y-4">
+                                {service.variables.map((variable, varIndex) => (
+                                  <Card key={varIndex} className="bg-muted/30">
+                                    <CardContent className="pt-4">
+                                      {/* Variable Header */}
+                                      <div className="flex items-start gap-3 mb-4">
+                                        <div className="flex-1">
+                                          <Input
+                                            value={variable.name}
+                                            onChange={(e) =>
+                                              updateVariable(
+                                                serviceIndex,
+                                                varIndex,
+                                                "name",
+                                                e.target.value
+                                              )
+                                            }
+                                            placeholder="Nome da variável (ex: BTUs, Tipo de Acesso)"
+                                            className="font-medium"
+                                          />
+                                        </div>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => removeVariable(serviceIndex, varIndex)}
+                                          className="text-muted-foreground hover:text-destructive"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+
+                                      {/* Options */}
+                                      <div className="space-y-2">
+                                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                          Opções
+                                        </span>
+
+                                        {variable.options.map((option, optIndex) => (
+                                          <div
+                                            key={optIndex}
+                                            className="flex items-center gap-2 bg-background rounded-lg p-2 border"
+                                          >
+                                            <Input
+                                              value={option.name}
+                                              onChange={(e) =>
+                                                updateOption(
+                                                  serviceIndex,
+                                                  varIndex,
+                                                  optIndex,
+                                                  "name",
+                                                  e.target.value
+                                                )
+                                              }
+                                              placeholder="Nome da opção"
+                                              className="flex-1"
+                                            />
+                                            <div className="relative w-32">
+                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                                R$
+                                              </span>
+                                              <Input
+                                                type="number"
+                                                step="0.01"
+                                                value={option.priceModifier}
+                                                onChange={(e) =>
+                                                  updateOption(
+                                                    serviceIndex,
+                                                    varIndex,
+                                                    optIndex,
+                                                    "priceModifier",
+                                                    parseFloat(e.target.value) || 0
+                                                  )
+                                                }
+                                                className="pl-8 text-right"
+                                              />
+                                            </div>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              onClick={() =>
+                                                removeOption(serviceIndex, varIndex, optIndex)
+                                              }
+                                              disabled={variable.options.length <= 1}
+                                              className="text-muted-foreground hover:text-destructive disabled:opacity-30"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        ))}
+
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => addOption(serviceIndex, varIndex)}
+                                          className="w-full border-dashed"
+                                        >
+                                          + Adicionar opção
+                                        </Button>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Example Calculation */}
+                          {service.variables.length > 0 && (
+                            <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                              <h4 className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">
+                                Exemplo de cálculo
+                              </h4>
+                              <div className="space-y-1 text-sm text-green-700 dark:text-green-300">
+                                <div className="flex justify-between">
+                                  <span>Preço base</span>
+                                  <span>{formatServicePrice(service.basePrice)}</span>
+                                </div>
+                                {service.variables.map(
+                                  (variable, vIdx) =>
+                                    variable.options[0] && (
+                                      <div key={vIdx} className="flex justify-between">
+                                        <span>
+                                          {variable.name || "Variável"}: {variable.options[0].name || "Opção 1"}
+                                        </span>
+                                        <span>
+                                          {variable.options[0].priceModifier >= 0 ? "+" : ""}
+                                          {formatServicePrice(variable.options[0].priceModifier)}
+                                        </span>
+                                      </div>
+                                    )
+                                )}
+                                <div className="flex justify-between pt-2 border-t border-green-300 dark:border-green-700 font-semibold">
+                                  <span>Total</span>
+                                  <span>{formatServicePrice(calculateExamplePrice(service))}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Wrench className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>Nenhum serviço com variações adicionado</p>
+                  <p className="text-sm">Clique em "Adicionar Serviço" para começar</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Step 5: Finalizar */}
+          {currentStep === 5 && (
             <div className="text-center py-8">
               <Wand2 className="h-16 w-16 mx-auto text-primary mb-4" />
               <h3 className="text-xl font-semibold mb-2">Tudo pronto!</h3>
@@ -1007,7 +1554,7 @@ function AISettingsPageContent() {
           )}
 
           {/* Navigation Buttons */}
-          {currentStep < 4 && (
+          {currentStep < 5 && (
             <div className="flex items-center justify-between pt-6 border-t">
               <Button
                 variant="outline"
@@ -1024,6 +1571,10 @@ function AISettingsPageContent() {
                   <Button
                     variant="outline"
                     onClick={async () => {
+                      // Salva serviços se houver algum
+                      if (services.length > 0) {
+                        await saveServices();
+                      }
                       await saveKnowledge();
                       await handleGenerateContext();
                     }}
@@ -1069,6 +1620,7 @@ function CompletedView({
   deliveryInfo,
   warrantyInfo,
   products,
+  services,
   generatedContext,
   autoReplyEnabled,
   onEdit,
@@ -1091,6 +1643,7 @@ function CompletedView({
   deliveryInfo: string;
   warrantyInfo: string;
   products: Product[];
+  services: Service[];
   generatedContext: string;
   autoReplyEnabled: boolean;
   onEdit: () => void;
@@ -1267,6 +1820,41 @@ function CompletedView({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Nenhum produto cadastrado</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Serviços com Variações */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Wrench className="h-5 w-5" />
+              Serviços com Variações
+              <Badge variant="secondary" className="ml-auto">
+                {Array.isArray(services) ? services.length : 0}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {Array.isArray(services) && services.length > 0 ? (
+              <div className="space-y-2">
+                {services.slice(0, 4).map((service, idx) => (
+                  <div key={service.id || idx} className="flex items-center justify-between text-sm">
+                    <span>{service.name}</span>
+                    <span className="text-muted-foreground">
+                      {service.basePrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      {service.variables.length > 0 && ` + ${service.variables.length} var.`}
+                    </span>
+                  </div>
+                ))}
+                {services.length > 4 && (
+                  <p className="text-xs text-muted-foreground">
+                    +{services.length - 4} mais...
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum serviço com variações</p>
             )}
           </CardContent>
         </Card>

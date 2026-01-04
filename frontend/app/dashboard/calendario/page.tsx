@@ -331,83 +331,84 @@ function CalendarioPageContent() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
-      <div className="flex-shrink-0 p-3 md:p-6 pb-2 md:pb-4 bg-white border-b">
-        {isMobile ? (
-          <div className="space-y-3">
-            {/* Mobile Navigation */}
-            <div className="flex items-center justify-between gap-2">
-              <button
-                onClick={handlePreviousDay}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                title="Dia anterior"
-              >
-                <ChevronLeft className="h-5 w-5 text-gray-700" />
-              </button>
-              <div className="text-center flex-1">
-                <p className="text-sm font-medium text-gray-500">
-                  {format(date, "EEEE", { locale: ptBR })}
-                </p>
-                <p className="text-lg font-bold text-gray-900">
-                  {format(date, "dd 'de' MMMM", { locale: ptBR })}
-                </p>
-              </div>
-              <button
-                onClick={handleNextDay}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                title="Próximo dia"
-              >
-                <ChevronRight className="h-5 w-5 text-gray-700" />
-              </button>
-            </div>
 
-            {/* Mobile Action Buttons */}
-            <div className="flex gap-2">
-              {new Date().toDateString() !== date.toDateString() && (
-                <button
-                  onClick={handleToday}
-                  className="flex-1 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Hoje
-                </button>
-              )}
-              <button
-                onClick={() => setShowNewAppointment(true)}
-                className="flex-1 px-3 py-2 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-1"
-              >
-                <Plus className="h-4 w-4" />
-                Novo
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-end gap-4">
-            {googleStatus?.connected ? (
-              <button
-                onClick={() => setShowGoogleCalendar(true)}
-                className={badges.success + " cursor-pointer hover:shadow-sm transition-all"}
-              >
-                <CheckCircle className={`${icons.small} mr-1`} />
-                Google Calendar Conectado
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowGoogleCalendar(true)}
-                className={badges.warning + " cursor-pointer hover:shadow-sm transition-all"}
-              >
-                <Settings className={`${icons.small} mr-1`} />
-                Conectar Google Calendar
-              </button>
-            )}
-            <button onClick={() => setShowNewAppointment(true)} className={buttons.primary}>
-              <Plus className={`${icons.default} inline-block mr-2`} />
-              Novo Agendamento
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* Calendar */}
       <div className="flex-1 px-3 md:px-6 pb-3 md:pb-6 pt-0">
+        <div className="flex-shrink-0 p-3 md:p-6 pb-2 md:pb-4 bg-white border-b">
+          {isMobile ? (
+            <div className="space-y-3">
+              {/* Mobile Navigation */}
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={handlePreviousDay}
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  title="Dia anterior"
+                >
+                  <ChevronLeft className="h-5 w-5 text-gray-700" />
+                </button>
+                <div className="text-center flex-1">
+                  <p className="text-sm font-medium text-gray-500">
+                    {format(date, "EEEE", { locale: ptBR })}
+                  </p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {format(date, "dd 'de' MMMM", { locale: ptBR })}
+                  </p>
+                </div>
+                <button
+                  onClick={handleNextDay}
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  title="Próximo dia"
+                >
+                  <ChevronRight className="h-5 w-5 text-gray-700" />
+                </button>
+              </div>
+
+              {/* Mobile Action Buttons */}
+              <div className="flex gap-2">
+                {new Date().toDateString() !== date.toDateString() && (
+                  <button
+                    onClick={handleToday}
+                    className="flex-1 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Hoje
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNewAppointment(true)}
+                  className="flex-1 px-3 py-2 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-1"
+                >
+                  <Plus className="h-4 w-4" />
+                  Novo
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-end gap-4">
+              {googleStatus?.connected ? (
+                <button
+                  onClick={() => setShowGoogleCalendar(true)}
+                  className={badges.success + " cursor-pointer hover:shadow-sm transition-all"}
+                >
+                  <CheckCircle className={`${icons.small} mr-1`} />
+                  Google Calendar Conectado
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowGoogleCalendar(true)}
+                  className={badges.warning + " cursor-pointer hover:shadow-sm transition-all"}
+                >
+                  <Settings className={`${icons.small} mr-1`} />
+                  Conectar Google Calendar
+                </button>
+              )}
+              <button onClick={() => setShowNewAppointment(true)} className={buttons.primary}>
+                <Plus className={`${icons.default} inline-block mr-2`} />
+                Novo Agendamento
+              </button>
+            </div>
+          )}
+        </div>
         <div className={`${cards.default} h-full`}>
           <div className="calendar-container h-full p-2 md:p-4">
             <BigCalendar

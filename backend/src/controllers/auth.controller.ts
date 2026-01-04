@@ -97,7 +97,10 @@ export class AuthController {
         return;
       }
 
-      const user = await authService.getUserById(req.user.userId);
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+        include: { company: true },
+      });
 
       if (!user) {
         res.status(404).json({
@@ -115,6 +118,7 @@ export class AuthController {
           email: user.email,
           role: user.role,
           companyId: user.companyId,
+          companyName: user.company?.name || "",
         },
       });
     } catch (error) {
@@ -163,10 +167,21 @@ export class AuthController {
   async updateProfile(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user?.userId;
-      const { name, email, companyName } = req.body;
+      const { name, companyName } = req.body;
 
       if (!userId) {
         res.status(401).json({ success: false, message: "Não autenticado" });
+        return;
+      }
+
+      // Busca usuário atual para verificar permissões
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { company: true },
+      });
+
+      if (!currentUser) {
+        res.status(404).json({ success: false, message: "Usuário não encontrado" });
         return;
       }
 
@@ -174,10 +189,12 @@ export class AuthController {
       const updatedUser = await prisma.$transaction(async (tx) => {
         const user = await tx.user.update({
           where: { id: userId },
-          data: { name, email },
+          data: { name },
+          include: { company: true },
         });
 
-        if (companyName && user.companyId) {
+        // Apenas ADMIN pode alterar o nome da empresa
+        if (companyName && user.companyId && currentUser.role === "ADMIN") {
           await tx.company.update({
             where: { id: user.companyId },
             data: { name: companyName },
@@ -190,7 +207,14 @@ export class AuthController {
       res.status(200).json({
         success: true,
         message: "Perfil atualizado com sucesso",
-        data: updatedUser,
+        data: {
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          companyId: updatedUser.companyId,
+          companyName: updatedUser.company?.name || "",
+        },
       });
     } catch (error: any) {
       console.error("Update profile error:", error);
