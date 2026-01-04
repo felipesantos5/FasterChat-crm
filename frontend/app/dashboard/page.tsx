@@ -192,7 +192,7 @@ function DashboardPageContent() {
     <div className="p-4 sm:p-6">
       <div className={spacing.section}>
         {/* Stats Grid */}
-        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-4 mb-4 sm:mb-6`}>
+        <div className={`grid grid-cols-2 ${spacing.cardGap} lg:grid-cols-3 xl:grid-cols-4 mb-4 sm:mb-6`}>
           {statCards.map((stat) => {
             const Icon = stat.icon;
             return (
