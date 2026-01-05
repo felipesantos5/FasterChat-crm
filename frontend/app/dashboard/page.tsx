@@ -222,18 +222,19 @@ function DashboardPageContent() {
         {chartsData ? (
           <>
             {/* Primeira linha: Funil de Pipeline e Mensagens */}
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2 mb-4 sm:mb-6">
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-3 mb-4 sm:mb-6">
               <PipelineFunnelChart data={chartsData.pipelineFunnel} />
+              <CustomerActivityChart data={chartsData.customerActivity} />
               <MessagesChart data={chartsData.messagesOverTime} />
             </div>
 
             {/* Segunda linha: Agendamentos ao longo do tempo (se Google Calendar conectado) e Atividade de Clientes */}
             <div className="grid gap-4 sm:gap-6 lg:grid-cols-2 mb-4 sm:mb-6">
               {/* Só mostra Agendamentos se Google Calendar estiver conectado */}
-              {isGoogleCalendarConnected && (
+              {/* {isGoogleCalendarConnected && (
                 <AppointmentsChart data={chartsData.appointmentsOverTime} />
-              )}
-              <CustomerActivityChart data={chartsData.customerActivity} />
+              )} */}
+
             </div>
           </>
         ) : null}
