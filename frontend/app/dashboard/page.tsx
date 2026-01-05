@@ -7,7 +7,6 @@ import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
 import {
   PipelineFunnelChart,
   MessagesChart,
-  AppointmentsChart,
   CustomerActivityChart,
 } from "@/components/dashboard/charts";
 import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, CalendarClock, AlertTriangle } from "lucide-react";
@@ -33,7 +32,7 @@ function DashboardPageContent() {
   const user = useAuthStore((state) => state.user);
   const [period] = useState<PeriodType>("week");
   const [chartPeriod] = useState<ChartPeriodType>("month");
-  const [isGoogleCalendarConnected, setIsGoogleCalendarConnected] = useState(false);
+  // const [isGoogleCalendarConnected, setIsGoogleCalendarConnected] = useState(false);
 
   // Usa SWR para gerenciar stats com cache e refresh automático
   const { stats, isLoading, isError: statsError, mutate: refetchStats } = useDashboardStats(period);
@@ -50,10 +49,10 @@ function DashboardPageContent() {
 
       try {
         const status = await googleCalendarApi.getStatus(user.companyId);
-        setIsGoogleCalendarConnected(status.connected);
+        // setIsGoogleCalendarConnected(status.connected);
       } catch (error) {
         console.error('[Dashboard] Error checking Google Calendar status:', error);
-        setIsGoogleCalendarConnected(false);
+        // setIsGoogleCalendarConnected(false);
       }
     }
 
