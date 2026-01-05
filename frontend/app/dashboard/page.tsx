@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useDashboardStats, useDashboardCharts } from "@/hooks/use-dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
@@ -13,8 +13,8 @@ import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, CalendarC
 import { cards, typography, spacing } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
-import { googleCalendarApi } from "@/lib/google-calendar";
-import { useAuthStore } from "@/lib/store/auth.store";
+// import { googleCalendarApi } from "@/lib/google-calendar";
+// import { useAuthStore } from "@/lib/store/auth.store";
 
 type PeriodType = "today" | "week" | "month";
 type ChartPeriodType = "week" | "month" | "quarter";
@@ -29,7 +29,7 @@ export default function DashboardPage() {
 
 function DashboardPageContent() {
   // const router = useRouter();
-  const user = useAuthStore((state) => state.user);
+  // const user = useAuthStore((state) => state.user);
   const [period] = useState<PeriodType>("week");
   const [chartPeriod] = useState<ChartPeriodType>("month");
   // const [isGoogleCalendarConnected, setIsGoogleCalendarConnected] = useState(false);
@@ -41,23 +41,23 @@ function DashboardPageContent() {
   const { chartsData, isLoading: isLoadingCharts, isError: chartsError, mutate: refetchCharts } = useDashboardCharts(chartPeriod);
 
   // Verifica se Google Calendar está conectado
-  useEffect(() => {
-    async function checkGoogleCalendar() {
-      if (!user?.companyId) {
-        return;
-      }
+  // useEffect(() => {
+  //   async function checkGoogleCalendar() {
+  //     if (!user?.companyId) {
+  //       return;
+  //     }
 
-      try {
-        const status = await googleCalendarApi.getStatus(user.companyId);
-        // setIsGoogleCalendarConnected(status.connected);
-      } catch (error) {
-        console.error('[Dashboard] Error checking Google Calendar status:', error);
-        // setIsGoogleCalendarConnected(false);
-      }
-    }
+  //     try {
+  //       const status = await googleCalendarApi.getStatus(user.companyId);
+  //       // setIsGoogleCalendarConnected(status.connected);
+  //     } catch (error) {
+  //       console.error('[Dashboard] Error checking Google Calendar status:', error);
+  //       // setIsGoogleCalendarConnected(false);
+  //     }
+  //   }
 
-    checkGoogleCalendar();
-  }, [user?.companyId]);
+  //   checkGoogleCalendar();
+  // }, [user?.companyId]);
 
   // Transforma o objeto stats em um array para renderização
   const statCards = stats
