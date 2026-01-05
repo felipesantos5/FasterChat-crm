@@ -421,12 +421,8 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
 
           console.log(`[MessageService] ✅ Áudio baixado: ${(base64Audio.length / 1024).toFixed(2)} KB`);
 
-          // Verifica qual provedor de IA está configurado para a empresa
-          const aiKnowledge = await prisma.aIKnowledge.findUnique({
-            where: { companyId: instance.companyId },
-            select: { provider: true },
-          });
-          const aiProvider = (aiKnowledge?.provider as AIProvider) || (process.env.AI_PROVIDER as AIProvider) || "gemini";
+          // Provider é definido via .env (AI_PROVIDER), não usa mais o banco
+          const aiProvider: AIProvider = (process.env.AI_PROVIDER as AIProvider) || "gemini";
 
           // Transcreve o áudio com o provedor configurado (Gemini é o padrão)
           try {

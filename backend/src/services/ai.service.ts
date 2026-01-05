@@ -15,7 +15,7 @@ import { serviceService } from "./service.service";
 const CHATBOT_CONFIG = {
   // Aumentei levemente o histórico para garantir contexto de conversas longas
   MAX_MESSAGES_TO_FETCH: 30,
-  MAX_HISTORY_TOKENS: 4000, // GPT-4o Mini aguenta bem mais, 4k é seguro e econômico
+  MAX_HISTORY_TOKENS: 4000,
 
   // Temperatura mais baixa aumenta a fidelidade aos dados (menos criatividade = mais precisão)
   TEMPERATURE: 0.2,
@@ -23,11 +23,16 @@ const CHATBOT_CONFIG = {
   MAX_TOKENS: 800,
   MAX_RETRIES: 2,
   RETRY_DELAY_MS: 1000,
-  DEFAULT_MODEL: "gpt-4o-mini",
-  
+
   // Penalidades leves para evitar repetição robótica
   PRESENCE_PENALTY: 0.1,
   FREQUENCY_PENALTY: 0.1,
+};
+
+// Modelos padrão por provider (definidos via .env ou fallback)
+const DEFAULT_MODELS = {
+  gemini: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+  openai: process.env.OPENAI_MODEL_MINI || "gpt-4o-mini",
 };
 
 /**
@@ -65,11 +70,12 @@ interface GroupedMessage {
   tokenCount: number;
 }
 
-class AIService {
-  private getProvider(providerName?: AIProvider) {
-    const provider = providerName || (process.env.AI_PROVIDER as AIProvider) || "gemini";
+// Provider de IA é definido APENAS pelo .env (não usa mais o banco de dados)
+const AI_PROVIDER: AIProvider = (process.env.AI_PROVIDER as AIProvider) || "gemini";
 
-    switch (provider) {
+class AIService {
+  private getProvider() {
+    switch (AI_PROVIDER) {
       case "openai":
         console.log("[AIService] Using OpenAI provider");
         return openaiService;
@@ -375,9 +381,8 @@ Total: R$ 350,00"
         console.warn("[AIService] Erro ao verificar Google Calendar:", error);
       }
 
-      // Configurações do modelo
-      const providerConfig = aiKnowledge?.provider as AIProvider | undefined;
-      const modelConfig = aiKnowledge?.model ?? CHATBOT_CONFIG.DEFAULT_MODEL;
+      // Modelo é definido pelo provider (ignora o banco de dados)
+      const modelConfig = DEFAULT_MODELS[AI_PROVIDER] || DEFAULT_MODELS.gemini;
       
       // Usa temperatura baixa por padrão para garantir precisão nos dados
       const temperature = options?.temperature ?? CHATBOT_CONFIG.TEMPERATURE;
@@ -413,12 +418,11 @@ Total: R$ 350,00"
 
       const userPrompt = this.buildUserPrompt(historyText, message);
 
-      // const providerName = options?.provider || providerConfig || (process.env.AI_PROVIDER as AIProvider);
-      const providerName = "gemini";
-      const provider = this.getProvider(providerName);
+      // Provider é definido globalmente via .env (AI_PROVIDER)
+      const provider = this.getProvider();
 
       if (!provider.isConfigured()) {
-        throw new Error(`AI provider is not configured.`);
+        throw new Error(`AI provider ${AI_PROVIDER} is not configured. Check your .env file.`);
       }
 
       // Visão computacional (se houver imagem recente)
@@ -430,7 +434,7 @@ Total: R$ 350,00"
       if (lastMessage?.direction === "INBOUND" && lastMessage?.mediaType === "image" && lastMessage?.mediaUrl) {
         imageUrlForVision = lastMessage.mediaUrl;
         // Para Gemini (padrão), baixa a imagem e converte para base64
-        if (providerName !== "openai") {
+        if (AI_PROVIDER !== "openai") {
           try {
             const axios = require("axios");
             const response = await axios.get(lastMessage.mediaUrl, { responseType: "arraybuffer", timeout: 30000 });
@@ -447,14 +451,14 @@ Total: R$ 350,00"
       // Adapta os parâmetros de acordo com o provedor
       let aiResponse: string;
 
-      if (providerName === "openai") {
+      if (AI_PROVIDER === "openai") {
         // OpenAI
         aiResponse = await openaiService.generateResponse({
           systemPrompt,
           userPrompt,
           temperature,
           maxTokens,
-          model: options?.model || modelConfig,
+          model: modelConfig,
           imageUrl: imageUrlForVision,
           ...(useTools && {
             tools: essentialTools,
@@ -472,7 +476,7 @@ Total: R$ 350,00"
           userPrompt,
           temperature,
           maxTokens,
-          model: options?.model || modelConfig,
+          model: modelConfig,
           imageBase64: imageBase64ForGemini,
           imageMimeType,
           enableTools: useTools,
