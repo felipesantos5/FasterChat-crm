@@ -36,6 +36,7 @@ interface CustomerFormModalProps {
   onSubmit: (data: CreateCustomerData | UpdateCustomerData) => Promise<void>;
   customer?: Customer;
   availableTags: Tag[];
+  onTagCreated?: () => void; // Callback para recarregar tags quando uma nova é criada
 }
 
 export function CustomerFormModal({
@@ -44,6 +45,7 @@ export function CustomerFormModal({
   onSubmit,
   customer,
   availableTags,
+  onTagCreated,
 }: CustomerFormModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -183,15 +185,9 @@ export function CustomerFormModal({
               availableTags={availableTags}
               placeholder="Selecionar tags..."
               disabled={isSubmitting}
-              onTagCreated={async (tag) => {
-                // Recarrega a lista de tags disponíveis quando uma nova tag é criada
-                try {
-                  await import('@/lib/customer').then(m => m.customerApi.getAllTags());
-                  // Atualiza o availableTags passado pelo componente pai
-                  console.log('[CustomerForm] Nova tag criada, atualizando lista:', tag.name);
-                } catch (error) {
-                  console.error('[CustomerForm] Erro ao recarregar tags:', error);
-                }
+              onTagCreated={(tag) => {
+                // Notifica o componente pai para recarregar as tags
+                onTagCreated?.();
               }}
             />
             <p className="text-xs text-muted-foreground">

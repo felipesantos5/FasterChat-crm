@@ -75,15 +75,16 @@ function CustomersPageContent() {
   }, [search]);
 
   // Load tags
+  const loadTags = async () => {
+    try {
+      const tags = await tagApi.getAll();
+      setAvailableTags(tags);
+    } catch (error) {
+      console.error("Error loading tags:", error);
+    }
+  };
+
   useEffect(() => {
-    const loadTags = async () => {
-      try {
-        const tags = await tagApi.getAll();
-        setAvailableTags(tags);
-      } catch (error) {
-        console.error("Error loading tags:", error);
-      }
-    };
     loadTags();
   }, []);
 
@@ -420,6 +421,7 @@ function CustomersPageContent() {
         onSubmit={editingCustomer ? handleUpdate : handleCreate}
         customer={editingCustomer}
         availableTags={availableTags}
+        onTagCreated={loadTags}
       />
       <ImportCustomersDialog
         isOpen={importModalOpen}

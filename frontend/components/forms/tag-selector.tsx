@@ -44,16 +44,22 @@ export function TagSelector({
   const [newTagValue, setNewTagValue] = useState('');
   const [newTagColor, setNewTagColor] = useState('#22C55E');
   const [creating, setCreating] = useState(false);
+  // Mapa local de cores para tags criadas na sessão (resolve o problema de cor verde)
+  const [localTagColors, setLocalTagColors] = useState<Record<string, string>>({});
 
   const addTag = async (tag: string, createInDatabase = false, color?: string) => {
     const trimmedTag = tag.trim();
     if (trimmedTag && !value.includes(trimmedTag)) {
       // Se for uma tag nova e não estiver na lista de disponíveis, criar no banco
       const tagExists = availableTags.some((t) => t.name === trimmedTag);
+      const tagColor = color || newTagColor;
+
       if (createInDatabase && !tagExists) {
         try {
           setCreating(true);
-          const createdTag = await tagApi.create(trimmedTag, color || newTagColor);
+          const createdTag = await tagApi.create(trimmedTag, tagColor);
+          // Salva a cor localmente para exibição imediata
+          setLocalTagColors(prev => ({ ...prev, [trimmedTag]: createdTag.color || tagColor }));
           onTagCreated?.(createdTag);
         } catch (error) {
           console.error('[TagSelector] Error creating tag:', error);
@@ -83,7 +89,7 @@ export function TagSelector({
 
   const handleAddNewTag = () => {
     if (newTagValue.trim()) {
-      addTag(newTagValue, true); // true = criar no banco de dados
+      addTag(newTagValue, true, newTagColor); // Passa a cor selecionada no ColorPicker
     }
   };
 
@@ -104,8 +110,13 @@ export function TagSelector({
       )
     : unselectedTags;
 
-  // Retorna a cor da tag pelo nome
+  // Retorna a cor da tag pelo nome (verifica primeiro no mapa local, depois no availableTags)
   const getTagColorByName = (tagName: string): string => {
+    // Primeiro verifica se a cor foi salva localmente (tags criadas na sessão)
+    if (localTagColors[tagName]) {
+      return localTagColors[tagName];
+    }
+    // Depois busca no availableTags
     const tag = availableTags.find((t) => t.name === tagName);
     return tag?.color || '#22C55E';
   };
@@ -215,7 +226,7 @@ export function TagSelector({
                     <CommandItem
                       value={`create-${searchValue}`}
                       onSelect={() => {
-                        addTag(searchValue, true); // true = criar no banco de dados
+                        addTag(searchValue, true, newTagColor); // Passa a cor selecionada
                         setOpen(false);
                       }}
                       disabled={creating}

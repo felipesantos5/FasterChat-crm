@@ -5,7 +5,9 @@ import { useRouter, useParams } from "next/navigation";
 import { customerApi } from "@/lib/customer";
 import { customerAddressApi } from "@/lib/customer-address";
 import { customerServiceCardApi } from "@/lib/customer-service-card";
+import { customerNoteApi } from "@/lib/customer-note";
 import { Customer } from "@/types/customer";
+import { CustomerNote } from "@/types/customer-note";
 import { CustomerAddress } from "@/types/customer-address";
 import {
   CustomerServiceCard,
@@ -39,6 +41,8 @@ import {
   DollarSign,
   MoreVertical,
   Home,
+  User,
+  StickyNote,
 } from "lucide-react";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { Tag } from "@/lib/tag";
@@ -87,6 +91,9 @@ export default function CustomerDetailPage() {
   const [editingServiceCard, setEditingServiceCard] = useState<CustomerServiceCard | undefined>();
   const [serviceCardToDelete, setServiceCardToDelete] = useState<CustomerServiceCard | null>(null);
 
+  // Customer notes state
+  const [customerNotes, setCustomerNotes] = useState<CustomerNote[]>([]);
+
   const loadCustomer = async () => {
     try {
       setLoading(true);
@@ -129,11 +136,22 @@ export default function CustomerDetailPage() {
     }
   };
 
+  const loadCustomerNotes = async () => {
+    try {
+      const response = await customerNoteApi.getCustomerNotes(params.id as string);
+      setCustomerNotes(response.data);
+    } catch (error) {
+      console.error("Error loading customer notes:", error);
+      setCustomerNotes([]);
+    }
+  };
+
   useEffect(() => {
     loadCustomer();
     loadTags();
     loadAddresses();
     loadServiceCards();
+    loadCustomerNotes();
   }, [params.id]);
 
   const handleUpdate = async (data: any) => {
@@ -380,7 +398,7 @@ export default function CustomerDetailPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
-                  Observações
+                  Observações Gerais
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -388,6 +406,57 @@ export default function CustomerDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Customer Notes - Observações do Chat */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <StickyNote className="h-5 w-5" />
+                Notas do Atendimento
+              </CardTitle>
+              <CardDescription>
+                Observações adicionadas durante as conversas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {customerNotes.length === 0 ? (
+                <div className="flex h-32 flex-col items-center justify-center text-center">
+                  <StickyNote className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma nota de atendimento registrada
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    As notas podem ser adicionadas na área de conversas
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {customerNotes.map((note) => (
+                    <div
+                      key={note.id}
+                      className="rounded-lg border p-4 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="space-y-2">
+                        <p className="text-sm whitespace-pre-wrap">{note.note}</p>
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <User className="h-3 w-3" />
+                            <span>{note.user.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(note.createdAt), "dd/MM/yyyy 'às' HH:mm", {
+                              locale: ptBR,
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Service Cards */}
           <Card>
@@ -673,6 +742,7 @@ export default function CustomerDetailPage() {
         onSubmit={handleUpdate}
         customer={customer}
         availableTags={availableTags}
+        onTagCreated={loadTags}
       />
 
       <AddressFormModal
