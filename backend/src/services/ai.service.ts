@@ -1,6 +1,7 @@
 import { prisma } from "../utils/prisma";
 import conversationExampleService from "./conversation-example.service";
 import openaiService from "./ai-providers/openai.service";
+import geminiService from "./ai-providers/gemini.service";
 import { AIProvider } from "../types/ai-provider";
 import { essentialTools } from "./ai-tools";
 import { aiAppointmentService } from "./ai-appointment.service";
@@ -66,7 +67,17 @@ interface GroupedMessage {
 
 class AIService {
   private getProvider(providerName?: AIProvider) {
-    return openaiService;
+    const provider = providerName || (process.env.AI_PROVIDER as AIProvider) || "openai";
+
+    switch (provider) {
+      case "gemini":
+        console.log("[AIService] Using Gemini provider");
+        return geminiService;
+      case "openai":
+      default:
+        console.log("[AIService] Using OpenAI provider");
+        return openaiService;
+    }
   }
 
   /**
@@ -412,28 +423,64 @@ Total: R$ 350,00"
       // Visão computacional (se houver imagem recente)
       const lastMessage = messageHistory[messageHistory.length - 1];
       let imageUrlForVision: string | undefined = undefined;
+      let imageBase64ForGemini: string | undefined = undefined;
+      let imageMimeType: string | undefined = undefined;
+
       if (lastMessage?.direction === "INBOUND" && lastMessage?.mediaType === "image" && lastMessage?.mediaUrl) {
         imageUrlForVision = lastMessage.mediaUrl;
+        // Para Gemini, baixa a imagem e converte para base64 se necessário
+        if (providerName === "gemini") {
+          try {
+            const axios = require("axios");
+            const response = await axios.get(lastMessage.mediaUrl, { responseType: "arraybuffer", timeout: 30000 });
+            imageBase64ForGemini = Buffer.from(response.data).toString("base64");
+            imageMimeType = geminiService.getImageMimeType(lastMessage.mediaUrl);
+          } catch (error) {
+            console.warn("[AIService] Failed to download image for Gemini:", error);
+          }
+        }
       }
 
       const useTools = true;
 
-      const aiResponse = await provider.generateResponse({
-        systemPrompt,
-        userPrompt,
-        temperature,
-        maxTokens,
-        model: options?.model || modelConfig,
-        imageUrl: imageUrlForVision,
-        ...(useTools && {
-          tools: essentialTools,
-          toolChoice: "auto",
+      // Adapta os parâmetros de acordo com o provedor
+      let aiResponse: string;
+
+      if (providerName === "gemini") {
+        // Gemini usa parâmetros diferentes
+        aiResponse = await geminiService.generateResponse({
+          systemPrompt,
+          userPrompt,
+          temperature,
+          maxTokens,
+          model: options?.model || modelConfig,
+          imageBase64: imageBase64ForGemini,
+          imageMimeType,
+          enableTools: useTools,
           context: {
             customerId: customer.id,
             companyId: customer.companyId,
           },
-        }),
-      });
+        });
+      } else {
+        // OpenAI
+        aiResponse = await openaiService.generateResponse({
+          systemPrompt,
+          userPrompt,
+          temperature,
+          maxTokens,
+          model: options?.model || modelConfig,
+          imageUrl: imageUrlForVision,
+          ...(useTools && {
+            tools: essentialTools,
+            toolChoice: "auto",
+            context: {
+              customerId: customer.id,
+              companyId: customer.companyId,
+            },
+          }),
+        });
+      }
 
       return this.removeMarkdown(aiResponse);
     } catch (error: any) {

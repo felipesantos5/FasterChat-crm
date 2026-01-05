@@ -185,7 +185,7 @@ export function CustomerFormModal({
               availableTags={availableTags}
               placeholder="Selecionar tags..."
               disabled={isSubmitting}
-              onTagCreated={(tag) => {
+              onTagCreated={() => {
                 // Notifica o componente pai para recarregar as tags
                 onTagCreated?.();
               }}
@@ -219,8 +219,8 @@ export function CustomerFormModal({
               {isSubmitting
                 ? "Salvando..."
                 : customer
-                ? "Salvar Alterações"
-                : "Criar Cliente"}
+                  ? "Salvar Alterações"
+                  : "Criar Cliente"}
             </Button>
           </DialogFooter>
         </form>

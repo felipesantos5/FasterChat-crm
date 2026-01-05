@@ -2,9 +2,11 @@ import { prisma } from "../utils/prisma";
 import { MessageDirection, MessageStatus, MessageFeedback } from "@prisma/client";
 import { CreateMessageRequest, GetMessagesRequest, ConversationSummary } from "../types/message";
 import openaiService from "./ai-providers/openai.service";
+import geminiService from "./ai-providers/gemini.service";
 import { websocketService } from "./websocket.service";
 import whatsappService from "./whatsapp.service";
 import { Errors, AppError } from "../utils/errors";
+import { AIProvider } from "../types/ai-provider";
 
 class MessageService {
   /**
@@ -419,9 +421,22 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
 
           console.log(`[MessageService] ✅ Áudio baixado: ${(base64Audio.length / 1024).toFixed(2)} KB`);
 
-          // Transcreve o áudio com OpenAI
+          // Verifica qual provedor de IA está configurado para a empresa
+          const aiKnowledge = await prisma.aIKnowledge.findUnique({
+            where: { companyId: instance.companyId },
+            select: { provider: true },
+          });
+          const aiProvider = (aiKnowledge?.provider as AIProvider) || (process.env.AI_PROVIDER as AIProvider) || "openai";
+
+          // Transcreve o áudio com o provedor configurado
           try {
-            content = await openaiService.transcribeAudio(base64Audio);
+            if (aiProvider === "gemini" && geminiService.isConfigured()) {
+              console.log(`[MessageService] 🤖 Usando Gemini para transcrição de áudio`);
+              content = await geminiService.transcribeAudio(base64Audio, mimetype);
+            } else {
+              console.log(`[MessageService] 🤖 Usando OpenAI Whisper para transcrição de áudio`);
+              content = await openaiService.transcribeAudio(base64Audio);
+            }
             console.log(`[MessageService] ✅ Áudio transcrito: ${content.substring(0, 50)}...`);
           } catch (transcribeError: any) {
             console.error(`[MessageService] ⚠️ Erro ao transcrever áudio:`, transcribeError.message);
