@@ -2,12 +2,14 @@ import { Request, Response } from "express";
 import messageService from "../services/message.service";
 import conversationService from "../services/conversation.service";
 import aiService from "../services/ai.service";
-import openaiService from "../services/ai-providers/openai.service"; // ✅ Importado OpenAI Service
+import openaiService from "../services/ai-providers/openai.service";
+import geminiService from "../services/ai-providers/gemini.service";
 import { prisma } from "../utils/prisma";
 import { WhatsAppStatus } from "@prisma/client";
 import { EvolutionWebhookPayload } from "../types/message";
 import whatsappService from "../services/whatsapp.service";
 import { linkConversionService } from "../services/link-conversion.service";
+import { AIProvider } from "../types/ai-provider";
 
 class WebhookController {
   /**
@@ -94,12 +96,15 @@ class WebhookController {
         // Verifica condições para IA:
         // 1. IA habilitada na conversa
         // 2. Auto-reply habilitado na empresa
-        // 3. Provedor de IA configurado (Usando openaiService diretamente)
+        // 3. Provedor de IA configurado (OpenAI ou Gemini)
         // 4. Não é grupo
         const isAutoReplyEnabled = aiKnowledge?.autoReplyEnabled !== false;
-        
-        // CORREÇÃO AQUI: Usamos openaiService.isConfigured() ao invés de aiService
-        const isAIConfigured = openaiService.isConfigured();
+
+        // Verifica qual provedor está configurado e se está ativo
+        const aiProvider = (aiKnowledge?.provider as AIProvider) || (process.env.AI_PROVIDER as AIProvider) || "openai";
+        const isAIConfigured = aiProvider === "gemini"
+          ? geminiService.isConfigured()
+          : openaiService.isConfigured();
 
         if (conversation.aiEnabled && isAutoReplyEnabled && isAIConfigured && !result.customer.isGroup) {
           try {

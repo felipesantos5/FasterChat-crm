@@ -116,7 +116,7 @@ class AIKnowledgeService {
           setupStep: data.setupStep,
           
           // Configurações técnicas
-          provider: data.provider || 'openai',
+          provider: data.provider || process.env.AI_PROVIDER || 'openai',
           model: data.model,
           autoReplyEnabled: data.autoReplyEnabled,
         },
@@ -145,7 +145,7 @@ class AIKnowledgeService {
 
           setupCompleted: data.setupCompleted ?? false,
           setupStep: data.setupStep ?? 0,
-          provider: 'openai',
+          provider: process.env.AI_PROVIDER || 'openai',
           autoReplyEnabled: true,
         },
       });

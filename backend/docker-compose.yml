@@ -91,8 +91,8 @@ services:
       REDIS_PORT: 6379
       # Conexão interna com a Evolution API
       EVOLUTION_API_URL: http://evolution-api:8080
-      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-crm-api-key-secure-2024}
-      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      # AI_PROVIDER: ${AI_PROVIDER:-gemini}
       
       # 👇 ADICIONE ESTAS LINHAS AQUI 👇
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
@@ -105,6 +105,7 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       # Configurações de IA
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      AI_PROVIDER: ${AI_PROVIDER}
 
   # ----------------------------------------------------------------
   # EVOLUTION API

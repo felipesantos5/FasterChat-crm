@@ -426,7 +426,7 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
             where: { companyId: instance.companyId },
             select: { provider: true },
           });
-          const aiProvider = (aiKnowledge?.provider as AIProvider) || (process.env.AI_PROVIDER as AIProvider) || "openai";
+          const aiProvider = (aiKnowledge?.provider as AIProvider) || (process.env.AI_PROVIDER as AIProvider);
 
           // Transcreve o áudio com o provedor configurado
           try {
