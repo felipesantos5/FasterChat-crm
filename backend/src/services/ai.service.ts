@@ -413,7 +413,8 @@ Total: R$ 350,00"
 
       const userPrompt = this.buildUserPrompt(historyText, message);
 
-      const providerName = options?.provider || providerConfig || (process.env.AI_PROVIDER as AIProvider);
+      // const providerName = options?.provider || providerConfig || (process.env.AI_PROVIDER as AIProvider);
+      const providerName = "gemini";
       const provider = this.getProvider(providerName);
 
       if (!provider.isConfigured()) {
