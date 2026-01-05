@@ -67,7 +67,7 @@ interface GroupedMessage {
 
 class AIService {
   private getProvider(providerName?: AIProvider) {
-    const provider = providerName || (process.env.AI_PROVIDER as AIProvider) || "openai";
+    const provider = providerName || (process.env.AI_PROVIDER as AIProvider);
 
     switch (provider) {
       case "gemini":
@@ -413,7 +413,7 @@ Total: R$ 350,00"
 
       const userPrompt = this.buildUserPrompt(historyText, message);
 
-      const providerName = options?.provider || providerConfig || (process.env.AI_PROVIDER as AIProvider) || "openai";
+      const providerName = options?.provider || providerConfig || (process.env.AI_PROVIDER as AIProvider);
       const provider = this.getProvider(providerName);
 
       if (!provider.isConfigured()) {
