@@ -19,7 +19,7 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
-  // Eye,
+  Eye,
   MessageSquare,
   Upload,
   X,
@@ -266,7 +266,7 @@ function CustomersPageContent() {
               <Card
                 key={customer.id}
                 className="p-3 sm:p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => router.push(`/dashboard/conversations?customer=${customer.id}`)}
+                onClick={() => router.push(`/dashboard/customers/${customer.id}`)}
               >
                 <div className="flex items-start justify-between gap-2 sm:gap-3">
                   <div className="flex-1 min-w-0">
@@ -317,7 +317,7 @@ function CustomersPageContent() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {/* <DropdownMenuItem
+                      <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();
                           router.push(`/dashboard/customers/${customer.id}`);
@@ -325,7 +325,7 @@ function CustomersPageContent() {
                       >
                         <Eye className="mr-2 h-4 w-4" />
                         Ver detalhes
-                      </DropdownMenuItem> */}
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();

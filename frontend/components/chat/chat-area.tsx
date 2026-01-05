@@ -694,7 +694,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                       ? "bg-white dark:bg-gray-800 text-foreground rounded-tl-none"
                       : isAi
                         ? "bg-[#DCF8C6] dark:bg-green-900/40 text-gray-900 dark:text-white rounded-tr-none"
-                        : "bg-[#446b26] dark:bg-green-900/20 text-gray-900 dark:text-white rounded-tr-none"
+                        : "bg-[#446b26] dark:bg-green-900/20 text-white dark:text-white rounded-tr-none"
                   )}
                 >
                   {!isInbound && (
