@@ -289,7 +289,7 @@ model AIKnowledge {
   setupStep          Int      @default(0) @map("setup_step") // 0-5 para controle do wizard
 
   // Configurações avançadas da IA (internas, não expostas ao cliente)
-  provider           String?  @default("openai") // openai ou anthropic
+  provider           String?  @default("openai") // openai, gemini ou anthropic
   model              String?  // Nome do modelo específico (opcional)
   temperature        Float?   @default(0.7) // 0.0 a 1.0 (menor = mais conservador)
   maxTokens          Int?     @default(500) // Limite de tokens na resposta
