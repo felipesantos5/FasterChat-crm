@@ -101,10 +101,10 @@ class WebhookController {
         const isAutoReplyEnabled = aiKnowledge?.autoReplyEnabled !== false;
 
         // Verifica qual provedor está configurado e se está ativo
-        const aiProvider = (aiKnowledge?.provider as AIProvider) || (process.env.AI_PROVIDER as AIProvider) || "openai";
-        const isAIConfigured = aiProvider === "gemini"
-          ? geminiService.isConfigured()
-          : openaiService.isConfigured();
+        const aiProvider = (aiKnowledge?.provider as AIProvider) || (process.env.AI_PROVIDER as AIProvider) || "gemini";
+        const isAIConfigured = aiProvider === "openai"
+          ? openaiService.isConfigured()
+          : geminiService.isConfigured();
 
         if (conversation.aiEnabled && isAutoReplyEnabled && isAIConfigured && !result.customer.isGroup) {
           try {

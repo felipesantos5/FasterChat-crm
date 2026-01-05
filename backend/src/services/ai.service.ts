@@ -67,16 +67,16 @@ interface GroupedMessage {
 
 class AIService {
   private getProvider(providerName?: AIProvider) {
-    const provider = providerName || (process.env.AI_PROVIDER as AIProvider);
+    const provider = providerName || (process.env.AI_PROVIDER as AIProvider) || "gemini";
 
     switch (provider) {
-      case "gemini":
-        console.log("[AIService] Using Gemini provider");
-        return geminiService;
       case "openai":
-      default:
         console.log("[AIService] Using OpenAI provider");
         return openaiService;
+      case "gemini":
+      default:
+        console.log("[AIService] Using Gemini provider");
+        return geminiService;
     }
   }
 
@@ -429,8 +429,8 @@ Total: R$ 350,00"
 
       if (lastMessage?.direction === "INBOUND" && lastMessage?.mediaType === "image" && lastMessage?.mediaUrl) {
         imageUrlForVision = lastMessage.mediaUrl;
-        // Para Gemini, baixa a imagem e converte para base64 se necessário
-        if (providerName === "gemini") {
+        // Para Gemini (padrão), baixa a imagem e converte para base64
+        if (providerName !== "openai") {
           try {
             const axios = require("axios");
             const response = await axios.get(lastMessage.mediaUrl, { responseType: "arraybuffer", timeout: 30000 });
@@ -447,23 +447,7 @@ Total: R$ 350,00"
       // Adapta os parâmetros de acordo com o provedor
       let aiResponse: string;
 
-      if (providerName === "gemini") {
-        // Gemini usa parâmetros diferentes
-        aiResponse = await geminiService.generateResponse({
-          systemPrompt,
-          userPrompt,
-          temperature,
-          maxTokens,
-          model: options?.model || modelConfig,
-          imageBase64: imageBase64ForGemini,
-          imageMimeType,
-          enableTools: useTools,
-          context: {
-            customerId: customer.id,
-            companyId: customer.companyId,
-          },
-        });
-      } else {
+      if (providerName === "openai") {
         // OpenAI
         aiResponse = await openaiService.generateResponse({
           systemPrompt,
@@ -480,6 +464,22 @@ Total: R$ 350,00"
               companyId: customer.companyId,
             },
           }),
+        });
+      } else {
+        // Gemini (padrão)
+        aiResponse = await geminiService.generateResponse({
+          systemPrompt,
+          userPrompt,
+          temperature,
+          maxTokens,
+          model: options?.model || modelConfig,
+          imageBase64: imageBase64ForGemini,
+          imageMimeType,
+          enableTools: useTools,
+          context: {
+            customerId: customer.id,
+            companyId: customer.companyId,
+          },
         });
       }
 

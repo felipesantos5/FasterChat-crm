@@ -32,18 +32,18 @@ export function CustomerActivityChart({ data }: CustomerActivityChartProps) {
     : 0
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium flex items-center gap-2">
+    <Card className="h-full max-h-[320px]">
+      <CardHeader className="pb-1 pt-3 px-4">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Activity className="h-4 w-4 text-green-600" />
           Atividade de Clientes
         </CardTitle>
-        <CardDescription>
-          Clientes com interação nos últimos 30 dias
+        <CardDescription className="text-xs">
+          Interação nos últimos 30 dias
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[280px]">
+      <CardContent className="pb-3 px-4">
+        <ChartContainer config={chartConfig} className="h-[160px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <ChartTooltip
@@ -56,8 +56,8 @@ export function CustomerActivityChart({ data }: CustomerActivityChartProps) {
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={90}
+                innerRadius={45}
+                outerRadius={70}
                 paddingAngle={2}
                 startAngle={90}
                 endAngle={-270}
@@ -78,14 +78,14 @@ export function CustomerActivityChart({ data }: CustomerActivityChartProps) {
                           <tspan
                             x={viewBox.cx}
                             y={viewBox.cy}
-                            className="fill-foreground text-3xl font-bold"
+                            className="fill-foreground text-2xl font-bold"
                           >
                             {activePercentage}%
                           </tspan>
                           <tspan
                             x={viewBox.cx}
-                            y={(viewBox.cy || 0) + 24}
-                            className="fill-muted-foreground text-sm"
+                            y={(viewBox.cy || 0) + 18}
+                            className="fill-muted-foreground text-xs"
                           >
                             Ativos
                           </tspan>
@@ -99,16 +99,16 @@ export function CustomerActivityChart({ data }: CustomerActivityChartProps) {
             </PieChart>
           </ResponsiveContainer>
         </ChartContainer>
-        <div className="flex justify-center gap-6 mt-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="text-sm text-muted-foreground">
+        <div className="flex justify-center gap-4 mt-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+            <span className="text-xs text-muted-foreground">
               Ativos: <span className="font-medium text-foreground">{data.active}</span>
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gray-400" />
-            <span className="text-sm text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+            <span className="text-xs text-muted-foreground">
               Inativos: <span className="font-medium text-foreground">{data.inactive}</span>
             </span>
           </div>

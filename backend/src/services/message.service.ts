@@ -426,16 +426,16 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
             where: { companyId: instance.companyId },
             select: { provider: true },
           });
-          const aiProvider = (aiKnowledge?.provider as AIProvider) || (process.env.AI_PROVIDER as AIProvider);
+          const aiProvider = (aiKnowledge?.provider as AIProvider) || (process.env.AI_PROVIDER as AIProvider) || "gemini";
 
-          // Transcreve o áudio com o provedor configurado
+          // Transcreve o áudio com o provedor configurado (Gemini é o padrão)
           try {
-            if (aiProvider === "gemini" && geminiService.isConfigured()) {
-              console.log(`[MessageService] 🤖 Usando Gemini para transcrição de áudio`);
-              content = await geminiService.transcribeAudio(base64Audio, mimetype);
-            } else {
+            if (aiProvider === "openai" && openaiService.isConfigured()) {
               console.log(`[MessageService] 🤖 Usando OpenAI Whisper para transcrição de áudio`);
               content = await openaiService.transcribeAudio(base64Audio);
+            } else {
+              console.log(`[MessageService] 🤖 Usando Gemini para transcrição de áudio`);
+              content = await geminiService.transcribeAudio(base64Audio, mimetype);
             }
             console.log(`[MessageService] ✅ Áudio transcrito: ${content.substring(0, 50)}...`);
           } catch (transcribeError: any) {

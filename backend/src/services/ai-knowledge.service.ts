@@ -1,6 +1,6 @@
 import { prisma } from '../utils/prisma';
 import { UpdateAIKnowledgeRequest, Product } from '../types/ai-knowledge';
-import openaiService from './ai-providers/openai.service';
+import geminiService from './ai-providers/gemini.service';
 import { getObjectivePrompt, getObjectivePresetsForUI } from '../config/ai-objectives';
 
 // ============================================
@@ -116,7 +116,7 @@ class AIKnowledgeService {
           setupStep: data.setupStep,
           
           // Configurações técnicas
-          provider: data.provider || process.env.AI_PROVIDER || 'openai',
+          provider: data.provider || process.env.AI_PROVIDER || 'gemini',
           model: data.model,
           autoReplyEnabled: data.autoReplyEnabled,
         },
@@ -145,7 +145,7 @@ class AIKnowledgeService {
 
           setupCompleted: data.setupCompleted ?? false,
           setupStep: data.setupStep ?? 0,
-          provider: process.env.AI_PROVIDER || 'openai',
+          provider: process.env.AI_PROVIDER || 'gemini',
           autoReplyEnabled: true,
         },
       });
@@ -252,11 +252,12 @@ class AIKnowledgeService {
     `;
 
     try {
-      const response = await openaiService.generateResponse({
+      const response = await geminiService.generateResponse({
         systemPrompt: "Você é um especialista em estruturar conhecimentos corporativos para LLMs.",
         userPrompt: systemPrompt,
         temperature: 0.3, // Baixa temperatura para ser analítico
         maxTokens: 1000,
+        enableTools: false, // Não precisa de tools para gerar contexto
       });
 
       // Combina o perfil gerado com o comportamento hardcoded

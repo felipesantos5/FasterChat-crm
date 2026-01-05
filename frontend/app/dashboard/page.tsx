@@ -220,20 +220,23 @@ function DashboardPageContent() {
         {/* Charts Section */}
         {chartsData ? (
           <>
-            {/* Primeira linha: Funil de Pipeline e Mensagens */}
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-3 mb-4 sm:mb-6">
-              <PipelineFunnelChart data={chartsData.pipelineFunnel} />
-              <CustomerActivityChart data={chartsData.customerActivity} />
-              <MessagesChart data={chartsData.messagesOverTime} />
-            </div>
+            {/* Primeira linha: Mensagens (grande) + Funil e Atividade (menores) */}
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-12 mb-4 sm:mb-6">
+              {/* Gráfico de Mensagens - Ocupa 7 colunas (maior destaque) */}
+              <div className="lg:col-span-7">
+                <MessagesChart data={chartsData.messagesOverTime} />
+              </div>
 
-            {/* Segunda linha: Agendamentos ao longo do tempo (se Google Calendar conectado) e Atividade de Clientes */}
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2 mb-4 sm:mb-6">
-              {/* Só mostra Agendamentos se Google Calendar estiver conectado */}
-              {/* {isGoogleCalendarConnected && (
-                <AppointmentsChart data={chartsData.appointmentsOverTime} />
-              )} */}
+              {/* Coluna lateral com Funil e Atividade */}
+              <div className="lg:col-span-5 flex flex-col gap-4 sm:gap-6">
+                {/* Funil de Pipeline */}
+                <PipelineFunnelChart data={chartsData.pipelineFunnel} />
 
+                {/* Atividade de Clientes - Compacto (max 320px altura) */}
+                <div className="max-h-[320px]">
+                  <CustomerActivityChart data={chartsData.customerActivity} />
+                </div>
+              </div>
             </div>
           </>
         ) : null}
