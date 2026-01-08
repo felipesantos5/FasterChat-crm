@@ -28,7 +28,7 @@ export const adminController = {
       const token = jwt.sign(
         {
           isAdmin: true,
-          username: "root",
+          username: "admin",
         },
         ADMIN_JWT_SECRET,
         { expiresIn: "24h" }

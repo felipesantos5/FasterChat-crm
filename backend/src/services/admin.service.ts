@@ -1,9 +1,9 @@
 import { prisma } from "../utils/prisma";
 
-// Credenciais hardcoded para o admin root
+// Credenciais do admin - senha via variável de ambiente
 const ADMIN_CREDENTIALS = {
-  username: "root",
-  password: "admin",
+  username: "admin",
+  password: process.env.ROOT_PASSWORD || "admin",
 };
 
 export const adminService = {
