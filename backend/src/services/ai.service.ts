@@ -31,7 +31,7 @@ const CHATBOT_CONFIG = {
 
 // Modelos padrão por provider (definidos via .env ou fallback)
 const DEFAULT_MODELS = {
-  gemini: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+  gemini: process.env.GEMINI_MODEL || "gemini-2.0-flash",
   openai: process.env.OPENAI_MODEL_MINI || "gpt-4o-mini",
 };
 
