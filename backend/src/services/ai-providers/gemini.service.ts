@@ -151,7 +151,7 @@ class GeminiService {
       console.warn("[Gemini] GOOGLE_AI_API_KEY not found. Gemini features will be disabled.");
     }
     this.client = new GoogleGenerativeAI(apiKey || "");
-    this.model =  "models/gemini-1.5-flash";
+    this.model =  "gemini-1.5-flash";
   }
 
   /**
