@@ -10,7 +10,9 @@ import {
   LogOut,
   RefreshCw,
   Shield,
-  Calendar
+  Calendar,
+  Database,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,6 +41,7 @@ export default function AdminDashboardPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [seedingCompanyId, setSeedingCompanyId] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!token) return;
@@ -92,6 +95,40 @@ export default function AdminDashboardPage() {
       month: "2-digit",
       year: "numeric",
     });
+  };
+
+  const handleSeedHvac = async (companyId: string, companyName: string) => {
+    if (!token) return;
+
+    const confirmed = window.confirm(
+      `Deseja executar o seed HVAC para a empresa "${companyName}"?\n\nIsso irá cadastrar:\n- 12 Serviços de ar condicionado\n- Faixas de preço por quantidade\n- 3 Zonas de atendimento\n- 8 Combos de instalação\n- Adicional de Rapel\n- Exceções de taxa`
+    );
+
+    if (!confirmed) return;
+
+    setSeedingCompanyId(companyId);
+    try {
+      const response = await fetch(`${API_URL}/api/admin/seed-hvac/${companyId}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao executar seed");
+      }
+
+      const result = await response.json();
+      toast.success(
+        `Seed HVAC concluído para ${result.companyName}!\n` +
+        `Serviços: ${result.results.services}, Zonas: ${result.results.zones}, Combos: ${result.results.combos}`
+      );
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao executar seed HVAC");
+      console.error(error);
+    } finally {
+      setSeedingCompanyId(null);
+    }
   };
 
   if (!isAuthenticated) {
@@ -221,6 +258,9 @@ export default function AdminDashboardPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Criado em
                     </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ações
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -267,6 +307,21 @@ export default function AdminDashboardPage() {
                           <Calendar className="w-4 h-4" />
                           {formatDate(company.createdAt)}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <button
+                          onClick={() => handleSeedHvac(company.id, company.name)}
+                          disabled={seedingCompanyId === company.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Cadastrar dados HVAC (Ar Condicionado)"
+                        >
+                          {seedingCompanyId === company.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Database className="w-4 h-4" />
+                          )}
+                          {seedingCompanyId === company.id ? "Executando..." : "Seed HVAC"}
+                        </button>
                       </td>
                     </tr>
                   ))}

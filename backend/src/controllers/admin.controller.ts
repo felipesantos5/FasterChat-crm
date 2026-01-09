@@ -71,4 +71,36 @@ export const adminController = {
       });
     }
   },
+
+  // Seed de dados HVAC para cliente específico
+  async seedHvacData(req: Request, res: Response) {
+    try {
+      const { companyId } = req.params;
+
+      if (!companyId) {
+        return res.status(400).json({
+          error: "companyId é obrigatório",
+        });
+      }
+
+      console.log(`🚀 Iniciando seed HVAC para empresa ${companyId}...`);
+
+      const result = await adminService.seedHvacData(companyId);
+
+      console.log(`✅ Seed HVAC concluído para ${result.companyName}`);
+      console.log(`   - Serviços: ${result.results.services}`);
+      console.log(`   - Faixas de preço: ${result.results.pricingTiers}`);
+      console.log(`   - Zonas: ${result.results.zones}`);
+      console.log(`   - Combos: ${result.results.combos}`);
+      console.log(`   - Adicionais: ${result.results.additionals}`);
+      console.log(`   - Exceções: ${result.results.exceptions}`);
+
+      return res.json(result);
+    } catch (error: any) {
+      console.error("❌ Erro no seed HVAC:", error);
+      return res.status(500).json({
+        error: error.message || "Erro ao executar seed HVAC",
+      });
+    }
+  },
 };
