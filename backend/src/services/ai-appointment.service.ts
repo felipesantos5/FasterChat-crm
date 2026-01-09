@@ -41,6 +41,8 @@ function createBrazilDateTime(dateString: string, timeString: string): Date {
 interface AppointmentState {
   step: 'COLLECTING_TYPE' | 'COLLECTING_DATE' | 'COLLECTING_TIME' | 'COLLECTING_ADDRESS' | 'CONFIRMING' | 'COMPLETED';
   serviceType?: AppointmentType;
+  serviceName?: string; // Nome real do serviço (ex: "Instalação de Ar Condicionado 12000 BTUs")
+  servicePrice?: string; // Preço do serviço (ex: "R$ 350,00")
   date?: string; // YYYY-MM-DD
   time?: string; // HH:mm
   duration?: number; // minutos
@@ -306,12 +308,19 @@ export class AIAppointmentService {
       state.address = detected.address;
     }
 
+    // 🆕 Busca nome e preço do serviço no catálogo da empresa
+    if (state.serviceType) {
+      await this.enrichStateWithCatalogInfo(state, companyId, message);
+    }
+
     // Determina o próximo step baseado no que foi detectado
     state.step = this.determineNextStep(state);
 
     console.log(`[AIAppointment] 📊 Estado inicial:`, {
       step: state.step,
       serviceType: state.serviceType,
+      serviceName: state.serviceName,
+      servicePrice: state.servicePrice,
       date: state.date,
       time: state.time,
       hasAddress: !!state.address,
@@ -327,12 +336,13 @@ export class AIAppointmentService {
     if (state.serviceType && state.date && state.time && state.step === 'COLLECTING_ADDRESS') {
       await this.saveAppointmentState(customerId, state);
 
-      const typeLabel = this.getServiceTypeLabel(state.serviceType);
+      const typeLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType);
       const dateObj = new Date(state.date);
       const dateFormatted = dateObj.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+      const priceInfo = state.servicePrice ? `\n💰 Valor: ${state.servicePrice}` : '';
 
       return {
-        response: `Perfeito! Entendi:\n📋 ${typeLabel}\n📅 ${dateFormatted}\n🕐 ${state.time}\n\nAgora só preciso do endereço onde vou fazer o serviço.\n\nMe manda a rua e o número! 📍`
+        response: `Perfeito! Entendi:\n📋 ${typeLabel}\n📅 ${dateFormatted}\n🕐 ${state.time}${priceInfo}\n\nAgora só preciso do endereço onde vou fazer o serviço.\n\nMe manda a rua e o número! 📍`
       };
     }
 
@@ -443,8 +453,7 @@ export class AIAppointmentService {
   /**
    * Detecta se a mensagem do cliente indica intenção de agendamento
    *
-   * ⚠️ REGRA CRÍTICA: Esta função DEVE ser EXTREMAMENTE restritiva!
-   * Apenas detecta intenção quando o cliente EXPLICITAMENTE pede para agendar.
+   * ⚠️ REGRA: Detecta intenção quando o cliente EXPLICITAMENTE pede para agendar.
    * Perguntas, dúvidas, solicitações de informação NÃO são intenção de agendamento.
    */
   detectAppointmentIntent(message: string): boolean {
@@ -452,41 +461,61 @@ export class AIAppointmentService {
 
     // 🚫 BLOQUEIO PRIORITÁRIO: Perguntas e dúvidas NUNCA são intenção de agendamento
     const questionIndicators = [
-      'qual', 'quais', 'que', 'como', 'onde', 'quando', 'quanto', 'quantos', 'quantas',
-      'tem', 'possui', 'possuem', 'oferece', 'oferecem', 'vende', 'vendem',
-      'fazem', 'faz', 'atendem', 'atende', 'trabalham', 'trabalha',
+      'qual o preço', 'quanto custa', 'quanto é', 'quanto fica',
+      'quais serviços', 'que serviços',
+      'vocês fazem', 'voces fazem', 'vocês tem', 'voces tem',
       'me fala', 'me diz', 'pode falar', 'pode me dizer', 'pode me falar',
       'gostaria de saber', 'queria saber', 'quero saber',
-      'me explica', 'explica', 'explicar', 'informação', 'informações', 'informacao', 'informacoes',
-      'dúvida', 'duvida', 'dúvidas', 'duvidas'
+      'me explica', 'explica', 'explicar',
+      'informação sobre', 'informações sobre', 'informacao sobre', 'informacoes sobre',
+      'dúvida', 'duvida', 'dúvidas', 'duvidas',
+      'como funciona', 'o que é'
     ];
 
-    // Se detectar qualquer indicador de pergunta, NÃO é agendamento
-    if (questionIndicators.some(word => lowerMessage.includes(word))) {
-      console.log('[AIAppointment] ❌ Question/doubt detected - NOT appointment intent:', message);
-      return false;
-    }
+    // Se detectar indicador de pergunta SEM palavra de agendamento, NÃO é agendamento
+    const hasQuestionIndicator = questionIndicators.some(word => lowerMessage.includes(word));
 
-    // ✅ APENAS palavras EXTREMAMENTE específicas de agendamento
+    // ✅ Palavras que indicam intenção de agendamento
     const explicitAppointmentKeywords = [
-      'quero agendar', 'quero marcar',
+      // Verbos de agendamento
+      'quero agendar', 'quero marcar', 'quero fazer',
       'gostaria de agendar', 'gostaria de marcar',
-      'preciso agendar', 'preciso marcar',
+      'preciso agendar', 'preciso marcar', 'preciso de',
       'vou agendar', 'vou marcar',
       'posso agendar', 'posso marcar',
       'queria agendar', 'queria marcar',
-      'agendar uma', 'marcar uma',
+      'agendar uma', 'marcar uma', 'agendar um', 'marcar um',
       'fazer um agendamento', 'fazer uma marcação',
-      'agendar um horário', 'marcar um horário',
+      'agendar horário', 'marcar horário',
       'agendar visita', 'marcar visita',
       'quero um horário', 'quero horário',
-      'preciso de um horário'
+      'preciso de um horário',
+      // Serviços com intenção implícita
+      'quero instalação', 'quero uma instalação', 'quero instalar',
+      'quero manutenção', 'quero uma manutenção',
+      'preciso de instalação', 'preciso de uma instalação',
+      'preciso de manutenção', 'preciso de uma manutenção',
+      'preciso instalar', 'preciso fazer instalação',
+      'quero fazer instalação', 'quero fazer manutenção',
+      // Padrões naturais
+      'marca pra mim', 'marca ai', 'agenda pra mim', 'agenda ai',
+      'pode agendar', 'pode marcar',
+      'bora agendar', 'bora marcar',
+      'vamos agendar', 'vamos marcar',
+      'fechar um horário', 'fechar horário',
+      'reservar horário', 'reservar um horário'
     ];
 
     // Se tem palavra explícita de agendamento, É intenção clara
     if (explicitAppointmentKeywords.some(keyword => lowerMessage.includes(keyword))) {
       console.log('[AIAppointment] ✅ Explicit appointment keyword detected:', message);
       return true;
+    }
+
+    // Se é só pergunta sem intenção de agendamento, retorna false
+    if (hasQuestionIndicator) {
+      console.log('[AIAppointment] ❌ Question/doubt detected - NOT appointment intent:', message);
+      return false;
     }
 
     // Mais nada! Se não tem palavra EXPLÍCITA de agendamento, retorna false
@@ -1518,7 +1547,8 @@ export class AIAppointmentService {
       year: 'numeric'
     });
 
-    const serviceLabel = this.getServiceTypeLabel(state.serviceType!);
+    // Usa o nome real do serviço se disponível, senão usa o label genérico
+    const serviceLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType!);
 
     // Formata endereço
     let addressText = '';
@@ -1542,9 +1572,12 @@ export class AIAppointmentService {
       }
     }
 
+    // Adiciona preço se disponível
+    const priceText = state.servicePrice ? `\n💰 Valor: ${state.servicePrice}` : '';
+
     return {
       shouldContinue: true,
-      response: `Show! Deixa eu confirmar os dados:\n\n📋 Serviço: ${serviceLabel}\n📅 Data: ${dateFormatted}\n🕐 Horário: ${state.time}\n⏱️ Duração: ${state.duration} minutos${addressText}\nTá tudo certo?\n\nÉ só responder SIM pra confirmar ou NÃO se quiser mudar algo`,
+      response: `Show! Deixa eu confirmar os dados:\n\n📋 Serviço: ${serviceLabel}\n📅 Data: ${dateFormatted}\n🕐 Horário: ${state.time}\n⏱️ Duração: ${state.duration} minutos${priceText}${addressText}\nTá tudo certo?\n\nÉ só responder SIM pra confirmar ou NÃO se quiser mudar algo`,
     };
   }
 
@@ -1710,6 +1743,96 @@ export class AIAppointmentService {
       case AppointmentType.VISIT: return 'Visita';
       case AppointmentType.OTHER: return 'Serviço';
       default: return 'Serviço';
+    }
+  }
+
+  /**
+   * Busca informações do serviço no catálogo da empresa
+   * Retorna nome, preço e duração se encontrado
+   */
+  async getServiceFromCatalog(
+    companyId: string,
+    serviceType: AppointmentType,
+    searchTerm?: string
+  ): Promise<{ name?: string; price?: string; duration?: number } | null> {
+    try {
+      const aiKnowledge = await prisma.aIKnowledge.findUnique({
+        where: { companyId },
+        select: { products: true }
+      });
+
+      if (!aiKnowledge?.products) return null;
+
+      const products = Array.isArray(aiKnowledge.products)
+        ? aiKnowledge.products
+        : JSON.parse(typeof aiKnowledge.products === 'string' ? aiKnowledge.products : '[]');
+
+      // Termos de busca baseados no tipo de serviço
+      const searchTerms: string[] = [];
+      if (searchTerm) searchTerms.push(searchTerm.toLowerCase());
+
+      switch (serviceType) {
+        case AppointmentType.INSTALLATION:
+          searchTerms.push('instalação', 'instalacao', 'instalar');
+          break;
+        case AppointmentType.MAINTENANCE:
+          searchTerms.push('manutenção', 'manutencao', 'manutenção preventiva');
+          break;
+        case AppointmentType.CONSULTATION:
+          searchTerms.push('consulta', 'orçamento', 'orcamento', 'visita técnica');
+          break;
+        default:
+          break;
+      }
+
+      // Busca no catálogo
+      for (const product of products) {
+        const productName = (product.name || '').toLowerCase();
+        const productCategory = (product.category || '').toLowerCase();
+
+        const matches = searchTerms.some(term =>
+          productName.includes(term) || productCategory.includes(term)
+        );
+
+        if (matches) {
+          console.log('[AIAppointment] Serviço encontrado no catálogo:', product.name);
+          return {
+            name: product.name,
+            price: product.price ? `R$ ${product.price}`.replace('R$ R$', 'R$') : undefined,
+            duration: product.duration ? parseInt(product.duration) : undefined
+          };
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[AIAppointment] Erro ao buscar serviço no catálogo:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Enriquece o estado com informações do catálogo
+   */
+  async enrichStateWithCatalogInfo(
+    state: AppointmentState,
+    companyId: string,
+    searchTerm?: string
+  ): Promise<void> {
+    if (!state.serviceType) return;
+
+    const catalogInfo = await this.getServiceFromCatalog(companyId, state.serviceType, searchTerm);
+
+    if (catalogInfo) {
+      if (catalogInfo.name) state.serviceName = catalogInfo.name;
+      if (catalogInfo.price) state.servicePrice = catalogInfo.price;
+      if (catalogInfo.duration) state.duration = catalogInfo.duration;
+
+      console.log('[AIAppointment] Estado enriquecido com dados do catálogo:', {
+        serviceName: state.serviceName,
+        servicePrice: state.servicePrice,
+        duration: state.duration
+      });
     }
   }
 }
