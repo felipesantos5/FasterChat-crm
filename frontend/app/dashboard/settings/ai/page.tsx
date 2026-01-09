@@ -43,6 +43,8 @@ import {
   ChevronUp,
   Variable,
   DollarSign,
+  Hash,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -66,6 +68,14 @@ interface ServiceVariable {
   options: ServiceOption[];
 }
 
+// Interface para faixas de preço por quantidade
+interface PricingTier {
+  id?: string;
+  minQuantity: number;
+  maxQuantity: number | null;
+  pricePerUnit: number;
+}
+
 type ServiceType = "PRODUCT" | "SERVICE";
 
 interface Service {
@@ -77,6 +87,8 @@ interface Service {
   category?: string;
   isActive: boolean;
   variables: ServiceVariable[];
+  pricingTiers?: PricingTier[]; // Faixas de preço por quantidade
+  usePricingTiers?: boolean; // Flag para usar faixas ao invés de preço base
 }
 
 // Mapeamento de ícones para os objetivos
@@ -228,6 +240,14 @@ function AISettingsPageContent() {
             priceModifier: Number(o.priceModifier),
           })),
         })),
+        // Carrega faixas de preço se existirem
+        pricingTiers: s.pricingTiers?.map((t: any) => ({
+          id: t.id,
+          minQuantity: t.minQuantity,
+          maxQuantity: t.maxQuantity,
+          pricePerUnit: Number(t.pricePerUnit),
+        })) || [],
+        usePricingTiers: s.pricingTiers && s.pricingTiers.length > 0,
       }));
       setServices(loadedServices);
       // Expandir todos por padrão se houver poucos
@@ -475,6 +495,8 @@ function AISettingsPageContent() {
         category: "",
         isActive: true,
         variables: [],
+        pricingTiers: [],
+        usePricingTiers: false,
       },
     ]);
     setExpandedServices(new Set([...expandedServices, newIndex]));
@@ -570,6 +592,56 @@ function AISettingsPageContent() {
     setServices(updated);
   };
 
+  // === Funções de Faixas de Preço ===
+  const toggleUsePricingTiers = (serviceIndex: number) => {
+    const updated = [...services];
+    const currentValue = updated[serviceIndex].usePricingTiers || false;
+    updated[serviceIndex].usePricingTiers = !currentValue;
+
+    // Se ativando e não tem faixas, adiciona uma padrão
+    if (!currentValue && (!updated[serviceIndex].pricingTiers || updated[serviceIndex].pricingTiers!.length === 0)) {
+      updated[serviceIndex].pricingTiers = [
+        { minQuantity: 1, maxQuantity: 1, pricePerUnit: updated[serviceIndex].basePrice || 0 },
+      ];
+    }
+    setServices(updated);
+  };
+
+  const addPricingTier = (serviceIndex: number) => {
+    const updated = [...services];
+    const tiers = updated[serviceIndex].pricingTiers || [];
+    const lastTier = tiers[tiers.length - 1];
+    const newMin = lastTier ? (lastTier.maxQuantity || lastTier.minQuantity) + 1 : 1;
+
+    updated[serviceIndex].pricingTiers = [
+      ...tiers,
+      { minQuantity: newMin, maxQuantity: null, pricePerUnit: 0 },
+    ];
+    setServices(updated);
+  };
+
+  const removePricingTier = (serviceIndex: number, tierIndex: number) => {
+    const updated = [...services];
+    updated[serviceIndex].pricingTiers = updated[serviceIndex].pricingTiers?.filter((_, i) => i !== tierIndex) || [];
+    setServices(updated);
+  };
+
+  const updatePricingTier = (
+    serviceIndex: number,
+    tierIndex: number,
+    field: keyof PricingTier,
+    value: any
+  ) => {
+    const updated = [...services];
+    if (updated[serviceIndex].pricingTiers) {
+      updated[serviceIndex].pricingTiers![tierIndex] = {
+        ...updated[serviceIndex].pricingTiers![tierIndex],
+        [field]: value,
+      };
+    }
+    setServices(updated);
+  };
+
   const saveServices = async () => {
     // Validação básica
     for (const service of services) {
@@ -577,6 +649,17 @@ function AISettingsPageContent() {
         toast.error("Todos os serviços precisam ter um nome");
         return false;
       }
+
+      // Validação de faixas de preço
+      if (service.usePricingTiers && service.pricingTiers && service.pricingTiers.length > 0) {
+        for (const tier of service.pricingTiers) {
+          if (tier.pricePerUnit <= 0) {
+            toast.error(`O serviço "${service.name}" tem faixas de preço com valor zerado`);
+            return false;
+          }
+        }
+      }
+
       for (const variable of service.variables) {
         if (!variable.name.trim()) {
           toast.error(`Todas as variáveis do serviço "${service.name}" precisam ter um nome`);
@@ -596,7 +679,24 @@ function AISettingsPageContent() {
     try {
       // Salvar cada serviço
       for (const service of services) {
-        await api.post("/services/save-complete", service);
+        const response = await api.post("/services/save-complete", service);
+        const savedServiceId = response.data?.id || service.id;
+
+        // Se tem faixas de preço configuradas, salva elas também
+        if (savedServiceId && service.usePricingTiers && service.pricingTiers && service.pricingTiers.length > 0) {
+          try {
+            await api.put(`/services/${savedServiceId}/pricing-tiers`, {
+              tiers: service.pricingTiers.map(tier => ({
+                minQuantity: tier.minQuantity,
+                maxQuantity: tier.maxQuantity,
+                pricePerUnit: tier.pricePerUnit,
+              })),
+            });
+          } catch (tierError) {
+            console.error("Erro ao salvar faixas de preço:", tierError);
+            // Não falha completamente, apenas loga o erro
+          }
+        }
       }
       return true;
     } catch (error) {
@@ -1298,25 +1398,183 @@ function AISettingsPageContent() {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label>Preço Base (R$)</Label>
-                              <div className="relative">
-                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={service.basePrice}
-                                  onChange={(e) =>
-                                    updateService(
-                                      serviceIndex,
-                                      "basePrice",
-                                      parseFloat(e.target.value) || 0
-                                    )
-                                  }
-                                  className="pl-9"
+                              <Label>Categoria (opcional)</Label>
+                              <Input
+                                value={service.category || ""}
+                                onChange={(e) =>
+                                  updateService(serviceIndex, "category", e.target.value)
+                                }
+                                placeholder="Ex: Instalação, Limpeza, Manutenção"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Pricing Section */}
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <Label className="flex items-center gap-2 text-base">
+                                <DollarSign className="w-4 h-4" />
+                                Precificação
+                              </Label>
+                              <div className="flex items-center gap-2">
+                                <Label className="text-sm font-normal text-muted-foreground">
+                                  Preço varia por quantidade?
+                                </Label>
+                                <Switch
+                                  checked={service.usePricingTiers || false}
+                                  onCheckedChange={() => toggleUsePricingTiers(serviceIndex)}
                                 />
                               </div>
                             </div>
+
+                            {!service.usePricingTiers ? (
+                              /* Preço Base Simples */
+                              <div className="space-y-2">
+                                <Label className="text-sm">Preço Base (R$)</Label>
+                                <div className="relative max-w-xs">
+                                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={service.basePrice}
+                                    onChange={(e) =>
+                                      updateService(
+                                        serviceIndex,
+                                        "basePrice",
+                                        parseFloat(e.target.value) || 0
+                                      )
+                                    }
+                                    className="pl-9"
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  Preço fixo independente da quantidade
+                                </p>
+                              </div>
+                            ) : (
+                              /* Faixas de Preço por Quantidade */
+                              <div className="space-y-3">
+                                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+                                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                                    <strong>Faixas de preço:</strong> Configure preços diferentes conforme a quantidade.
+                                    Ex: 1 un = R$ 275, 2-4 un = R$ 250/cada, 5+ un = R$ 200/cada.
+                                  </p>
+                                </div>
+
+                                {service.pricingTiers && service.pricingTiers.length > 0 && (
+                                  <div className="space-y-2">
+                                    {service.pricingTiers.map((tier, tierIndex) => (
+                                      <div
+                                        key={tierIndex}
+                                        className="flex flex-wrap items-center gap-2 bg-muted/50 p-3 rounded-lg border"
+                                      >
+                                        <span className="text-sm text-muted-foreground">De</span>
+                                        <Input
+                                          type="number"
+                                          min="1"
+                                          value={tier.minQuantity}
+                                          onChange={(e) =>
+                                            updatePricingTier(
+                                              serviceIndex,
+                                              tierIndex,
+                                              "minQuantity",
+                                              parseInt(e.target.value) || 1
+                                            )
+                                          }
+                                          className="w-16 text-center"
+                                        />
+                                        <span className="text-sm text-muted-foreground">até</span>
+                                        <Input
+                                          type="number"
+                                          min="1"
+                                          value={tier.maxQuantity || ""}
+                                          onChange={(e) =>
+                                            updatePricingTier(
+                                              serviceIndex,
+                                              tierIndex,
+                                              "maxQuantity",
+                                              e.target.value ? parseInt(e.target.value) : null
+                                            )
+                                          }
+                                          placeholder="+"
+                                          className="w-16 text-center"
+                                        />
+                                        <span className="text-sm text-muted-foreground">un.</span>
+                                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                                        <div className="relative">
+                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                            R$
+                                          </span>
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={tier.pricePerUnit}
+                                            onChange={(e) =>
+                                              updatePricingTier(
+                                                serviceIndex,
+                                                tierIndex,
+                                                "pricePerUnit",
+                                                parseFloat(e.target.value) || 0
+                                              )
+                                            }
+                                            className="w-28 pl-8"
+                                          />
+                                        </div>
+                                        <span className="text-sm text-muted-foreground">/cada</span>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => removePricingTier(serviceIndex, tierIndex)}
+                                          disabled={service.pricingTiers!.length <= 1}
+                                          className="ml-auto text-muted-foreground hover:text-destructive disabled:opacity-30"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addPricingTier(serviceIndex)}
+                                  className="w-full border-dashed"
+                                >
+                                  <Plus className="w-4 h-4 mr-1" />
+                                  Adicionar Faixa de Preço
+                                </Button>
+
+                                {/* Preview de cálculo */}
+                                {service.pricingTiers && service.pricingTiers.length > 0 && (
+                                  <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
+                                    <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">
+                                      Exemplo de cálculo:
+                                    </p>
+                                    <div className="space-y-1 text-sm text-green-700 dark:text-green-300">
+                                      {service.pricingTiers.map((tier, idx) => (
+                                        <div key={idx} className="flex items-center gap-2">
+                                          <Hash className="w-3 h-3" />
+                                          <span>
+                                            {tier.maxQuantity
+                                              ? `${tier.minQuantity} a ${tier.maxQuantity} un.`
+                                              : `${tier.minQuantity}+ un.`}
+                                            {" "}: R$ {tier.pricePerUnit.toFixed(2)} cada
+                                            {tier.minQuantity > 0 && (
+                                              <span className="text-green-600 dark:text-green-400 ml-1">
+                                                (ex: {tier.minQuantity} un. = R$ {(tier.pricePerUnit * tier.minQuantity).toFixed(2)})
+                                              </span>
+                                            )}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           {/* Variables Section */}

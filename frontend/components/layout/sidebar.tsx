@@ -19,6 +19,7 @@ import {
   Link2,
   FunnelPlus,
   X,
+  DollarSign,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import logo from "@/assets/logo2.webp";
@@ -100,6 +101,12 @@ const menuItems: MenuItem[] = [
         icon: Users,
         href: "/dashboard/configuracoes/colaboradores",
         adminOnly: true,
+      },
+      {
+        label: "Precificação",
+        icon: DollarSign,
+        href: "/dashboard/settings/pricing",
+        permission: "AI_CONFIG",
       },
     ],
   },

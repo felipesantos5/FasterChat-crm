@@ -52,6 +52,10 @@ model Company {
   whatsappLinks      WhatsAppLink[]
   invites            Invite[]
   services           Service[]
+  serviceZones       ServiceZone[]
+  serviceCombos      ServiceCombo[]
+  serviceAdditionals ServiceAdditional[]
+  serviceZoneExceptions ServiceZoneException[]
 
   @@map("companies")
 }
@@ -107,11 +111,15 @@ model Customer {
   profilePicUrl   String?        @map("profile_pic_url") // URL da foto de perfil do WhatsApp
   isGroup         Boolean        @default(false) @map("is_group") // Identifica se é um grupo do WhatsApp
   pipelineStageId String?        @map("pipeline_stage_id") // Estágio atual no funil de vendas
+  zoneId          String?        @map("zone_id") // Zona de preço do cliente (opcional)
+  address         String?        @db.Text // Endereço do cliente
+  neighborhood    String?        // Bairro do cliente (para cálculo automático de zona)
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
   company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   pipelineStage  PipelineStage?  @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
+  zone           ServiceZone?    @relation("CustomerZone", fields: [zoneId], references: [id], onDelete: SetNull)
   messages       Message[]
   conversations  Conversation[]
   appointments   Appointment[]
@@ -123,6 +131,7 @@ model Customer {
   @@index([email])
   @@index([isGroup])
   @@index([pipelineStageId])
+  @@index([zoneId])
   @@map("customers")
 }
 
@@ -599,9 +608,12 @@ model Service {
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
-  company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  variables ServiceVariable[]
+  company      Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  variables    ServiceVariable[]
+  pricingTiers ServicePricingTier[] // Faixas de preço por quantidade
+  comboItems   ServiceComboItem[]   // Referência em combos
 
+  @@unique([companyId, name])
   @@index([companyId])
   @@index([isActive])
   @@index([type])
@@ -638,5 +650,158 @@ model ServiceVariableOption {
 
   @@index([variableId])
   @@map("service_variable_options")
+}
+
+// ============================================
+// PRICING TIERS - Faixas de preço por quantidade
+// Exemplo: 1 unidade = R$275, 2-4 = R$250/cada, 5+ = R$200/cada
+// ============================================
+
+model ServicePricingTier {
+  id           String   @id @default(uuid())
+  serviceId    String   @map("service_id")
+  minQuantity  Int      @map("min_quantity") // Quantidade mínima (ex: 1, 2, 5)
+  maxQuantity  Int?     @map("max_quantity") // Quantidade máxima (null = infinito)
+  pricePerUnit Decimal  @map("price_per_unit") @db.Decimal(10, 2) // Preço por unidade nessa faixa
+  order        Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId])
+  @@map("service_pricing_tiers")
+}
+
+// ============================================
+// SERVICE ZONES - Zonas de preço por região/bairro
+// Exemplo: Continente (base), Ilha (+R$55), Extremos (orçamento)
+// ============================================
+
+enum ZonePricingType {
+  FIXED      // Adicional fixo (ex: +R$55)
+  PERCENTAGE // Adicional percentual (ex: +10%)
+  CUSTOM     // Requer orçamento personalizado
+}
+
+model ServiceZone {
+  id            String          @id @default(uuid())
+  companyId     String          @map("company_id")
+  name          String          // Nome da zona (ex: "Continente", "Ilha", "Extremos")
+  description   String?         @db.Text
+  pricingType   ZonePricingType @default(FIXED) @map("pricing_type")
+  priceModifier Decimal         @default(0) @map("price_modifier") @db.Decimal(10, 2) // Valor adicional ou percentual
+  neighborhoods String[]        @default([]) // Lista de bairros incluídos
+  isDefault     Boolean         @default(false) @map("is_default") // Zona padrão (preço base)
+  requiresQuote Boolean         @default(false) @map("requires_quote") // Requer orçamento especial
+  isActive      Boolean         @default(true) @map("is_active")
+  order         Int             @default(0)
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customers Customer[] @relation("CustomerZone")
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@index([isDefault])
+  @@index([isActive])
+  @@map("service_zones")
+}
+
+// ============================================
+// SERVICE COMBOS - Pacotes/combos com preço fixo
+// Exemplo: "1 Split 9K + 1 Split 18K" = R$1.550
+// ============================================
+
+model ServiceCombo {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  name        String   // Nome do combo (ex: "Instalação 1x9K + 1x18K")
+  description String?  @db.Text
+  fixedPrice  Decimal  @map("fixed_price") @db.Decimal(10, 2) // Preço fixo do combo
+  category    String?  // Categoria (ex: "Instalação", "Limpeza")
+  isActive    Boolean  @default(true) @map("is_active")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items   ServiceComboItem[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@index([isActive])
+  @@index([category])
+  @@map("service_combos")
+}
+
+model ServiceComboItem {
+  id        String @id @default(uuid())
+  comboId   String @map("combo_id")
+  serviceId String @map("service_id")
+  quantity  Int    @default(1) // Quantidade deste serviço no combo
+  notes     String? // Notas adicionais (ex: "9K ou 12K")
+  order     Int    @default(0)
+
+  combo   ServiceCombo @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  service Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([comboId])
+  @@index([serviceId])
+  @@map("service_combo_items")
+}
+
+// ============================================
+// SERVICE ADDITIONALS - Adicionais opcionais
+// Exemplo: Rapel +R$650, Infra complexa +R$200
+// ============================================
+
+model ServiceAdditional {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  name        String   // Nome do adicional (ex: "Rapel", "Infra complexa")
+  description String?  @db.Text
+  price       Decimal  @db.Decimal(10, 2) // Preço do adicional
+  appliesToCategories String[] @default([]) @map("applies_to_categories") // Categorias onde se aplica (vazio = todas)
+  isActive    Boolean  @default(true) @map("is_active")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@index([isActive])
+  @@map("service_additionals")
+}
+
+// ============================================
+// ZONE EXCEPTIONS - Exceções de taxa por zona
+// Exemplo: "Limpeza de +2 equipamentos não tem taxa da Ilha"
+// ============================================
+
+model ServiceZoneException {
+  id            String   @id @default(uuid())
+  companyId     String   @map("company_id")
+  zoneId        String   @map("zone_id") // Zona afetada
+  serviceId     String?  @map("service_id") // Serviço específico (null = categoria)
+  category      String?  // Categoria (ex: "Limpeza")
+  minQuantity   Int?     @map("min_quantity") // Quantidade mínima para exceção
+  exceptionType String   @map("exception_type") // "NO_FEE" = sem taxa, "CUSTOM_FEE" = taxa diferente
+  customFee     Decimal? @map("custom_fee") @db.Decimal(10, 2) // Taxa customizada (se aplicável)
+  description   String?  @db.Text // Descrição da exceção
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([zoneId])
+  @@index([serviceId])
+  @@index([category])
+  @@map("service_zone_exceptions")
 }
 

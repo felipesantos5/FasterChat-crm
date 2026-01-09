@@ -133,7 +133,7 @@ class AIService {
     // Formata SERVIÇOS (com sistema completo de variáveis)
     if (services.length > 0) {
       formatted += "### 🛠️ SERVIÇOS E TABELA DE PREÇOS (FONTE OFICIAL)\n\n";
-      formatted += "Use esta tabela para calcular orçamentos. O preço final = preço base + soma dos modificadores selecionados.\n\n";
+      formatted += "Use esta tabela para calcular orçamentos.\n\n";
 
       for (const service of services) {
         const categoryStr = service.category ? ` [${service.category}]` : "";
@@ -141,7 +141,17 @@ class AIService {
         if (service.description) {
           formatted += `${service.description}\n`;
         }
-        formatted += `- Preço Base: R$ ${service.basePrice.toFixed(2)}\n`;
+
+        // Verifica se tem faixas de preço por quantidade
+        if (service.pricingTiers && service.pricingTiers.length > 0) {
+          formatted += `\n📊 PREÇO POR QUANTIDADE:\n`;
+          for (const tier of service.pricingTiers) {
+            const maxStr = tier.maxQuantity ? `${tier.maxQuantity}` : "+";
+            formatted += `   • ${tier.minQuantity} a ${maxStr} unidades: R$ ${tier.pricePerUnit.toFixed(2)} cada\n`;
+          }
+        } else {
+          formatted += `- Preço Base: R$ ${service.basePrice.toFixed(2)}\n`;
+        }
 
         if (service.variables && service.variables.length > 0) {
           formatted += "\nVariáveis que afetam o preço:\n";
@@ -159,19 +169,154 @@ class AIService {
 
         formatted += "\n---\n\n";
       }
+    }
 
-      formatted += `**COMO CALCULAR O ORÇAMENTO:**
-1. Pergunte ao cliente sobre cada variável obrigatória
-2. Some o preço base + todos os modificadores
-3. Apresente o orçamento detalhado mostrando cada item
+    return formatted;
+  }
 
-**EXEMPLO DE RESPOSTA DE ORÇAMENTO:**
-"Vou calcular seu orçamento:
-- Serviço base: R$ 200,00
-- [Variável 1]: [Opção escolhida] +R$ 50,00
-- [Variável 2]: [Opção escolhida] +R$ 100,00
+  /**
+   * Formata dados avançados de precificação (zonas, combos, adicionais, exceções)
+   */
+  private formatAdvancedPricingForPrompt(pricingData: any): string {
+    if (!pricingData) return "";
+
+    let formatted = "";
+    const { zones, combos, additionals, exceptions } = pricingData;
+
+    // Formata ZONAS DE ATENDIMENTO
+    if (zones && zones.length > 0) {
+      formatted += "### 📍 ZONAS DE ATENDIMENTO E TAXAS\n\n";
+      formatted += "**IMPORTANTE:** O preço pode variar conforme a região/bairro do cliente!\n\n";
+
+      for (const zone of zones) {
+        const defaultStr = zone.isDefault ? " (PADRÃO - preço base)" : "";
+        const quoteStr = zone.requiresQuote ? " ⚠️ REQUER ORÇAMENTO ESPECIAL" : "";
+
+        formatted += `**${zone.name}**${defaultStr}${quoteStr}\n`;
+
+        if (zone.description) {
+          formatted += `${zone.description}\n`;
+        }
+
+        if (!zone.isDefault && !zone.requiresQuote) {
+          if (zone.pricingType === "FIXED") {
+            formatted += `- Taxa adicional: +R$ ${zone.priceModifier.toFixed(2)}\n`;
+          } else if (zone.pricingType === "PERCENTAGE") {
+            formatted += `- Taxa adicional: +${zone.priceModifier}%\n`;
+          }
+        }
+
+        if (zone.neighborhoods && zone.neighborhoods.length > 0) {
+          formatted += `- Bairros: ${zone.neighborhoods.join(", ")}\n`;
+        }
+
+        formatted += "\n";
+      }
+
+      formatted += `**COMO APLICAR TAXA DE ZONA:**
+1. Pergunte o bairro/região do cliente
+2. Identifique a zona correspondente
+3. Adicione a taxa ao valor total (se aplicável)
+4. Se a zona requer orçamento especial, informe que o preço será calculado separadamente\n\n`;
+    }
+
+    // Formata COMBOS/PACOTES
+    if (combos && combos.length > 0) {
+      formatted += "### 🎁 PACOTES E COMBOS (PREÇO FIXO)\n\n";
+      formatted += "**IMPORTANTE:** Estes pacotes têm preço FIXO - não calcule, use o valor exato!\n\n";
+
+      for (const combo of combos) {
+        const categoryStr = combo.category ? ` [${combo.category}]` : "";
+        formatted += `**${combo.name}**${categoryStr}\n`;
+
+        if (combo.description) {
+          formatted += `${combo.description}\n`;
+        }
+
+        formatted += `💰 PREÇO: R$ ${combo.fixedPrice.toFixed(2)}\n`;
+
+        if (combo.items && combo.items.length > 0) {
+          formatted += `Inclui:\n`;
+          for (const item of combo.items) {
+            const notesStr = item.notes ? ` (${item.notes})` : "";
+            formatted += `   • ${item.quantity}x ${item.serviceName}${notesStr}\n`;
+          }
+        }
+
+        formatted += "\n";
+      }
+    }
+
+    // Formata ADICIONAIS
+    if (additionals && additionals.length > 0) {
+      formatted += "### ➕ SERVIÇOS ADICIONAIS\n\n";
+      formatted += "Estes valores podem ser adicionados ao orçamento quando aplicável:\n\n";
+
+      for (const additional of additionals) {
+        formatted += `• **${additional.name}**: +R$ ${additional.price.toFixed(2)}\n`;
+        if (additional.description) {
+          formatted += `  ${additional.description}\n`;
+        }
+        if (additional.appliesToCategories && additional.appliesToCategories.length > 0) {
+          formatted += `  Aplica-se a: ${additional.appliesToCategories.join(", ")}\n`;
+        }
+      }
+
+      formatted += "\n";
+    }
+
+    // Formata EXCEÇÕES DE ZONA
+    if (exceptions && exceptions.length > 0) {
+      formatted += "### ⚡ EXCEÇÕES DE TAXA\n\n";
+      formatted += "**ATENÇÃO:** Estas regras ANULAM a taxa da zona em casos específicos:\n\n";
+
+      for (const exception of exceptions) {
+        const typeStr = exception.exceptionType === "NO_FEE" ? "SEM taxa" : `Taxa especial: R$ ${exception.customFee?.toFixed(2) || "0,00"}`;
+
+        let conditionStr = "";
+        if (exception.category) {
+          conditionStr = `Categoria: ${exception.category}`;
+        }
+        if (exception.minQuantity) {
+          conditionStr += conditionStr ? ` com ${exception.minQuantity}+ unidades` : `${exception.minQuantity}+ unidades`;
+        }
+
+        formatted += `• ${conditionStr}: ${typeStr}\n`;
+        if (exception.description) {
+          formatted += `  ${exception.description}\n`;
+        }
+      }
+
+      formatted += "\n";
+    }
+
+    // Instruções finais de cálculo
+    if (formatted) {
+      formatted += `### 📋 COMO CALCULAR ORÇAMENTO COMPLETO
+
+1. **Identifique o serviço ou combo:**
+   - Se existe um COMBO que atende à necessidade, use o preço fixo dele
+   - Senão, use o serviço individual
+
+2. **Para serviços individuais:**
+   - Verifique se tem faixa de preço por quantidade
+   - Calcule: quantidade × preço da faixa correspondente
+   - Some os modificadores das variáveis escolhidas
+
+3. **Aplique a taxa de zona:**
+   - Pergunte o bairro do cliente
+   - Verifique se há EXCEÇÃO (ex: limpezas de +2 equipamentos não tem taxa)
+   - Se não houver exceção, adicione a taxa da zona
+
+4. **Adicione serviços extras (se solicitado):**
+   - Ex: Rapel, infra complexa, etc.
+
+**EXEMPLO DE ORÇAMENTO DETALHADO:**
+"Seu orçamento:
+- 2x Limpeza Split: R$ 450,00 (preço de pacote)
+- Taxa Ilha (Trindade): +R$ 55,00
 ━━━━━━━━━━━━━━━
-Total: R$ 350,00"
+Total: R$ 505,00"
 `;
     }
 
@@ -325,14 +470,15 @@ Total: R$ 350,00"
       // Preparação dos dados do contexto
       const companyInfo = aiKnowledge?.companyInfo || "Empresa de atendimento.";
 
-      // Busca produtos e serviços unificados da tabela Service
-      const servicesData = await serviceService.getServicesForAI(customer.companyId);
-      const formattedServices = this.formatServicesForPrompt(servicesData);
+      // Busca dados completos de precificação (serviços, zonas, combos, adicionais, exceções)
+      const completePricingData = await serviceService.getCompletePricingForAI(customer.companyId);
+      const formattedServices = this.formatServicesForPrompt(completePricingData.services);
+      const formattedAdvancedPricing = this.formatAdvancedPricingForPrompt(completePricingData);
 
       // Fallback para produtos legados (se existirem e não houver serviços cadastrados)
       // Isso garante retrocompatibilidade durante a migração
       let formattedProducts = "";
-      if (servicesData.length === 0) {
+      if (completePricingData.services.length === 0) {
         formattedProducts = this.formatProductsForPrompt(
           aiKnowledge?.products,
           aiKnowledge?.productsServices || null
@@ -400,6 +546,7 @@ Total: R$ 350,00"
         companyInfo,
         formattedProducts, // Passamos a lista processada
         formattedServices, // Serviços com variáveis de preço
+        formattedAdvancedPricing, // Zonas, combos, adicionais, exceções
         formattedFAQ, // FAQ para respostas precisas
         policies,
         examplesText,
@@ -503,6 +650,7 @@ Total: R$ 350,00"
       companyInfo,
       formattedProducts,
       formattedServices,
+      formattedAdvancedPricing,
       formattedFAQ,
       policies,
       serviceArea,
@@ -562,6 +710,9 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
 
     // Seção de Serviços com Variáveis de Preço
     const servicesSection = formattedServices ? `\n${formattedServices}` : "";
+
+    // Seção de Precificação Avançada (zonas, combos, adicionais, exceções)
+    const advancedPricingSection = formattedAdvancedPricing ? `\n${formattedAdvancedPricing}` : "";
 
     // Seção de FAQ (Perguntas Frequentes)
     const faqSection = formattedFAQ ? `\n${formattedFAQ}` : "";
@@ -647,6 +798,7 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
       businessContext,
       productSection,
       servicesSection,
+      advancedPricingSection,
       faqSection,
       objectiveSection,
       constraintsSection,
