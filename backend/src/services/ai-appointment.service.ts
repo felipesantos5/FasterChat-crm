@@ -36,13 +36,24 @@ function createBrazilDateTime(dateString: string, timeString: string): Date {
 }
 
 /**
+ * Variação de serviço disponível no catálogo
+ */
+interface ServiceVariation {
+  name: string;
+  price: string;
+  duration?: number;
+  description?: string;
+}
+
+/**
  * Estado do processo de agendamento
  */
 interface AppointmentState {
-  step: 'COLLECTING_TYPE' | 'COLLECTING_DATE' | 'COLLECTING_TIME' | 'COLLECTING_ADDRESS' | 'CONFIRMING' | 'COMPLETED';
+  step: 'COLLECTING_TYPE' | 'SELECTING_SERVICE_VARIATION' | 'COLLECTING_DATE' | 'COLLECTING_TIME' | 'COLLECTING_ADDRESS' | 'CONFIRMING' | 'COMPLETED';
   serviceType?: AppointmentType;
   serviceName?: string; // Nome real do serviço (ex: "Instalação de Ar Condicionado 12000 BTUs")
   servicePrice?: string; // Preço do serviço (ex: "R$ 350,00")
+  serviceVariations?: ServiceVariation[]; // Variações disponíveis quando há múltiplos serviços do mesmo tipo
   date?: string; // YYYY-MM-DD
   time?: string; // HH:mm
   duration?: number; // minutos
@@ -1142,6 +1153,9 @@ export class AIAppointmentService {
       case 'COLLECTING_TYPE':
         return await this.handleCollectingType(customerId, companyId, message, state);
 
+      case 'SELECTING_SERVICE_VARIATION':
+        return await this.handleSelectingServiceVariation(customerId, companyId, message, state);
+
       case 'COLLECTING_DATE':
         return await this.handleCollectingDate(customerId, companyId, message, state);
 
@@ -1209,7 +1223,7 @@ export class AIAppointmentService {
    */
   private async handleCollectingType(
     customerId: string,
-    _companyId: string,
+    companyId: string,
     message: string,
     state: AppointmentState
   ): Promise<{ shouldContinue: boolean; response: string }> {
@@ -1236,12 +1250,123 @@ export class AIAppointmentService {
 
     state.serviceType = serviceType;
     state.duration = this.getDefaultDuration(serviceType);
+
+    // 🆕 Verifica se há múltiplas variações desse serviço no catálogo
+    const variations = await this.getServiceVariationsFromCatalog(companyId, serviceType);
+
+    if (variations.length > 1) {
+      // Há múltiplas opções - precisa perguntar qual
+      state.serviceVariations = variations;
+      state.step = 'SELECTING_SERVICE_VARIATION';
+      await this.saveAppointmentState(customerId, state);
+
+      const typeLabel = this.getServiceTypeLabel(serviceType);
+      const variationsText = variations.slice(0, 10).map((v, i) =>
+        `${i + 1}️⃣ ${v.name} - ${v.price}`
+      ).join('\n');
+
+      return {
+        shouldContinue: true,
+        response: `Temos várias opções de ${typeLabel}! 📋\n\n${variationsText}\n\nQual desses você precisa? Pode mandar o número ou falar o nome`,
+      };
+    } else if (variations.length === 1) {
+      // Apenas uma opção - usa automaticamente
+      state.serviceName = variations[0].name;
+      state.servicePrice = variations[0].price;
+      if (variations[0].duration) state.duration = variations[0].duration;
+    }
+
+    state.step = 'COLLECTING_DATE';
+    await this.saveAppointmentState(customerId, state);
+
+    const serviceLabel = state.serviceName || this.getServiceTypeLabel(serviceType);
+    const priceInfo = state.servicePrice ? ` (${state.servicePrice})` : '';
+
+    return {
+      shouldContinue: true,
+      response: `Perfeito! ${serviceLabel}${priceInfo} anotado 👍\n\nQual dia é melhor pra você? Pode falar o dia da semana ou mandar a data direto (tipo: terça-feira ou 10/12)`,
+    };
+  }
+
+  /**
+   * Step 2.5: Selecionando variação do serviço
+   */
+  private async handleSelectingServiceVariation(
+    customerId: string,
+    _companyId: string,
+    message: string,
+    state: AppointmentState
+  ): Promise<{ shouldContinue: boolean; response: string }> {
+    const lowerMessage = message.toLowerCase();
+
+    if (!state.serviceVariations || state.serviceVariations.length === 0) {
+      // Fallback - não deveria acontecer
+      state.step = 'COLLECTING_DATE';
+      await this.saveAppointmentState(customerId, state);
+      return {
+        shouldContinue: true,
+        response: `Qual dia é melhor pra você?`
+      };
+    }
+
+    // Tenta detectar qual variação o cliente escolheu
+    let selectedVariation: ServiceVariation | undefined;
+
+    // 1. Verifica se mandou número (ex: "1", "2", "3")
+    const numberMatch = message.match(/^(\d+)$/);
+    if (numberMatch) {
+      const index = parseInt(numberMatch[1]) - 1;
+      if (index >= 0 && index < state.serviceVariations.length) {
+        selectedVariation = state.serviceVariations[index];
+      }
+    }
+
+    // 2. Se não, procura por nome ou termo no nome da variação
+    if (!selectedVariation) {
+      selectedVariation = state.serviceVariations.find(v => {
+        const vName = v.name.toLowerCase();
+        // Verifica se alguma parte significativa do nome está na mensagem
+        const terms = vName.split(/\s+/).filter(t => t.length > 3);
+        return terms.some(term => lowerMessage.includes(term)) ||
+               lowerMessage.includes(vName);
+      });
+    }
+
+    // 3. Detecta termos específicos como "9k", "12k", "18k", "24k"
+    if (!selectedVariation) {
+      const btuMatch = lowerMessage.match(/(\d+)\s*k/i);
+      if (btuMatch) {
+        const btu = btuMatch[1];
+        selectedVariation = state.serviceVariations.find(v =>
+          v.name.toLowerCase().includes(btu + 'k') ||
+          v.name.toLowerCase().includes(btu + ' ')
+        );
+      }
+    }
+
+    if (!selectedVariation) {
+      // Não conseguiu identificar
+      const variationsText = state.serviceVariations.slice(0, 10).map((v, i) =>
+        `${i + 1}️⃣ ${v.name} - ${v.price}`
+      ).join('\n');
+
+      return {
+        shouldContinue: true,
+        response: `Não entendi qual opção você quer 🤔\n\n${variationsText}\n\nPode mandar o número ou falar mais específico (ex: "12k", "18000 BTUs")?`
+      };
+    }
+
+    // Encontrou a variação
+    state.serviceName = selectedVariation.name;
+    state.servicePrice = selectedVariation.price;
+    if (selectedVariation.duration) state.duration = selectedVariation.duration;
+    state.serviceVariations = undefined; // Limpa as variações
     state.step = 'COLLECTING_DATE';
     await this.saveAppointmentState(customerId, state);
 
     return {
       shouldContinue: true,
-      response: `Perfeito! ${this.getServiceTypeLabel(serviceType)} anotado aqui 👍\n\nQual dia é melhor pra você? Pode falar o dia da semana ou mandar a data direto (tipo: terça-feira ou 10/12)`,
+      response: `Ótimo! ${selectedVariation.name} - ${selectedVariation.price} 👍\n\nQual dia é melhor pra você? Pode falar o dia da semana ou mandar a data (ex: amanhã, segunda, 10/12)`
     };
   }
 
@@ -1780,8 +1905,74 @@ export class AIAppointmentService {
   }
 
   /**
+   * Busca TODAS as variações de um serviço no catálogo da empresa
+   * Ex: Se o cliente pede "instalação", retorna todas as instalações disponíveis
+   */
+  async getServiceVariationsFromCatalog(
+    companyId: string,
+    serviceType: AppointmentType
+  ): Promise<ServiceVariation[]> {
+    try {
+      const aiKnowledge = await prisma.aIKnowledge.findUnique({
+        where: { companyId },
+        select: { products: true }
+      });
+
+      if (!aiKnowledge?.products) return [];
+
+      const products = Array.isArray(aiKnowledge.products)
+        ? aiKnowledge.products
+        : JSON.parse(typeof aiKnowledge.products === 'string' ? aiKnowledge.products : '[]');
+
+      // Termos de busca baseados no tipo de serviço
+      const searchTerms: string[] = [];
+      switch (serviceType) {
+        case AppointmentType.INSTALLATION:
+          searchTerms.push('inst', 'instalação', 'instalacao', 'instalar');
+          break;
+        case AppointmentType.MAINTENANCE:
+          searchTerms.push('manut', 'manutenção', 'manutencao', 'limpeza');
+          break;
+        case AppointmentType.CONSULTATION:
+          searchTerms.push('consulta', 'orçamento', 'orcamento', 'visita');
+          break;
+        default:
+          break;
+      }
+
+      // Busca TODAS as variações no catálogo
+      const variations: ServiceVariation[] = [];
+
+      for (const product of products) {
+        const productName = (product.name || '').toLowerCase();
+        const productCategory = (product.category || '').toLowerCase();
+
+        const matches = searchTerms.some(term =>
+          productName.includes(term) || productCategory.includes(term)
+        );
+
+        if (matches) {
+          variations.push({
+            name: product.name,
+            price: product.price ? `R$ ${product.price}`.replace('R$ R$', 'R$') : 'Consultar',
+            duration: product.duration ? parseInt(product.duration) : undefined,
+            description: product.description
+          });
+        }
+      }
+
+      console.log(`[AIAppointment] Encontradas ${variations.length} variações de ${serviceType} no catálogo`);
+      return variations;
+
+    } catch (error) {
+      console.error('[AIAppointment] Erro ao buscar variações do catálogo:', error);
+      return [];
+    }
+  }
+
+  /**
    * Busca informações do serviço no catálogo da empresa
-   * Retorna nome, preço e duração se encontrado
+   * Retorna nome, preço e duração se encontrado (primeira correspondência)
    */
   async getServiceFromCatalog(
     companyId: string,

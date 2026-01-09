@@ -336,6 +336,7 @@ export class AppointmentService {
 
   /**
    * Verifica se horário está disponível
+   * Verifica tanto no banco de dados local quanto no Google Calendar
    */
   async checkAvailability(
     companyId: string,
@@ -343,7 +344,11 @@ export class AppointmentService {
     endTime: Date,
     excludeAppointmentId?: string
   ): Promise<boolean> {
-    // Verifica no banco de dados local
+    console.log('[Appointment] 🔍 Verificando disponibilidade...');
+    console.log('[Appointment]   - Início:', startTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+    console.log('[Appointment]   - Fim:', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+
+    // 1. Verifica no banco de dados local
     const where: any = {
       companyId,
       status: {
@@ -378,21 +383,70 @@ export class AppointmentService {
     const conflictingAppointments = await prisma.appointment.findMany({ where });
 
     if (conflictingAppointments.length > 0) {
+      console.log('[Appointment] ❌ Conflito encontrado no banco local:', conflictingAppointments.length, 'agendamentos');
       return false;
     }
 
-    // Verifica no Google Calendar (se configurado)
-    try {
-      const slots = await googleCalendarService.checkAvailability(
-        companyId,
-        startTime,
-        endTime,
-        (endTime.getTime() - startTime.getTime()) / 60000 // duração em minutos
-      );
+    console.log('[Appointment] ✅ Banco local: sem conflitos');
 
-      return slots.every((slot) => slot.available);
-    } catch (error) {
-      // Se Google Calendar não configurado, retorna true (só validou banco local)
+    // 2. Verifica no Google Calendar (se configurado)
+    try {
+      const isGoogleConfigured = await googleCalendarService.isConfigured(companyId);
+
+      if (!isGoogleConfigured) {
+        console.log('[Appointment] ⚠️ Google Calendar não configurado, usando apenas banco local');
+        return true;
+      }
+
+      // Busca eventos no período no Google Calendar
+      const events = await googleCalendarService.listEventsInRange(companyId, startTime, endTime);
+
+      // Verifica se algum evento conflita com o horário desejado
+      const hasConflict = events.some((event) => {
+        // Pula eventos cancelados
+        if (event.status === 'cancelled') return false;
+
+        // Pula eventos marcados como "Livre" (Transparency)
+        if (event.transparency === 'transparent') return false;
+
+        // Normaliza datas do evento
+        let eventStart: Date;
+        let eventEnd: Date;
+
+        if (event.start?.dateTime) {
+          eventStart = new Date(event.start.dateTime);
+          eventEnd = new Date(event.end?.dateTime || event.start.dateTime);
+        } else if (event.start?.date) {
+          // Evento de Dia Inteiro
+          const dateString = event.start.date;
+          eventStart = new Date(`${dateString}T00:00:00-03:00`);
+          const endDateString = event.end?.date || dateString;
+          eventEnd = new Date(`${endDateString}T23:59:59-03:00`);
+        } else {
+          return false;
+        }
+
+        // Verifica sobreposição: (StartA < EndB) and (EndA > StartB)
+        const hasOverlap = (startTime < eventEnd && endTime > eventStart);
+
+        if (hasOverlap) {
+          console.log('[Appointment] ❌ Conflito com evento do Google Calendar:', event.summary);
+          console.log('[Appointment]   - Evento:', eventStart.toLocaleString('pt-BR'), '-', eventEnd.toLocaleString('pt-BR'));
+        }
+
+        return hasOverlap;
+      });
+
+      if (hasConflict) {
+        console.log('[Appointment] ❌ Google Calendar: conflito encontrado');
+        return false;
+      }
+
+      console.log('[Appointment] ✅ Google Calendar: sem conflitos');
+      return true;
+    } catch (error: any) {
+      console.log('[Appointment] ⚠️ Erro ao verificar Google Calendar:', error.message);
+      // Se erro no Google Calendar, considera apenas banco local
       return true;
     }
   }
