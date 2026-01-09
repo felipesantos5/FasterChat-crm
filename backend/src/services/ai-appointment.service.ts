@@ -301,9 +301,8 @@ export class AIAppointmentService {
     if (detected.date) {
       state.date = detected.date;
     }
-    if (detected.time) {
-      state.time = detected.time;
-    }
+    // 🚨 NÃO aplicar horário automaticamente - cliente DEVE escolher da lista
+    // O horário detectado será usado apenas para sugerir/validar
     if (detected.address) {
       state.address = detected.address;
     }
@@ -314,7 +313,12 @@ export class AIAppointmentService {
     }
 
     // Determina o próximo step baseado no que foi detectado
-    state.step = this.determineNextStep(state);
+    // IMPORTANTE: Se tem data mas não tem horário escolhido, força COLLECTING_TIME
+    if (state.serviceType && state.date && !state.time) {
+      state.step = 'COLLECTING_TIME';
+    } else {
+      state.step = this.determineNextStep(state);
+    }
 
     console.log(`[AIAppointment] 📊 Estado inicial:`, {
       step: state.step,
@@ -326,27 +330,7 @@ export class AIAppointmentService {
       hasAddress: !!state.address,
     });
 
-    // 🆕 CENÁRIO 1: Detectou TUDO (tipo, data, hora, endereço) → Vai direto pra confirmação
-    if (state.step === 'CONFIRMING') {
-      await this.saveAppointmentState(customerId, state);
-      return await this.sendConfirmation(customerId, state);
-    }
-
-    // 🆕 CENÁRIO 2: Detectou tipo, data e hora → Precisa só do endereço
-    if (state.serviceType && state.date && state.time && state.step === 'COLLECTING_ADDRESS') {
-      await this.saveAppointmentState(customerId, state);
-
-      const typeLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType);
-      const dateObj = new Date(state.date);
-      const dateFormatted = dateObj.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
-      const priceInfo = state.servicePrice ? `\n💰 Valor: ${state.servicePrice}` : '';
-
-      return {
-        response: `Perfeito! Entendi:\n📋 ${typeLabel}\n📅 ${dateFormatted}\n🕐 ${state.time}${priceInfo}\n\nAgora só preciso do endereço onde vou fazer o serviço.\n\nMe manda a rua e o número! 📍`
-      };
-    }
-
-    // 🆕 CENÁRIO 3: Detectou tipo e data → Precisa buscar horários
+    // 🆕 CENÁRIO 1: Detectou tipo e data → SEMPRE buscar e mostrar horários disponíveis
     if (state.serviceType && state.date && state.step === 'COLLECTING_TIME') {
       // Busca horários disponíveis
       const selectedDate = new Date(state.date);
@@ -597,8 +581,10 @@ export class AIAppointmentService {
       }
     }
 
-    // 🆕 NOVO: Detecta "dia X" (ex: "dia 2", "dia 15", "no dia 3", "pro dia 10")
-    const dayOnlyMatch = lowerMessage.match(/(?:dia|no dia|pro dia|para o dia|pra o dia|para dia|pra dia)\s+(\d{1,2})/);
+    // 🆕 Detecta "dia X" em vários formatos:
+    // "dia 12", "Dia 12", "no dia 3", "pro dia 10", "pode ser dia 12", "quero dia 5"
+    // O regex é bem flexível - procura "dia" seguido de um número
+    const dayOnlyMatch = lowerMessage.match(/dia\s+(\d{1,2})(?:\b|$)/);
     if (dayOnlyMatch) {
       const dayNumber = parseInt(dayOnlyMatch[1]);
 
@@ -766,7 +752,10 @@ export class AIAppointmentService {
     // Verifica se não tem número na mensagem para evitar falsos positivos
     const hasNumber = /\d/.test(message);
     if (!hasNumber) {
-      if (lowerMessage.includes('manhã') || lowerMessage.includes('manha')) {
+      // IMPORTANTE: Não detectar "manhã" se a mensagem contém "amanhã" (falso positivo)
+      const isAmanha = lowerMessage.includes('amanhã') || lowerMessage.includes('amanha');
+
+      if (!isAmanha && (lowerMessage.includes('manhã') || lowerMessage.includes('manha'))) {
         return '09:00';
       }
       if (lowerMessage.includes('tarde')) {
@@ -991,6 +980,7 @@ export class AIAppointmentService {
 
     // Aplica dados detectados que ainda não existem no estado
     let dataUpdated = false;
+    let dateWasJustSet = false;
 
     if (detected.serviceType && !state.serviceType) {
       state.serviceType = detected.serviceType;
@@ -1002,13 +992,70 @@ export class AIAppointmentService {
     if (detected.date && !state.date) {
       state.date = detected.date;
       dataUpdated = true;
+      dateWasJustSet = true;
       console.log('[AIAppointment] 🆕 Data detectada durante fluxo:', detected.date);
     }
 
-    if (detected.time && !state.time && state.date) {
-      state.time = detected.time;
-      dataUpdated = true;
-      console.log('[AIAppointment] 🆕 Horário detectado durante fluxo:', detected.time);
+    // 🚨 IMPORTANTE: Quando detectar data, SEMPRE buscar horários disponíveis PRIMEIRO
+    // NÃO aceitar horário automático - cliente DEVE escolher
+    if (dateWasJustSet && state.serviceType && state.date) {
+      console.log('[AIAppointment] 📅 Data detectada - buscando horários disponíveis...');
+
+      try {
+        const selectedDate = new Date(state.date);
+        const slots = await appointmentService.getAvailableSlots(companyId, selectedDate, state.duration || 60);
+
+        if (slots.length === 0) {
+          // Dia sem horários - pede outra data
+          state.date = undefined;
+          await this.saveAppointmentState(customerId, state);
+
+          return {
+            shouldContinue: true,
+            response: `Putz, esse dia tá sem horários disponíveis 😔\n\nTem outro dia que funciona pra você?`
+          };
+        }
+
+        // Salva os slots e vai para COLLECTING_TIME
+        state.availableSlots = slots;
+        state.currentSlotPage = 0;
+        state.step = 'COLLECTING_TIME';
+        await this.saveAppointmentState(customerId, state);
+
+        // Formata a data para exibição
+        const dateFormatted = selectedDate.toLocaleDateString('pt-BR', {
+          weekday: 'long',
+          day: '2-digit',
+          month: 'long'
+        });
+
+        // Mostra os horários disponíveis
+        const slotsToShow = slots.slice(0, 6);
+        const slotsText = slotsToShow
+          .map((slot, index) => {
+            const time = this.slotToTimeString(slot.start);
+            return `${index + 1}️⃣ ${time}`;
+          })
+          .join('\n');
+
+        let responseMessage = `Boa! ${dateFormatted} 📅\n\nHorários disponíveis:\n\n${slotsText}\n\nQual desses é melhor pra você?`;
+
+        if (slots.length > 6) {
+          responseMessage += `\n\n💡 Tenho mais ${slots.length - 6} horários. Fala "mais tarde" pra ver mais`;
+        }
+
+        return {
+          shouldContinue: true,
+          response: responseMessage
+        };
+
+      } catch (error: any) {
+        console.error('[AIAppointment] Erro ao buscar horários:', error);
+        return {
+          shouldContinue: true,
+          response: `Ops, tive um problema ao buscar os horários. Pode me falar o dia de novo?`
+        };
+      }
     }
 
     if (detected.address && !state.address?.number) {
@@ -1017,8 +1064,8 @@ export class AIAppointmentService {
       console.log('[AIAppointment] 🆕 Endereço detectado durante fluxo:', detected.address);
     }
 
-    // Se detectou novos dados, avalia se pode pular etapas
-    if (dataUpdated) {
+    // Se detectou apenas endereço (não data), verifica se pode ir para confirmação
+    if (dataUpdated && !dateWasJustSet) {
       const nextStep = this.determineNextStep(state);
 
       // Se o próximo step pulou etapas, atualiza o state
@@ -1030,20 +1077,6 @@ export class AIAppointmentService {
         if (nextStep === 'CONFIRMING') {
           await this.saveAppointmentState(customerId, state);
           return await this.sendConfirmation(customerId, state);
-        }
-
-        // Se pulou para endereço (tem tipo, data e hora)
-        if (nextStep === 'COLLECTING_ADDRESS' && state.serviceType && state.date && state.time) {
-          await this.saveAppointmentState(customerId, state);
-
-          const typeLabel = this.getServiceTypeLabel(state.serviceType);
-          const dateObj = new Date(state.date);
-          const dateFormatted = dateObj.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
-
-          return {
-            shouldContinue: true,
-            response: `Show! Tudo anotado:\n📋 ${typeLabel}\n📅 ${dateFormatted}\n🕐 ${state.time}\n\nAgora só preciso do endereço onde vou fazer o serviço.\n\nMe manda a rua e o número! 📍`
-          };
         }
       }
     }
