@@ -580,6 +580,51 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     }
   };
 
+  // Formata data para separador (HOJE, ONTEM ou DD/MM/YYYY)
+  const formatDateSeparator = (timestamp: string) => {
+    try {
+      const date = new Date(timestamp);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      // Compara apenas ano, mês e dia
+      const isSameDay = (d1: Date, d2: Date) =>
+        d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate();
+
+      if (isSameDay(date, today)) {
+        return "HOJE";
+      } else if (isSameDay(date, yesterday)) {
+        return "ONTEM";
+      } else {
+        return format(date, "dd/MM/yyyy", { locale: ptBR });
+      }
+    } catch {
+      return "";
+    }
+  };
+
+  // Verifica se deve mostrar separador de data (primeira mensagem do dia)
+  const shouldShowDateSeparator = (currentMessage: Message, previousMessage: Message | null) => {
+    if (!previousMessage) return true; // Sempre mostra na primeira mensagem
+
+    try {
+      const currentDate = new Date(currentMessage.timestamp);
+      const previousDate = new Date(previousMessage.timestamp);
+
+      // Verifica se são dias diferentes
+      return (
+        currentDate.getFullYear() !== previousDate.getFullYear() ||
+        currentDate.getMonth() !== previousDate.getMonth() ||
+        currentDate.getDate() !== previousDate.getDate()
+      );
+    } catch {
+      return false;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col h-full">
@@ -681,12 +726,23 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
             <p className="text-xs text-muted-foreground mt-1">Envie uma mensagem para começar a conversa</p>
           </div>
         ) : (
-          messages.map((message) => {
+          messages.map((message, index) => {
             const isInbound = message.direction === MessageDirection.INBOUND;
             const isAi = message.senderType === SenderType.AI;
+            const previousMessage = index > 0 ? messages[index - 1] : null;
+            const showDateSeparator = shouldShowDateSeparator(message, previousMessage);
 
             return (
-              <div key={message.id} className={cn("flex", isInbound ? "justify-start" : "justify-end")}>
+              <div key={message.id}>
+                {/* Separador de Data */}
+                {showDateSeparator && (
+                  <div className="flex justify-center my-3">
+                    <span className="px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                      {formatDateSeparator(message.timestamp)}
+                    </span>
+                  </div>
+                )}
+                <div className={cn("flex", isInbound ? "justify-start" : "justify-end")}>
                 <div
                   className={cn(
                     "max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 shadow-sm",
@@ -764,6 +820,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                       />
                     )}
                   </div>
+                </div>
                 </div>
               </div>
             );
