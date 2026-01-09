@@ -430,6 +430,13 @@ async getAvailableSlots(
         // 'transparent' = Livre, 'opaque' = Ocupado (ou null/undefined = Ocupado)
         if (event.transparency === 'transparent') return false;
 
+        // 🆕 Pula eventos que parecem ser marcadores de horário de trabalho
+        const eventTitle = (event.summary || '').toLowerCase();
+        const workingHoursKeywords = ['expediente', 'horário de trabalho', 'working hours', 'disponível', 'disponivel', 'aberto', 'avanti', 'horario comercial'];
+        if (workingHoursKeywords.some(keyword => eventTitle.includes(keyword))) {
+          return false; // Ignora eventos de marcação de expediente
+        }
+
         // Normaliza datas do evento
         let eventStart: Date;
         let eventEnd: Date;
@@ -438,14 +445,15 @@ async getAvailableSlots(
           // Evento comum com hora marcada
           eventStart = new Date(event.start.dateTime);
           eventEnd = new Date(event.end?.dateTime || event.start.dateTime);
+
+          // 🆕 Verifica se o evento cobre muitas horas (provavelmente é marcador de expediente)
+          const durationHours = (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60);
+          if (durationHours >= 6) {
+            return false; // Eventos muito longos provavelmente são marcadores de expediente
+          }
         } else if (event.start?.date) {
-          // Evento de Dia Inteiro (All Day)
-          // Tratamento especial para evitar bugs de fuso horário
-          const dateString = event.start.date; // "2024-12-25"
-          // Cria data ao meio-dia para garantir que caia no dia certo independente do offset UTC
-          eventStart = new Date(`${dateString}T00:00:00-03:00`);
-          const endDateString = event.end?.date || dateString;
-          eventEnd = new Date(`${endDateString}T23:59:59-03:00`);
+          // Evento de Dia Inteiro (All Day) - NÃO bloqueia slots específicos
+          return false;
         } else {
           return false; // Evento inválido
         }

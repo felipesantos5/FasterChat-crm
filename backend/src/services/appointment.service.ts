@@ -399,39 +399,85 @@ export class AppointmentService {
       }
 
       // Busca eventos no período no Google Calendar
+      console.log('[Appointment] 📅 Buscando eventos no Google Calendar...');
+      console.log('[Appointment]   - Período: ', startTime.toISOString(), 'até', endTime.toISOString());
+
       const events = await googleCalendarService.listEventsInRange(companyId, startTime, endTime);
+
+      console.log(`[Appointment] 📋 Eventos retornados: ${events.length}`);
 
       // Verifica se algum evento conflita com o horário desejado
       const hasConflict = events.some((event) => {
+        console.log('[Appointment] 🔍 Analisando evento:', event.summary);
+        console.log('[Appointment]   - ID:', event.id);
+        console.log('[Appointment]   - Status:', event.status);
+        console.log('[Appointment]   - Transparency:', event.transparency || 'opaque');
+        console.log('[Appointment]   - Start raw:', event.start?.dateTime || event.start?.date);
+        console.log('[Appointment]   - End raw:', event.end?.dateTime || event.end?.date);
+
         // Pula eventos cancelados
-        if (event.status === 'cancelled') return false;
+        if (event.status === 'cancelled') {
+          console.log('[Appointment]   ⏭️ Ignorando: evento cancelado');
+          return false;
+        }
 
         // Pula eventos marcados como "Livre" (Transparency)
-        if (event.transparency === 'transparent') return false;
+        if (event.transparency === 'transparent') {
+          console.log('[Appointment]   ⏭️ Ignorando: evento marcado como "Livre"');
+          return false;
+        }
+
+        // 🆕 Pula eventos que parecem ser marcadores de horário de trabalho
+        // (eventos que cobrem o dia inteiro de trabalho geralmente são informativos)
+        const eventTitle = (event.summary || '').toLowerCase();
+        const workingHoursKeywords = ['expediente', 'horário de trabalho', 'working hours', 'disponível', 'disponivel', 'aberto', 'avanti', 'horario comercial'];
+        if (workingHoursKeywords.some(keyword => eventTitle.includes(keyword))) {
+          console.log('[Appointment]   ⏭️ Ignorando: parece ser marcador de horário de trabalho');
+          return false;
+        }
+
+        // 🆕 Verifica se o evento cobre muitas horas (provavelmente é marcador de expediente, não compromisso)
+        if (event.start?.dateTime && event.end?.dateTime) {
+          const eventStartTemp = new Date(event.start.dateTime);
+          const eventEndTemp = new Date(event.end?.dateTime);
+          const durationHours = (eventEndTemp.getTime() - eventStartTemp.getTime()) / (1000 * 60 * 60);
+
+          // Eventos com mais de 6 horas provavelmente são marcadores de expediente
+          if (durationHours >= 6) {
+            console.log('[Appointment]   ⏭️ Ignorando: evento muito longo (', durationHours.toFixed(1), 'h) - provavelmente marcador de expediente');
+            return false;
+          }
+        }
 
         // Normaliza datas do evento
         let eventStart: Date;
         let eventEnd: Date;
 
         if (event.start?.dateTime) {
+          // Evento com horário específico - o dateTime já vem com timezone
           eventStart = new Date(event.start.dateTime);
           eventEnd = new Date(event.end?.dateTime || event.start.dateTime);
         } else if (event.start?.date) {
-          // Evento de Dia Inteiro
-          const dateString = event.start.date;
-          eventStart = new Date(`${dateString}T00:00:00-03:00`);
-          const endDateString = event.end?.date || dateString;
-          eventEnd = new Date(`${endDateString}T23:59:59-03:00`);
+          // Evento de Dia Inteiro - NÃO deve bloquear agendamentos específicos
+          console.log('[Appointment]   ⏭️ Ignorando: evento de dia inteiro (não bloqueia horários específicos)');
+          return false;
         } else {
+          console.log('[Appointment]   ⏭️ Ignorando: evento sem data válida');
           return false;
         }
+
+        console.log('[Appointment]   - Evento início (BR):', eventStart.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+        console.log('[Appointment]   - Evento fim (BR):', eventEnd.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+        console.log('[Appointment]   - Agendamento início (BR):', startTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
+        console.log('[Appointment]   - Agendamento fim (BR):', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
         // Verifica sobreposição: (StartA < EndB) and (EndA > StartB)
         const hasOverlap = (startTime < eventEnd && endTime > eventStart);
 
         if (hasOverlap) {
-          console.log('[Appointment] ❌ Conflito com evento do Google Calendar:', event.summary);
-          console.log('[Appointment]   - Evento:', eventStart.toLocaleString('pt-BR'), '-', eventEnd.toLocaleString('pt-BR'));
+          console.log('[Appointment]   ❌ CONFLITO DETECTADO!');
+        } else {
+          console.log('[Appointment]   ✅ Sem sobreposição');
         }
 
         return hasOverlap;
