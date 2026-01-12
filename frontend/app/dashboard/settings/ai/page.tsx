@@ -478,8 +478,26 @@ function AISettingsPageContent() {
     setShowProductForm(true);
   };
 
-  const handleDeleteProduct = (productId: string) => {
-    setProducts(products.filter(p => p.id !== productId));
+  const handleDeleteProduct = async (productId: string) => {
+    const updatedProducts = products.filter(p => p.id !== productId);
+    setProducts(updatedProducts);
+
+    // Salva imediatamente para persistir a deleção
+    try {
+      const companyId = getCompanyId();
+      if (companyId) {
+        await aiKnowledgeApi.updateKnowledge({
+          companyId,
+          products: updatedProducts,
+        });
+        toast.success("Produto removido!");
+      }
+    } catch (error) {
+      console.error("Erro ao salvar após deletar produto:", error);
+      toast.error("Erro ao remover produto");
+      // Reverte a deleção local em caso de erro
+      setProducts(products);
+    }
   };
 
   // === Funções de Serviços com Variações ===
@@ -502,7 +520,21 @@ function AISettingsPageContent() {
     setExpandedServices(new Set([...expandedServices, newIndex]));
   };
 
-  const removeService = (index: number) => {
+  const removeService = async (index: number) => {
+    const serviceToRemove = services[index];
+
+    // Se o serviço tem ID, significa que já foi salvo no banco - precisa deletar via API
+    if (serviceToRemove?.id) {
+      try {
+        await api.delete(`/services/${serviceToRemove.id}`);
+        toast.success("Serviço removido com sucesso!");
+      } catch (error) {
+        console.error("Erro ao deletar serviço:", error);
+        toast.error("Erro ao remover serviço do servidor");
+        return; // Não remove do estado local se falhou no servidor
+      }
+    }
+
     setServices(services.filter((_, i) => i !== index));
     const newExpanded = new Set(expandedServices);
     newExpanded.delete(index);
