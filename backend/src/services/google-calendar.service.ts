@@ -338,20 +338,30 @@ async getAvailableSlots(
     console.log('[GoogleCalendar] ============================================');
 
     // 1. Configuração de Datas (Fuso Horário BR)
-    // CRÍTICO: Extrai ano/mês/dia da data recebida e cria novas datas no timezone local
+    // CRÍTICO: Usar timezone de São Paulo para consistência com Google Calendar API
     const timeZone = 'America/Sao_Paulo';
 
-    // Extrai componentes da data (pode vir como UTC)
+    // Extrai componentes da data
     const year = date.getFullYear();
     const month = date.getMonth();
     const day = date.getDate();
 
     console.log('[GoogleCalendar] Componentes da data: ano=', year, 'mês=', month + 1, 'dia=', day);
 
-    // Cria o início e fim do dia comercial usando os componentes extraídos
-    // Isso evita problemas de timezone - estamos criando a data no horário local
-    const startOfDay = new Date(year, month, day, businessHours.start, 0, 0, 0);
-    const endOfDay = new Date(year, month, day, businessHours.end, 0, 0, 0);
+    // CORREÇÃO DE TIMEZONE: Criar datas no formato ISO com offset de São Paulo
+    // Isso garante que a comparação com eventos do Google Calendar seja consistente
+    const formatDateWithSaoPauloTZ = (y: number, m: number, d: number, h: number): Date => {
+      // Formata como string ISO com offset de São Paulo (-03:00)
+      const monthStr = String(m + 1).padStart(2, '0');
+      const dayStr = String(d).padStart(2, '0');
+      const hourStr = String(h).padStart(2, '0');
+      // -03:00 é o offset padrão de São Paulo (pode variar com horário de verão, mas Brasil não usa mais)
+      const isoString = `${y}-${monthStr}-${dayStr}T${hourStr}:00:00-03:00`;
+      return new Date(isoString);
+    };
+
+    const startOfDay = formatDateWithSaoPauloTZ(year, month, day, businessHours.start);
+    const endOfDay = formatDateWithSaoPauloTZ(year, month, day, businessHours.end);
 
     console.log('[GoogleCalendar] Período de busca (local):', startOfDay.toLocaleString('pt-BR'), 'até', endOfDay.toLocaleString('pt-BR'));
     console.log('[GoogleCalendar] Período de busca (ISO):', startOfDay.toISOString(), 'até', endOfDay.toISOString());
@@ -386,13 +396,40 @@ async getAvailableSlots(
       events.forEach((event, i) => {
         const start = event.start?.dateTime || event.start?.date || 'N/A';
         const end = event.end?.dateTime || event.end?.date || 'N/A';
-        console.log(`[GoogleCalendar]   ${i + 1}. "${event.summary || 'Sem título'}"`);
-        console.log(`[GoogleCalendar]      - ID: ${event.id}`);
+
+        // Calcula duração para mostrar no log
+        let durationStr = 'N/A';
+        let willBlock = true;
+        if (event.start?.dateTime && event.end?.dateTime) {
+          const eventStart = new Date(event.start.dateTime);
+          const eventEnd = new Date(event.end.dateTime);
+          const durationHours = (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60);
+          durationStr = `${durationHours.toFixed(1)}h`;
+
+          // Verifica se será ignorado
+          if (event.status === 'cancelled') {
+            willBlock = false;
+          } else if (event.transparency === 'transparent') {
+            willBlock = false;
+          } else if (durationHours >= 8) {
+            const eventTitle = (event.summary || '').toLowerCase();
+            const workingHoursKeywords = ['expediente', 'horário de trabalho', 'working hours', 'horario comercial', 'disponível', 'available'];
+            if (workingHoursKeywords.some(keyword => eventTitle.includes(keyword))) {
+              willBlock = false;
+            }
+          }
+        } else if (event.start?.date) {
+          durationStr = 'Dia inteiro';
+          willBlock = false; // Eventos de dia inteiro não bloqueiam
+        }
+
+        const blockStatus = willBlock ? '🔴 BLOQUEIA' : '⚪ IGNORADO';
+        console.log(`[GoogleCalendar]   ${i + 1}. "${event.summary || 'Sem título'}" ${blockStatus}`);
         console.log(`[GoogleCalendar]      - Início: ${start}`);
         console.log(`[GoogleCalendar]      - Fim: ${end}`);
-        console.log(`[GoogleCalendar]      - Status: ${event.status || 'N/A'}`);
+        console.log(`[GoogleCalendar]      - Duração: ${durationStr}`);
+        console.log(`[GoogleCalendar]      - Status: ${event.status || 'confirmed'}`);
         console.log(`[GoogleCalendar]      - Transparency: ${event.transparency || 'opaque (ocupado)'}`);
-        console.log(`[GoogleCalendar]      - Tipo: ${event.start?.dateTime ? 'Horário específico' : 'Dia inteiro'}`);
       });
     } else {
       console.log('[GoogleCalendar] ℹ️ Nenhum evento encontrado neste período');
@@ -439,19 +476,29 @@ async getAvailableSlots(
           eventStart = new Date(event.start.dateTime);
           eventEnd = new Date(event.end?.dateTime || event.start.dateTime);
 
+          // DEBUG: Log para verificar comparação de timestamps
+          if (blockedSlots.length === 0 && slots.length === 0) {
+            // Só loga uma vez, no primeiro slot
+            console.log('[GoogleCalendar] 🔬 DEBUG TIMEZONE - Evento:', event.summary);
+            console.log('[GoogleCalendar]    - event.start.dateTime (raw):', event.start.dateTime);
+            console.log('[GoogleCalendar]    - eventStart (Date):', eventStart.toISOString(), '| Local:', eventStart.toLocaleString('pt-BR'));
+            console.log('[GoogleCalendar]    - eventEnd (Date):', eventEnd.toISOString(), '| Local:', eventEnd.toLocaleString('pt-BR'));
+            console.log('[GoogleCalendar]    - currentTime:', currentTime.toISOString(), '| Local:', currentTime.toLocaleString('pt-BR'));
+            console.log('[GoogleCalendar]    - slotEnd:', slotEnd.toISOString(), '| Local:', slotEnd.toLocaleString('pt-BR'));
+          }
+
           // Calcula duração do evento
           const durationHours = (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60);
 
-          // Pula eventos que parecem ser marcadores de horário de trabalho
-          // APENAS se duração >= 6 horas E título contém keywords específicas
-          if (durationHours >= 6) {
+          // Pula APENAS eventos que são claramente marcadores de horário de trabalho
+          // (duração >= 8 horas E título contém keywords específicas)
+          if (durationHours >= 8) {
             const eventTitle = (event.summary || '').toLowerCase();
-            const workingHoursKeywords = ['expediente', 'horário de trabalho', 'working hours', 'horario comercial'];
+            const workingHoursKeywords = ['expediente', 'horário de trabalho', 'working hours', 'horario comercial', 'disponível', 'available'];
             if (workingHoursKeywords.some(keyword => eventTitle.includes(keyword))) {
-              return false; // Ignora eventos de marcação de expediente
+              return false; // Ignora apenas eventos de marcação de expediente
             }
-            // Eventos longos sem keywords também são ignorados (provavelmente marcadores)
-            return false;
+            // NÃO ignora eventos longos automaticamente - podem ser compromissos reais
           }
         } else if (event.start?.date) {
           // Evento de Dia Inteiro (All Day) - NÃO bloqueia slots específicos
