@@ -128,7 +128,7 @@ export class AIAppointmentService {
   }
 
   /**
-   * 🆕 Detecta endereço completo de uma mensagem
+   * Detecta endereço completo de uma mensagem
    *
    * Reconhece padrões como:
    * - "Rua das Flores, 123"
@@ -136,7 +136,7 @@ export class AIAppointmentService {
    * - "na Rua X número 789"
    * - CEP: "12345-678"
    */
-  private detectAddressFromMessage(message: string): DetectedAppointmentData['address'] | null {
+  detectAddressFromMessage(message: string): DetectedAppointmentData['address'] | null {
     const address: DetectedAppointmentData['address'] = {};
     let hasAnyData = false;
 
@@ -251,13 +251,13 @@ export class AIAppointmentService {
         response += `Que tipo de serviço você precisa?\n\n1️⃣ Instalação\n2️⃣ Manutenção\n3️⃣ Consulta/Orçamento\n4️⃣ Outro`;
         break;
       case 'COLLECTING_DATE':
-        response += `Qual dia é melhor pra você? Pode falar "amanhã", "segunda-feira" ou mandar a data (ex: 10/12)`;
+        response += `Qual dia é melhor pra você?`;
         break;
       case 'COLLECTING_TIME':
         response += `Vou buscar os horários disponíveis...`;
         break;
       case 'COLLECTING_ADDRESS':
-        response += `Agora só preciso do endereço completo.\n\nMe manda a rua e o número!`;
+        response += `Agora só preciso do endereço completo 📍`;
         break;
       case 'CONFIRMING':
         response += `Tá tudo certo?`;
@@ -382,7 +382,7 @@ export class AIAppointmentService {
             const dateFormatted = selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
 
             return {
-              response: `Show! Tudo anotado:\n📋 ${typeLabel}\n📅 ${dateFormatted}\n🕐 ${state.time}\n\nAgora só preciso do endereço onde vou fazer o serviço.\n\nMe manda a rua e o número! 📍`
+              response: `Show! Tudo anotado:\n📋 ${typeLabel}\n📅 ${dateFormatted}\n🕐 ${state.time}\n\nAgora só preciso do endereço completo onde vou fazer o serviço 📍`
             };
           } else {
             // Horário não disponível, mostra opções
@@ -433,7 +433,7 @@ export class AIAppointmentService {
 
       const typeLabel = this.getServiceTypeLabel(state.serviceType);
       return {
-        response: `Opa, beleza! Vou agendar ${typeLabel} pra você 👍\n\nQual dia fica bom? Pode falar "amanhã", "segunda-feira" ou mandar a data (ex: 10/12)`
+        response: `Opa, beleza! Vou agendar ${typeLabel} pra você 👍\n\nQual dia fica bom pra você?`
       };
     }
 
@@ -793,19 +793,37 @@ export class AIAppointmentService {
 
   /**
    * Detecta número de endereço na mensagem
+   *
+   * Detecta padrões como:
+   * - "Rua das Flores, 123"
+   * - "Av. Brasil 456"
+   * - "número 789"
+   * - "nº 100"
+   * - "123" (número isolado)
    */
   detectAddressNumber(message: string): string | null {
-    // Procura por padrões como "n 123", "numero 123", "número 123", "nº 123"
     const patterns = [
+      // "número 123", "numero 123", "nº 123", "n 123"
       /\bn[úu]mero\s+(\d+)/i,
       /\bn[ºo°]?\s*(\d+)/i,
-      /\b(\d+)\s*$/,  // Número no final da mensagem
+      // Número após vírgula: "Rua X, 123" ou "Rua X , 123"
+      /,\s*(\d+)(?:\s|$|[^0-9])/,
+      // Número após nome de rua/avenida: "Rua das Flores 123"
+      /(?:rua|avenida|av\.?|alameda|travessa|praça)\s+[^,\d]+\s+(\d+)(?:\s|$|[^0-9])/i,
+      // Número no final da mensagem
+      /\b(\d+)\s*$/,
+      // Número isolado (quando só manda o número)
+      /^(\d+)$/,
     ];
 
     for (const pattern of patterns) {
       const match = message.match(pattern);
-      if (match) {
-        return match[1];
+      if (match && match[1]) {
+        // Ignora números muito grandes (provavelmente CEP ou telefone)
+        const num = parseInt(match[1]);
+        if (num > 0 && num < 100000) {
+          return match[1];
+        }
       }
     }
 
@@ -1284,7 +1302,7 @@ export class AIAppointmentService {
 
     return {
       shouldContinue: true,
-      response: `Perfeito! ${serviceLabel}${priceInfo} anotado 👍\n\nQual dia é melhor pra você? Pode falar o dia da semana ou mandar a data direto (tipo: terça-feira ou 10/12)`,
+      response: `Perfeito! ${serviceLabel}${priceInfo} anotado 👍\n\nQual dia é melhor pra você?`,
     };
   }
 
@@ -1366,7 +1384,7 @@ export class AIAppointmentService {
 
     return {
       shouldContinue: true,
-      response: `Ótimo! ${selectedVariation.name} - ${selectedVariation.price} 👍\n\nQual dia é melhor pra você? Pode falar o dia da semana ou mandar a data (ex: amanhã, segunda, 10/12)`
+      response: `Ótimo! ${selectedVariation.name} - ${selectedVariation.price} 👍\n\nQual dia é melhor pra você?`
     };
   }
 
@@ -1384,7 +1402,7 @@ export class AIAppointmentService {
     if (!date) {
       return {
         shouldContinue: true,
-        response: `Não consegui entender a data 🤔\n\nPode tentar de novo? Pode ser:\n- Segunda-feira\n- Amanhã\n- 10/12\n- 10/12/2025`,
+        response: `Não consegui entender a data 🤔\n\nPode me falar o dia de novo?`,
       };
     }
 
@@ -1555,7 +1573,7 @@ export class AIAppointmentService {
 
         return {
           shouldContinue: true,
-          response: `Fechado! Horário das ${state.time} tá reservado 👍\n\nAgora só preciso do endereço onde vou fazer o serviço\n\nMe manda:\n📍 Rua/Avenida e número da casa\n🏢 Se for apartamento, manda o AP e bloco também\n🏢 CEP se souber\n\nPode mandar tudo junto!`
+          response: `Fechado! Horário das ${state.time} tá reservado 👍\n\nAgora só preciso do endereço completo onde vou fazer o serviço 📍`
         };
       }
     }
@@ -1576,7 +1594,7 @@ export class AIAppointmentService {
 
         return {
           shouldContinue: true,
-          response: `Beleza! Horário das ${time} tá reservado 👍\n\nAgora preciso do endereço onde vou fazer o serviço\n\nMe manda:\n📍 Rua/Avenida e número da casa\n🏢 Se for apartamento/prédio, o AP e bloco\n🏢 CEP se souber\n\nPode mandar tudo de uma vez!`
+          response: `Beleza! Horário das ${time} tá reservado 👍\n\nAgora só preciso do endereço completo onde vou fazer o serviço 📍`
         };
       }
 
@@ -1588,12 +1606,15 @@ export class AIAppointmentService {
 
     return {
       shouldContinue: true,
-      response: `Não entendi o horário 🤔\n\nPode escolher um dos números (1 a 6) que mostrei? Ou mandar o horário tipo 10:00\n\nSe quiser ver outros horários, fala "mais tarde" ou "mais cedo"`,
+      response: `Não entendi o horário 🤔\n\nPode escolher um dos horários que mostrei?`,
     };
   }
 
   /**
    * Step 5: Coletando endereço
+   *
+   * Usa a mesma lógica robusta do detectAddressFromMessage para extrair
+   * todos os dados de endereço de uma vez (rua, número, CEP, complemento)
    */
   private async handleCollectingAddress(
     customerId: string,
@@ -1606,44 +1627,69 @@ export class AIAppointmentService {
       state.address = {};
     }
 
-    // Detecta CEP
-    const cep = this.detectCEP(message);
-    if (cep && !state.address.cep) {
-      state.address.cep = cep;
-      console.log('[AIAppointment] CEP detected:', cep);
+    // Usa a detecção robusta que extrai tudo de uma vez
+    const detectedAddress = this.detectAddressFromMessage(message);
+
+    if (detectedAddress) {
+      // Aplica os dados detectados (não sobrescreve dados já existentes)
+      if (detectedAddress.cep && !state.address.cep) {
+        state.address.cep = detectedAddress.cep;
+        console.log('[AIAppointment] CEP detected:', detectedAddress.cep);
+      }
+      if (detectedAddress.street && !state.address.street) {
+        state.address.street = detectedAddress.street;
+        console.log('[AIAppointment] Street detected:', detectedAddress.street);
+      }
+      if (detectedAddress.number && !state.address.number) {
+        state.address.number = detectedAddress.number;
+        console.log('[AIAppointment] Number detected:', detectedAddress.number);
+      }
+      if (detectedAddress.complement && !state.address.complement) {
+        state.address.complement = detectedAddress.complement;
+        console.log('[AIAppointment] Complement detected:', detectedAddress.complement);
+      }
     }
 
-    // Detecta número do endereço
-    const number = this.detectAddressNumber(message);
-    if (number && !state.address.number) {
-      state.address.number = number;
-      console.log('[AIAppointment] Address number detected:', number);
-    }
-
-    // Detecta complemento (apartamento, bloco, etc.)
-    const complement = this.detectComplement(message);
-    if (complement && !state.address.complement) {
-      state.address.complement = complement;
-      console.log('[AIAppointment] Complement detected:', complement);
-    }
-
-    // Se não tem CEP mas tem texto, considera como endereço completo
-    if (!state.address.cep && !state.address.street && message.length > 10) {
-      // Remove número e complemento já detectados para pegar só a rua
-      let street = message;
+    // Fallback: se não detectou com a função robusta, tenta detectar campos individuais
+    if (!state.address.number) {
+      const number = this.detectAddressNumber(message);
       if (number) {
-        street = street.replace(new RegExp(`\\b${number}\\b`, 'g'), '').trim();
+        state.address.number = number;
+        console.log('[AIAppointment] Number detected (fallback):', number);
       }
-      if (complement) {
-        street = street.replace(complement, '').trim();
-      }
+    }
 
-      // Limpa pontuação extra
+    if (!state.address.cep) {
+      const cep = this.detectCEP(message);
+      if (cep) {
+        state.address.cep = cep;
+        console.log('[AIAppointment] CEP detected (fallback):', cep);
+      }
+    }
+
+    if (!state.address.complement) {
+      const complement = this.detectComplement(message);
+      if (complement) {
+        state.address.complement = complement;
+        console.log('[AIAppointment] Complement detected (fallback):', complement);
+      }
+    }
+
+    // Se ainda não tem rua, usa a mensagem como endereço (último recurso)
+    if (!state.address.street && !state.address.cep && message.length > 5) {
+      // Remove número e complemento já detectados
+      let street = message;
+      if (state.address.number) {
+        street = street.replace(new RegExp(`[,\\s]*${state.address.number}[,\\s]*`, 'g'), ' ').trim();
+      }
+      if (state.address.complement) {
+        street = street.replace(state.address.complement, '').trim();
+      }
       street = street.replace(/[,;]+$/, '').trim();
 
-      if (street.length > 5) {
+      if (street.length > 3) {
         state.address.street = street;
-        console.log('[AIAppointment] Street detected:', street);
+        console.log('[AIAppointment] Street detected (fallback):', street);
       }
     }
 
@@ -1661,32 +1707,38 @@ export class AIAppointmentService {
     // Endereço incompleto, pede informações faltantes
     await this.saveAppointmentState(customerId, state);
 
-    let response = `Legal! Já anotei aqui: 📝\n\n`;
+    // Se tem algum dado, mostra o que já anotou
+    const hasAnyData = state.address.cep || state.address.street || state.address.number || state.address.complement;
 
-    if (state.address.cep) {
-      response += `✓ CEP: ${state.address.cep}\n`;
-    }
-    if (state.address.street) {
-      response += `✓ Endereço: ${state.address.street}\n`;
-    }
-    if (state.address.number) {
-      response += `✓ Número: ${state.address.number}\n`;
-    }
-    if (state.address.complement) {
-      response += `✓ Complemento: ${state.address.complement}\n`;
+    if (hasAnyData) {
+      let response = `Anotei aqui 📝\n\n`;
+
+      if (state.address.street) {
+        response += `✓ ${state.address.street}`;
+        if (state.address.number) {
+          response += `, ${state.address.number}`;
+        }
+        response += '\n';
+      } else {
+        if (state.address.cep) response += `✓ CEP: ${state.address.cep}\n`;
+        if (state.address.number) response += `✓ Número: ${state.address.number}\n`;
+      }
+      if (state.address.complement) {
+        response += `✓ ${state.address.complement}\n`;
+      }
+
+      // Só pede o que falta
+      if (validation.missing.length > 0) {
+        response += `\nSó falta o ${validation.missing.join(' e ')} 🏠`;
+      }
+
+      return { shouldContinue: true, response };
     }
 
-    // Mensagens customizadas baseadas no que está faltando
-    if (!state.address.number && validation.missing.includes('número')) {
-      response += `\n\nPra finalizar, só falta o número da casa/prédio. Pode mandar? 🏠`;
-    } else {
-      const missingInfo = validation.missing.join(' e ');
-      response += `\n\nSó falta o ${missingInfo} e a gente fecha!`;
-    }
-
+    // Não conseguiu extrair nada, pede novamente
     return {
       shouldContinue: true,
-      response
+      response: `Não consegui entender o endereço 🤔\n\nPode me mandar novamente?`
     };
   }
 

@@ -103,25 +103,27 @@ class AIService {
 
     // Formata PRODUTOS (geralmente sem variáveis ou com variáveis simples)
     if (products.length > 0) {
-      formatted += "### 📦 PRODUTOS E PREÇOS (FONTE OFICIAL)\n\n";
+      formatted += "### 📦 PRODUTOS E PREÇOS\n\n";
+      formatted += "**Ao informar sobre produtos, SEMPRE liste todas as opções com preços!**\n\n";
 
       for (const product of products) {
         const categoryStr = product.category ? ` [${product.category}]` : "";
-        formatted += `**${product.name}**${categoryStr}\n`;
+        formatted += `📌 **${product.name}**${categoryStr}\n`;
         if (product.description) {
-          formatted += `${product.description}\n`;
+          formatted += `   Descrição: ${product.description}\n`;
         }
-        formatted += `- Preço: R$ ${product.basePrice.toFixed(2)}\n`;
+        formatted += `   💰 Preço: R$ ${product.basePrice.toFixed(2)}\n`;
 
         // Produtos também podem ter variáveis (ex: tamanhos, cores)
         if (product.variables && product.variables.length > 0) {
-          formatted += "Opções:\n";
+          formatted += "   Variações disponíveis:\n";
           for (const variable of product.variables) {
-            formatted += `  📌 ${variable.name}:\n`;
+            formatted += `   • ${variable.name}:\n`;
             for (const option of variable.options) {
               const modifier = option.priceModifier;
-              const modifierStr = modifier > 0 ? ` (+R$ ${modifier.toFixed(2)})` : modifier < 0 ? ` (-R$ ${Math.abs(modifier).toFixed(2)})` : "";
-              formatted += `     • ${option.name}${modifierStr}\n`;
+              const finalPrice = product.basePrice + modifier;
+              const modifierStr = modifier > 0 ? ` (+R$ ${modifier.toFixed(2)}) = R$ ${finalPrice.toFixed(2)}` : modifier < 0 ? ` (-R$ ${Math.abs(modifier).toFixed(2)}) = R$ ${finalPrice.toFixed(2)}` : ` = R$ ${finalPrice.toFixed(2)}`;
+              formatted += `     - ${option.name}${modifierStr}\n`;
             }
           }
         }
@@ -132,42 +134,56 @@ class AIService {
 
     // Formata SERVIÇOS (com sistema completo de variáveis)
     if (services.length > 0) {
-      formatted += "### 🛠️ SERVIÇOS E TABELA DE PREÇOS (FONTE OFICIAL)\n\n";
-      formatted += "Use esta tabela para calcular orçamentos.\n\n";
+      formatted += "### 🛠️ SERVIÇOS DISPONÍVEIS\n\n";
+      formatted += "**IMPORTANTE:** Quando o cliente perguntar sobre um serviço:\n";
+      formatted += "1. Explique O QUE É o serviço\n";
+      formatted += "2. Liste TODAS as variações com preços\n";
+      formatted += "3. Mencione o que está incluso (da descrição)\n";
+      formatted += "4. Pergunte qual opção interessa\n\n";
 
       for (const service of services) {
         const categoryStr = service.category ? ` [${service.category}]` : "";
-        formatted += `**${service.name}**${categoryStr}\n`;
+        formatted += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        formatted += `📌 **${service.name}**${categoryStr}\n`;
         if (service.description) {
-          formatted += `${service.description}\n`;
+          formatted += `   📝 O que é: ${service.description}\n`;
         }
 
         // Verifica se tem faixas de preço por quantidade
         if (service.pricingTiers && service.pricingTiers.length > 0) {
-          formatted += `\n📊 PREÇO POR QUANTIDADE:\n`;
+          formatted += `\n   💰 PREÇOS POR QUANTIDADE:\n`;
           for (const tier of service.pricingTiers) {
             const maxStr = tier.maxQuantity ? `${tier.maxQuantity}` : "+";
             formatted += `   • ${tier.minQuantity} a ${maxStr} unidades: R$ ${tier.pricePerUnit.toFixed(2)} cada\n`;
           }
         } else {
-          formatted += `- Preço Base: R$ ${service.basePrice.toFixed(2)}\n`;
+          formatted += `   💰 Preço: R$ ${service.basePrice.toFixed(2)}\n`;
         }
 
         if (service.variables && service.variables.length > 0) {
-          formatted += "\nVariáveis que afetam o preço:\n";
+          formatted += "\n   🔧 OPÇÕES/VARIAÇÕES (mostre todas ao cliente!):\n";
 
           for (const variable of service.variables) {
-            formatted += `\n📌 ${variable.name}${variable.isRequired ? " (obrigatório)" : " (opcional)"}:\n`;
+            const reqStr = variable.isRequired ? " - CLIENTE DEVE ESCOLHER" : "";
+            formatted += `\n   ${variable.name}${reqStr}:\n`;
 
             for (const option of variable.options) {
               const modifier = option.priceModifier;
-              const modifierStr = modifier >= 0 ? `+R$ ${modifier.toFixed(2)}` : `-R$ ${Math.abs(modifier).toFixed(2)}`;
-              formatted += `   • ${option.name}: ${modifierStr}\n`;
+              const basePrice = service.basePrice || 0;
+              const finalPrice = basePrice + modifier;
+
+              if (modifier === 0) {
+                formatted += `   • ${option.name} - R$ ${finalPrice.toFixed(2)}\n`;
+              } else if (modifier > 0) {
+                formatted += `   • ${option.name} - R$ ${finalPrice.toFixed(2)} (base + R$ ${modifier.toFixed(2)})\n`;
+              } else {
+                formatted += `   • ${option.name} - R$ ${finalPrice.toFixed(2)} (base - R$ ${Math.abs(modifier).toFixed(2)})\n`;
+              }
             }
           }
         }
 
-        formatted += "\n---\n\n";
+        formatted += "\n";
       }
     }
 
@@ -364,17 +380,35 @@ Total: R$ 505,00"
           : JSON.parse(typeof productsJson === 'string' ? productsJson : '[]');
 
         if (products.length > 0) {
-          let formatted = "### 📦 LISTA OFICIAL DE PRODUTOS E PREÇOS (FONTE DA VERDADE)\n";
-          formatted += "Use ESTA lista para responder sobre preços e disponibilidade. Não invente valores.\n\n";
+          let formatted = "### 📦 CATÁLOGO DE PRODUTOS E SERVIÇOS (USE ESTAS INFORMAÇÕES!)\n\n";
+          formatted += "**IMPORTANTE:** Quando o cliente perguntar sobre qualquer item abaixo, você DEVE:\n";
+          formatted += "1. Explicar o que é o produto/serviço\n";
+          formatted += "2. Informar TODOS os preços e variações\n";
+          formatted += "3. Mencionar os detalhes da descrição\n";
+          formatted += "4. Perguntar qual opção interessa ao cliente\n\n";
 
+          // Agrupa por categoria
+          const byCategory: { [key: string]: Product[] } = {};
           products.forEach(p => {
-            const priceStr = p.price ? ` - Preço: ${p.price}` : "";
-            const catStr = p.category ? ` [${p.category}]` : "";
-            const descStr = p.description ? `\n  Detalhes: ${p.description}` : "";
-            formatted += `- **${p.name}**${catStr}${priceStr}${descStr}\n`;
+            const cat = p.category || "Geral";
+            if (!byCategory[cat]) byCategory[cat] = [];
+            byCategory[cat].push(p);
           });
 
-          // Se tem JSON estruturado válido, retorna SEM adicionar texto (evita duplicação)
+          for (const [category, items] of Object.entries(byCategory)) {
+            formatted += `📁 **${category}**\n`;
+
+            items.forEach(p => {
+              const priceStr = p.price ? `R$ ${p.price}`.replace('R$ R$', 'R$') : "Consultar preço";
+              formatted += `\n• **${p.name}** - ${priceStr}\n`;
+              if (p.description) {
+                formatted += `  └ ${p.description}\n`;
+              }
+            });
+
+            formatted += "\n";
+          }
+
           return formatted;
         }
       } catch (e) {
@@ -757,13 +791,47 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
 
 **REGRA FUNDAMENTAL: NUNCA diga "vou verificar", "vou consultar", "deixa eu ver" - você NÃO enviará uma segunda mensagem!**
 
-1. **Perguntas sobre PRODUTOS/SERVIÇOS:**
-   - Cliente pergunta: "vocês vendem X?", "tem X?", "trabalham com X?", "quanto custa X?", "o que é X?"
-   - ❌ ERRADO: "Vou verificar essa informação para você"
-   - ❌ ERRADO: Escrever qualquer código como "get_product_info(...)"
-   - ✅ CORRETO: Responder diretamente com as informações do produto/serviço
-   - Use TODAS as informações retornadas: nome, preço, descrição E categoria
-   - A DESCRIÇÃO contém detalhes técnicos importantes - SEMPRE mencione
+1. **Perguntas sobre PRODUTOS/SERVIÇOS (MUITO IMPORTANTE):**
+   Quando o cliente perguntar sobre um produto ou serviço, você DEVE:
+
+   ✅ **SEMPRE fazer:**
+   - Explicar O QUE É o serviço/produto de forma clara
+   - Mostrar TODOS os preços e variações disponíveis
+   - Mencionar a DESCRIÇÃO com detalhes técnicos
+   - Listar as OPÇÕES/VARIAÇÕES se existirem (ex: diferentes tamanhos, modelos, potências)
+   - Informar o que está INCLUSO no serviço
+
+   ❌ **NUNCA fazer:**
+   - Dizer "Vou verificar essa informação para você"
+   - Escrever código como "get_product_info(...)"
+   - Dar respostas vagas ou incompletas
+   - Omitir preços ou variações disponíveis
+
+   📋 **Formato ideal de resposta sobre serviço:**
+   "[Nome do serviço] é [explicação breve do que é].
+
+   Temos as seguintes opções:
+   • [Variação 1] - R$ [preço]
+   • [Variação 2] - R$ [preço]
+   • [Variação 3] - R$ [preço]
+
+   [Detalhes adicionais da descrição, o que inclui, tempo de duração, etc.]
+
+   Qual opção te interessa?"
+
+   📋 **Exemplo prático:**
+   Cliente: "Vocês fazem instalação de ar condicionado?"
+   ✅ CORRETO: "Sim! Fazemos instalação de ar condicionado Split.
+
+   Temos instalação para diferentes potências:
+   • Split 9.000 BTUs - R$ 350,00
+   • Split 12.000 BTUs - R$ 400,00
+   • Split 18.000 BTUs - R$ 500,00
+   • Split 24.000 BTUs - R$ 600,00
+
+   A instalação inclui suporte, tubulação de até 3 metros e mão de obra completa. Qual modelo você precisa instalar?"
+
+   ❌ ERRADO: "Sim, fazemos instalação. O preço varia de acordo com o modelo."
 
 2. **AGENDAMENTOS - FLUXO COMPLETO:**
    Quando o cliente quiser agendar um serviço, você DEVE coletar TODOS os dados antes de criar o agendamento:
@@ -793,8 +861,9 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
 
 4. **SEMPRE confie nos dados retornados:**
    - Se não encontrou o produto, informe que não está no catálogo
-   - Se encontrou, use TODOS os dados na resposta
+   - Se encontrou, use TODOS os dados na resposta (nome, preço, descrição, variações)
    - As informações são da base oficial e atualizada da empresa
+   - NUNCA omita informações disponíveis - o cliente quer saber tudo!
 `.trim();
 
     // Estilo e regras de resposta
