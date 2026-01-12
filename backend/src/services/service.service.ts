@@ -487,6 +487,7 @@ export const serviceService = {
       basePrice: number;
       type?: ServiceType;
       category?: string;
+      duration?: number; // Duração em minutos (padrão: 60)
       isActive?: boolean;
       variables: {
         id?: string;
@@ -521,6 +522,7 @@ export const serviceService = {
           basePrice: new Decimal(serviceData.basePrice),
           type: serviceData.type ?? "SERVICE",
           category: serviceData.category,
+          duration: serviceData.duration ?? 60,
           isActive: serviceData.isActive ?? true,
         },
       });
@@ -571,6 +573,7 @@ export const serviceService = {
           basePrice: new Decimal(serviceData.basePrice),
           type: serviceData.type ?? "SERVICE",
           category: serviceData.category,
+          duration: serviceData.duration ?? 60,
           isActive: serviceData.isActive ?? true,
           order: (lastService?.order ?? -1) + 1,
         },
@@ -634,6 +637,7 @@ export const serviceService = {
       basePrice: Number(service.basePrice),
       type: service.type,
       category: service.category,
+      duration: service.duration ?? 60, // Duração em minutos (padrão: 60)
       variables: service.variables.map((variable) => ({
         id: variable.id,
         name: variable.name,

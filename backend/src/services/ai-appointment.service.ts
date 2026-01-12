@@ -354,9 +354,9 @@ export class AIAppointmentService {
           state.step = 'COLLECTING_DATE';
           await this.saveAppointmentState(customerId, state);
 
-          const typeLabel = this.getServiceTypeLabel(state.serviceType);
+          const serviceLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType);
           return {
-            response: `Entendi! ${typeLabel} anotado 👍\n\nMas putz, esse dia tá sem horários disponíveis 😔\n\nTem outro dia que funciona pra você?`
+            response: `Entendi! ${serviceLabel} anotado 👍\n\nMas putz, esse dia tá sem horários disponíveis 😔\n\nTem outro dia que funciona pra você?`
           };
         }
 
@@ -378,11 +378,11 @@ export class AIAppointmentService {
               return await this.sendConfirmation(customerId, state);
             }
 
-            const typeLabel = this.getServiceTypeLabel(state.serviceType);
+            const serviceLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType);
             const dateFormatted = selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
 
             return {
-              response: `Show! Tudo anotado:\n📋 ${typeLabel}\n📅 ${dateFormatted}\n🕐 ${state.time}\n\nAgora só preciso do endereço completo onde vou fazer o serviço 📍`
+              response: `Show! Tudo anotado:\n📋 ${serviceLabel}\n📅 ${dateFormatted}\n🕐 ${state.time}\n\nAgora só preciso do endereço completo onde vou fazer o serviço 📍`
             };
           } else {
             // Horário não disponível, mostra opções
@@ -393,7 +393,7 @@ export class AIAppointmentService {
         await this.saveAppointmentState(customerId, state);
 
         // Mostra horários disponíveis
-        const typeLabel = this.getServiceTypeLabel(state.serviceType);
+        const serviceLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType);
         const dateFormatted = selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
 
         const slotsToShow = slots.slice(0, 6);
@@ -401,7 +401,7 @@ export class AIAppointmentService {
           .map((slot, index) => `${index + 1}️⃣ ${this.slotToTimeString(slot.start)}`)
           .join('\n');
 
-        let response = `Beleza! ${typeLabel} pra ${dateFormatted} 👍\n\n`;
+        let response = `Beleza! ${serviceLabel} pra ${dateFormatted} 👍\n\n`;
 
         if (detected.time) {
           response += `O horário ${detected.time} não tá disponível, mas tenho esses:\n\n`;
@@ -431,9 +431,9 @@ export class AIAppointmentService {
     if (state.serviceType && state.step === 'COLLECTING_DATE') {
       await this.saveAppointmentState(customerId, state);
 
-      const typeLabel = this.getServiceTypeLabel(state.serviceType);
+      const serviceLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType);
       return {
-        response: `Opa, beleza! Vou agendar ${typeLabel} pra você 👍\n\nQual dia fica bom pra você?`
+        response: `Opa, beleza! Vou agendar ${serviceLabel} pra você 👍\n\nQual dia fica bom pra você?`
       };
     }
 
@@ -1157,10 +1157,10 @@ export class AIAppointmentService {
           state.availableSlots = undefined;
           await this.saveAppointmentState(customerId, state);
 
-          const typeLabel = this.getServiceTypeLabel(serviceType);
+          const serviceLabel = state.serviceName || this.getServiceTypeLabel(serviceType);
           return {
             shouldContinue: true,
-            response: `Beleza! Mudei pra ${typeLabel} 👍\n\nQual dia é melhor pra você?`
+            response: `Beleza! Mudei pra ${serviceLabel} 👍\n\nQual dia é melhor pra você?`
           };
         }
       }
@@ -1278,14 +1278,14 @@ export class AIAppointmentService {
       state.step = 'SELECTING_SERVICE_VARIATION';
       await this.saveAppointmentState(customerId, state);
 
-      const typeLabel = this.getServiceTypeLabel(serviceType);
+      const serviceLabel = state.serviceName || this.getServiceTypeLabel(serviceType);
       const variationsText = variations.slice(0, 10).map((v, i) =>
         `${i + 1}️⃣ ${v.name} - ${v.price}`
       ).join('\n');
 
       return {
         shouldContinue: true,
-        response: `Temos várias opções de ${typeLabel}! 📋\n\n${variationsText}\n\nQual desses você precisa? Pode mandar o número ou falar o nome`,
+        response: `Temos várias opções de ${serviceLabel}! 📋\n\n${variationsText}\n\nQual desses você precisa? Pode mandar o número ou falar o nome`,
       };
     } else if (variations.length === 1) {
       // Apenas uma opção - usa automaticamente
@@ -1822,7 +1822,7 @@ export class AIAppointmentService {
         console.log('[AIAppointment]   Início:', startTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
         console.log('[AIAppointment]   Fim:', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
-        const serviceLabel = this.getServiceTypeLabel(state.serviceType!);
+        const serviceLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType!);
         const description = `Agendamento via WhatsApp - ${serviceLabel}`;
 
         // Formata o endereço para o campo location
@@ -1934,26 +1934,25 @@ export class AIAppointmentService {
   /**
    * Helpers
    */
-  private getDefaultDuration(type: AppointmentType): number {
-    switch (type) {
-      case AppointmentType.INSTALLATION: return 120; // 2 horas
-      case AppointmentType.MAINTENANCE: return 60; // 1 hora
-      case AppointmentType.CONSULTATION: return 30; // 30 minutos
-      case AppointmentType.VISIT: return 60; // 1 hora
-      case AppointmentType.OTHER: return 60; // 1 hora
-      default: return 60;
-    }
+  /**
+   * Retorna a duração padrão para agendamentos (60 minutos)
+   * A duração real deve ser configurada no cadastro de cada serviço/produto
+   * Este método é usado apenas como fallback quando não há duração configurada
+   */
+  private getDefaultDuration(_type: AppointmentType): number {
+    // Duração padrão de 60 minutos (1 hora)
+    // A duração personalizada deve ser configurada no serviço/produto
+    return 60;
   }
 
-  private getServiceTypeLabel(type: AppointmentType): string {
-    switch (type) {
-      case AppointmentType.INSTALLATION: return 'Instalação';
-      case AppointmentType.MAINTENANCE: return 'Manutenção';
-      case AppointmentType.CONSULTATION: return 'Consulta/Orçamento';
-      case AppointmentType.VISIT: return 'Visita';
-      case AppointmentType.OTHER: return 'Serviço';
-      default: return 'Serviço';
-    }
+  /**
+   * Retorna um label genérico para o tipo de serviço
+   * NOTA: Este método é apenas um fallback - sempre priorize usar state.serviceName
+   * que contém o nome real do serviço cadastrado pelo cliente
+   */
+  private getServiceTypeLabel(_type: AppointmentType): string {
+    // Fallback genérico - o nome real do serviço deve vir de state.serviceName
+    return 'Serviço';
   }
 
   /**

@@ -86,6 +86,7 @@ interface Service {
   type: ServiceType;
   category?: string;
   isActive: boolean;
+  duration?: number; // Duração em minutos (padrão: 60)
   variables: ServiceVariable[];
   pricingTiers?: PricingTier[]; // Faixas de preço por quantidade
   usePricingTiers?: boolean; // Flag para usar faixas ao invés de preço base
@@ -228,6 +229,7 @@ function AISettingsPageContent() {
         basePrice: Number(s.basePrice),
         type: s.type || "SERVICE",
         category: s.category || "",
+        duration: s.duration ?? 60, // Duração em minutos (padrão: 60)
         isActive: s.isActive,
         variables: s.variables.map((v: any) => ({
           id: v.id,
@@ -512,6 +514,7 @@ function AISettingsPageContent() {
         type: "SERVICE",
         category: "",
         isActive: true,
+        duration: 60, // Duração padrão: 60 minutos
         variables: [],
         pricingTiers: [],
         usePricingTiers: false,
@@ -1418,7 +1421,7 @@ function AISettingsPageContent() {
                       {expandedServices.has(serviceIndex) && (
                         <CardContent className="border-t space-y-6 pt-4">
                           {/* Basic Info */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="space-y-2">
                               <Label>Descrição (opcional)</Label>
                               <Input
@@ -1438,6 +1441,27 @@ function AISettingsPageContent() {
                                 }
                                 placeholder="Ex: Instalação, Limpeza, Manutenção"
                               />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="flex items-center gap-1">
+                                Duração
+                                <Clock className="h-3 w-3 text-muted-foreground" />
+                              </Label>
+                              <div className="relative">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={service.duration || 60}
+                                  onChange={(e) =>
+                                    updateService(serviceIndex, "duration", parseInt(e.target.value) || 60)
+                                  }
+                                  placeholder="60"
+                                  className="pr-16"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                                  minutos
+                                </span>
+                              </div>
                             </div>
                           </div>
 

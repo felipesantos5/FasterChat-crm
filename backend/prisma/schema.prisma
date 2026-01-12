@@ -603,6 +603,7 @@ model Service {
   basePrice   Decimal     @map("base_price") @db.Decimal(10, 2)
   type        ServiceType @default(SERVICE)
   category    String?     // Categoria do produto/serviço
+  duration    Int?        @default(60) // Duração em minutos (padrão: 60)
   isActive    Boolean     @default(true) @map("is_active")
   order       Int         @default(0)
   createdAt   DateTime    @default(now()) @map("created_at")
