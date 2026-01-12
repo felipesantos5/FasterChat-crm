@@ -636,6 +636,23 @@ export async function handleCreateAppointment(args: {
   try {
     const { service_type, date, time, address, title, notes, customerId, companyId } = args;
 
+    // VALIDAÇÃO: Verificar se o endereço contém um número válido
+    // Padrões aceitos: "Rua X, 123", "Rua X 123", "Rua X nº 123", "Rua X número 123"
+    const hasValidNumber = /(?:,\s*|\s+)(\d{1,5})(?:\s|$|,)|n[ºo°]?\s*(\d{1,5})|n[úu]mero\s+(\d{1,5})/i.test(address);
+
+    // Verifica se é um número genérico/fictício (apenas "1" ou números muito baixos sem contexto)
+    const isFakeNumber = /^[^,\d]*,?\s*1\s*$|rua\s+\w+\s+1\s*$/i.test(address);
+
+    if (!hasValidNumber || isFakeNumber) {
+      console.log('[CreateAppointment] ❌ Endereço sem número válido:', address);
+      return {
+        success: false,
+        error: 'ENDERECO_INCOMPLETO',
+        message: 'O endereço informado está sem o número. Por favor, pergunte ao cliente qual é o número do endereço (ex: "Qual o número da sua casa/apartamento?") antes de criar o agendamento.',
+        address_received: address,
+      };
+    }
+
     // Busca a duração do serviço do catálogo da empresa
     let duration = 60; // Duração padrão
     try {

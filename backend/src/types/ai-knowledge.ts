@@ -31,6 +31,8 @@ export interface AIKnowledgeData {
   // Políticas
   policies?: string | null;
   workingHours?: string | null;
+  businessHoursStart?: number | null;
+  businessHoursEnd?: number | null;
   paymentMethods?: string | null;
   deliveryInfo?: string | null;
   warrantyInfo?: string | null;
@@ -77,6 +79,8 @@ export interface UpdateAIKnowledgeRequest {
   // Políticas
   policies?: string;
   workingHours?: string;
+  businessHoursStart?: number;
+  businessHoursEnd?: number;
   paymentMethods?: string;
   deliveryInfo?: string;
   warrantyInfo?: string;

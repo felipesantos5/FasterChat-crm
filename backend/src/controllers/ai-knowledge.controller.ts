@@ -85,6 +85,8 @@ class AIKnowledgeController {
         // Políticas
         policies,
         workingHours,
+        businessHoursStart,
+        businessHoursEnd,
         paymentMethods,
         deliveryInfo,
         warrantyInfo,
@@ -130,6 +132,8 @@ class AIKnowledgeController {
         aiObjective,
         policies,
         workingHours,
+        businessHoursStart,
+        businessHoursEnd,
         paymentMethods,
         deliveryInfo,
         warrantyInfo,

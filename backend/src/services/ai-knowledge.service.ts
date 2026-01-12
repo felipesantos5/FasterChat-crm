@@ -101,6 +101,8 @@ class AIKnowledgeService {
 
           policies: data.policies,
           workingHours: data.workingHours,
+          businessHoursStart: data.businessHoursStart,
+          businessHoursEnd: data.businessHoursEnd,
           paymentMethods: data.paymentMethods,
           deliveryInfo: data.deliveryInfo,
           warrantyInfo: data.warrantyInfo,
@@ -132,6 +134,8 @@ class AIKnowledgeService {
 
           policies: data.policies,
           workingHours: data.workingHours,
+          businessHoursStart: data.businessHoursStart,
+          businessHoursEnd: data.businessHoursEnd,
           paymentMethods: data.paymentMethods,
           deliveryInfo: data.deliveryInfo,
           warrantyInfo: data.warrantyInfo,
