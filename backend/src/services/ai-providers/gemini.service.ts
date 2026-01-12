@@ -32,22 +32,32 @@ const geminiTools: Tool[] = [
       {
         name: "get_product_info",
         description:
-          'SEMPRE use esta ferramenta quando o cliente perguntar QUALQUER COISA sobre produtos, serviços ou preços. Exemplos de perguntas que EXIGEM o uso desta ferramenta: "vocês vendem X?", "tem X?", "quanto custa X?", "qual o preço de X?", "vocês fazem X?", "trabalham com X?", "tem disponível X?". NUNCA diga "vou verificar" - USE A FERRAMENTA IMEDIATAMENTE.',
+          `OBRIGATÓRIO usar esta ferramenta para QUALQUER pergunta sobre produtos, serviços, preços ou o que a empresa oferece.
+
+GATILHOS (use a ferramenta quando o cliente perguntar):
+- "vocês vendem/fazem/tem/trabalham com X?"
+- "quanto custa/qual o preço de X?"
+- "o que é X?" (sobre um serviço)
+- "como funciona X?"
+- "quais opções/modelos/variações de X?"
+- "me fala sobre X"
+
+REGRA: Esta ferramenta retorna informações COMPLETAS incluindo variações e preços calculados. NUNCA responda sobre produtos/serviços sem usar esta ferramenta primeiro.`,
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
             query: {
               type: SchemaType.STRING,
               description:
-                'Termo de busca extraído da pergunta do cliente. Exemplos: se cliente pergunta "vocês vendem controle?", use "controle". Se pergunta "tem ar condicionado 12000?", use "ar condicionado 12000".',
+                'Termo de busca extraído da pergunta. Exemplos: "ar condicionado", "instalação", "manutenção", "limpeza split". Use palavras-chave do que o cliente quer saber.',
             },
             category: {
               type: SchemaType.STRING,
               description:
-                'PRODUCT: quando perguntam sobre produtos físicos. SERVICE: quando perguntam sobre serviços. PRICING: quando perguntam especificamente sobre preço. Valores válidos: PRODUCT, SERVICE, PRICING.',
+                'Tipo de busca: PRODUCT (produtos físicos), SERVICE (serviços/mão de obra), PRICING (foco em preço).',
             },
           },
-          required: ["query", "category"],
+          required: ["query"],
         },
       },
       {
@@ -156,13 +166,18 @@ class GeminiService {
 
   /**
    * Gera resposta usando Gemini com Function Calling e suporte multimodal
+   *
+   * CONFIGURAÇÕES OTIMIZADAS:
+   * - temperature baixa (0.2) para respostas precisas sobre preços/produtos
+   * - topP moderado (0.85) para evitar respostas muito variáveis
+   * - topK para limitar variabilidade
    */
   async generateResponse(params: GenerateResponseParams): Promise<string> {
     try {
       const {
         systemPrompt,
         userPrompt,
-        temperature = 0.4,
+        temperature = 0.2, // Reduzido de 0.4 para maior precisão
         maxTokens = 1024,
         model,
         imageBase64,
@@ -176,6 +191,7 @@ class GeminiService {
       const modelToUse = model || this.model;
 
       console.log(`[Gemini] Generating response with ${modelToUse}${enableTools ? " + Function Calling" : ""}`);
+      console.log(`[Gemini] Config: temp=${temperature}, topP=0.85, maxTokens=${maxTokens}`);
 
       // Configura o modelo com tools se habilitado
       const generativeModel = this.client.getGenerativeModel({
@@ -184,7 +200,8 @@ class GeminiService {
         generationConfig: {
           temperature,
           maxOutputTokens: maxTokens,
-          topP: 0.95,
+          topP: 0.85, // Reduzido de 0.95 para respostas mais focadas
+          topK: 40, // Limita variabilidade nas escolhas de tokens
         },
         tools: enableTools ? geminiTools : undefined,
       });

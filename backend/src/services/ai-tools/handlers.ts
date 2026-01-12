@@ -180,6 +180,8 @@ function parseWorkingHours(workingHoursText: string | null): {
 /**
  * [TOOL] Buscar Produtos e Serviços
  * Retorna dados estruturados para a IA responder dúvidas
+ *
+ * MELHORADO: Agora busca em múltiplas fontes e agrupa variações
  */
 export async function handleGetProductInfo(args: {
   query: string;
@@ -191,84 +193,198 @@ export async function handleGetProductInfo(args: {
 
     console.log(`[Tool] GetProductInfo: Buscando "${query}" para company ${companyId}`);
 
+    // =============================================
+    // 1. BUSCA NA TABELA SERVICE (COM VARIÁVEIS)
+    // =============================================
+    let servicesWithVariables: any[] = [];
+    try {
+      const services = await prisma.service.findMany({
+        where: {
+          companyId,
+          isActive: true,
+          OR: [
+            { name: { contains: query, mode: 'insensitive' } },
+            { description: { contains: query, mode: 'insensitive' } },
+            { category: { contains: query, mode: 'insensitive' } },
+          ]
+        },
+        include: {
+          variables: {
+            include: {
+              options: true
+            }
+          },
+          pricingTiers: true
+        },
+        take: 10
+      });
+
+      if (services.length > 0) {
+        console.log(`[Tool] GetProductInfo: Encontrados ${services.length} serviços na tabela Service`);
+
+        servicesWithVariables = services.map(service => {
+          // Calcula todas as variações de preço
+          const variations: Array<{ name: string; price: number; description?: string }> = [];
+
+          if (service.variables && service.variables.length > 0) {
+            // Serviço tem variáveis - calcula preço para cada opção
+            for (const variable of service.variables) {
+              for (const option of variable.options) {
+                const finalPrice = service.basePrice + option.priceModifier;
+                variations.push({
+                  name: `${service.name} - ${option.name}`,
+                  price: finalPrice,
+                  description: option.description || undefined
+                });
+              }
+            }
+          } else {
+            // Serviço sem variáveis - preço único
+            variations.push({
+              name: service.name,
+              price: service.basePrice,
+              description: service.description || undefined
+            });
+          }
+
+          return {
+            serviceName: service.name,
+            category: service.category,
+            description: service.description,
+            basePrice: service.basePrice,
+            hasVariations: variations.length > 1,
+            variations: variations,
+            pricingTiers: service.pricingTiers?.map(tier => ({
+              minQty: tier.minQuantity,
+              maxQty: tier.maxQuantity,
+              pricePerUnit: tier.pricePerUnit
+            }))
+          };
+        });
+      }
+    } catch (error) {
+      console.warn('[Tool] GetProductInfo: Erro ao buscar na tabela Service:', error);
+    }
+
+    // =============================================
+    // 2. BUSCA NO CAMPO PRODUCTS (AIKNOWLEDGE)
+    // =============================================
     const aiKnowledge = await prisma.aIKnowledge.findUnique({
       where: { companyId },
     });
 
-    if (!aiKnowledge) {
-      console.error('[Tool] GetProductInfo: Empresa não encontrada');
-      return { error: 'Dados da empresa não encontrados' };
-    }
-
-    // 1. Parse dos produtos do JSON (Fonte da Verdade)
     let products: Product[] = [];
-    try {
-      const rawProducts = aiKnowledge.products;
-      products = Array.isArray(rawProducts)
-        ? rawProducts
-        : JSON.parse(typeof rawProducts === 'string' ? rawProducts : '[]');
+    if (aiKnowledge) {
+      try {
+        const rawProducts = aiKnowledge.products;
+        const allProducts = Array.isArray(rawProducts)
+          ? rawProducts
+          : JSON.parse(typeof rawProducts === 'string' ? rawProducts : '[]');
 
-      console.log(`[Tool] GetProductInfo: Produtos carregados do banco: ${products.length}`);
-    } catch (error) {
-      console.error('[Tool] GetProductInfo: Erro ao parsear produtos:', error);
-      products = [];
-    }
-
-    // 2. Busca Inteligente com Fuzzy Search
-    const results = searchProducts(products, query);
-
-    // 3. Se não achou no JSON, tenta fallback no texto (menos confiável)
-    let fallbackInfo = null;
-    if (results.length === 0 && aiKnowledge.productsServices) {
-      console.log('[Tool] GetProductInfo: Tentando fallback em productsServices (texto legado)');
-      const lines = aiKnowledge.productsServices.split('\n');
-      const matchedLines = lines.filter(l => l.toLowerCase().includes(query.toLowerCase()));
-      if (matchedLines.length > 0) {
-        fallbackInfo = matchedLines.slice(0, 5).join('\n');
-        console.log(`[Tool] GetProductInfo: Encontradas ${matchedLines.length} linhas no fallback`);
+        // Busca com Fuzzy Search
+        products = searchProducts(allProducts, query);
+        console.log(`[Tool] GetProductInfo: Encontrados ${products.length} produtos no AIKnowledge`);
+      } catch (error) {
+        console.error('[Tool] GetProductInfo: Erro ao parsear produtos:', error);
       }
     }
 
-    // 4. Formatar resultado para a IA
-    if (results.length > 0) {
-      const topResults = results.slice(0, 5); // Top 5 resultados (aumentado de 3)
+    // =============================================
+    // 3. COMBINA E FORMATA RESULTADOS
+    // =============================================
+    const hasServicesResults = servicesWithVariables.length > 0;
+    const hasProductsResults = products.length > 0;
 
-      // Verifica se algum produto tem link de venda
-      const hasSalesLinks = topResults.some(p => p.salesLink);
+    if (!hasServicesResults && !hasProductsResults) {
+      // Tenta fallback no texto legado
+      let fallbackInfo = null;
+      if (aiKnowledge?.productsServices) {
+        const lines = aiKnowledge.productsServices.split('\n');
+        const matchedLines = lines.filter(l => l.toLowerCase().includes(query.toLowerCase()));
+        if (matchedLines.length > 0) {
+          fallbackInfo = matchedLines.slice(0, 5).join('\n');
+        }
+      }
 
+      console.warn(`[Tool] GetProductInfo: Nenhum resultado para "${query}"`);
       return {
         query,
-        found: true,
-        total_found: results.length,
-        products: topResults.map(p => ({
-          name: p.name,
-          price: p.price,
-          description: p.description || 'Sem descrição cadastrada',
-          category: p.category || 'Sem categoria',
-          salesLink: p.salesLink || null // Link de compra/checkout quando disponível
-        })),
-        instruction: hasSalesLinks
-          ? `Encontrei ${results.length} produto(s) relacionado(s). Use TODAS as informações acima (nome, preço, descrição e categoria) para responder ao cliente. IMPORTANTE: Quando o cliente demonstrar interesse em comprar, envie o link de venda (salesLink) para ele finalizar a compra. Exemplo: "Você pode adquirir pelo link: [link]"`
-          : `Encontrei ${results.length} produto(s) relacionado(s). Use TODAS as informações acima (nome, preço, descrição e categoria) para responder ao cliente de forma completa e precisa. A DESCRIÇÃO contém detalhes importantes sobre o produto/serviço.`
+        found: false,
+        services: [],
+        products: [],
+        fallback_text: fallbackInfo,
+        instruction: fallbackInfo
+          ? "Encontrei algumas informações no texto complementar. Use com cautela."
+          : "Não encontrei produtos/serviços com esse nome. Informe ao cliente que não consta no catálogo e ofereça alternativas."
       };
     }
 
-    // Nenhum resultado encontrado
-    console.warn(`[Tool] GetProductInfo: Nenhum produto encontrado para "${query}"`);
-
-    return {
+    // =============================================
+    // 4. MONTA RESPOSTA ESTRUTURADA
+    // =============================================
+    const response: any = {
       query,
-      found: false,
-      products: [],
-      fallback_text: fallbackInfo,
-      instruction: fallbackInfo
-        ? "Encontrei algumas informações no texto complementar. Use com cautela e informe ao cliente que pode haver mais detalhes em contato direto."
-        : "Não encontrei produtos/serviços com esse nome no cadastro oficial. Informe ao cliente que esse item não consta no catálogo atual e ofereça alternativas ou contato com atendimento humano."
+      found: true,
+      instruction: `IMPORTANTE: Responda ao cliente de forma COMPLETA.
+
+Você DEVE:
+1. Explicar O QUE É o serviço/produto
+2. Listar TODAS as variações e preços disponíveis
+3. Mencionar detalhes da descrição
+4. Perguntar qual opção interessa ao cliente
+
+NUNCA dê respostas vagas como "o preço varia". SEMPRE liste os valores!`
     };
+
+    // Adiciona serviços (com variações calculadas)
+    if (hasServicesResults) {
+      response.services = servicesWithVariables.map(s => ({
+        name: s.serviceName,
+        category: s.category,
+        description: s.description,
+        basePrice: `R$ ${s.basePrice.toFixed(2)}`,
+        hasVariations: s.hasVariations,
+        variations: s.variations.map((v: any) => ({
+          option: v.name,
+          price: `R$ ${v.price.toFixed(2)}`,
+          details: v.description
+        })),
+        pricingByQuantity: s.pricingTiers?.length > 0 ? s.pricingTiers : undefined
+      }));
+
+      // Instrução específica para serviços com variações
+      if (servicesWithVariables.some(s => s.hasVariations)) {
+        response.instruction += `
+
+FORMATO DE RESPOSTA PARA SERVIÇOS COM VARIAÇÕES:
+"[Nome do serviço] - [descrição breve]
+
+Temos as seguintes opções:
+• [Variação 1] - R$ XX,XX
+• [Variação 2] - R$ XX,XX
+• [Variação 3] - R$ XX,XX
+
+Qual opção te interessa?"`;
+      }
+    }
+
+    // Adiciona produtos do AIKnowledge
+    if (hasProductsResults) {
+      response.products = products.slice(0, 5).map(p => ({
+        name: p.name,
+        price: p.price,
+        description: p.description || 'Sem descrição',
+        category: p.category || 'Geral',
+        salesLink: p.salesLink || null
+      }));
+    }
+
+    console.log(`[Tool] GetProductInfo: Retornando ${servicesWithVariables.length} serviços e ${products.length} produtos`);
+    return response;
 
   } catch (error) {
     console.error('[Tool] GetProductInfo Error:', error);
-    return { error: 'Erro ao buscar informações. Tente novamente ou entre em contato com o atendimento.' };
+    return { error: 'Erro ao buscar informações. Tente novamente.' };
   }
 }
 
