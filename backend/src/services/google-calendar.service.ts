@@ -430,13 +430,6 @@ async getAvailableSlots(
         // 'transparent' = Livre, 'opaque' = Ocupado (ou null/undefined = Ocupado)
         if (event.transparency === 'transparent') return false;
 
-        // 🆕 Pula eventos que parecem ser marcadores de horário de trabalho
-        const eventTitle = (event.summary || '').toLowerCase();
-        const workingHoursKeywords = ['expediente', 'horário de trabalho', 'working hours', 'disponível', 'disponivel', 'aberto', 'avanti', 'horario comercial'];
-        if (workingHoursKeywords.some(keyword => eventTitle.includes(keyword))) {
-          return false; // Ignora eventos de marcação de expediente
-        }
-
         // Normaliza datas do evento
         let eventStart: Date;
         let eventEnd: Date;
@@ -446,10 +439,19 @@ async getAvailableSlots(
           eventStart = new Date(event.start.dateTime);
           eventEnd = new Date(event.end?.dateTime || event.start.dateTime);
 
-          // 🆕 Verifica se o evento cobre muitas horas (provavelmente é marcador de expediente)
+          // Calcula duração do evento
           const durationHours = (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60);
+
+          // Pula eventos que parecem ser marcadores de horário de trabalho
+          // APENAS se duração >= 6 horas E título contém keywords específicas
           if (durationHours >= 6) {
-            return false; // Eventos muito longos provavelmente são marcadores de expediente
+            const eventTitle = (event.summary || '').toLowerCase();
+            const workingHoursKeywords = ['expediente', 'horário de trabalho', 'working hours', 'horario comercial'];
+            if (workingHoursKeywords.some(keyword => eventTitle.includes(keyword))) {
+              return false; // Ignora eventos de marcação de expediente
+            }
+            // Eventos longos sem keywords também são ignorados (provavelmente marcadores)
+            return false;
           }
         } else if (event.start?.date) {
           // Evento de Dia Inteiro (All Day) - NÃO bloqueia slots específicos
@@ -674,15 +676,30 @@ async getAvailableSlots(
     const calendarConfig = await this.loadTokens(companyId);
     const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
+    console.log('[GoogleCalendar] listEventsInRange:');
+    console.log('[GoogleCalendar]   - Start:', startDate.toISOString());
+    console.log('[GoogleCalendar]   - End:', endDate.toISOString());
+    console.log('[GoogleCalendar]   - Calendar:', calendarConfig.calendarId || 'primary');
+
     const response = await calendar.events.list({
       calendarId: calendarConfig.calendarId || 'primary',
       timeMin: startDate.toISOString(),
       timeMax: endDate.toISOString(),
       singleEvents: true,
       orderBy: 'startTime',
+      timeZone: 'America/Sao_Paulo', // IMPORTANTE: Usar timezone correto
     });
 
-    return response.data.items || [];
+    const events = response.data.items || [];
+    console.log(`[GoogleCalendar]   - Eventos encontrados: ${events.length}`);
+
+    if (events.length > 0) {
+      events.forEach((event, i) => {
+        console.log(`[GoogleCalendar]   ${i + 1}. "${event.summary}" - ${event.start?.dateTime || event.start?.date} (status: ${event.status})`);
+      });
+    }
+
+    return events;
   }
 
   /**

@@ -427,28 +427,6 @@ export class AppointmentService {
           return false;
         }
 
-        // 🆕 Pula eventos que parecem ser marcadores de horário de trabalho
-        // (eventos que cobrem o dia inteiro de trabalho geralmente são informativos)
-        const eventTitle = (event.summary || '').toLowerCase();
-        const workingHoursKeywords = ['expediente', 'horário de trabalho', 'working hours', 'disponível', 'disponivel', 'aberto', 'avanti', 'horario comercial'];
-        if (workingHoursKeywords.some(keyword => eventTitle.includes(keyword))) {
-          console.log('[Appointment]   ⏭️ Ignorando: parece ser marcador de horário de trabalho');
-          return false;
-        }
-
-        // 🆕 Verifica se o evento cobre muitas horas (provavelmente é marcador de expediente, não compromisso)
-        if (event.start?.dateTime && event.end?.dateTime) {
-          const eventStartTemp = new Date(event.start.dateTime);
-          const eventEndTemp = new Date(event.end?.dateTime);
-          const durationHours = (eventEndTemp.getTime() - eventStartTemp.getTime()) / (1000 * 60 * 60);
-
-          // Eventos com mais de 6 horas provavelmente são marcadores de expediente
-          if (durationHours >= 6) {
-            console.log('[Appointment]   ⏭️ Ignorando: evento muito longo (', durationHours.toFixed(1), 'h) - provavelmente marcador de expediente');
-            return false;
-          }
-        }
-
         // Normaliza datas do evento
         let eventStart: Date;
         let eventEnd: Date;
@@ -457,6 +435,13 @@ export class AppointmentService {
           // Evento com horário específico - o dateTime já vem com timezone
           eventStart = new Date(event.start.dateTime);
           eventEnd = new Date(event.end?.dateTime || event.start.dateTime);
+
+          // Verifica se o evento é muito longo (provavelmente marcador de expediente)
+          const durationHours = (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60);
+          if (durationHours >= 6) {
+            console.log('[Appointment]   ⏭️ Ignorando: evento muito longo (', durationHours.toFixed(1), 'h) - provavelmente marcador de expediente');
+            return false;
+          }
         } else if (event.start?.date) {
           // Evento de Dia Inteiro - NÃO deve bloquear agendamentos específicos
           console.log('[Appointment]   ⏭️ Ignorando: evento de dia inteiro (não bloqueia horários específicos)');
