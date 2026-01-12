@@ -225,16 +225,17 @@ export async function handleGetProductInfo(args: {
         servicesWithVariables = services.map(service => {
           // Calcula todas as variações de preço
           const variations: Array<{ name: string; price: number; description?: string }> = [];
+          const basePriceNum = Number(service.basePrice);
 
           if (service.variables && service.variables.length > 0) {
             // Serviço tem variáveis - calcula preço para cada opção
             for (const variable of service.variables) {
               for (const option of variable.options) {
-                const finalPrice = service.basePrice + option.priceModifier;
+                const priceModifierNum = Number(option.priceModifier);
+                const finalPrice = basePriceNum + priceModifierNum;
                 variations.push({
                   name: `${service.name} - ${option.name}`,
-                  price: finalPrice,
-                  description: option.description || undefined
+                  price: finalPrice
                 });
               }
             }
@@ -242,7 +243,7 @@ export async function handleGetProductInfo(args: {
             // Serviço sem variáveis - preço único
             variations.push({
               name: service.name,
-              price: service.basePrice,
+              price: basePriceNum,
               description: service.description || undefined
             });
           }
@@ -251,13 +252,13 @@ export async function handleGetProductInfo(args: {
             serviceName: service.name,
             category: service.category,
             description: service.description,
-            basePrice: service.basePrice,
+            basePrice: basePriceNum,
             hasVariations: variations.length > 1,
             variations: variations,
             pricingTiers: service.pricingTiers?.map(tier => ({
               minQty: tier.minQuantity,
               maxQty: tier.maxQuantity,
-              pricePerUnit: tier.pricePerUnit
+              pricePerUnit: Number(tier.pricePerUnit)
             }))
           };
         });
