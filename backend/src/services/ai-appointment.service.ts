@@ -1185,9 +1185,11 @@ export class AIAppointmentService {
     }
 
     // 🆕 DETECÇÃO MÚLTIPLA: Mas RESPEITA o step atual
-    // Quando estamos selecionando serviço ou variação, NÃO tentamos detectar outros dados
-    // Isso evita confusão onde o nome do serviço pode ser interpretado como data
-    const shouldAutoDetect = !['SELECTING_SERVICE', 'SELECTING_SERVICE_VARIATION'].includes(state.step);
+    // Quando estamos selecionando serviço, variação OU horário, NÃO tentamos detectar outros dados
+    // Isso evita confusão onde:
+    // - Nome do serviço pode ser interpretado como data
+    // - Número de escolha de horário (1, 2, 3) pode ser detectado como número de casa
+    const shouldAutoDetect = !['SELECTING_SERVICE', 'SELECTING_SERVICE_VARIATION', 'COLLECTING_TIME'].includes(state.step);
 
     let detected: DetectedAppointmentData;
     let dataUpdated = false;
