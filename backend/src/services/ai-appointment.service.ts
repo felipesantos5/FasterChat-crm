@@ -46,14 +46,27 @@ interface ServiceVariation {
 }
 
 /**
+ * Serviço disponível para agendamento (cadastrado no sistema)
+ */
+interface AvailableService {
+  id: string;
+  name: string;
+  price: string;
+  duration: number;
+  category?: string;
+}
+
+/**
  * Estado do processo de agendamento
  */
 interface AppointmentState {
-  step: 'COLLECTING_TYPE' | 'SELECTING_SERVICE_VARIATION' | 'COLLECTING_DATE' | 'COLLECTING_TIME' | 'COLLECTING_ADDRESS' | 'CONFIRMING' | 'COMPLETED';
+  step: 'SELECTING_SERVICE' | 'COLLECTING_TYPE' | 'SELECTING_SERVICE_VARIATION' | 'COLLECTING_DATE' | 'COLLECTING_TIME' | 'COLLECTING_ADDRESS' | 'CONFIRMING' | 'COMPLETED';
   serviceType?: AppointmentType;
   serviceName?: string; // Nome real do serviço (ex: "Instalação de Ar Condicionado 12000 BTUs")
   servicePrice?: string; // Preço do serviço (ex: "R$ 350,00")
+  serviceId?: string; // ID do serviço selecionado (quando dinâmico)
   serviceVariations?: ServiceVariation[]; // Variações disponíveis quando há múltiplos serviços do mesmo tipo
+  availableServices?: AvailableService[]; // Serviços disponíveis para seleção dinâmica
   date?: string; // YYYY-MM-DD
   time?: string; // HH:mm
   duration?: number; // minutos
@@ -247,8 +260,9 @@ export class AIAppointmentService {
     const nextStep = this.determineNextStep(state);
 
     switch (nextStep) {
+      case 'SELECTING_SERVICE':
       case 'COLLECTING_TYPE':
-        response += `Que tipo de serviço você precisa?\n\n1️⃣ Instalação\n2️⃣ Manutenção\n3️⃣ Consulta/Orçamento\n4️⃣ Outro`;
+        response += `Qual serviço você precisa?`;
         break;
       case 'COLLECTING_DATE':
         response += `Qual dia é melhor pra você?`;
@@ -437,11 +451,27 @@ export class AIAppointmentService {
       };
     }
 
-    // 🆕 CENÁRIO 5: Não detectou tipo → Pergunta
+    // 🆕 CENÁRIO 5: Não detectou tipo → Busca serviços e pergunta dinamicamente
+    const availableServices = await this.getAvailableServicesForCompany(companyId);
+
+    if (availableServices.length > 0) {
+      // Tem serviços cadastrados - lista dinamicamente
+      state.availableServices = availableServices;
+      state.step = 'SELECTING_SERVICE';
+      await this.saveAppointmentState(customerId, state);
+
+      const servicesText = this.formatServicesForDisplay(availableServices);
+      return {
+        response: `Show! Posso agendar pra você sim 😊\n\nQual serviço você precisa?\n\n${servicesText}\n\nÉ só me dizer qual!`
+      };
+    }
+
+    // Fallback: Nenhum serviço cadastrado - usa opções genéricas
+    state.step = 'COLLECTING_TYPE';
     await this.saveAppointmentState(customerId, state);
 
     return {
-      response: `Show! Posso agendar pra você sim 😊\n\nQue tipo de serviço você precisa?\n\n1️⃣ Instalação\n2️⃣ Manutenção\n3️⃣ Consulta/Orçamento\n4️⃣ Outro\n\nPode mandar o número ou falar direto o que precisa!`
+      response: `Show! Posso agendar pra você sim 😊\n\nQue tipo de serviço você precisa? Me conta o que está precisando!`
     };
   }
 
@@ -969,6 +999,73 @@ export class AIAppointmentService {
   }
 
   /**
+   * Detecta se o cliente quer cancelar/parar o processo de agendamento
+   * Usa uma lista ampla de variações para entender a intenção mesmo em linguagem natural
+   */
+  private detectCancelIntent(lowerMessage: string): boolean {
+    // Frases de cancelamento que são seguras (não geram falsos positivos)
+    const safeCancelPhrases = [
+      // Cancelamento explícito
+      'cancelar', 'cancela', 'cancelei', 'cancelo',
+      'cancelar agendamento', 'cancela agendamento',
+      // Desistência
+      'desistir', 'desisto', 'desisti',
+      'não quero mais', 'nao quero mais',
+      'mudei de ideia', 'mudei de idéia',
+      // Parar/Interromper (frases completas para evitar falso positivo com "para mim")
+      'parar isso', 'para isso', 'pare isso',
+      'para ai', 'para aí', 'para por aqui',
+      'pode parar', 'quero parar',
+      'interromper', 'interrompe',
+      // Sair/Voltar
+      'sair', 'sai daqui', 'sair disso',
+      'voltar', 'volta', 'voltar atrás',
+      // Deixar/Abandonar
+      'deixa pra lá', 'deixa pra la', 'deixa pra depois',
+      'deixar pra lá', 'deixar pra la',
+      'deixa quieto', 'deixar quieto',
+      'esquece', 'esqueça', 'esqueci',
+      'esquece isso', 'esqueça isso',
+      // Negações fortes
+      'não preciso mais', 'nao preciso mais',
+      'não vou mais', 'nao vou mais',
+      'não é mais', 'nao e mais',
+      'não era isso', 'nao era isso',
+      'não quero agendar', 'nao quero agendar',
+      // Recusas claras
+      'agora não dá', 'agora nao da', 'agora não posso', 'agora nao posso',
+      'depois eu vejo', 'depois vejo',
+      // Stop
+      'stop', 'parar tudo', 'para tudo'
+    ];
+
+    // Verifica frases seguras
+    for (const phrase of safeCancelPhrases) {
+      if (lowerMessage.includes(phrase)) {
+        console.log(`[AIAppointment] 🚪 Intenção de cancelamento detectada: "${phrase}"`);
+        return true;
+      }
+    }
+
+    // Mensagem é exatamente uma palavra de cancelamento
+    const exactCancelWords = ['para', 'parar', 'pare', 'sair', 'sai', 'volta', 'voltar', 'cancelar', 'cancela', 'desistir', 'desisto', 'tchau', 'stop'];
+    const trimmedMessage = lowerMessage.trim();
+    if (exactCancelWords.includes(trimmedMessage)) {
+      console.log(`[AIAppointment] 🚪 Palavra exata de cancelamento: "${trimmedMessage}"`);
+      return true;
+    }
+
+    // Verifica padrões específicos
+    // "não" ou "nao" no início seguido de verbos de ação
+    if (/^n[aã]o\s+(quero|vou|preciso|posso|consigo)/i.test(trimmedMessage)) {
+      console.log('[AIAppointment] 🚪 Padrão de negação detectado');
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Processa a mensagem do cliente no contexto de agendamento
    *
    * 🆕 FLUXO INTELIGENTE: Mesmo durante o fluxo, detecta múltiplos dados
@@ -982,14 +1079,8 @@ export class AIAppointmentService {
     const lowerMessage = message.toLowerCase();
 
     // 🚪 COMANDO DE ESCAPE: Cliente quer sair do fluxo
-    if (
-      lowerMessage.includes('cancelar agendamento') ||
-      lowerMessage.includes('desistir') ||
-      lowerMessage.includes('não quero mais') ||
-      lowerMessage.includes('nao quero mais') ||
-      lowerMessage.includes('voltar') ||
-      lowerMessage.includes('sair')
-    ) {
+    // Detecção inteligente de intenção de cancelar/parar o processo
+    if (this.detectCancelIntent(lowerMessage)) {
       await this.clearAppointmentState(customerId);
       return {
         shouldContinue: true,
@@ -1168,6 +1259,9 @@ export class AIAppointmentService {
 
     // Processa baseado no step atual
     switch (state.step) {
+      case 'SELECTING_SERVICE':
+        return await this.handleSelectingService(customerId, companyId, message, state);
+
       case 'COLLECTING_TYPE':
         return await this.handleCollectingType(customerId, companyId, message, state);
 
@@ -1237,7 +1331,61 @@ export class AIAppointmentService {
   }
 
   /**
+   * Step 1: Selecionando serviço da lista dinâmica
+   */
+  private async handleSelectingService(
+    customerId: string,
+    companyId: string,
+    message: string,
+    state: AppointmentState
+  ): Promise<{ shouldContinue: boolean; response: string }> {
+    // Verifica se tem serviços disponíveis no estado
+    if (!state.availableServices || state.availableServices.length === 0) {
+      // Busca novamente (fallback)
+      const services = await this.getAvailableServicesForCompany(companyId);
+      if (services.length === 0) {
+        // Fallback para fluxo antigo
+        state.step = 'COLLECTING_TYPE';
+        await this.saveAppointmentState(customerId, state);
+        return {
+          shouldContinue: true,
+          response: `Me conta qual serviço você precisa?`
+        };
+      }
+      state.availableServices = services;
+    }
+
+    // Tenta identificar qual serviço o cliente escolheu
+    const selectedService = this.matchServiceFromMessage(message, state.availableServices);
+
+    if (selectedService) {
+      // Serviço identificado!
+      state.serviceId = selectedService.id;
+      state.serviceName = selectedService.name;
+      state.servicePrice = selectedService.price;
+      state.duration = selectedService.duration;
+      state.serviceType = AppointmentType.OTHER; // Tipo genérico para serviços dinâmicos
+      state.step = 'COLLECTING_DATE';
+      await this.saveAppointmentState(customerId, state);
+
+      const priceInfo = selectedService.price !== 'Consultar' ? ` (${selectedService.price})` : '';
+      return {
+        shouldContinue: true,
+        response: `Perfeito! ${selectedService.name}${priceInfo} anotado 👍\n\nQual dia é melhor pra você?`
+      };
+    }
+
+    // Não conseguiu identificar - pede novamente de forma mais natural
+    const servicesText = this.formatServicesForDisplay(state.availableServices);
+    return {
+      shouldContinue: true,
+      response: `Não consegui identificar qual serviço você precisa 🤔\n\nTemos esses disponíveis:\n\n${servicesText}\n\nPode me dizer qual desses você quer?`
+    };
+  }
+
+  /**
    * Step 2: Coletando tipo de serviço (se não foi detectado)
+   * NOTA: Este handler é usado como fallback quando não há serviços cadastrados
    */
   private async handleCollectingType(
     customerId: string,
@@ -1248,21 +1396,23 @@ export class AIAppointmentService {
     const lowerMessage = message.toLowerCase();
     let serviceType: AppointmentType | null = null;
 
-    // Tenta detectar por número ou palavra-chave
-    if (lowerMessage.includes('1') || lowerMessage.includes('instalação') || lowerMessage.includes('instalacao')) {
+    // Tenta detectar por palavras-chave (sem números hardcoded)
+    if (lowerMessage.includes('instalação') || lowerMessage.includes('instalacao') || lowerMessage.includes('instalar')) {
       serviceType = AppointmentType.INSTALLATION;
-    } else if (lowerMessage.includes('2') || lowerMessage.includes('manutenção') || lowerMessage.includes('manutencao')) {
+    } else if (lowerMessage.includes('manutenção') || lowerMessage.includes('manutencao') || lowerMessage.includes('limpeza')) {
       serviceType = AppointmentType.MAINTENANCE;
-    } else if (lowerMessage.includes('3') || lowerMessage.includes('orçamento') || lowerMessage.includes('consulta')) {
+    } else if (lowerMessage.includes('orçamento') || lowerMessage.includes('orcamento') || lowerMessage.includes('consulta') || lowerMessage.includes('visita')) {
       serviceType = AppointmentType.CONSULTATION;
-    } else if (lowerMessage.includes('4') || lowerMessage.includes('outro')) {
+    } else if (message.trim().length > 3) {
+      // Aceita qualquer descrição como "outro" serviço
       serviceType = AppointmentType.OTHER;
+      state.description = message.trim(); // Guarda a descrição do cliente
     }
 
     if (!serviceType) {
       return {
         shouldContinue: true,
-        response: `Não entendi qual serviço você precisa 😅\n\nEscolhe uma opção:\n\n1️⃣ Instalação\n2️⃣ Manutenção\n3️⃣ Consulta/Orçamento\n4️⃣ Outro\n\nPode mandar o número`,
+        response: `Pode me contar mais sobre o que você precisa? Por exemplo: instalação, manutenção, limpeza...`
       };
     }
 
@@ -1953,6 +2103,146 @@ export class AIAppointmentService {
   private getServiceTypeLabel(_type: AppointmentType): string {
     // Fallback genérico - o nome real do serviço deve vir de state.serviceName
     return 'Serviço';
+  }
+
+  /**
+   * Busca serviços ativos cadastrados na empresa para exibir dinamicamente
+   * Prioriza a tabela Service, com fallback para AIKnowledge.products
+   */
+  async getAvailableServicesForCompany(companyId: string): Promise<AvailableService[]> {
+    try {
+      // Primeiro, busca na tabela Service (serviços estruturados)
+      const services = await prisma.service.findMany({
+        where: {
+          companyId,
+          isActive: true,
+          type: 'SERVICE' // Apenas serviços, não produtos
+        },
+        select: {
+          id: true,
+          name: true,
+          basePrice: true,
+          duration: true,
+          category: true
+        },
+        orderBy: [
+          { order: 'asc' },
+          { name: 'asc' }
+        ],
+        take: 10 // Limita para não sobrecarregar
+      });
+
+      if (services.length > 0) {
+        console.log(`[AIAppointment] Encontrados ${services.length} serviços cadastrados na tabela Service`);
+        return services.map(s => ({
+          id: s.id,
+          name: s.name,
+          price: `R$ ${Number(s.basePrice).toFixed(2).replace('.', ',')}`,
+          duration: s.duration || 60,
+          category: s.category || undefined
+        }));
+      }
+
+      // Fallback: busca no AIKnowledge.products
+      const aiKnowledge = await prisma.aIKnowledge.findUnique({
+        where: { companyId },
+        select: { products: true }
+      });
+
+      if (aiKnowledge?.products) {
+        const products = Array.isArray(aiKnowledge.products)
+          ? aiKnowledge.products
+          : JSON.parse(typeof aiKnowledge.products === 'string' ? aiKnowledge.products : '[]');
+
+        // Filtra apenas serviços (não produtos físicos)
+        const serviceProducts = products.filter((p: any) => {
+          const name = (p.name || '').toLowerCase();
+          const category = (p.category || '').toLowerCase();
+          // Inclui se parece ser um serviço
+          return name.includes('instalação') || name.includes('instalacao') ||
+                 name.includes('manutenção') || name.includes('manutencao') ||
+                 name.includes('limpeza') || name.includes('consult') ||
+                 name.includes('visita') || name.includes('serviço') ||
+                 category.includes('serviço') || category.includes('servico');
+        });
+
+        if (serviceProducts.length > 0) {
+          console.log(`[AIAppointment] Encontrados ${serviceProducts.length} serviços no AIKnowledge.products`);
+          return serviceProducts.slice(0, 10).map((p: any, index: number) => ({
+            id: `legacy-${index}`,
+            name: p.name,
+            price: p.price ? `R$ ${p.price}`.replace('R$ R$', 'R$') : 'Consultar',
+            duration: p.duration ? parseInt(p.duration) : 60,
+            category: p.category
+          }));
+        }
+      }
+
+      console.log('[AIAppointment] Nenhum serviço cadastrado encontrado');
+      return [];
+
+    } catch (error) {
+      console.error('[AIAppointment] Erro ao buscar serviços disponíveis:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Formata a lista de serviços para exibição humanizada
+   */
+  private formatServicesForDisplay(services: AvailableService[]): string {
+    if (services.length === 0) return '';
+
+    return services.map((s, i) => {
+      const priceInfo = s.price !== 'Consultar' ? ` - ${s.price}` : '';
+      return `• ${s.name}${priceInfo}`;
+    }).join('\n');
+  }
+
+  /**
+   * Tenta identificar qual serviço o cliente escolheu pela mensagem
+   */
+  private matchServiceFromMessage(message: string, services: AvailableService[]): AvailableService | null {
+    const lowerMessage = message.toLowerCase().trim();
+
+    // 1. Verifica se mandou número (ex: "1", "2", "3")
+    const numberMatch = lowerMessage.match(/^(\d+)$/);
+    if (numberMatch) {
+      const index = parseInt(numberMatch[1]) - 1;
+      if (index >= 0 && index < services.length) {
+        return services[index];
+      }
+    }
+
+    // 2. Procura por correspondência de nome (fuzzy match)
+    for (const service of services) {
+      const serviceName = service.name.toLowerCase();
+
+      // Nome exato ou contido na mensagem
+      if (lowerMessage.includes(serviceName) || serviceName.includes(lowerMessage)) {
+        return service;
+      }
+
+      // Palavras-chave do nome do serviço
+      const keywords = serviceName.split(/\s+/).filter(w => w.length > 3);
+      const matchCount = keywords.filter(kw => lowerMessage.includes(kw)).length;
+      if (matchCount >= 2 || (keywords.length === 1 && matchCount === 1)) {
+        return service;
+      }
+    }
+
+    // 3. Detecta termos específicos como "9k", "12k", "18k", "24k" (para ar condicionado)
+    const btuMatch = lowerMessage.match(/(\d+)\s*k/i);
+    if (btuMatch) {
+      const btu = btuMatch[1];
+      return services.find(s =>
+        s.name.toLowerCase().includes(btu + 'k') ||
+        s.name.toLowerCase().includes(btu + '000') ||
+        s.name.toLowerCase().includes(btu + ' ')
+      ) || null;
+    }
+
+    return null;
   }
 
   /**
