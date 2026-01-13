@@ -2075,36 +2075,46 @@ export class AIAppointmentService {
       console.warn('[AIAppointment] ⚠️ Confirmação sem nome específico do serviço! Usando tipo genérico:', state.serviceType);
     }
 
-    // Formata endereço
+    // Formata endereço no padrão solicitado
     let addressText = '';
     if (state.address?.street || state.address?.cep) {
       addressText = '\n📍 Endereço:\n';
       if (state.address.street) {
+        // Formato: "   alcides s coelho, 4"
         addressText += `   ${state.address.street}`;
         if (state.address.number) {
           addressText += `, ${state.address.number}`;
         }
-        addressText += '\n';
       } else if (state.address.cep) {
         addressText += `   CEP: ${state.address.cep}`;
         if (state.address.number) {
-          addressText += ` - Nº ${state.address.number}`;
+          addressText += `, ${state.address.number}`;
         }
-        addressText += '\n';
       }
+      // Adiciona complemento na mesma linha se tiver
       if (state.address.complement) {
-        addressText += `   ${state.address.complement}\n`;
+        addressText += `, ${state.address.complement}`;
       }
     }
 
+    // Monta a mensagem de confirmação no padrão bonito e organizado
+    let confirmationMessage = '✅ Confirmação do Agendamento\n\n';
+    confirmationMessage += `📋 Serviço: ${serviceLabel}\n`;
+
     // Adiciona preço se disponível (sempre mostrar na confirmação)
-    const priceText = state.servicePrice && state.servicePrice !== 'Consultar'
-      ? `\n💰 Valor: ${state.servicePrice}`
-      : '';
+    if (state.servicePrice && state.servicePrice !== 'Consultar') {
+      confirmationMessage += `💰 Valor: ${state.servicePrice}\n`;
+    }
+
+    confirmationMessage += `📅 Data: ${dateFormatted}\n`;
+    confirmationMessage += `🕐 Horário: ${state.time}\n`;
+    confirmationMessage += `⏱️ Duração: ${state.duration} minutos`;
+    confirmationMessage += addressText;
+    confirmationMessage += '\n\nResponda SIM pra confirmar ou NÃO se quiser mudar algo';
 
     return {
       shouldContinue: true,
-      response: `✅ Confirmação do Agendamento\n\n📋 Serviço: ${serviceLabel}${priceText}\n📅 Data: ${dateFormatted}\n🕐 Horário: ${state.time}\n⏱️ Duração: ${state.duration} minutos${addressText}\n━━━━━━━━━━━━━━━━\n\nTá tudo certo?\n\nResponda SIM pra confirmar ou NÃO se quiser mudar algo`,
+      response: confirmationMessage,
     };
   }
 

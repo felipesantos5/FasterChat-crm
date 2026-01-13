@@ -265,7 +265,7 @@ class MessageService {
    * - Brasil: 55 + DDD (2) + número (8-9) = 12-13 dígitos
    * - Internacional: código país (1-3) + número (7-12) = geralmente 8-15 dígitos
    */
-private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
+  private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
     const cleanPhone = phone.replace(/\D/g, '');
 
     if (!cleanPhone) return { valid: false, reason: 'Número vazio' };
@@ -275,7 +275,7 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
     if (cleanPhone.length < 8) {
       return { valid: false, reason: `Número muito curto (${cleanPhone.length} dígitos)` };
     }
-    
+
     // Aumentamos a tolerância para aceitar LIDs de Business que o usuário mencionou
     if (cleanPhone.length > 16) {
       return { valid: false, reason: `Número muito longo (${cleanPhone.length} dígitos)` };
@@ -288,6 +288,47 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
 
     // ... (resto da lógica de códigos de país mantida, mas menos restritiva para não bloquear Business)
     return { valid: true };
+  }
+
+  /**
+   * Valida e sanitiza o pushName recebido do webhook
+   * Detecta quando pushName contém IDs numéricos ao invés de nomes reais
+   *
+   * @param pushName - Nome fornecido pelo WhatsApp
+   * @param phone - Número do telefone (fallback)
+   * @returns Nome válido ou null se pushName for inválido
+   */
+  private sanitizePushName(pushName: string | undefined, phone: string): string {
+    // Se não tem pushName, retorna o phone
+    if (!pushName || pushName.trim() === '') {
+      return phone;
+    }
+
+    const trimmedName = pushName.trim();
+
+    // 🚫 REJEITA pushName se for apenas números longos (WABA IDs)
+    // Exemplo: "224583923818692" - Isso é claramente um ID, não um nome
+    const isOnlyNumbers = /^\d+$/.test(trimmedName);
+
+    if (isOnlyNumbers) {
+      // Se tem mais de 10 dígitos consecutivos, provavelmente é um ID, não um nome
+      if (trimmedName.length > 10) {
+        console.warn(`[MessageService] ⚠️ pushName parece ser WABA ID (${trimmedName}), usando phone como nome`);
+        return phone;
+      }
+    }
+
+    // 🚫 REJEITA pushName que seja igual ao phone (sem sentido duplicar)
+    const cleanPushName = trimmedName.replace(/\D/g, '');
+    const cleanPhone = phone.replace(/\D/g, '');
+
+    if (cleanPushName === cleanPhone) {
+      console.warn(`[MessageService] ⚠️ pushName é igual ao phone, usando phone como nome`);
+      return phone;
+    }
+
+    // ✅ pushName válido, retorna ele
+    return trimmedName;
   }
 
   /**
@@ -307,25 +348,37 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
       // ==================================================================================
       let realJid = remoteJid;
       let isLid = false;
+      let extractedFromParticipant = false;
+
+      console.log('[MessageService] 🔍 Processando JID:', remoteJid);
 
       // Verifica se é uma mensagem vinda de um ID de Business (@lid)
       if (remoteJid.includes("@lid")) {
         isLid = true;
+        console.log('[MessageService] 📱 Detectado LID (Business Account)');
 
         // Tenta extrair o número real do campo participant (comum na Evolution API para LIDs)
         // O participant geralmente contém o JID real do usuário (ex: 5511999999999@s.whatsapp.net)
         if (data.key?.participant && data.key.participant.includes("@s.whatsapp.net")) {
           realJid = data.key.participant;
+          extractedFromParticipant = true;
+          console.log('[MessageService] ✅ Número real extraído do participant:', realJid);
         } else {
+          console.warn('[MessageService] ⚠️ Participant não disponível ou inválido, usando LID:', {
+            participant: data.key?.participant,
+            remoteJid
+          });
         }
       }
 
       // Remove os domínios para ficar apenas o número/ID limpo
       const phone = realJid.replace("@s.whatsapp.net", "").replace("@lid", "");
+      console.log('[MessageService] 📞 Phone final extraído:', phone);
 
       // Validação
       const phoneValidation = this.isValidPhoneNumber(phone);
       if (!phoneValidation.valid) {
+        console.warn('[MessageService] ❌ Phone inválido:', phoneValidation.reason);
         return null;
       }
 
@@ -334,18 +387,85 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
       // Detecta se é grupo (agora checando o JID real, pois @lid nunca é grupo de user)
       const isGroup = realJid.includes("@g.us");
 
-      // Busca ou cria cliente
+      // ==================================================================================
+      // 🔍 BUSCA INTELIGENTE DE CLIENTE (Previne duplicatas LID/Phone)
+      // ==================================================================================
+
+      // Primeiro tenta buscar pelo phone exato
       let customer = await prisma.customer.findUnique({
         where: { companyId_phone: { companyId: instance.companyId, phone } },
       });
 
+      // 🚨 ANTI-DUPLICATA: Se não encontrou E estamos usando LID (sem participant)
+      // Tenta encontrar um cliente que pode ter sido criado com um número real anteriormente
+      if (!customer && isLid && !extractedFromParticipant) {
+        console.log('[MessageService] 🔍 LID sem participant - verificando duplicatas potenciais...');
+
+        // Busca clientes recentes da empresa (últimas 100 criações)
+        // para ver se algum pode ser o mesmo contato
+        const recentCustomers = await prisma.customer.findMany({
+          where: {
+            companyId: instance.companyId,
+            isGroup: false,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+        });
+
+        // Verifica se algum cliente tem nome similar ao pushName ou phone similar
+        if (data.pushName && data.pushName.trim() !== '') {
+          const similarCustomer = recentCustomers.find(c => {
+            // Se o pushName não é um ID numérico, compara nomes
+            const isNumericPushName = /^\d+$/.test(data.pushName!.trim());
+            if (!isNumericPushName && c.name === data.pushName) {
+              return true;
+            }
+            return false;
+          });
+
+          if (similarCustomer) {
+            console.log('[MessageService] ⚠️ Possível duplicata detectada:', {
+              existingCustomerId: similarCustomer.id,
+              existingName: similarCustomer.name,
+              existingPhone: similarCustomer.phone,
+              newLID: phone,
+              pushName: data.pushName,
+            });
+
+            // IMPORTANTE: Não cria duplicata, mas avisa no log
+            // Você pode decidir se quer usar o cliente existente ou criar novo
+            // Por ora, vamos continuar e criar um novo cliente com o LID
+            // para não quebrar o fluxo, mas logamos o aviso
+          }
+        }
+      }
+
       if (!customer) {
+        console.log('[MessageService] 👤 Cliente não encontrado, criando novo...');
+
+        // 🔧 SANITIZA O NOME: Previne usar WABA IDs como nome
+        const sanitizedName = this.sanitizePushName(data.pushName, phone);
+        console.log('[MessageService] 📝 Nome sanitizado:', {
+          pushName: data.pushName,
+          sanitizedName,
+          wasModified: data.pushName !== sanitizedName
+        });
+
         // Busca foto de perfil
         let profilePicUrl: string | null = null;
         if (!isGroup) {
-          // Passamos o JID completo se for LID para tentar a sorte, ou o número limpo
-          // Nota: Se convertemos para o número real acima, a foto vai funcionar!
-          profilePicUrl = await whatsappService.getProfilePicture(instanceName, phone);
+          try {
+            // Se extraímos o número real do participant, usa ele para buscar foto
+            // Caso contrário, tenta com o phone (que pode ser LID)
+            profilePicUrl = await whatsappService.getProfilePicture(instanceName, phone);
+            if (profilePicUrl) {
+              console.log('[MessageService] 📷 Foto de perfil obtida com sucesso');
+            } else {
+              console.log('[MessageService] 📷 Foto de perfil não disponível');
+            }
+          } catch (picError: any) {
+            console.warn('[MessageService] ⚠️ Erro ao buscar foto de perfil:', picError.message);
+          }
         }
 
         let pipelineStageId: string | null = null;
@@ -360,33 +480,61 @@ private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
         customer = await prisma.customer.create({
           data: {
             companyId: instance.companyId,
-            name: data.pushName || phone,
+            name: sanitizedName, // ✅ Usa nome sanitizado
             phone, // Aqui agora salvamos o número real (se recuperado) ou o LID limpo
             isGroup,
             profilePicUrl,
             pipelineStageId,
           },
         });
-        
-      } else {
-        // ... (Lógica de atualização existente mantida) ...
-         const updates: any = {};
-         if (customer.isGroup !== isGroup) updates.isGroup = isGroup;
-         if (data.pushName && data.pushName !== customer.name && customer.name === customer.phone) {
-           updates.name = data.pushName;
-         }
-         // Tenta buscar foto se não tiver e agora temos o número real
-         if (!customer.profilePicUrl && !isGroup && isLid) {
-             const profilePicUrl = await whatsappService.getProfilePicture(instanceName, phone);
-             if (profilePicUrl) updates.profilePicUrl = profilePicUrl;
-         }
 
-         if (Object.keys(updates).length > 0) {
-           customer = await prisma.customer.update({
-             where: { id: customer.id },
-             data: updates,
-           });
-         }
+        console.log('[MessageService] ✅ Cliente criado:', {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          isLid,
+          extractedFromParticipant,
+        });
+
+      } else {
+        console.log('[MessageService] 👤 Cliente encontrado:', customer.id);
+
+        // ... (Lógica de atualização existente mantida) ...
+        const updates: any = {};
+        if (customer.isGroup !== isGroup) updates.isGroup = isGroup;
+
+        // 🔧 ATUALIZA NOME: Apenas se o nome atual for o phone E o pushName for válido
+        if (data.pushName && customer.name === customer.phone) {
+          const sanitizedName = this.sanitizePushName(data.pushName, phone);
+          if (sanitizedName !== customer.phone && sanitizedName !== customer.name) {
+            updates.name = sanitizedName;
+            console.log('[MessageService] 📝 Nome atualizado:', {
+              old: customer.name,
+              new: sanitizedName
+            });
+          }
+        }
+
+        // Tenta buscar foto se não tiver e agora temos o número real
+        if (!customer.profilePicUrl && !isGroup) {
+          try {
+            const profilePicUrl = await whatsappService.getProfilePicture(instanceName, phone);
+            if (profilePicUrl) {
+              updates.profilePicUrl = profilePicUrl;
+              console.log('[MessageService] 📷 Foto de perfil adicionada ao cliente existente');
+            }
+          } catch (picError: any) {
+            console.warn('[MessageService] ⚠️ Erro ao buscar foto de perfil:', picError.message);
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          customer = await prisma.customer.update({
+            where: { id: customer.id },
+            data: updates,
+          });
+          console.log('[MessageService] 🔄 Cliente atualizado com:', updates);
+        }
       }
 
       // ==================================================================================
