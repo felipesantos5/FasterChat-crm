@@ -1152,25 +1152,41 @@ export class AIAppointmentService {
       return { shouldContinue: false };
     }
 
-    // 🆕 DETECÇÃO MÚLTIPLA: Tenta extrair todos os dados possíveis da mensagem
-    const detected = this.detectAllFromMessage(message);
+    // 🆕 DETECÇÃO MÚLTIPLA: Mas RESPEITA o step atual
+    // Quando estamos selecionando serviço ou variação, NÃO tentamos detectar outros dados
+    // Isso evita confusão onde o nome do serviço pode ser interpretado como data
+    const shouldAutoDetect = !['SELECTING_SERVICE', 'SELECTING_SERVICE_VARIATION'].includes(state.step);
 
-    // Aplica dados detectados que ainda não existem no estado
+    let detected: DetectedAppointmentData;
     let dataUpdated = false;
     let dateWasJustSet = false;
 
-    if (detected.serviceType && !state.serviceType) {
-      state.serviceType = detected.serviceType;
-      state.duration = this.getDefaultDuration(detected.serviceType);
-      dataUpdated = true;
-      console.log('[AIAppointment] 🆕 Tipo de serviço detectado durante fluxo:', detected.serviceType);
-    }
+    if (shouldAutoDetect) {
+      detected = this.detectAllFromMessage(message);
 
-    if (detected.date && !state.date) {
-      state.date = detected.date;
-      dataUpdated = true;
-      dateWasJustSet = true;
-      console.log('[AIAppointment] 🆕 Data detectada durante fluxo:', detected.date);
+      // Aplica dados detectados que ainda não existem no estado
+      if (detected.serviceType && !state.serviceType && !state.serviceName) {
+        state.serviceType = detected.serviceType;
+        state.duration = this.getDefaultDuration(detected.serviceType);
+        dataUpdated = true;
+        console.log('[AIAppointment] 🆕 Tipo de serviço detectado durante fluxo:', detected.serviceType);
+      }
+
+      if (detected.date && !state.date) {
+        state.date = detected.date;
+        dataUpdated = true;
+        dateWasJustSet = true;
+        console.log('[AIAppointment] 🆕 Data detectada durante fluxo:', detected.date);
+      }
+    } else {
+      console.log('[AIAppointment] ⏸️ Auto-detecção desativada no step:', state.step);
+      // Cria objeto vazio compatível com DetectedAppointmentData
+      detected = {
+        serviceType: null,
+        date: null,
+        time: null,
+        address: null
+      };
     }
 
     // 🚨 IMPORTANTE: Quando detectar data, SEMPRE buscar horários disponíveis PRIMEIRO
@@ -1460,10 +1476,14 @@ export class AIAppointmentService {
     }
 
     // Não conseguiu identificar - pede novamente de forma mais natural
-    const servicesText = this.formatServicesForDisplay(state.availableServices);
+    const servicesText = state.availableServices.map((s, i) => {
+      const priceInfo = s.price !== 'Consultar' ? ` - ${s.price}` : '';
+      return `${i + 1}. ${s.name}${priceInfo}`;
+    }).join('\n');
+
     return {
       shouldContinue: true,
-      response: `Não consegui identificar qual serviço você precisa 🤔\n\nTemos esses disponíveis:\n\n${servicesText}\n\nPode me dizer qual desses você quer?`
+      response: `Não consegui identificar qual serviço você precisa 🤔\n\nTemos esses disponíveis:\n\n${servicesText}\n\nVocê pode me dizer o número (ex: "1") ou o nome do serviço que deseja!`
     };
   }
 
@@ -2297,14 +2317,14 @@ export class AIAppointmentService {
   }
 
   /**
-   * Formata a lista de serviços para exibição humanizada
+   * Formata a lista de serviços para exibição humanizada com números
    */
   private formatServicesForDisplay(services: AvailableService[]): string {
     if (services.length === 0) return '';
 
     return services.map((s, i) => {
       const priceInfo = s.price !== 'Consultar' ? ` - ${s.price}` : '';
-      return `• ${s.name}${priceInfo}`;
+      return `${i + 1}. ${s.name}${priceInfo}`;
     }).join('\n');
   }
 
@@ -2313,44 +2333,99 @@ export class AIAppointmentService {
    */
   private matchServiceFromMessage(message: string, services: AvailableService[]): AvailableService | null {
     const lowerMessage = message.toLowerCase().trim();
+    console.log('[AIAppointment] 🔍 Tentando match:', lowerMessage);
+    console.log('[AIAppointment] 📋 Serviços disponíveis:', services.map(s => s.name).join(', '));
 
     // 1. Verifica se mandou número (ex: "1", "2", "3")
     const numberMatch = lowerMessage.match(/^(\d+)$/);
     if (numberMatch) {
       const index = parseInt(numberMatch[1]) - 1;
       if (index >= 0 && index < services.length) {
+        console.log('[AIAppointment] ✅ Match por número:', services[index].name);
         return services[index];
       }
     }
 
-    // 2. Procura por correspondência de nome (fuzzy match)
+    // 2. Match por BTU/capacidade PRIMEIRO (mais específico)
+    // Detecta: "18k", "18 k", "18000", "12k", "9k", "24k", etc.
+    const btuMatch = lowerMessage.match(/(\d+)\s*k(?:btus?)?|\b(\d{4,5})\s*btus?\b/i);
+    if (btuMatch) {
+      const btu = btuMatch[1] || btuMatch[2];
+      console.log('[AIAppointment] 🔍 BTU detectado na mensagem:', btu);
+
+      // Busca serviços que contenham esse BTU
+      const matchedService = services.find(s => {
+        const serviceLower = s.name.toLowerCase();
+        // Remove espaços e hífen para matching mais flexível
+        const normalizedService = serviceLower.replace(/[\s\-]/g, '');
+        const normalizedBTU = btu.replace(/[\s\-]/g, '');
+
+        return (
+          serviceLower.includes(btu + 'k') ||
+          serviceLower.includes(btu + ' k') ||
+          normalizedService.includes(normalizedBTU + 'k') ||
+          serviceLower.includes(btu + '000') ||
+          serviceLower.includes(btu.substring(0, 2) + 'k') // "18000" -> "18k"
+        );
+      });
+
+      if (matchedService) {
+        console.log('[AIAppointment] ✅ Match por BTU:', matchedService.name);
+        return matchedService;
+      }
+    }
+
+    // 3. Match por palavras-chave importantes
+    // Remove caracteres especiais e normaliza
+    const normalizedMessage = lowerMessage
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    for (const service of services) {
+      const serviceName = service.name.toLowerCase();
+      const normalizedServiceName = serviceName
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Match exato (ignorando pontuação)
+      if (normalizedMessage === normalizedServiceName) {
+        console.log('[AIAppointment] ✅ Match exato:', service.name);
+        return service;
+      }
+
+      // Extrai palavras significativas (>2 caracteres, não números puros)
+      const messageWords = normalizedMessage.split(' ').filter(w => w.length > 2 && !/^\d+$/.test(w));
+      const serviceWords = normalizedServiceName.split(' ').filter(w => w.length > 2 && !/^\d+$/.test(w));
+
+      // Conta quantas palavras significativas batem
+      const matchingWords = serviceWords.filter(sw =>
+        messageWords.some(mw => mw.includes(sw) || sw.includes(mw))
+      );
+
+      // Se 70% das palavras do serviço estão na mensagem, é um match
+      const matchPercentage = serviceWords.length > 0 ? matchingWords.length / serviceWords.length : 0;
+      if (matchPercentage >= 0.7 && matchingWords.length >= 2) {
+        console.log('[AIAppointment] ✅ Match por palavras-chave (', matchPercentage * 100, '%):', service.name);
+        return service;
+      }
+    }
+
+    // 4. Fallback: se a mensagem contém parte do nome do serviço
     for (const service of services) {
       const serviceName = service.name.toLowerCase();
 
-      // Nome exato ou contido na mensagem
-      if (lowerMessage.includes(serviceName) || serviceName.includes(lowerMessage)) {
-        return service;
-      }
+      // Remove preços e caracteres especiais para comparação mais limpa
+      const cleanServiceName = serviceName.replace(/\s*-\s*r\$.*$/i, '').trim();
 
-      // Palavras-chave do nome do serviço
-      const keywords = serviceName.split(/\s+/).filter(w => w.length > 3);
-      const matchCount = keywords.filter(kw => lowerMessage.includes(kw)).length;
-      if (matchCount >= 2 || (keywords.length === 1 && matchCount === 1)) {
+      if (lowerMessage.includes(cleanServiceName) || cleanServiceName.includes(lowerMessage)) {
+        console.log('[AIAppointment] ✅ Match parcial:', service.name);
         return service;
       }
     }
 
-    // 3. Detecta termos específicos como "9k", "12k", "18k", "24k" (para ar condicionado)
-    const btuMatch = lowerMessage.match(/(\d+)\s*k/i);
-    if (btuMatch) {
-      const btu = btuMatch[1];
-      return services.find(s =>
-        s.name.toLowerCase().includes(btu + 'k') ||
-        s.name.toLowerCase().includes(btu + '000') ||
-        s.name.toLowerCase().includes(btu + ' ')
-      ) || null;
-    }
-
+    console.log('[AIAppointment] ❌ Nenhum match encontrado');
     return null;
   }
 
