@@ -305,7 +305,7 @@ export class GoogleCalendarService {
    * Arredonda a data para o próximo intervalo de 15 minutos
    */
   private roundToNext15Minutes(date: Date): Date {
-    const minutes = date.getMinutes();
+    const minutes = date.getUTCMinutes();
     const remainder = minutes % 15;
 
     if (remainder === 0) {
@@ -313,9 +313,9 @@ export class GoogleCalendarService {
     }
 
     const roundedDate = new Date(date);
-    roundedDate.setMinutes(minutes + (15 - remainder));
-    roundedDate.setSeconds(0);
-    roundedDate.setMilliseconds(0);
+    roundedDate.setUTCMinutes(minutes + (15 - remainder));
+    roundedDate.setUTCSeconds(0);
+    roundedDate.setUTCMilliseconds(0);
 
     return roundedDate;
   }
@@ -338,33 +338,31 @@ async getAvailableSlots(
     console.log('[GoogleCalendar] ============================================');
 
     // 1. Configuração de Datas (Fuso Horário BR)
-    // CRÍTICO: Usar timezone de São Paulo para consistência com Google Calendar API
+    // CRÍTICO: Trabalhar SEMPRE em UTC para evitar problemas de timezone
     const timeZone = 'America/Sao_Paulo';
 
-    // Extrai componentes da data
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const day = date.getDate();
+    // Extrai componentes da data em UTC
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
 
-    console.log('[GoogleCalendar] Componentes da data: ano=', year, 'mês=', month + 1, 'dia=', day);
+    console.log('[GoogleCalendar] Componentes da data (UTC): ano=', year, 'mês=', month + 1, 'dia=', day);
 
-    // CORREÇÃO DE TIMEZONE: Criar datas no formato ISO com offset de São Paulo
-    // Isso garante que a comparação com eventos do Google Calendar seja consistente
-    const formatDateWithSaoPauloTZ = (y: number, m: number, d: number, h: number): Date => {
-      // Formata como string ISO com offset de São Paulo (-03:00)
-      const monthStr = String(m + 1).padStart(2, '0');
-      const dayStr = String(d).padStart(2, '0');
-      const hourStr = String(h).padStart(2, '0');
-      // -03:00 é o offset padrão de São Paulo (pode variar com horário de verão, mas Brasil não usa mais)
-      const isoString = `${y}-${monthStr}-${dayStr}T${hourStr}:00:00-03:00`;
-      return new Date(isoString);
+    // CORREÇÃO DE TIMEZONE: Criar datas em UTC corretamente
+    // São Paulo é UTC-3 (sem horário de verão), então 09:00 BRT = 12:00 UTC
+    const BRT_OFFSET_HOURS = 3; // São Paulo está 3 horas atrás de UTC
+
+    const createUTCDate = (y: number, m: number, d: number, hourBRT: number): Date => {
+      // Converte hora BRT para UTC
+      const hourUTC = hourBRT + BRT_OFFSET_HOURS;
+      return new Date(Date.UTC(y, m, d, hourUTC, 0, 0, 0));
     };
 
-    const startOfDay = formatDateWithSaoPauloTZ(year, month, day, businessHours.start);
-    const endOfDay = formatDateWithSaoPauloTZ(year, month, day, businessHours.end);
+    const startOfDay = createUTCDate(year, month, day, businessHours.start);
+    const endOfDay = createUTCDate(year, month, day, businessHours.end);
 
-    console.log('[GoogleCalendar] Período de busca (local):', startOfDay.toLocaleString('pt-BR'), 'até', endOfDay.toLocaleString('pt-BR'));
-    console.log('[GoogleCalendar] Período de busca (ISO):', startOfDay.toISOString(), 'até', endOfDay.toISOString());
+    console.log('[GoogleCalendar] Período de busca (BRT):', businessHours.start + ':00 até', businessHours.end + ':00');
+    console.log('[GoogleCalendar] Período de busca (UTC):', startOfDay.toISOString(), 'até', endOfDay.toISOString());
 
     // Carrega tokens
     const calendarConfig = await this.loadTokens(companyId);
@@ -435,11 +433,21 @@ async getAvailableSlots(
       console.log('[GoogleCalendar] ℹ️ Nenhum evento encontrado neste período');
     }
 
+    // Helper para formatar horário UTC para BRT
+    const formatTimeBRT = (utcDate: Date): string => {
+      const hourUTC = utcDate.getUTCHours();
+      const minuteUTC = utcDate.getUTCMinutes();
+      // Converte UTC para BRT (UTC-3)
+      let hourBRT = hourUTC - 3;
+      if (hourBRT < 0) hourBRT += 24;
+      return `${String(hourBRT).padStart(2, '0')}:${String(minuteUTC).padStart(2, '0')}`;
+    };
+
     // 3. Geração de Slots
     console.log('[GoogleCalendar] ============================================');
     console.log('[GoogleCalendar] 🔍 INICIANDO VERIFICAÇÃO DE SLOTS...');
-    console.log('[GoogleCalendar]   - Horário inicial:', this.roundToNext15Minutes(startOfDay).toLocaleString('pt-BR'));
-    console.log('[GoogleCalendar]   - Horário final:', endOfDay.toLocaleString('pt-BR'));
+    console.log('[GoogleCalendar]   - Horário inicial (BRT):', formatTimeBRT(this.roundToNext15Minutes(startOfDay)));
+    console.log('[GoogleCalendar]   - Horário final (BRT):', formatTimeBRT(endOfDay));
     console.log('[GoogleCalendar]   - Duração do slot:', slotDuration, 'minutos');
     console.log('[GoogleCalendar]   - Intervalo entre slots: 30 minutos');
 
@@ -450,7 +458,7 @@ async getAvailableSlots(
     // Loop para criar slots de tempo
     while (currentTime < endOfDay) {
       const slotEnd = new Date(currentTime.getTime() + slotDuration * 60000);
-      const slotTimeStr = currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const slotTimeStr = formatTimeBRT(currentTime);
 
       // Se o slot terminar depois do expediente, para o loop
       if (slotEnd > endOfDay) {
@@ -476,15 +484,16 @@ async getAvailableSlots(
           eventStart = new Date(event.start.dateTime);
           eventEnd = new Date(event.end?.dateTime || event.start.dateTime);
 
-          // DEBUG: Log para verificar comparação de timestamps
+          // DEBUG: Log para verificar comparação de timestamps (apenas para primeiro evento)
           if (blockedSlots.length === 0 && slots.length === 0) {
-            // Só loga uma vez, no primeiro slot
             console.log('[GoogleCalendar] 🔬 DEBUG TIMEZONE - Evento:', event.summary);
-            console.log('[GoogleCalendar]    - event.start.dateTime (raw):', event.start.dateTime);
-            console.log('[GoogleCalendar]    - eventStart (Date):', eventStart.toISOString(), '| Local:', eventStart.toLocaleString('pt-BR'));
-            console.log('[GoogleCalendar]    - eventEnd (Date):', eventEnd.toISOString(), '| Local:', eventEnd.toLocaleString('pt-BR'));
-            console.log('[GoogleCalendar]    - currentTime:', currentTime.toISOString(), '| Local:', currentTime.toLocaleString('pt-BR'));
-            console.log('[GoogleCalendar]    - slotEnd:', slotEnd.toISOString(), '| Local:', slotEnd.toLocaleString('pt-BR'));
+            console.log('[GoogleCalendar]    - event.start (raw):', event.start.dateTime);
+            console.log('[GoogleCalendar]    - event.end (raw):', event.end?.dateTime || 'N/A');
+            console.log('[GoogleCalendar]    - eventStart (UTC):', eventStart.toISOString());
+            console.log('[GoogleCalendar]    - eventEnd (UTC):', eventEnd.toISOString());
+            console.log('[GoogleCalendar]    - currentTime (UTC):', currentTime.toISOString());
+            console.log('[GoogleCalendar]    - slotEnd (UTC):', slotEnd.toISOString());
+            console.log('[GoogleCalendar]    - Comparação: currentTime < eventEnd?', currentTime < eventEnd, '&& slotEnd > eventStart?', slotEnd > eventStart);
           }
 
           // Calcula duração do evento
