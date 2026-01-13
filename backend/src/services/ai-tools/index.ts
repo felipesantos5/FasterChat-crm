@@ -186,16 +186,12 @@ export const createAppointmentTool: ChatCompletionTool = {
           type: 'string',
           description: 'Endereço COMPLETO com rua e NÚMERO obrigatoriamente. Exemplo: "Rua das Flores, 123" ou "Av. Brasil, 456, Apto 101". NUNCA use número fictício como "1" - se o cliente não informou o número, você DEVE perguntar antes de criar o agendamento.',
         },
-        title: {
-          type: 'string',
-          description: 'Título descritivo do agendamento',
-        },
         notes: {
           type: 'string',
           description: 'Observações adicionais sobre o agendamento',
         },
       },
-      required: ['service_type', 'date', 'time', 'address', 'title'],
+      required: ['service_type', 'date', 'time', 'address'],
     },
   },
 };

@@ -215,7 +215,10 @@ export class AIAppointmentService {
    * 🆕 Determina o próximo step baseado nos dados já coletados
    */
   private determineNextStep(state: AppointmentState): AppointmentState['step'] {
-    if (!state.serviceType) return 'COLLECTING_TYPE';
+    // Precisa ter identificado o serviço (nome específico OU tipo genérico)
+    if (!state.serviceName && !state.serviceType) {
+      return 'SELECTING_SERVICE'; // Tenta selecionar da lista primeiro
+    }
     if (!state.date) return 'COLLECTING_DATE';
     if (!state.time) return 'COLLECTING_TIME';
 
@@ -309,20 +312,20 @@ export class AIAppointmentService {
       console.warn('[AIAppointment] ⚠️ Google Calendar não configurado - agendamento será apenas no sistema');
     }
 
+    // 🆕 SEMPRE busca serviços disponíveis primeiro (prioridade)
+    const availableServices = await this.getAvailableServicesForCompany(companyId);
+    console.log(`[AIAppointment] 📋 Serviços disponíveis: ${availableServices.length}`);
+
     // 🆕 DETECÇÃO MÚLTIPLA: Extrai todos os dados possíveis de uma vez
     const detected = this.detectAllFromMessage(message);
 
     // Monta o estado inicial com tudo que foi detectado
     const state: AppointmentState = {
-      step: 'COLLECTING_TYPE', // Será ajustado abaixo
+      step: 'SELECTING_SERVICE', // Começa tentando selecionar serviço específico
       createdAt: new Date().toISOString(), // Para expiração
     };
 
     // Aplica dados detectados ao estado
-    if (detected.serviceType) {
-      state.serviceType = detected.serviceType;
-      state.duration = this.getDefaultDuration(detected.serviceType);
-    }
     if (detected.date) {
       state.date = detected.date;
     }
@@ -332,17 +335,49 @@ export class AIAppointmentService {
       state.address = detected.address;
     }
 
-    // 🆕 Busca nome e preço do serviço no catálogo da empresa
-    if (state.serviceType) {
-      await this.enrichStateWithCatalogInfo(state, companyId, message);
+    // 🆕 PRIORIDADE: Tenta identificar serviço ESPECÍFICO da lista cadastrada
+    let matchedService: AvailableService | null = null;
+
+    if (availableServices.length > 0) {
+      matchedService = this.matchServiceFromMessage(message, availableServices);
+
+      if (matchedService) {
+        console.log(`[AIAppointment] ✅ Serviço identificado: ${matchedService.name}`);
+        state.serviceId = matchedService.id;
+        state.serviceName = matchedService.name;
+        state.servicePrice = matchedService.price;
+        state.duration = matchedService.duration;
+        state.serviceType = AppointmentType.OTHER; // Tipo genérico para serviços dinâmicos
+      } else {
+        console.log(`[AIAppointment] ⚠️ Serviço não identificado na lista. Mostrando opções.`);
+      }
     }
 
-    // Determina o próximo step baseado no que foi detectado
-    // IMPORTANTE: Se tem data mas não tem horário escolhido, força COLLECTING_TIME
-    if (state.serviceType && state.date && !state.time) {
-      state.step = 'COLLECTING_TIME';
+    // Se identificou serviço específico, ajusta o próximo step
+    if (matchedService) {
+      // Determina próximo step baseado no que já foi detectado
+      if (state.date && !state.time) {
+        state.step = 'COLLECTING_TIME';
+      } else {
+        state.step = this.determineNextStep(state);
+      }
+    } else if (availableServices.length > 0) {
+      // Tem serviços mas não identificou qual - mostra lista
+      state.availableServices = availableServices;
+      state.step = 'SELECTING_SERVICE';
     } else {
-      state.step = this.determineNextStep(state);
+      // Fallback: Usa detecção de tipo genérico (modo antigo)
+      if (detected.serviceType) {
+        state.serviceType = detected.serviceType;
+        state.duration = this.getDefaultDuration(detected.serviceType);
+        await this.enrichStateWithCatalogInfo(state, companyId, message);
+      }
+
+      if (state.serviceType && state.date && !state.time) {
+        state.step = 'COLLECTING_TIME';
+      } else {
+        state.step = this.determineNextStep(state);
+      }
     }
 
     console.log(`[AIAppointment] 📊 Estado inicial:`, {
@@ -355,8 +390,8 @@ export class AIAppointmentService {
       hasAddress: !!state.address,
     });
 
-    // 🆕 CENÁRIO 1: Detectou tipo e data → SEMPRE buscar e mostrar horários disponíveis
-    if (state.serviceType && state.date && state.step === 'COLLECTING_TIME') {
+    // 🆕 CENÁRIO 1: Identificou serviço + data → Buscar e mostrar horários disponíveis
+    if ((state.serviceName || state.serviceType) && state.date && state.step === 'COLLECTING_TIME') {
       // Busca horários disponíveis
       const selectedDate = new Date(state.date);
       try {
@@ -441,38 +476,39 @@ export class AIAppointmentService {
       }
     }
 
-    // 🆕 CENÁRIO 4: Detectou apenas o tipo → Pede a data
-    if (state.serviceType && state.step === 'COLLECTING_DATE') {
+    // 🆕 CENÁRIO 2: Identificou serviço específico → Pede a data
+    if ((state.serviceName || state.serviceType) && state.step === 'COLLECTING_DATE') {
       await this.saveAppointmentState(customerId, state);
 
-      const serviceLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType);
+      const serviceLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType!);
+      const priceInfo = state.servicePrice && state.servicePrice !== 'Consultar' ? ` (${state.servicePrice})` : '';
       return {
-        response: `Opa, beleza! Vou agendar ${serviceLabel} pra você 👍\n\nQual dia fica bom pra você?`
+        response: `Perfeito! ${serviceLabel}${priceInfo} anotado 👍\n\nQual dia fica bom pra você?`
       };
     }
 
-    // 🆕 CENÁRIO 5: Não detectou tipo → Busca serviços e pergunta dinamicamente
-    const availableServices = await this.getAvailableServicesForCompany(companyId);
-
-    if (availableServices.length > 0) {
-      // Tem serviços cadastrados - lista dinamicamente
-      state.availableServices = availableServices;
-      state.step = 'SELECTING_SERVICE';
+    // 🆕 CENÁRIO 3: Precisa selecionar serviço da lista
+    if (state.step === 'SELECTING_SERVICE' && state.availableServices && state.availableServices.length > 0) {
       await this.saveAppointmentState(customerId, state);
 
-      const servicesText = this.formatServicesForDisplay(availableServices);
+      const servicesText = this.formatServicesForDisplay(state.availableServices);
       return {
         response: `Show! Posso agendar pra você sim 😊\n\nQual serviço você precisa?\n\n${servicesText}\n\nÉ só me dizer qual!`
       };
     }
 
-    // Fallback: Nenhum serviço cadastrado - usa opções genéricas
-    state.step = 'COLLECTING_TYPE';
-    await this.saveAppointmentState(customerId, state);
+    // 🆕 CENÁRIO 4: Fallback - modo antigo (sem serviços cadastrados)
+    if (state.step === 'COLLECTING_TYPE') {
+      await this.saveAppointmentState(customerId, state);
 
-    return {
-      response: `Show! Posso agendar pra você sim 😊\n\nQue tipo de serviço você precisa? Me conta o que está precisando!`
-    };
+      return {
+        response: `Show! Posso agendar pra você sim 😊\n\nQue tipo de serviço você precisa? Me conta o que está precisando!`
+      };
+    }
+
+    // Se chegou aqui, redireciona para o step apropriado
+    await this.saveAppointmentState(customerId, state);
+    return { response: this.generateSmartResponse(state, detected) };
   }
 
   /**
@@ -846,12 +882,28 @@ export class AIAppointmentService {
       /^(\d+)$/,
     ];
 
+    // Remove espaços extras e converte para minúsculas
+    const trimmedMessage = message.trim().toLowerCase();
+
+    // Palavras que indicam que não é um número de endereço
+    const excludeKeywords = ['amanhã', 'hoje', 'semana', 'mês', 'ano', 'dia', 'hora', 'às', 'as', 'horário', 'horario'];
+
+    // Se a mensagem contém apenas palavras que não são endereço, retorna null
+    const hasOnlyNonAddressWords = excludeKeywords.some(keyword =>
+      trimmedMessage === keyword || trimmedMessage.includes(keyword) && trimmedMessage.length < 20
+    );
+
+    if (hasOnlyNonAddressWords) {
+      return null;
+    }
+
     for (const pattern of patterns) {
       const match = message.match(pattern);
       if (match && match[1]) {
         // Ignora números muito grandes (provavelmente CEP ou telefone)
         const num = parseInt(match[1]);
         if (num > 0 && num < 100000) {
+          console.log('[AIAppointment] Number detected from message:', message, '-> Number:', match[1]);
           return match[1];
         }
       }
@@ -892,8 +944,13 @@ export class AIAppointmentService {
       missing.push('CEP ou endereço completo');
     }
 
+    // Valida número: não pode ser vazio E não pode ser "1" sozinho (valor padrão suspeito)
+    // Se for "1", só aceita se tiver rua ou CEP (contexto de endereço real)
     if (!address?.number) {
       missing.push('número');
+    } else if (address.number === '1' && !address.street && !address.cep) {
+      // Se só tem número "1" sem contexto de endereço, rejeita
+      missing.push('número (por favor confirme o número correto)');
     }
 
     return {
@@ -1360,18 +1417,45 @@ export class AIAppointmentService {
 
     if (selectedService) {
       // Serviço identificado!
+      console.log(`[AIAppointment] ✅ Serviço selecionado: ${selectedService.name} - ${selectedService.price}`);
       state.serviceId = selectedService.id;
       state.serviceName = selectedService.name;
       state.servicePrice = selectedService.price;
       state.duration = selectedService.duration;
       state.serviceType = AppointmentType.OTHER; // Tipo genérico para serviços dinâmicos
+
+      // Verifica se este serviço tem variações (ex: AC 9K, 12K, 18K)
+      // Se tiver, mostra as variações; senão, prossegue para data
+      const hasVariations = this.checkIfServiceHasVariations(selectedService.name, state.availableServices);
+
+      if (hasVariations && hasVariations.length > 1) {
+        state.serviceVariations = hasVariations.map(v => ({
+          name: v.name,
+          price: v.price,
+          duration: v.duration
+        }));
+        state.step = 'SELECTING_SERVICE_VARIATION';
+        await this.saveAppointmentState(customerId, state);
+
+        const variationsText = hasVariations.map((v, i) => {
+          const priceInfo = v.price !== 'Consultar' ? ` - ${v.price}` : '';
+          return `${i + 1}️⃣ ${v.name}${priceInfo}`;
+        }).join('\n');
+
+        return {
+          shouldContinue: true,
+          response: `Boa! Temos algumas opções de ${selectedService.name}:\n\n${variationsText}\n\nQual você prefere?`
+        };
+      }
+
+      // Sem variações, prossegue para data
       state.step = 'COLLECTING_DATE';
       await this.saveAppointmentState(customerId, state);
 
-      const priceInfo = selectedService.price !== 'Consultar' ? ` (${selectedService.price})` : '';
+      const priceInfo = selectedService.price !== 'Consultar' ? ` por ${selectedService.price}` : '';
       return {
         shouldContinue: true,
-        response: `Perfeito! ${selectedService.name}${priceInfo} anotado 👍\n\nQual dia é melhor pra você?`
+        response: `Perfeito! ${selectedService.name}${priceInfo} anotado ✅\n\nQual dia fica bom pra você?`
       };
     }
 
@@ -1804,8 +1888,20 @@ export class AIAppointmentService {
     if (!state.address.number) {
       const number = this.detectAddressNumber(message);
       if (number) {
-        state.address.number = number;
-        console.log('[AIAppointment] Number detected (fallback):', number);
+        // Validação adicional: se o número for "1" e a mensagem não contém contexto claro de endereço,
+        // não aceita para evitar valores padrão incorretos
+        const isValidNumber = number !== '1' ||
+          (message.toLowerCase().includes('número 1') ||
+           message.toLowerCase().includes('numero 1') ||
+           message.match(/,\s*1\s*[,\s]/) !== null ||
+           message.match(/^1$/));
+
+        if (isValidNumber) {
+          state.address.number = number;
+          console.log('[AIAppointment] Number detected (fallback):', number);
+        } else {
+          console.log('[AIAppointment] Rejecting suspicious number "1" without clear context');
+        }
       }
     }
 
@@ -1879,7 +1975,11 @@ export class AIAppointmentService {
 
       // Só pede o que falta
       if (validation.missing.length > 0) {
-        response += `\nSó falta o ${validation.missing.join(' e ')} 🏠`;
+        if (validation.missing.includes('número')) {
+          response += `\n⚠️ Preciso do NÚMERO da casa/apartamento para continuar.\n\nQual o número?`;
+        } else {
+          response += `\nSó falta o ${validation.missing.join(' e ')} 🏠`;
+        }
       }
 
       return { shouldContinue: true, response };
@@ -1888,7 +1988,7 @@ export class AIAppointmentService {
     // Não conseguiu extrair nada, pede novamente
     return {
       shouldContinue: true,
-      response: `Não consegui entender o endereço 🤔\n\nPode me mandar novamente?`
+      response: `Não consegui entender o endereço 🤔\n\nPode me mandar o endereço completo com rua e número?`
     };
   }
 
@@ -1907,8 +2007,14 @@ export class AIAppointmentService {
       year: 'numeric'
     });
 
-    // Usa o nome real do serviço se disponível, senão usa o label genérico
+    // 🎯 PRIORIDADE: Usa o nome real/específico do serviço
+    // Se não tiver, usa o label genérico como fallback
     const serviceLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType!);
+
+    // Adiciona aviso se estiver usando nome genérico (não deveria acontecer)
+    if (!state.serviceName && state.serviceType) {
+      console.warn('[AIAppointment] ⚠️ Confirmação sem nome específico do serviço! Usando tipo genérico:', state.serviceType);
+    }
 
     // Formata endereço
     let addressText = '';
@@ -1932,12 +2038,14 @@ export class AIAppointmentService {
       }
     }
 
-    // Adiciona preço se disponível
-    const priceText = state.servicePrice ? `\n💰 Valor: ${state.servicePrice}` : '';
+    // Adiciona preço se disponível (sempre mostrar na confirmação)
+    const priceText = state.servicePrice && state.servicePrice !== 'Consultar'
+      ? `\n💰 Valor: ${state.servicePrice}`
+      : '';
 
     return {
       shouldContinue: true,
-      response: `Show! Deixa eu confirmar os dados:\n\n📋 Serviço: ${serviceLabel}\n📅 Data: ${dateFormatted}\n🕐 Horário: ${state.time}\n⏱️ Duração: ${state.duration} minutos${priceText}${addressText}\nTá tudo certo?\n\nÉ só responder SIM pra confirmar ou NÃO se quiser mudar algo`,
+      response: `✅ Confirmação do Agendamento\n\n📋 Serviço: ${serviceLabel}${priceText}\n📅 Data: ${dateFormatted}\n🕐 Horário: ${state.time}\n⏱️ Duração: ${state.duration} minutos${addressText}\n━━━━━━━━━━━━━━━━\n\nTá tudo certo?\n\nResponda SIM pra confirmar ou NÃO se quiser mudar algo`,
     };
   }
 
@@ -2100,8 +2208,9 @@ export class AIAppointmentService {
    * NOTA: Este método é apenas um fallback - sempre priorize usar state.serviceName
    * que contém o nome real do serviço cadastrado pelo cliente
    */
-  private getServiceTypeLabel(_type: AppointmentType): string {
+  private getServiceTypeLabel(_type: AppointmentType | undefined): string {
     // Fallback genérico - o nome real do serviço deve vir de state.serviceName
+    if (!_type) return 'Serviço';
     return 'Serviço';
   }
 
@@ -2243,6 +2352,37 @@ export class AIAppointmentService {
     }
 
     return null;
+  }
+
+  /**
+   * Verifica se um serviço tem variações disponíveis
+   * Ex: "Instalação de Ar Condicionado" pode ter variações "9K BTUs", "12K BTUs", etc.
+   */
+  private checkIfServiceHasVariations(
+    serviceName: string,
+    allServices: AvailableService[]
+  ): AvailableService[] | null {
+    const baseNameLower = serviceName.toLowerCase();
+
+    // Remove números e capacidades do nome para encontrar o "nome base"
+    const baseName = baseNameLower
+      .replace(/\d+\s*k\s*(btus?)?/gi, '')
+      .replace(/\d+\.?\d*\s*btus?/gi, '')
+      .replace(/\d+\s*mil\s*btus?/gi, '')
+      .trim();
+
+    // Busca todos os serviços que compartilham o mesmo nome base
+    const variations = allServices.filter(s => {
+      const sNameClean = s.name.toLowerCase()
+        .replace(/\d+\s*k\s*(btus?)?/gi, '')
+        .replace(/\d+\.?\d*\s*btus?/gi, '')
+        .replace(/\d+\s*mil\s*btus?/gi, '')
+        .trim();
+
+      return sNameClean === baseName || sNameClean.includes(baseName) || baseName.includes(sNameClean);
+    });
+
+    return variations.length > 1 ? variations : null;
   }
 
   /**

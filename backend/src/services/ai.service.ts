@@ -853,7 +853,12 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
 
    ⚠️ **NUNCA pule etapas!** Se o cliente não informou algo, PERGUNTE.
    ⚠️ **SEMPRE mostre o valor** do serviço antes de confirmar (busque o preço no catálogo)
-   ⚠️ **NÚMERO DO ENDEREÇO É OBRIGATÓRIO!** Se o cliente informar apenas a rua sem número (ex: "Rua das Flores"), você DEVE perguntar: "Qual o número da sua casa/apartamento?" NUNCA invente ou use número fictício como "1".
+   ⚠️ **NÚMERO DO ENDEREÇO É OBRIGATÓRIO E CRÍTICO!**
+      - Se o cliente informar apenas a rua sem número (ex: "Rua das Flores"), você DEVE perguntar: "Qual o número da sua casa/apartamento?"
+      - NUNCA invente, assuma ou use número fictício como "1", "s/n", "sem número" ou qualquer valor padrão
+      - NUNCA confirme ou prossiga sem que o cliente EXPLICITAMENTE forneça o número
+      - Se o cliente disser que não tem número, pergunte novamente ou peça um ponto de referência
+      - O agendamento SÓ pode prosseguir quando o número for explicitamente informado pelo cliente
 
 3. **Perguntas sobre HORÁRIOS DISPONÍVEIS:**
    - Apresente os horários de forma clara e natural

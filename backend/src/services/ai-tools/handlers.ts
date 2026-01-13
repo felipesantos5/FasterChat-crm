@@ -622,19 +622,19 @@ export async function handleGetCompanyPolicy(args: {
 /**
  * [TOOL] Criar Agendamento
  * Cria um agendamento no banco de dados e sincroniza com Google Calendar
+ * O título será automaticamente gerado no formato: "Nome do Serviço - Nome do Cliente"
  */
 export async function handleCreateAppointment(args: {
   service_type: string;
   date: string;
   time: string;
   address: string;
-  title: string;
   notes?: string;
   customerId: string;
   companyId: string;
 }) {
   try {
-    const { service_type, date, time, address, title, notes, customerId, companyId } = args;
+    const { service_type, date, time, address, notes, customerId, companyId } = args;
 
     // VALIDAÇÃO: Verificar se o endereço contém um número válido
     // Padrões aceitos: "Rua X, 123", "Rua X 123", "Rua X nº 123", "Rua X número 123"
@@ -680,8 +680,23 @@ export async function handleCreateAppointment(args: {
       console.warn('[CreateAppointment] Erro ao buscar duração do serviço, usando padrão:', error);
     }
 
+    // Busca o nome do cliente para usar no título
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { name: true }
+    });
+
+    if (!customer) {
+      return {
+        success: false,
+        error: 'CUSTOMER_NOT_FOUND',
+        message: 'Cliente não encontrado'
+      };
+    }
+
     // Parse da data e hora no timezone do Brasil (America/Sao_Paulo)
     console.log('[CreateAppointment] Criando agendamento para:', date, time, '(horário de Brasília)');
+    console.log('[CreateAppointment] Cliente:', customer.name);
     console.log('[CreateAppointment] Serviço:', service_type, '- Duração:', duration, 'min');
     const dateTime = createBrazilDate(date, time);
     const endTime = addMinutes(dateTime, duration);
@@ -690,11 +705,11 @@ export async function handleCreateAppointment(args: {
     console.log('[CreateAppointment] Data/hora fim:', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
     // Cria o agendamento usando o serviço existente
-    // Usa AppointmentType.OTHER e armazena o nome real do serviço no title/description
+    // Formato do título: "Nome do Serviço - Nome do Cliente"
     const appointment = await appointmentService.create(companyId, {
       customerId,
-      title: `${service_type} - ${title}`,
-      description: notes || `Serviço: ${service_type}`,
+      title: `${service_type} - ${customer.name}`,
+      description: notes || `Agendamento via WhatsApp - ${service_type}`,
       type: AppointmentType.OTHER,
       startTime: dateTime,
       endTime: endTime,
