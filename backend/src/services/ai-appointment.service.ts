@@ -150,14 +150,17 @@ export class AIAppointmentService {
    * - CEP: "12345-678"
    */
   detectAddressFromMessage(message: string): DetectedAppointmentData['address'] | null {
+    console.log('[AIAppointment] 🏠 Detectando endereço da mensagem:', message);
+
     const address: DetectedAppointmentData['address'] = {};
     let hasAnyData = false;
 
-    // Detecta CEP
+    // Detecta CEP primeiro
     const cep = this.detectCEP(message);
     if (cep) {
       address.cep = cep;
       hasAnyData = true;
+      console.log('[AIAppointment]   ✓ CEP detectado:', cep);
     }
 
     // Detecta complemento (apartamento, bloco)
@@ -165,47 +168,64 @@ export class AIAppointmentService {
     if (complement) {
       address.complement = complement;
       hasAnyData = true;
+      console.log('[AIAppointment]   ✓ Complemento detectado:', complement);
     }
 
-    // Detecta rua/avenida com padrões mais robustos
-    const streetPatterns = [
-      // "Rua das Flores, 123" ou "Rua das Flores 123"
-      /(?:rua|r\.?|avenida|av\.?|alameda|al\.?|travessa|tv\.?|praça|pç\.?)\s+([^,\d]+?)[\s,]+(\d+)/i,
-      // "na Rua X número 123"
-      /(?:na|em|no)\s+(?:rua|avenida|av\.?|alameda)\s+([^,\d]+?)[\s,]+(?:n[ºo°]?\s*)?(\d+)/i,
-      // Padrão mais genérico para endereços
-      /([A-Za-zÀ-ÿ\s]+?)[\s,]+(?:n[ºo°]?\s*)?(\d+)(?:\s|,|$)/,
+    // PRIORIDADE: Detecta rua + número junto (formato mais comum)
+    const streetWithNumberPatterns = [
+      // "Rua das Flores, 123" (com vírgula)
+      /(?:rua|r\.?|avenida|av\.?|alameda|al\.?|travessa|tv\.?|praça|pç\.?)\s+([a-zà-ÿ\s]+?),\s*(\d{1,5})/i,
+      // "Rua das Flores 123" (sem vírgula, espaço direto)
+      /(?:rua|r\.?|avenida|av\.?|alameda|al\.?|travessa|tv\.?|praça|pç\.?)\s+([a-zà-ÿ\s]+?)\s+(\d{1,5})(?:\s|,|$)/i,
+      // "na Rua X número 123" ou "na Rua X nº 123"
+      /(?:na|em|no)\s+(?:rua|r\.?|avenida|av\.?|alameda)\s+([a-zà-ÿ\s]+?)[\s,]*(?:n[ºo°úu]mero|n[ºo°]?)\s*(\d{1,5})/i,
+      // Padrão genérico: qualquer texto seguido de vírgula e número
+      /([a-zà-ÿ]{3,}(?:\s+[a-zà-ÿ]+)*),\s*(\d{1,5})(?:\s|,|$)/i,
+      // Padrão genérico: texto seguido de espaço e número no final
+      /([a-zà-ÿ]{3,}(?:\s+[a-zà-ÿ]+)*)\s+(\d{1,5})$/i,
     ];
 
-    for (const pattern of streetPatterns) {
+    for (const pattern of streetWithNumberPatterns) {
       const match = message.match(pattern);
       if (match) {
         const potentialStreet = match[1].trim();
         const number = match[2];
 
+        console.log('[AIAppointment]   🔍 Pattern match - Rua:', potentialStreet, '| Número:', number);
+
         // Valida que não é só um número ou palavra muito curta
         if (potentialStreet.length > 3 && !potentialStreet.match(/^\d+$/)) {
           // Ignora se for uma palavra comum que não é endereço
-          const ignoreWords = ['quero', 'agendar', 'marcar', 'instalar', 'instalação', 'manutenção', 'às', 'dia', 'hora'];
+          const ignoreWords = ['quero', 'agendar', 'marcar', 'instalar', 'instalação', 'manutenção', 'às', 'dia', 'hora', 'amanhã', 'hoje'];
           const isIgnoredWord = ignoreWords.some(word => potentialStreet.toLowerCase().includes(word));
 
           if (!isIgnoredWord) {
             address.street = potentialStreet;
             address.number = number;
             hasAnyData = true;
+            console.log('[AIAppointment]   ✅ Endereço detectado - Rua:', potentialStreet, '| Número:', number);
             break;
+          } else {
+            console.log('[AIAppointment]   ❌ Ignorado (palavra comum):', potentialStreet);
           }
         }
       }
     }
 
-    // Se não detectou rua mas detectou número isolado
-    if (!address.street && !address.number) {
+    // Fallback: Se não detectou junto, tenta detectar número isolado
+    if (!address.number) {
       const number = this.detectAddressNumber(message);
       if (number) {
         address.number = number;
         hasAnyData = true;
+        console.log('[AIAppointment]   ✓ Número detectado (isolado):', number);
       }
+    }
+
+    if (hasAnyData) {
+      console.log('[AIAppointment]   📦 Resultado final:', address);
+    } else {
+      console.log('[AIAppointment]   ⚠️ Nenhum dado de endereço detectado');
     }
 
     return hasAnyData ? address : null;
@@ -868,47 +888,59 @@ export class AIAppointmentService {
    * - "123" (número isolado)
    */
   detectAddressNumber(message: string): string | null {
+    console.log('[AIAppointment] 🔢 Detectando número da mensagem:', message);
+
     const patterns = [
-      // "número 123", "numero 123", "nº 123", "n 123"
-      /\bn[úu]mero\s+(\d+)/i,
-      /\bn[ºo°]?\s*(\d+)/i,
+      // "número 123", "numero 123"
+      /\bn[úu]mero\s+(\d{1,5})/i,
+      // "nº 123", "n° 123", "n 123"
+      /\bn[ºo°]?\s+(\d{1,5})/i,
       // Número após vírgula: "Rua X, 123" ou "Rua X , 123"
-      /,\s*(\d+)(?:\s|$|[^0-9])/,
-      // Número após nome de rua/avenida: "Rua das Flores 123"
-      /(?:rua|avenida|av\.?|alameda|travessa|praça)\s+[^,\d]+\s+(\d+)(?:\s|$|[^0-9])/i,
-      // Número no final da mensagem
-      /\b(\d+)\s*$/,
-      // Número isolado (quando só manda o número)
-      /^(\d+)$/,
+      /,\s*(\d{1,5})(?:\s|,|$|[^0-9])/,
+      // Número após nome de rua/avenida com espaço: "Rua das Flores 123"
+      /(?:rua|avenida|av\.?|alameda|travessa|praça)\s+[a-zà-ÿ\s]+?\s+(\d{1,5})(?:\s|,|$|[^0-9])/i,
+      // Número no final da mensagem (mais restrito)
+      /\b(\d{1,5})\s*$/,
+      // Número isolado completo (quando cliente só manda o número)
+      /^(\d{1,5})$/,
     ];
 
     // Remove espaços extras e converte para minúsculas
     const trimmedMessage = message.trim().toLowerCase();
 
-    // Palavras que indicam que não é um número de endereço
-    const excludeKeywords = ['amanhã', 'hoje', 'semana', 'mês', 'ano', 'dia', 'hora', 'às', 'as', 'horário', 'horario'];
+    // Palavras que indicam que NÃO é um número de endereço
+    const excludeKeywords = ['amanhã', 'hoje', 'semana', 'mês', 'ano', 'dia', 'hora', 'às', 'as', 'horário', 'horario', 'manhã', 'tarde', 'noite'];
 
     // Se a mensagem contém apenas palavras que não são endereço, retorna null
     const hasOnlyNonAddressWords = excludeKeywords.some(keyword =>
-      trimmedMessage === keyword || trimmedMessage.includes(keyword) && trimmedMessage.length < 20
+      trimmedMessage === keyword || (trimmedMessage.includes(keyword) && trimmedMessage.length < 20)
     );
 
     if (hasOnlyNonAddressWords) {
+      console.log('[AIAppointment]   ❌ Mensagem contém palavra de exclusão (não é endereço)');
       return null;
     }
 
-    for (const pattern of patterns) {
+    for (let i = 0; i < patterns.length; i++) {
+      const pattern = patterns[i];
       const match = message.match(pattern);
       if (match && match[1]) {
-        // Ignora números muito grandes (provavelmente CEP ou telefone)
         const num = parseInt(match[1]);
+
+        console.log('[AIAppointment]   🔍 Pattern', i + 1, 'matched:', match[1]);
+
+        // Ignora números muito grandes (provavelmente CEP ou telefone)
+        // e números inválidos (0 ou muito grandes)
         if (num > 0 && num < 100000) {
-          console.log('[AIAppointment] Number detected from message:', message, '-> Number:', match[1]);
+          console.log('[AIAppointment]   ✅ Número válido detectado:', match[1]);
           return match[1];
+        } else {
+          console.log('[AIAppointment]   ❌ Número fora do range válido:', num);
         }
       }
     }
 
+    console.log('[AIAppointment]   ⚠️ Nenhum número detectado');
     return null;
   }
 
@@ -944,12 +976,12 @@ export class AIAppointmentService {
       missing.push('CEP ou endereço completo');
     }
 
-    // Valida número: não pode ser vazio E não pode ser "1" sozinho (valor padrão suspeito)
-    // Se for "1", só aceita se tiver rua ou CEP (contexto de endereço real)
+    // Valida número: não pode ser vazio
     if (!address?.number) {
       missing.push('número');
     } else if (address.number === '1' && !address.street && !address.cep) {
-      // Se só tem número "1" sem contexto de endereço, rejeita
+      // APENAS rejeita "1" se NÃO tiver nenhum contexto de endereço
+      // Se tem rua OU CEP, aceita o número 1 (pode ser endereço real)
       missing.push('número (por favor confirme o número correto)');
     }
 
@@ -1910,17 +1942,24 @@ export class AIAppointmentService {
       if (number) {
         // Validação adicional: se o número for "1" e a mensagem não contém contexto claro de endereço,
         // não aceita para evitar valores padrão incorretos
-        const isValidNumber = number !== '1' ||
-          (message.toLowerCase().includes('número 1') ||
-           message.toLowerCase().includes('numero 1') ||
-           message.match(/,\s*1\s*[,\s]/) !== null ||
-           message.match(/^1$/));
+        const hasAddressContext =
+          state.address.street !== undefined || // Já tem rua no estado
+          state.address.cep !== undefined || // Já tem CEP no estado
+          message.toLowerCase().includes('número 1') ||
+          message.toLowerCase().includes('numero 1') ||
+          message.toLowerCase().includes('nº 1') ||
+          message.toLowerCase().includes('n° 1') ||
+          message.match(/,\s*1\s*[,\s]/) !== null || // "Rua X, 1"
+          message.match(/\s+1\s*$/) !== null || // "Rua X 1" no final
+          message.match(/^1\s*$/) !== null; // Apenas "1" (cliente respondendo pergunta)
+
+        const isValidNumber = number !== '1' || hasAddressContext;
 
         if (isValidNumber) {
           state.address.number = number;
           console.log('[AIAppointment] Number detected (fallback):', number);
         } else {
-          console.log('[AIAppointment] Rejecting suspicious number "1" without clear context');
+          console.log('[AIAppointment] Rejecting suspicious number "1" without clear address context');
         }
       }
     }
@@ -2330,6 +2369,7 @@ export class AIAppointmentService {
 
   /**
    * Tenta identificar qual serviço o cliente escolheu pela mensagem
+   * NOVO ALGORITMO: Prioriza palavras-chave críticas (tipo de serviço) antes de características (BTU)
    */
   private matchServiceFromMessage(message: string, services: AvailableService[]): AvailableService | null {
     const lowerMessage = message.toLowerCase().trim();
@@ -2346,86 +2386,128 @@ export class AIAppointmentService {
       }
     }
 
-    // 2. Match por BTU/capacidade PRIMEIRO (mais específico)
-    // Detecta: "18k", "18 k", "18000", "12k", "9k", "24k", etc.
-    const btuMatch = lowerMessage.match(/(\d+)\s*k(?:btus?)?|\b(\d{4,5})\s*btus?\b/i);
-    if (btuMatch) {
-      const btu = btuMatch[1] || btuMatch[2];
-      console.log('[AIAppointment] 🔍 BTU detectado na mensagem:', btu);
+    // 2. Normaliza mensagem e extrai informações importantes
+    const normalizedMessage = lowerMessage
+      .replace(/[^\wà-ÿ\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-      // Busca serviços que contenham esse BTU
-      const matchedService = services.find(s => {
-        const serviceLower = s.name.toLowerCase();
-        // Remove espaços e hífen para matching mais flexível
+    // Detecta BTU/capacidade (se houver)
+    const btuMatch = lowerMessage.match(/(\d+)\s*k(?:btus?)?|\b(\d{4,5})\s*btus?\b/i);
+    const btu = btuMatch ? (btuMatch[1] || btuMatch[2]) : null;
+    if (btu) {
+      console.log('[AIAppointment] 🔍 BTU detectado:', btu);
+    }
+
+    // Identifica palavras-chave CRÍTICAS (tipo de serviço)
+    const criticalKeywords = [
+      'instalação', 'instalacao', 'instalar',
+      'manutenção', 'manutencao', 'preventiva', 'revisão', 'revisao',
+      'carga', 'recarga', 'gás', 'gas',
+      'limpeza', 'higienização', 'higienizacao',
+      'desinstalação', 'desinstalacao', 'remoção', 'remocao',
+      'correção', 'correcao', 'vazamento',
+      'conserto', 'reparo'
+    ];
+
+    const detectedKeywords = criticalKeywords.filter(kw => normalizedMessage.includes(kw));
+    if (detectedKeywords.length > 0) {
+      console.log('[AIAppointment] 🔑 Palavras-chave críticas detectadas:', detectedKeywords.join(', '));
+    }
+
+    // 3. SCORE-BASED MATCHING: Calcula score para cada serviço
+    const scoredServices = services.map(service => {
+      const serviceLower = service.name.toLowerCase();
+      const normalizedServiceName = serviceLower
+        .replace(/[^\wà-ÿ\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      let score = 0;
+      const reasons: string[] = [];
+
+      // CRITÉRIO 1: Palavras-chave críticas (PESO ALTO: 100 pontos cada)
+      for (const keyword of detectedKeywords) {
+        if (normalizedServiceName.includes(keyword)) {
+          score += 100;
+          reasons.push(`keyword:${keyword}`);
+        }
+      }
+
+      // CRITÉRIO 2: BTU/capacidade (PESO MÉDIO: 50 pontos)
+      if (btu) {
         const normalizedService = serviceLower.replace(/[\s\-]/g, '');
         const normalizedBTU = btu.replace(/[\s\-]/g, '');
-
-        return (
+        const hasBTUMatch = (
           serviceLower.includes(btu + 'k') ||
           serviceLower.includes(btu + ' k') ||
           normalizedService.includes(normalizedBTU + 'k') ||
           serviceLower.includes(btu + '000') ||
-          serviceLower.includes(btu.substring(0, 2) + 'k') // "18000" -> "18k"
+          serviceLower.includes(btu.substring(0, 2) + 'k')
         );
-      });
 
-      if (matchedService) {
-        console.log('[AIAppointment] ✅ Match por BTU:', matchedService.name);
-        return matchedService;
-      }
-    }
-
-    // 3. Match por palavras-chave importantes
-    // Remove caracteres especiais e normaliza
-    const normalizedMessage = lowerMessage
-      .replace(/[^\w\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    for (const service of services) {
-      const serviceName = service.name.toLowerCase();
-      const normalizedServiceName = serviceName
-        .replace(/[^\w\s]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      // Match exato (ignorando pontuação)
-      if (normalizedMessage === normalizedServiceName) {
-        console.log('[AIAppointment] ✅ Match exato:', service.name);
-        return service;
+        if (hasBTUMatch) {
+          score += 50;
+          reasons.push(`btu:${btu}`);
+        }
       }
 
-      // Extrai palavras significativas (>2 caracteres, não números puros)
-      const messageWords = normalizedMessage.split(' ').filter(w => w.length > 2 && !/^\d+$/.test(w));
-      const serviceWords = normalizedServiceName.split(' ').filter(w => w.length > 2 && !/^\d+$/.test(w));
-
-      // Conta quantas palavras significativas batem
-      const matchingWords = serviceWords.filter(sw =>
-        messageWords.some(mw => mw.includes(sw) || sw.includes(mw))
+      // CRITÉRIO 3: Palavras comuns (PESO BAIXO: 10 pontos cada)
+      const messageWords = normalizedMessage.split(' ').filter(w =>
+        w.length > 2 &&
+        !/^\d+$/.test(w) &&
+        !criticalKeywords.includes(w)
+      );
+      const serviceWords = normalizedServiceName.split(' ').filter(w =>
+        w.length > 2 &&
+        !/^\d+$/.test(w)
       );
 
-      // Se 70% das palavras do serviço estão na mensagem, é um match
-      const matchPercentage = serviceWords.length > 0 ? matchingWords.length / serviceWords.length : 0;
-      if (matchPercentage >= 0.7 && matchingWords.length >= 2) {
-        console.log('[AIAppointment] ✅ Match por palavras-chave (', matchPercentage * 100, '%):', service.name);
-        return service;
+      for (const mw of messageWords) {
+        for (const sw of serviceWords) {
+          if (mw === sw || mw.includes(sw) || sw.includes(mw)) {
+            score += 10;
+            reasons.push(`word:${sw}`);
+            break;
+          }
+        }
       }
+
+      // CRITÉRIO 4: Match exato (BÔNUS: 200 pontos)
+      if (normalizedMessage === normalizedServiceName) {
+        score += 200;
+        reasons.push('exact_match');
+      }
+
+      return { service, score, reasons };
+    });
+
+    // Ordena por score (maior para menor)
+    scoredServices.sort((a, b) => b.score - a.score);
+
+    // Log dos top 3 scores
+    console.log('[AIAppointment] 📊 Top 3 matches por score:');
+    scoredServices.slice(0, 3).forEach((item, i) => {
+      console.log(`[AIAppointment]   ${i + 1}. "${item.service.name}" - Score: ${item.score} (${item.reasons.join(', ')})`);
+    });
+
+    // Retorna o melhor match se tiver score mínimo
+    const bestMatch = scoredServices[0];
+    const MIN_SCORE = 50; // Requer pelo menos 50 pontos (mínimo: 1 keyword ou 1 BTU)
+
+    if (bestMatch && bestMatch.score >= MIN_SCORE) {
+      // Verifica se há empate nos top matches
+      const secondBest = scoredServices[1];
+      if (secondBest && secondBest.score === bestMatch.score) {
+        console.log('[AIAppointment] ⚠️ Empate detectado entre múltiplos serviços - não selecionando automaticamente');
+        return null;
+      }
+
+      console.log('[AIAppointment] ✅ MATCH SELECIONADO:', bestMatch.service.name, '| Score:', bestMatch.score);
+      return bestMatch.service;
     }
 
-    // 4. Fallback: se a mensagem contém parte do nome do serviço
-    for (const service of services) {
-      const serviceName = service.name.toLowerCase();
-
-      // Remove preços e caracteres especiais para comparação mais limpa
-      const cleanServiceName = serviceName.replace(/\s*-\s*r\$.*$/i, '').trim();
-
-      if (lowerMessage.includes(cleanServiceName) || cleanServiceName.includes(lowerMessage)) {
-        console.log('[AIAppointment] ✅ Match parcial:', service.name);
-        return service;
-      }
-    }
-
-    console.log('[AIAppointment] ❌ Nenhum match encontrado');
+    console.log('[AIAppointment] ❌ Nenhum match com score suficiente (mínimo:', MIN_SCORE, ')');
     return null;
   }
 
