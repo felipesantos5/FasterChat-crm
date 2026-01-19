@@ -2,6 +2,67 @@ import { GoogleGenerativeAI, Part, Tool, SchemaType } from "@google/generative-a
 import axios from "axios";
 
 /**
+ * ============================================
+ * CONFIGURAÇÕES DE RESILIÊNCIA
+ * ============================================
+ */
+const GEMINI_CONFIG = {
+  // Timeout para function calls individuais (ms)
+  TOOL_CALL_TIMEOUT: 10000,
+
+  // Retry para chamadas à API
+  MAX_RETRIES: 3,
+  RETRY_BASE_DELAY_MS: 1000,
+
+  // Timeout para download de mídia (ms)
+  MEDIA_DOWNLOAD_TIMEOUT: 30000,
+
+  // Log level (production deveria ser 'error' ou 'warn')
+  LOG_LEVEL: process.env.NODE_ENV === 'production' ? 'warn' : 'debug',
+};
+
+/**
+ * Logger com níveis para evitar exposição de dados sensíveis em produção
+ */
+const logger = {
+  debug: (...args: any[]) => {
+    if (GEMINI_CONFIG.LOG_LEVEL === 'debug') console.log('[Gemini]', ...args);
+  },
+  info: (...args: any[]) => {
+    if (['debug', 'info'].includes(GEMINI_CONFIG.LOG_LEVEL)) console.log('[Gemini]', ...args);
+  },
+  warn: (...args: any[]) => {
+    if (['debug', 'info', 'warn'].includes(GEMINI_CONFIG.LOG_LEVEL)) console.warn('[Gemini]', ...args);
+  },
+  error: (...args: any[]) => console.error('[Gemini]', ...args),
+};
+
+/**
+ * Executa uma promise com timeout
+ */
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId!);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId!);
+    throw error;
+  }
+}
+
+/**
+ * Sleep helper para retry com backoff
+ */
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
  * Definição das Tools (Function Calling) para o Gemini
  * Formato compatível com a API do Gemini usando SchemaType enum
  */
@@ -158,7 +219,7 @@ class GeminiService {
   constructor() {
     const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.warn("[Gemini] GOOGLE_AI_API_KEY not found. Gemini features will be disabled.");
+      logger.warn("GOOGLE_AI_API_KEY not found. Gemini features will be disabled.");
     }
     this.client = new GoogleGenerativeAI(apiKey || "");
     this.model = "gemini-2.0-flash";
@@ -190,8 +251,8 @@ class GeminiService {
 
       const modelToUse = model || this.model;
 
-      console.log(`[Gemini] Generating response with ${modelToUse}${enableTools ? " + Function Calling" : ""}`);
-      console.log(`[Gemini] Config: temp=${temperature}, topP=0.85, maxTokens=${maxTokens}`);
+      logger.info(`Generating response with ${modelToUse}${enableTools ? " + Function Calling" : ""}`);
+      logger.debug(`Config: temp=${temperature}, topP=0.85, maxTokens=${maxTokens}`);
 
       // Configura o modelo com tools se habilitado
       const generativeModel = this.client.getGenerativeModel({
@@ -214,7 +275,7 @@ class GeminiService {
 
       // Adiciona imagem se fornecida
       if (imageBase64 && imageMimeType) {
-        console.log("[Gemini] Image detected, adding to request");
+        logger.debug("Image detected, adding to request");
         parts.push({
           inlineData: {
             mimeType: imageMimeType,
@@ -225,7 +286,7 @@ class GeminiService {
 
       // Adiciona áudio se fornecido
       if (audioBase64 && audioMimeType) {
-        console.log("[Gemini] Audio detected, adding to request for transcription/analysis");
+        logger.debug("Audio detected, adding to request for transcription/analysis");
         parts.push({
           inlineData: {
             mimeType: audioMimeType,
@@ -242,7 +303,7 @@ class GeminiService {
       const functionCalls = response.functionCalls();
 
       if (functionCalls && functionCalls.length > 0 && context) {
-        console.log(`[Gemini] AI decided to call ${functionCalls.length} function(s)`);
+        logger.info(`AI decided to call ${functionCalls.length} function(s): ${functionCalls.map(fc => fc.name).join(', ')}`);
 
         // Importa handlers dinamicamente
         const { executeToolCall } = await import("../ai-tools/handlers");
@@ -261,27 +322,69 @@ class GeminiService {
           ],
         });
 
-        // Executa cada function call e envia resultado
+        // Executa cada function call com tratamento de erros individual
         const functionResponses: Part[] = [];
+        let hasAnySuccess = false;
 
         for (const fc of functionCalls) {
-          console.log(`[Gemini] Executing function: ${fc.name}`);
-          console.log(`[Gemini] Arguments:`, JSON.stringify(fc.args));
+          logger.debug(`Executing function: ${fc.name}`);
+          logger.debug(`Arguments: ${JSON.stringify(fc.args)}`);
 
-          const toolResult = await executeToolCall(fc.name, fc.args, context);
+          try {
+            // Executa com timeout para evitar travamentos
+            const toolResult = await withTimeout(
+              executeToolCall(fc.name, fc.args, context),
+              GEMINI_CONFIG.TOOL_CALL_TIMEOUT,
+              `Tool ${fc.name} timeout after ${GEMINI_CONFIG.TOOL_CALL_TIMEOUT}ms`
+            );
 
-          functionResponses.push({
-            functionResponse: {
-              name: fc.name,
-              response: toolResult,
-            },
-          });
+            functionResponses.push({
+              functionResponse: {
+                name: fc.name,
+                response: toolResult,
+              },
+            });
+            hasAnySuccess = true;
+            logger.debug(`Function ${fc.name} executed successfully`);
+          } catch (error: any) {
+            // Tratamento de erro gracioso - envia erro ao modelo para resposta adequada
+            logger.warn(`Function ${fc.name} failed: ${error.message}`);
+
+            // Monta resposta de erro informativa para o modelo
+            const errorResponse = {
+              error: true,
+              errorType: error.message?.includes('timeout') ? 'TIMEOUT' : 'EXECUTION_ERROR',
+              message: this.getGracefulErrorMessage(fc.name, error),
+              suggestion: this.getErrorSuggestion(fc.name),
+            };
+
+            functionResponses.push({
+              functionResponse: {
+                name: fc.name,
+                response: errorResponse,
+              },
+            });
+          }
         }
 
-        // Envia resultados das funções e obtém resposta final
-        console.log("[Gemini] Sending function results back to model...");
-        result = await chat.sendMessage(functionResponses);
-        response = result.response;
+        // Envia resultados das funções (incluindo erros) e obtém resposta final
+        logger.debug("Sending function results back to model...");
+
+        try {
+          result = await withTimeout(
+            chat.sendMessage(functionResponses),
+            GEMINI_CONFIG.TOOL_CALL_TIMEOUT * 2, // Mais tempo para processar múltiplos resultados
+            "Model response timeout after function calls"
+          );
+          response = result.response;
+        } catch (chatError: any) {
+          logger.error(`Failed to get response after function calls: ${chatError.message}`);
+          // Se falhar ao enviar resultados, tenta gerar resposta sem as tools
+          if (hasAnySuccess) {
+            throw chatError; // Re-throw se alguma tool teve sucesso
+          }
+          // Se nenhuma tool funcionou, deixa seguir para retornar erro genérico
+        }
       }
 
       const finalContent = response.text();
@@ -290,31 +393,33 @@ class GeminiService {
         throw new Error("No content in Gemini response");
       }
 
-      // Log de uso de tokens
+      // Log de uso de tokens (apenas em debug)
       const usageMetadata = response.usageMetadata;
       if (usageMetadata) {
-        console.log(`[Gemini] Tokens used - Input: ${usageMetadata.promptTokenCount}, Output: ${usageMetadata.candidatesTokenCount}`);
+        logger.debug(`Tokens used - Input: ${usageMetadata.promptTokenCount}, Output: ${usageMetadata.candidatesTokenCount}`);
 
-        // Gemini 1.5 Flash pricing (aproximado):
+        // Gemini 2.0 Flash pricing (aproximado):
         // - Input: $0.075 / 1M tokens
         // - Output: $0.30 / 1M tokens
         const inputCost = ((usageMetadata.promptTokenCount || 0) / 1_000_000) * 0.075;
         const outputCost = ((usageMetadata.candidatesTokenCount || 0) / 1_000_000) * 0.3;
         const totalCost = inputCost + outputCost;
-        console.log(`[Gemini] Estimated cost: $${totalCost.toFixed(6)}`);
+        logger.debug(`Estimated cost: $${totalCost.toFixed(6)}`);
       }
 
       return finalContent;
     } catch (error: any) {
-      console.error("[Gemini] Error generating response:", error);
+      logger.error("Error generating response:", error.message);
 
-      // Tratamento de erros específicos
+      // Tratamento de erros específicos com mensagens amigáveis
       if (error.message?.includes("API_KEY")) {
         throw new Error("Invalid or missing Gemini API key.");
       } else if (error.status === 429 || error.message?.includes("quota")) {
         throw new Error("Gemini API rate limit exceeded. Please try again later.");
       } else if (error.message?.includes("SAFETY")) {
         throw new Error("Content blocked by Gemini safety filters.");
+      } else if (error.message?.includes("timeout")) {
+        throw new Error("Request timeout. The service is temporarily slow.");
       }
 
       throw new Error(`Failed to generate Gemini response: ${error.message}`);
@@ -322,117 +427,202 @@ class GeminiService {
   }
 
   /**
-   * Transcreve áudio usando Gemini
-   * Gemini pode processar áudio diretamente e entender o conteúdo
+   * Retorna mensagem de erro amigável para o modelo baseado na função que falhou
    */
-  async transcribeAudio(audioInput: string, mimeType: string = "audio/ogg"): Promise<string> {
-    try {
-      console.log("[Gemini] Starting audio transcription");
+  private getGracefulErrorMessage(functionName: string, error: any): string {
+    const errorMessages: Record<string, string> = {
+      get_available_slots: "Não foi possível consultar a agenda no momento. O sistema de agendamentos está temporariamente indisponível.",
+      get_product_info: "Não foi possível buscar informações do produto/serviço no momento.",
+      create_appointment: "Não foi possível criar o agendamento no momento. Por favor, tente novamente.",
+      calculate_quote: "Não foi possível calcular o orçamento no momento.",
+      get_company_policy: "Não foi possível buscar as informações da empresa no momento.",
+    };
 
-      let audioBase64: string;
-
-      // Detecta se é URL ou base64
-      if (audioInput.startsWith("http://") || audioInput.startsWith("https://")) {
-        console.log("[Gemini] Downloading audio from URL...");
-        const response = await axios.get(audioInput, {
-          responseType: "arraybuffer",
-          timeout: 30000,
-        });
-        audioBase64 = Buffer.from(response.data).toString("base64");
-        console.log(`[Gemini] Audio downloaded: ${(response.data.byteLength / 1024).toFixed(2)} KB`);
-      } else {
-        // Remove prefixo data:audio/... se presente
-        audioBase64 = audioInput.replace(/^data:audio\/[^;]+;base64,/, "");
-      }
-
-      // Usa Gemini para transcrever o áudio
-      const generativeModel = this.client.getGenerativeModel({
-        model: this.model,
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: 2048,
-        },
-      });
-
-      const result = await generativeModel.generateContent([
-        {
-          text: "Transcreva o áudio a seguir para texto em português brasileiro. Retorne APENAS a transcrição, sem comentários ou explicações adicionais. Se não conseguir entender alguma parte, indique com [inaudível].",
-        },
-        {
-          inlineData: {
-            mimeType: mimeType,
-            data: audioBase64,
-          },
-        },
-      ]);
-
-      const transcription = result.response.text().trim();
-
-      if (!transcription || transcription.length < 3) {
-        throw new Error("Audio transcription resulted in empty or invalid text");
-      }
-
-      console.log(`[Gemini] Audio transcription completed: "${transcription.substring(0, 100)}..."`);
-      return transcription;
-    } catch (error: any) {
-      console.error("[Gemini] Error transcribing audio:", error);
-      throw new Error(`Failed to transcribe audio: ${error.message}`);
-    }
+    return errorMessages[functionName] || `A função ${functionName} está temporariamente indisponível.`;
   }
 
   /**
-   * Analisa uma imagem e retorna descrição
+   * Retorna sugestão de ação para o modelo baseado na função que falhou
+   */
+  private getErrorSuggestion(functionName: string): string {
+    const suggestions: Record<string, string> = {
+      get_available_slots: "Informe ao cliente que pode tentar novamente em alguns minutos ou entrar em contato por outro canal.",
+      get_product_info: "Use as informações de produtos/serviços disponíveis no contexto do sistema.",
+      create_appointment: "Peça ao cliente para confirmar os dados novamente e tente criar o agendamento.",
+      calculate_quote: "Informe o preço base do serviço e mencione que o valor final pode variar.",
+      get_company_policy: "Use as informações disponíveis no contexto do sistema sobre políticas da empresa.",
+    };
+
+    return suggestions[functionName] || "Informe ao cliente que houve um problema técnico temporário.";
+  }
+
+  /**
+   * Transcreve áudio usando Gemini com retry automático
+   * Gemini pode processar áudio diretamente e entender o conteúdo
+   */
+  async transcribeAudio(audioInput: string, mimeType: string = "audio/ogg"): Promise<string> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= GEMINI_CONFIG.MAX_RETRIES; attempt++) {
+      try {
+        logger.debug(`Starting audio transcription (attempt ${attempt}/${GEMINI_CONFIG.MAX_RETRIES})`);
+
+        let audioBase64: string;
+
+        // Detecta se é URL ou base64
+        if (audioInput.startsWith("http://") || audioInput.startsWith("https://")) {
+          logger.debug("Downloading audio from URL...");
+          const response = await axios.get(audioInput, {
+            responseType: "arraybuffer",
+            timeout: GEMINI_CONFIG.MEDIA_DOWNLOAD_TIMEOUT,
+          });
+          audioBase64 = Buffer.from(response.data).toString("base64");
+          logger.debug(`Audio downloaded: ${(response.data.byteLength / 1024).toFixed(2)} KB`);
+        } else {
+          // Remove prefixo data:audio/... se presente
+          audioBase64 = audioInput.replace(/^data:audio\/[^;]+;base64,/, "");
+        }
+
+        // Usa Gemini para transcrever o áudio
+        const generativeModel = this.client.getGenerativeModel({
+          model: this.model,
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 2048,
+          },
+        });
+
+        const result = await generativeModel.generateContent([
+          {
+            text: "Transcreva o áudio a seguir para texto em português brasileiro. Retorne APENAS a transcrição, sem comentários ou explicações adicionais. Se não conseguir entender alguma parte, indique com [inaudível].",
+          },
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: audioBase64,
+            },
+          },
+        ]);
+
+        const transcription = result.response.text().trim();
+
+        if (!transcription || transcription.length < 3) {
+          throw new Error("Audio transcription resulted in empty or invalid text");
+        }
+
+        logger.info(`Audio transcription completed (${transcription.length} chars)`);
+        return transcription;
+      } catch (error: any) {
+        lastError = error;
+        logger.warn(`Transcription attempt ${attempt} failed: ${error.message}`);
+
+        // Se não for o último retry e for erro recuperável, aguarda antes de tentar novamente
+        if (attempt < GEMINI_CONFIG.MAX_RETRIES && this.isRetryableError(error)) {
+          const delay = GEMINI_CONFIG.RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          logger.debug(`Waiting ${delay}ms before retry...`);
+          await sleep(delay);
+        }
+      }
+    }
+
+    logger.error("All transcription attempts failed");
+    throw new Error(`Failed to transcribe audio: ${lastError?.message}`);
+  }
+
+  /**
+   * Analisa uma imagem e retorna descrição com retry automático
    */
   async analyzeImage(imageInput: string, mimeType: string = "image/jpeg", prompt?: string): Promise<string> {
-    try {
-      console.log("[Gemini] Analyzing image...");
+    let lastError: Error | null = null;
 
-      let imageBase64: string;
+    for (let attempt = 1; attempt <= GEMINI_CONFIG.MAX_RETRIES; attempt++) {
+      try {
+        logger.debug(`Analyzing image (attempt ${attempt}/${GEMINI_CONFIG.MAX_RETRIES})`);
 
-      // Detecta se é URL ou base64
-      if (imageInput.startsWith("http://") || imageInput.startsWith("https://")) {
-        console.log("[Gemini] Downloading image from URL...");
-        const response = await axios.get(imageInput, {
-          responseType: "arraybuffer",
-          timeout: 30000,
-        });
-        imageBase64 = Buffer.from(response.data).toString("base64");
-        console.log(`[Gemini] Image downloaded: ${(response.data.byteLength / 1024).toFixed(2)} KB`);
-      } else {
-        // Remove prefixo data:image/... se presente
-        imageBase64 = imageInput.replace(/^data:image\/[^;]+;base64,/, "");
-      }
+        let imageBase64: string;
 
-      const generativeModel = this.client.getGenerativeModel({
-        model: this.model,
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 1024,
-        },
-      });
+        // Detecta se é URL ou base64
+        if (imageInput.startsWith("http://") || imageInput.startsWith("https://")) {
+          logger.debug("Downloading image from URL...");
+          const response = await axios.get(imageInput, {
+            responseType: "arraybuffer",
+            timeout: GEMINI_CONFIG.MEDIA_DOWNLOAD_TIMEOUT,
+          });
+          imageBase64 = Buffer.from(response.data).toString("base64");
+          logger.debug(`Image downloaded: ${(response.data.byteLength / 1024).toFixed(2)} KB`);
+        } else {
+          // Remove prefixo data:image/... se presente
+          imageBase64 = imageInput.replace(/^data:image\/[^;]+;base64,/, "");
+        }
 
-      const analysisPrompt =
-        prompt ||
-        "Descreva detalhadamente o que você vê nesta imagem. Se for um produto, equipamento ou algo relacionado a um serviço, mencione características relevantes como marca, modelo, estado de conservação, possíveis problemas visíveis, etc.";
-
-      const result = await generativeModel.generateContent([
-        { text: analysisPrompt },
-        {
-          inlineData: {
-            mimeType: mimeType,
-            data: imageBase64,
+        const generativeModel = this.client.getGenerativeModel({
+          model: this.model,
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1024,
           },
-        },
-      ]);
+        });
 
-      const analysis = result.response.text().trim();
-      console.log(`[Gemini] Image analysis completed: "${analysis.substring(0, 100)}..."`);
+        const analysisPrompt =
+          prompt ||
+          "Descreva detalhadamente o que você vê nesta imagem. Se for um produto, equipamento ou algo relacionado a um serviço, mencione características relevantes como marca, modelo, estado de conservação, possíveis problemas visíveis, etc.";
 
-      return analysis;
-    } catch (error: any) {
-      console.error("[Gemini] Error analyzing image:", error);
-      throw new Error(`Failed to analyze image: ${error.message}`);
+        const result = await generativeModel.generateContent([
+          { text: analysisPrompt },
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: imageBase64,
+            },
+          },
+        ]);
+
+        const analysis = result.response.text().trim();
+        logger.info(`Image analysis completed (${analysis.length} chars)`);
+
+        return analysis;
+      } catch (error: any) {
+        lastError = error;
+        logger.warn(`Image analysis attempt ${attempt} failed: ${error.message}`);
+
+        if (attempt < GEMINI_CONFIG.MAX_RETRIES && this.isRetryableError(error)) {
+          const delay = GEMINI_CONFIG.RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          logger.debug(`Waiting ${delay}ms before retry...`);
+          await sleep(delay);
+        }
+      }
     }
+
+    logger.error("All image analysis attempts failed");
+    throw new Error(`Failed to analyze image: ${lastError?.message}`);
+  }
+
+  /**
+   * Verifica se um erro é recuperável (pode ser retentado)
+   */
+  private isRetryableError(error: any): boolean {
+    // Erros de rede/timeout são recuperáveis
+    if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
+      return true;
+    }
+
+    // Rate limit é recuperável (com backoff)
+    if (error.status === 429 || error.message?.includes('quota') || error.message?.includes('rate')) {
+      return true;
+    }
+
+    // Erros 5xx do servidor são recuperáveis
+    if (error.status >= 500 && error.status < 600) {
+      return true;
+    }
+
+    // Timeout explícito é recuperável
+    if (error.message?.includes('timeout')) {
+      return true;
+    }
+
+    // Erros de API key, segurança, etc. NÃO são recuperáveis
+    return false;
   }
 
   /**
@@ -449,9 +639,10 @@ class GeminiService {
     try {
       const model = this.client.getGenerativeModel({ model: this.model });
       await model.generateContent("test");
+      logger.info("Connection test successful");
       return true;
-    } catch (error) {
-      console.error("[Gemini] Connection test failed:", error);
+    } catch (error: any) {
+      logger.error("Connection test failed:", error.message);
       return false;
     }
   }

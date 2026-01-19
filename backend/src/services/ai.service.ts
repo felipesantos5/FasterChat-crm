@@ -501,8 +501,29 @@ Total: R$ 505,00"
         throw new Error("Auto-reply is disabled for this company");
       }
 
-      // Preparação dos dados do contexto
-      const companyInfo = aiKnowledge?.companyInfo || "Empresa de atendimento.";
+      // Preparação dos dados do contexto - incluindo nome, segmento e descrição
+      const companyName = aiKnowledge?.companyName || customer.company?.name || "Empresa";
+      const companySegment = aiKnowledge?.companySegment || "";
+      const companyDescription = aiKnowledge?.companyDescription || "";
+      const companyInfoLegacy = aiKnowledge?.companyInfo || "";
+
+      // Monta informações completas da empresa
+      let companyInfo = "";
+      if (companyName) {
+        companyInfo += `**Nome da Empresa:** ${companyName}\n`;
+      }
+      if (companySegment) {
+        companyInfo += `**Segmento de Atuação:** ${companySegment}\n`;
+      }
+      if (companyDescription) {
+        companyInfo += `**Descrição:** ${companyDescription}\n`;
+      }
+      if (companyInfoLegacy) {
+        companyInfo += `**Informações Gerais:** ${companyInfoLegacy}\n`;
+      }
+      if (!companyInfo.trim()) {
+        companyInfo = "Empresa de atendimento.";
+      }
 
       // Busca dados completos de precificação (serviços, zonas, combos, adicionais, exceções)
       const completePricingData = await serviceService.getCompletePricingForAI(customer.companyId);
