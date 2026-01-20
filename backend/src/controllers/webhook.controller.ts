@@ -10,6 +10,7 @@ import { EvolutionWebhookPayload } from "../types/message";
 import whatsappService from "../services/whatsapp.service";
 import { linkConversionService } from "../services/link-conversion.service";
 import { AIProvider } from "../types/ai-provider";
+import websocketService from "../services/websocket.service";
 
 class WebhookController {
   /**
@@ -155,10 +156,20 @@ class WebhookController {
 
                 await messageService.sendMessage(result.customer.id, cleanMessage, "AI");
                 await conversationService.toggleAI(result.customer.id, false);
-                
+
                 await prisma.conversation.update({
                   where: { customerId: result.customer.id },
                   data: { needsHelp: true },
+                });
+
+                // 🔔 Emite eventos via WebSocket para atualizar o frontend em tempo real
+                // 1. Para o indicador de "pensando..."
+                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
+
+                // 2. Atualiza o estado da conversa (switch de IA e needsHelp)
+                websocketService.emitConversationUpdate(result.customer.companyId, result.customer.id, {
+                  aiEnabled: false,
+                  needsHelp: true,
                 });
               } else {
                 // Resposta normal da IA

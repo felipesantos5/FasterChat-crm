@@ -7,6 +7,7 @@ import { essentialTools } from "./ai-tools";
 import { aiAppointmentService } from "./ai-appointment.service";
 import { serviceService } from "./service.service";
 import ragService from "./rag.service";
+import feedbackLearningService from "./feedback-learning.service";
 
 /**
  * ============================================
@@ -608,6 +609,22 @@ Total: R$ 505,00"
         // Continua sem RAG em caso de erro
       }
 
+      // ============================================
+      // FEEDBACK LEARNING: Aprende com feedbacks dos atendentes
+      // ============================================
+      let feedbackContext = "";
+      try {
+        const feedbackData = await feedbackLearningService.getFeedbackContext(customer.companyId, 10);
+
+        if (feedbackData.badExamples.length > 0 || feedbackData.goodExamples.length > 0) {
+          console.log(`[AIService] Feedback Learning: ${feedbackData.totalGood} positivos, ${feedbackData.totalBad} negativos`);
+          feedbackContext = feedbackLearningService.formatFeedbackForPrompt(feedbackData);
+        }
+      } catch (feedbackError: any) {
+        console.warn("[AIService] Feedback learning failed (continuing without):", feedbackError.message);
+        // Continua sem feedback learning em caso de erro
+      }
+
       // Formata horário de funcionamento (prioriza campos estruturados)
       let workingHours: string | null = null;
       const businessHoursStart = (aiKnowledge as any)?.businessHoursStart;
@@ -663,6 +680,7 @@ Total: R$ 505,00"
         formattedAdvancedPricing, // Zonas, combos, adicionais, exceções
         formattedFAQ, // FAQ para respostas precisas
         ragContext, // Conhecimento adicional recuperado via RAG
+        feedbackContext, // Aprendizado com feedbacks dos atendentes
         policies,
         examplesText,
         negativeExamples,
@@ -768,6 +786,7 @@ Total: R$ 505,00"
       formattedAdvancedPricing,
       formattedFAQ,
       ragContext,
+      feedbackContext,
       policies,
       serviceArea,
       workingHours,
@@ -1029,6 +1048,9 @@ Resposta: "[TRANSBORDO]Peço desculpas pelo transtorno. Vou encaminhar você ime
    - Ou simplesmente finalize sem perguntar nada se a resposta já foi completa.
 `.trim();
 
+    // Seção de Feedback Learning (Aprendizado com feedbacks dos atendentes)
+    const feedbackSection = feedbackContext || "";
+
     return [
       securityAndIdentity,
       businessContext,
@@ -1037,6 +1059,7 @@ Resposta: "[TRANSBORDO]Peço desculpas pelo transtorno. Vou encaminhar você ime
       advancedPricingSection,
       faqSection,
       ragSection,
+      feedbackSection, // Aprendizado com feedbacks
       objectiveSection,
       constraintsSection,
       contextSection,

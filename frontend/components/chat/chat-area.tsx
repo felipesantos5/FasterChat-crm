@@ -99,6 +99,13 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
       if (update.customerId === customerId) {
         console.log("🔄 Atualização de conversa WebSocket recebida:", update);
         setConversation((prev) => (prev ? { ...prev, ...update } : null));
+
+        // Se a IA foi desativada (transbordo), limpa os indicadores
+        if (update.aiEnabled === false) {
+          console.log("🚨 IA desativada via WebSocket - limpando indicadores");
+          setIsTyping(false);
+          setAiProcessing(false);
+        }
       }
     },
     [customerId]
@@ -797,8 +804,8 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                       </div>
                     ) : null}
 
-                    {/* Texto (apenas se não for áudio) */}
-                    {message.mediaType !== "audio" && message.content && !message.content.startsWith("[Imagem]") && (
+                    {/* Texto (apenas se não for áudio e não for imagem - imagens já mostram legenda no próprio bloco) */}
+                    {message.mediaType !== "audio" && message.mediaType !== "image" && message.content && (
                       <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
                     )}
                   </div>
