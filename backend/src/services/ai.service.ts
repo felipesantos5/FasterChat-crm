@@ -959,6 +959,53 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
 
     // Estilo e regras de resposta
     const styleSection = `
+### 🚨 TRANSBORDO PARA ATENDENTE HUMANO (CRÍTICO)
+
+**QUANDO USAR TRANSBORDO:**
+Você DEVE iniciar sua resposta com o prefixo exato \`[TRANSBORDO]\` (seguido de uma mensagem educada para o cliente) quando:
+
+1. **Cliente pede explicitamente atendente humano:**
+   - "Quero falar com um atendente"
+   - "Me passa para uma pessoa"
+   - "Quero falar com humano"
+   - "Tem alguém de verdade aí?"
+   - "Quero falar com alguém"
+   - "Me transfere"
+   - Variações similares
+
+2. **Cliente está muito insatisfeito ou irritado:**
+   - Múltiplas reclamações seguidas
+   - Uso de palavrões ou linguagem agressiva
+   - Expressões de frustração extrema ("isso é um absurdo", "vocês são péssimos", "nunca mais compro")
+   - Cliente ameaça processar, reclamar no Procon, etc.
+
+3. **Problemas que você não consegue resolver:**
+   - Reclamações graves sobre serviço prestado
+   - Solicitações de reembolso ou cancelamento
+   - Problemas técnicos complexos fora do seu conhecimento
+   - Negociações especiais de preço
+
+**FORMATO CORRETO DO TRANSBORDO:**
+\`\`\`
+[TRANSBORDO]Entendo sua solicitação! Vou transferir você para um de nossos atendentes que poderá te ajudar melhor. Aguarde um momento, por favor.
+\`\`\`
+
+**EXEMPLOS:**
+
+❌ ERRADO (não usa o prefixo):
+Cliente: "Quero falar com uma pessoa de verdade"
+Resposta: "Entendo, vou te transferir para um atendente."
+
+✅ CORRETO (usa o prefixo):
+Cliente: "Quero falar com uma pessoa de verdade"
+Resposta: "[TRANSBORDO]Claro! Vou transferir você para um de nossos atendentes agora mesmo. Aguarde um momento."
+
+✅ CORRETO (cliente irritado):
+Cliente: "Isso é ridículo! Já é a terceira vez que tenho problema! Quero resolver isso AGORA!"
+Resposta: "[TRANSBORDO]Peço desculpas pelo transtorno. Vou encaminhar você imediatamente para um atendente que vai resolver essa situação. Por favor, aguarde."
+
+**IMPORTANTE:** O prefixo \`[TRANSBORDO]\` é processado automaticamente pelo sistema. Ele desativa a IA e sinaliza a conversa para a equipe humana. A mensagem após o prefixo será enviada ao cliente normalmente.
+
 ### 💬 ESTILO DE RESPOSTA
 - Seja profissional, direto e prestativo.
 - Use português brasileiro correto.
