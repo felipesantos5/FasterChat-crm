@@ -55,6 +55,10 @@ RUN npx prisma generate
 # Copia o código compilado do builder
 COPY --from=builder /usr/src/app/dist ./dist
 
+# Copia o script de entrypoint
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
 # Define variáveis de ambiente
 ENV NODE_ENV=production
 
@@ -65,5 +69,5 @@ EXPOSE 3051
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3051/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))" || exit 1
 
-# Gera o client, aplica as migrações e inicia o servidor
-CMD npx prisma generate && npx prisma migrate deploy && npm run start
+# Usa o script de entrypoint que resolve migrações falhadas automaticamente
+CMD ["./docker-entrypoint.sh"]
