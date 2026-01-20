@@ -750,84 +750,84 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                   </div>
                 )}
                 <div className={cn("flex", isInbound ? "justify-start" : "justify-end")}>
-                <div
-                  className={cn(
-                    "max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 shadow-sm",
-                    isInbound
-                      ? "bg-white dark:bg-gray-800 text-foreground rounded-tl-none"
-                      : isAi
-                        ? "bg-[#DCF8C6] dark:bg-green-900/40 text-gray-900 dark:text-white rounded-tr-none"
-                        : "bg-[#446b26] dark:bg-green-900/20 text-white dark:text-white rounded-tr-none"
-                  )}
-                >
-                  {!isInbound && (
-                    <div className="flex items-center gap-1 mb-1">
-                      {isAi ? (
-                        <Badge variant="secondary" className="text-xs h-4">
-                          <Bot className="h-3 w-3 mr-1" />
-                          IA
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs h-4 bg-white">
-                          <UserIcon className="h-3 w-3 mr-1" />
-                          Você
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex flex-col gap-2">
-                    {/* Imagem */}
-                    {message.mediaType === "image" && message.mediaUrl && (
-                      <div className="space-y-2">
-                        <img
-                          src={message.mediaUrl}
-                          alt="Imagem enviada"
-                          className="max-w-full max-h-[400px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-md"
-                          onClick={() => message.mediaUrl && window.open(message.mediaUrl, "_blank")}
-                        />
-                        {message.content && !message.content.startsWith("[Imagem") && (
-                          <MessageText
-                            content={message.content}
-                            className={cn("text-xs italic", isInbound ? "text-muted-foreground" : "text-white/80")}
-                          />
+                  <div
+                    className={cn(
+                      "max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 shadow-sm",
+                      isInbound
+                        ? "bg-white dark:bg-gray-800 text-foreground rounded-tl-none"
+                        : isAi
+                          ? "bg-[#DCF8C6] dark:bg-green-900/40 text-gray-900 dark:text-white rounded-tr-none"
+                          : "bg-[#446b26] dark:bg-green-900/20 text-white dark:text-white rounded-tr-none"
+                    )}
+                  >
+                    {!isInbound && (
+                      <div className="flex items-center gap-1 mb-1">
+                        {isAi ? (
+                          <Badge variant="secondary" className="text-xs h-4">
+                            <Bot className="h-3 w-3 mr-1" />
+                            IA
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs h-4 bg-white">
+                            <UserIcon className="h-3 w-3 mr-1" />
+                            Você
+                          </Badge>
                         )}
                       </div>
                     )}
+                    <div className="flex flex-col gap-2">
+                      {/* Imagem */}
+                      {message.mediaType === "image" && message.mediaUrl && (
+                        <div className="space-y-2">
+                          <img
+                            src={message.mediaUrl}
+                            alt="Imagem enviada"
+                            className="max-w-full max-h-[400px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-md"
+                            onClick={() => message.mediaUrl && window.open(message.mediaUrl, "_blank")}
+                          />
+                          {message.content && !message.content.startsWith("[Imagem") && (
+                            <MessageText
+                              content={message.content}
+                              className={cn("text-xs italic", isInbound ? "text-muted-foreground" : "text-white/80")}
+                            />
+                          )}
+                        </div>
+                      )}
 
-                    {/* Áudio com Player Customizado */}
-                    {message.mediaType === "audio" && message.mediaUrl ? (
-                      <AudioPlayer audioUrl={message.mediaUrl} transcription={message.content} isInbound={isInbound} />
-                    ) : message.mediaType === "audio" && !message.mediaUrl ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-secondary/50 rounded-md">
-                        <span className="text-xs">🎤 Áudio indisponível para reprodução</span>
-                        {message.content && <p className="text-xs italic">"{message.content}"</p>}
-                      </div>
-                    ) : null}
+                      {/* Áudio com Player Customizado */}
+                      {message.mediaType === "audio" && message.mediaUrl ? (
+                        <AudioPlayer audioUrl={message.mediaUrl} transcription={message.content} isInbound={isInbound} />
+                      ) : message.mediaType === "audio" && !message.mediaUrl ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-secondary/50 rounded-md">
+                          <span className="text-xs">🎤 Áudio indisponível para reprodução</span>
+                          {message.content && <p className="text-xs italic">"{message.content}"</p>}
+                        </div>
+                      ) : null}
 
-                    {/* Texto (apenas se não for áudio e não for imagem - imagens já mostram legenda no próprio bloco) */}
-                    {message.mediaType !== "audio" && message.mediaType !== "image" && message.content && (
-                      <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between gap-2 mt-1">
-                    <div className="flex items-center gap-1">
-                      <p className={cn("text-xs", isInbound ? "text-muted-foreground" : "text-gray-600 dark:text-gray-300")}>{formatMessageTime(message.timestamp)}</p>
-                      {/* Checkmarks para mensagens enviadas */}
-                      {!isInbound && (
-                        <CheckCheck className={cn("h-3 w-3", isInbound ? "text-muted-foreground" : "text-blue-500 dark:text-blue-400")} />
+                      {/* Texto (apenas se não for áudio e não for imagem - imagens já mostram legenda no próprio bloco) */}
+                      {message.mediaType !== "audio" && message.mediaType !== "image" && message.content && (
+                        <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
                       )}
                     </div>
-                    {/* Mostra feedback apenas para mensagens da IA */}
-                    {!isInbound && isAi && (
-                      <MessageFeedbackComponent
-                        messageId={message.id}
-                        currentFeedback={message.feedback}
-                        currentNote={message.feedbackNote}
-                        onFeedbackSubmit={handleFeedbackSubmit}
-                      />
-                    )}
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <div className="flex items-center gap-1">
+                        <p className={cn("text-xs", isInbound ? "text-muted-foreground" : "text-gray-600 dark:text-gray-300", !isAi && "text-white")}>{formatMessageTime(message.timestamp)}</p>
+                        {/* Checkmarks para mensagens enviadas */}
+                        {!isInbound && (
+                          <CheckCheck className={cn("h-3 w-3", isInbound ? "text-muted-foreground" : "text-blue-500 dark:text-blue-400")} />
+                        )}
+                      </div>
+                      {/* Mostra feedback apenas para mensagens da IA */}
+                      {!isInbound && isAi && (
+                        <MessageFeedbackComponent
+                          messageId={message.id}
+                          currentFeedback={message.feedback}
+                          currentNote={message.feedbackNote}
+                          onFeedbackSubmit={handleFeedbackSubmit}
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
                 </div>
               </div>
             );
