@@ -338,6 +338,7 @@ class OpenAIService {
         output: "$0.60 / 1M tokens",
         whisper: "$0.006 / minute",
         vision: "GPT-4o pricing applies",
+        embedding: "$0.02 / 1M tokens",
       },
       features: [
         "Rápido e econômico",
@@ -346,8 +347,105 @@ class OpenAIService {
         "Boa qualidade para conversas simples",
         "Transcrição de áudio com Whisper API",
         "Análise de imagens com GPT-4o Vision",
+        "Embeddings com text-embedding-3-small",
       ],
     };
+  }
+
+  /**
+   * Gera embedding de texto usando o modelo text-embedding-3-small da OpenAI
+   * Retorna um vetor de 1536 dimensões para uso com pgvector
+   *
+   * @param text - Texto para gerar embedding
+   * @returns Array de números representando o embedding
+   */
+  async generateEmbedding(text: string): Promise<number[]> {
+    if (!text || text.trim().length === 0) {
+      throw new Error("Text cannot be empty for embedding generation");
+    }
+
+    try {
+      console.log("[OpenAI] Generating embedding...");
+
+      const response = await this.client.embeddings.create({
+        model: "text-embedding-3-small",
+        input: text,
+        dimensions: 1536, // Fixa em 1536 dimensões para compatibilidade
+      });
+
+      const embedding = response.data[0].embedding;
+
+      if (!embedding || embedding.length === 0) {
+        throw new Error("Empty embedding returned from OpenAI");
+      }
+
+      console.log(`[OpenAI] Embedding generated: ${embedding.length} dimensions`);
+
+      // Log de custo aproximado (text-embedding-3-small: ~$0.02/1M tokens)
+      if (response.usage) {
+        const cost = (response.usage.total_tokens / 1_000_000) * 0.02;
+        console.log(`[OpenAI] Embedding cost: $${cost.toFixed(6)} (${response.usage.total_tokens} tokens)`);
+      }
+
+      return embedding;
+    } catch (error: any) {
+      console.error("[OpenAI] Error generating embedding:", error);
+
+      if (error.code === "insufficient_quota") {
+        throw new Error("OpenAI API quota exceeded. Please check your billing.");
+      } else if (error.code === "invalid_api_key") {
+        throw new Error("Invalid OpenAI API key.");
+      } else if (error.status === 429) {
+        throw new Error("OpenAI API rate limit exceeded. Please try again later.");
+      }
+
+      throw new Error(`Failed to generate embedding: ${error.message}`);
+    }
+  }
+
+  /**
+   * Gera embeddings para múltiplos textos em uma única chamada (batch)
+   * Mais eficiente que chamar generateEmbedding múltiplas vezes
+   *
+   * @param texts - Array de textos para gerar embeddings
+   * @returns Array de embeddings
+   */
+  async generateEmbeddings(texts: string[]): Promise<number[][]> {
+    if (!texts || texts.length === 0) {
+      return [];
+    }
+
+    try {
+      console.log(`[OpenAI] Generating embeddings for ${texts.length} texts (batch)...`);
+
+      // OpenAI suporta batch de até 2048 textos por chamada
+      const BATCH_SIZE = 100;
+      const results: number[][] = [];
+
+      for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+        const batch = texts.slice(i, i + BATCH_SIZE);
+
+        const response = await this.client.embeddings.create({
+          model: "text-embedding-3-small",
+          input: batch,
+          dimensions: 1536,
+        });
+
+        // Ordena por índice para garantir a ordem correta
+        const sortedData = response.data.sort((a, b) => a.index - b.index);
+        const batchEmbeddings = sortedData.map(item => item.embedding);
+        results.push(...batchEmbeddings);
+
+        // Log de progresso
+        console.log(`[OpenAI] Processed ${Math.min(i + BATCH_SIZE, texts.length)}/${texts.length} texts`);
+      }
+
+      console.log(`[OpenAI] Generated ${results.length} embeddings successfully`);
+      return results;
+    } catch (error: any) {
+      console.error("[OpenAI] Error generating batch embeddings:", error);
+      throw new Error(`Failed to generate batch embeddings: ${error.message}`);
+    }
   }
 }
 

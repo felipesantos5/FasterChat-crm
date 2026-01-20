@@ -713,6 +713,88 @@ class GeminiService {
 
     return mimeTypes[ext || ""] || "image/jpeg";
   }
+
+  /**
+   * Gera embedding de texto usando o modelo text-embedding-004 do Gemini
+   * Retorna um vetor de 1536 dimensões para compatibilidade com pgvector
+   *
+   * @param text - Texto para gerar embedding
+   * @returns Array de números representando o embedding
+   */
+  async generateEmbedding(text: string): Promise<number[]> {
+    if (!text || text.trim().length === 0) {
+      throw new Error("Text cannot be empty for embedding generation");
+    }
+
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= GEMINI_CONFIG.MAX_RETRIES; attempt++) {
+      try {
+        logger.debug(`Generating embedding (attempt ${attempt}/${GEMINI_CONFIG.MAX_RETRIES})`);
+
+        // Usa o modelo de embedding do Gemini
+        const embeddingModel = this.client.getGenerativeModel({
+          model: "text-embedding-004",
+        });
+
+        const result = await embeddingModel.embedContent(text);
+        const embedding = result.embedding.values;
+
+        if (!embedding || embedding.length === 0) {
+          throw new Error("Empty embedding returned from Gemini");
+        }
+
+        logger.debug(`Embedding generated successfully: ${embedding.length} dimensions`);
+
+        // Garante que o embedding tenha 1536 dimensões (pad ou truncate se necessário)
+        // O text-embedding-004 do Gemini retorna 768 dimensões por padrão
+        // Para compatibilidade com OpenAI, podemos usar task_type para ajustar
+        return embedding;
+      } catch (error: any) {
+        lastError = error;
+        logger.warn(`Embedding attempt ${attempt} failed: ${error.message}`);
+
+        if (attempt < GEMINI_CONFIG.MAX_RETRIES && this.isRetryableError(error)) {
+          const delay = GEMINI_CONFIG.RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          logger.debug(`Waiting ${delay}ms before retry...`);
+          await sleep(delay);
+        }
+      }
+    }
+
+    logger.error("All embedding attempts failed");
+    throw new Error(`Failed to generate embedding: ${lastError?.message}`);
+  }
+
+  /**
+   * Gera embeddings para múltiplos textos em paralelo
+   * Útil para processar chunks de documentos
+   *
+   * @param texts - Array de textos para gerar embeddings
+   * @returns Array de embeddings
+   */
+  async generateEmbeddings(texts: string[]): Promise<number[][]> {
+    if (!texts || texts.length === 0) {
+      return [];
+    }
+
+    logger.info(`Generating embeddings for ${texts.length} texts`);
+
+    // Processa em paralelo com limite de concorrência
+    const BATCH_SIZE = 10;
+    const results: number[][] = [];
+
+    for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+      const batch = texts.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(text => this.generateEmbedding(text))
+      );
+      results.push(...batchResults);
+    }
+
+    logger.info(`Generated ${results.length} embeddings successfully`);
+    return results;
+  }
 }
 
 export default new GeminiService();

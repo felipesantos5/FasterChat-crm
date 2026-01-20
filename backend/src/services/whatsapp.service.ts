@@ -119,8 +119,34 @@ class WhatsAppService {
 
       return whatsappInstance;
     } catch (error: any) {
-      console.error("Error creating WhatsApp instance:", error.response?.data || error.message);
-      throw new Error(`Failed to create WhatsApp instance: ${error.response?.data?.message || error.message}`);
+      // Log detalhado para debug
+      console.error("Error creating WhatsApp instance:");
+      console.error("  - Error code:", error.code); // ECONNREFUSED, ETIMEDOUT, etc.
+      console.error("  - Error message:", error.message);
+      console.error("  - API URL:", this.apiUrl);
+      console.error("  - Response status:", error.response?.status);
+      console.error("  - Response data:", JSON.stringify(error.response?.data, null, 2));
+
+      // Mensagens de erro mais específicas
+      let errorMessage = "Erro desconhecido";
+
+      if (error.code === "ECONNREFUSED") {
+        errorMessage = `Evolution API não está acessível em ${this.apiUrl}. Verifique se a Evolution API está rodando.`;
+      } else if (error.code === "ETIMEDOUT" || error.code === "ENOTFOUND") {
+        errorMessage = `Não foi possível conectar à Evolution API em ${this.apiUrl}. Verifique a URL e a conexão de rede.`;
+      } else if (error.response?.status === 401 || error.response?.status === 403) {
+        errorMessage = "API Key da Evolution inválida ou sem permissão.";
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = typeof error.response.data.error === "string"
+          ? error.response.data.error
+          : JSON.stringify(error.response.data.error);
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      throw new Error(`Failed to create WhatsApp instance: ${errorMessage}`);
     }
   }
 

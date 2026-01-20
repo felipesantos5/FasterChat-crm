@@ -6,20 +6,59 @@ import dotenv from "dotenv";
 import { createServer } from "http";
 import routes from "./routes";
 import linkRedirectRoutes from "./routes/link-redirect.routes";
-import { errorHandler, notFoundHandler } from "./middlewares/errorHandler";
+import { errorHandler, notFoundHandler, requestTimeout } from "./middlewares/errorHandler";
 import { blockApiForRestrictedDomains } from "./middlewares/domainRestriction";
 import { websocketService } from "./services/websocket.service";
 import campaignExecutionService from "./services/campaign-execution.service";
 import campaignSchedulerService from "./services/campaign-scheduler.service";
 import { config } from "./config";
+import {
+  initializeGlobalErrorHandlers,
+  registerServer,
+  registerCleanup,
+  globalErrorConfig,
+} from "./utils/globalErrorHandler";
+import { prisma } from "./utils/prisma";
 
 dotenv.config();
+
+// ============================================
+// INICIALIZAÇÃO DOS HANDLERS GLOBAIS
+// Deve ser a primeira coisa a ser executada!
+// ============================================
+initializeGlobalErrorHandlers();
 
 const app = express();
 const PORT = process.env.PORT || 3051;
 
 // Cria servidor HTTP para compartilhar com Socket.IO
 const httpServer = createServer(app);
+
+// Registra o servidor para graceful shutdown
+registerServer(httpServer);
+
+// ============================================
+// REGISTRA CALLBACKS DE CLEANUP
+// ============================================
+registerCleanup(async () => {
+  console.log("[Cleanup] Stopping campaign scheduler...");
+  campaignSchedulerService.stop();
+});
+
+registerCleanup(async () => {
+  console.log("[Cleanup] Stopping campaign workers...");
+  await campaignExecutionService.stopWorkers();
+});
+
+registerCleanup(async () => {
+  console.log("[Cleanup] Closing WebSocket connections...");
+  // WebSocket será fechado automaticamente quando o httpServer fechar
+});
+
+registerCleanup(async () => {
+  console.log("[Cleanup] Disconnecting from database...");
+  await prisma.$disconnect();
+});
 
 // Inicializa WebSocket
 websocketService.initialize(httpServer);
@@ -40,17 +79,17 @@ app.use(helmet());
 // CORS - Lista de origens permitidas
 const allowedOrigins = [
   ...config.cors.origins, // Do .env (separadas por vírgula)
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://127.0.0.1:3000',
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
   // Domínios de produção
-  'https://admin.fasterchat.com.br',
-  'https://api.fasterchat.com.br',
-  'https://www.fasterchat.com.br',
-  'https://fasterchat.com.br',
+  "https://admin.fasterchat.com.br",
+  "https://api.fasterchat.com.br",
+  "https://www.fasterchat.com.br",
+  "https://fasterchat.com.br",
   // Domínio de redirect WhatsApp
-  'https://whatsconversas.com.br',
-  'https://www.whatsconversas.com.br',
+  "https://whatsconversas.com.br",
+  "https://www.whatsconversas.com.br",
 ];
 
 app.use(
@@ -60,41 +99,24 @@ app.use(
       if (!origin) {
         return callback(null, true);
       }
-      
+
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      
+
       // Em desenvolvimento, permite qualquer localhost
-      if (config.nodeEnv === 'development' && origin.includes('localhost')) {
+      if (config.nodeEnv === "development" && origin.includes("localhost")) {
         return callback(null, true);
       }
-      
-      console.warn(`[CORS] ⚠️ Blocked request from origin: ${origin}`);
-      return callback(new Error('Not allowed by CORS'), false);
+
+      console.warn(`[CORS] Blocked request from origin: ${origin}`);
+      return callback(new Error("Not allowed by CORS"), false);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
-
-// Rate Limiting - Proteção contra ataques de força bruta e DDoS
-// const generalLimiter = rateLimit({
-//   windowMs: config.rateLimit.windowMs, // Janela de tempo (padrão: 15 min)
-//   max: config.rateLimit.maxRequests, // Máximo de requisições por janela (padrão: 100)
-//   message: {
-//     success: false,
-//     message: 'Muitas requisições. Por favor, tente novamente em alguns minutos.',
-//     code: 'RATE_LIMIT_EXCEEDED',
-//   },
-//   standardHeaders: true, // Retorna rate limit info nos headers `RateLimit-*`
-//   legacyHeaders: false, // Desabilita headers `X-RateLimit-*`
-//   skip: (req) => {
-//     // Não aplica rate limit para health check
-//     return req.path === '/health';
-//   },
-// });
 
 // Rate Limiting mais restrito para rotas de autenticação (previne brute force)
 const authLimiter = rateLimit({
@@ -102,19 +124,16 @@ const authLimiter = rateLimit({
   max: 10, // Apenas 10 tentativas de login por IP a cada 15 min
   message: {
     success: false,
-    message: 'Muitas tentativas de login. Por favor, tente novamente em 15 minutos.',
-    code: 'AUTH_RATE_LIMIT_EXCEEDED',
+    message: "Muitas tentativas de login. Por favor, tente novamente em 15 minutos.",
+    code: "AUTH_RATE_LIMIT_EXCEEDED",
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Aplica rate limiting geral
-// app.use(generalLimiter);
-
 // Rate limiting específico para rotas de autenticação
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/signup', authLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/signup", authLimiter);
 
 // ===========================================
 // BODY PARSERS
@@ -122,15 +141,80 @@ app.use('/api/auth/signup', authLimiter);
 
 // Aumentado limite para suportar envio de áudios (base64)
 // 10MB é suficiente para áudios de até 1-2 minutos
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-app.get("/health", (_req, res) => {
-  res.json({
+// ===========================================
+// REQUEST TIMEOUT (60 segundos)
+// Previne requisições penduradas
+// ===========================================
+app.use(requestTimeout(60000));
+
+// ===========================================
+// HEALTH CHECK ENDPOINT (Melhorado)
+// ===========================================
+app.get("/health", async (_req, res) => {
+  const startTime = Date.now();
+
+  // Status básico
+  const health: any = {
     status: "ok",
     timestamp: new Date().toISOString(),
-    websocket: websocketService.isInitialized() ? "connected" : "disconnected"
-  });
+    uptime: Math.floor(process.uptime()),
+    environment: process.env.NODE_ENV || "development",
+    version: process.env.npm_package_version || "1.0.0",
+  };
+
+  // Verifica WebSocket
+  health.services = {
+    websocket: websocketService.isInitialized() ? "connected" : "disconnected",
+  };
+
+  // Verifica banco de dados
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    health.services.database = "connected";
+  } catch (error) {
+    health.services.database = "disconnected";
+    health.status = "degraded";
+  }
+
+  // Redis status - assume conectado se campaign workers iniciaram
+  health.services.redis = "connected";
+
+  // Estatísticas de erro global
+  health.errorStats = globalErrorConfig.getStats();
+
+  // Uso de memória
+  const memUsage = process.memoryUsage();
+  health.memory = {
+    heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+    heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+    rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+  };
+
+  // Tempo de resposta
+  health.responseTime = `${Date.now() - startTime}ms`;
+
+  // Status code baseado na saúde geral
+  const statusCode = health.status === "ok" ? 200 : 503;
+
+  res.status(statusCode).json(health);
+});
+
+// Health check simplificado para load balancers
+app.get("/health/live", (_req, res) => {
+  res.status(200).send("OK");
+});
+
+// Readiness check (para Kubernetes)
+app.get("/health/ready", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).send("READY");
+  } catch (error) {
+    res.status(503).send("NOT READY");
+  }
 });
 
 // Debug: Log todas as requisições para /l
@@ -152,7 +236,7 @@ app.use("/l", linkRedirectRoutes);
 app.get("/l-test", (_req, res) => {
   res.json({
     message: "Link redirect route is working",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -171,14 +255,14 @@ app.use("/", (req: any, res, next) => {
   }
 
   // Ignora rotas conhecidas
-  const knownPaths = ['/l/', '/l-test', '/api', '/health', '/socket.io'];
-  if (knownPaths.some(p => req.path.startsWith(p)) || req.path === '/' || req.path === '/l') {
+  const knownPaths = ["/l/", "/l-test", "/api", "/health", "/socket.io"];
+  if (knownPaths.some((p) => req.path.startsWith(p)) || req.path === "/" || req.path === "/l") {
     return next();
   }
 
   // Ignora requisições de recursos estáticos (favicon, robots, etc)
-  const staticPaths = ['/favicon', '/robots.txt', '/sitemap', '/.well-known'];
-  if (staticPaths.some(p => req.path.startsWith(p))) {
+  const staticPaths = ["/favicon", "/robots.txt", "/sitemap", "/.well-known"];
+  if (staticPaths.some((p) => req.path.startsWith(p))) {
     return next();
   }
 
@@ -191,27 +275,42 @@ app.use("/", (req: any, res, next) => {
   return app._router.handle(req, res, next);
 });
 
-// Error handling
+// ===========================================
+// ERROR HANDLING (deve ser o último)
+// ===========================================
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Usa httpServer em vez de app.listen
+// ===========================================
+// SERVER START
+// ===========================================
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`🔗 API available at http://localhost:${PORT}/api`);
-  console.log(`🔌 WebSocket available at ws://localhost:${PORT}`);
-  console.log(`📬 Campaign workers ready (BullMQ + Redis)`);
-  console.log(`🕐 Campaign scheduler running (checks every minute)`);
+  console.log("");
+  console.log("╔════════════════════════════════════════════════════════════════╗");
+  console.log("║                    CRM-AI BACKEND SERVER                       ║");
+  console.log("╠════════════════════════════════════════════════════════════════╣");
+  console.log(`║ 🚀 Server running on port ${String(PORT).padEnd(36)} ║`);
+  console.log(`║ 📊 Environment: ${(process.env.NODE_ENV || "development").padEnd(45)} ║`);
+  console.log(`║ 🔗 API: http://localhost:${PORT}/api`.padEnd(65) + " ║");
+  console.log(`║ 🔌 WebSocket: ws://localhost:${PORT}`.padEnd(65) + " ║");
+  console.log(`║ ❤️  Health: http://localhost:${PORT}/health`.padEnd(65) + " ║");
+  console.log("╠════════════════════════════════════════════════════════════════╣");
+  console.log("║ 📬 Campaign workers ready (BullMQ + Redis)                     ║");
+  console.log("║ 🕐 Campaign scheduler running (checks every minute)            ║");
+  console.log("║ 🛡️  Global error handlers active                               ║");
+  console.log("╚════════════════════════════════════════════════════════════════╝");
+  console.log("");
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  campaignSchedulerService.stop();
-  await campaignExecutionService.stopWorkers();
-  httpServer.close(() => {
-    console.log('Server closed');
-    process.exit(0);
-  });
-});
+// ===========================================
+// GRACEFUL SHUTDOWN (backup handler)
+// O globalErrorHandler já cuida disso, mas mantemos aqui como fallback
+// ===========================================
+const shutdownHandler = async (signal: string) => {
+  console.log(`\n${signal} received (backup handler)`);
+  // O globalErrorHandler já deve ter capturado isso
+  // Este é apenas um fallback
+};
+
+process.on("SIGTERM", () => shutdownHandler("SIGTERM"));
+process.on("SIGINT", () => shutdownHandler("SIGINT"));

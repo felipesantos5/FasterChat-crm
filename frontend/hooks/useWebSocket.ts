@@ -9,7 +9,7 @@ const getWebSocketUrl = (): string => {
   }
 
   // Fallback: deriva da API_URL
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3051';
 
   // Remove /api do final se existir
   const baseUrl = apiUrl.replace(/\/api\/?$/, '');

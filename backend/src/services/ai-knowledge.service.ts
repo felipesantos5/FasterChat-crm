@@ -2,6 +2,7 @@ import { prisma } from '../utils/prisma';
 import { UpdateAIKnowledgeRequest, Product } from '../types/ai-knowledge';
 import geminiService from './ai-providers/gemini.service';
 import { getObjectivePrompt, getObjectivePresetsForUI } from '../config/ai-objectives';
+import ragService from './rag.service';
 
 // ============================================
 // COMPORTAMENTO PADRÃO: PROFISSIONAL & SEGURO
@@ -167,6 +168,27 @@ class AIKnowledgeService {
         );
       }
 
+      // ============================================
+      // RAG: Sincroniza embeddings quando dados relevantes são atualizados
+      // ============================================
+      const shouldUpdateEmbeddings =
+        data.companyDescription !== undefined ||
+        data.productsServices !== undefined ||
+        data.policies !== undefined ||
+        data.faq !== undefined;
+
+      if (shouldUpdateEmbeddings) {
+        // Executa em background para não travar a resposta da API
+        this.syncEmbeddings(companyId, {
+          companyDescription: data.companyDescription,
+          productsServices: data.productsServices,
+          policies: data.policies,
+          faq: data.faq as Array<{ question: string; answer: string }> | undefined,
+        }).catch(err =>
+          console.error('[AI Knowledge] Background embedding sync failed:', err)
+        );
+      }
+
       // O Prisma já retorna campos Json como objetos/arrays, não precisa parsear
       const result = {
         ...knowledge,
@@ -278,6 +300,135 @@ class AIKnowledgeService {
    */
   getObjectivePresets() {
     return getObjectivePresetsForUI();
+  }
+
+  /**
+   * Sincroniza os embeddings do RAG quando dados relevantes são atualizados
+   * Processa apenas os campos que foram atualizados
+   *
+   * @param companyId - ID da empresa
+   * @param data - Dados atualizados
+   */
+  async syncEmbeddings(
+    companyId: string,
+    data: {
+      companyDescription?: string | null;
+      productsServices?: string | null;
+      policies?: string | null;
+      faq?: Array<{ question: string; answer: string }> | null;
+    }
+  ): Promise<void> {
+    try {
+      console.log(`[AI Knowledge] Starting RAG embedding sync for company ${companyId}`);
+
+      // Processa cada campo que foi fornecido
+      const tasks: Promise<any>[] = [];
+
+      if (data.companyDescription !== undefined) {
+        if (data.companyDescription && data.companyDescription.length > 20) {
+          tasks.push(
+            ragService.processAndStore(companyId, data.companyDescription, {
+              source: 'company_description',
+              type: 'company_description',
+            })
+          );
+        } else {
+          // Remove embeddings antigos se o campo foi limpo
+          tasks.push(ragService.clearBySource(companyId, 'company_description'));
+        }
+      }
+
+      if (data.productsServices !== undefined) {
+        if (data.productsServices && data.productsServices.length > 20) {
+          tasks.push(
+            ragService.processAndStore(companyId, data.productsServices, {
+              source: 'products_services',
+              type: 'products_services',
+            })
+          );
+        } else {
+          tasks.push(ragService.clearBySource(companyId, 'products_services'));
+        }
+      }
+
+      if (data.policies !== undefined) {
+        if (data.policies && data.policies.length > 20) {
+          tasks.push(
+            ragService.processAndStore(companyId, data.policies, {
+              source: 'policies',
+              type: 'policies',
+            })
+          );
+        } else {
+          tasks.push(ragService.clearBySource(companyId, 'policies'));
+        }
+      }
+
+      if (data.faq !== undefined) {
+        if (data.faq && data.faq.length > 0) {
+          const faqText = data.faq
+            .map(item => `Pergunta: ${item.question}\nResposta: ${item.answer}`)
+            .join('\n\n');
+
+          tasks.push(
+            ragService.processAndStore(companyId, faqText, {
+              source: 'faq',
+              type: 'faq',
+            })
+          );
+        } else {
+          tasks.push(ragService.clearBySource(companyId, 'faq'));
+        }
+      }
+
+      // Executa todas as tarefas em paralelo
+      await Promise.all(tasks);
+
+      // Log das estatísticas
+      const stats = await ragService.getStats(companyId);
+      console.log(`[AI Knowledge] RAG sync completed. Total vectors: ${stats.totalVectors}`);
+      console.log(`[AI Knowledge] Vectors by type:`, stats.byType);
+    } catch (error: any) {
+      console.error('[AI Knowledge] Error syncing RAG embeddings:', error);
+      // Não propaga o erro para não quebrar o fluxo principal
+    }
+  }
+
+  /**
+   * Reprocessa todos os embeddings de uma empresa
+   * Útil para migração ou correção de dados
+   *
+   * @param companyId - ID da empresa
+   */
+  async reprocessAllEmbeddings(companyId: string): Promise<{ totalChunks: number }> {
+    try {
+      console.log(`[AI Knowledge] Reprocessing all embeddings for company ${companyId}`);
+
+      // Busca os dados atuais
+      const knowledge = await this.getKnowledge(companyId);
+
+      if (!knowledge) {
+        console.log(`[AI Knowledge] No knowledge found for company ${companyId}`);
+        return { totalChunks: 0 };
+      }
+
+      // Limpa todos os embeddings existentes
+      await ragService.clearCompanyVectors(companyId);
+
+      // Reprocessa tudo
+      const result = await ragService.processKnowledge(companyId, {
+        companyDescription: knowledge.companyDescription,
+        productsServices: knowledge.productsServices,
+        policies: knowledge.policies,
+        faq: knowledge.faq as Array<{ question: string; answer: string }>,
+      });
+
+      console.log(`[AI Knowledge] Reprocessed ${result.totalChunks} chunks`);
+      return result;
+    } catch (error: any) {
+      console.error('[AI Knowledge] Error reprocessing embeddings:', error);
+      throw new Error(`Failed to reprocess embeddings: ${error.message}`);
+    }
   }
 
   /**

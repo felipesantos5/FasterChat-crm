@@ -806,3 +806,21 @@ model ServiceZoneException {
   @@map("service_zone_exceptions")
 }
 
+// ============================================
+// RAG - Knowledge Vector Store
+// Armazena embeddings para busca semântica
+// ============================================
+
+model KnowledgeVector {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  content   String   @db.Text // Conteúdo original do chunk
+  metadata  Json?    @default("{}") // Metadados (fonte, tipo, etc)
+  embedding Unsupported("vector(1536)") // Embedding de 1536 dimensões (OpenAI/Gemini)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@map("knowledge_vectors")
+}
+

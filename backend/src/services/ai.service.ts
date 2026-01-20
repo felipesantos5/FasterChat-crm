@@ -6,6 +6,7 @@ import { AIProvider } from "../types/ai-provider";
 import { essentialTools } from "./ai-tools";
 import { aiAppointmentService } from "./ai-appointment.service";
 import { serviceService } from "./service.service";
+import ragService from "./rag.service";
 
 /**
  * ============================================
@@ -368,6 +369,44 @@ Total: R$ 505,00"
   }
 
   /**
+   * Formata os resultados do RAG para inclusão no prompt
+   * Prioriza conteúdo mais relevante e evita duplicação
+   */
+  private formatRAGResults(results: Array<{ content: string; metadata: any; similarity: number }>): string {
+    if (!results || results.length === 0) return "";
+
+    let formatted = "### 📚 CONHECIMENTO ADICIONAL RECUPERADO\n";
+    formatted += "**IMPORTANTE:** Use estas informações para complementar sua resposta quando relevante:\n\n";
+
+    results.forEach((result, index) => {
+      const typeLabel = this.getRAGTypeLabel(result.metadata?.type);
+      const similarityPercent = Math.round(result.similarity * 100);
+
+      formatted += `**[${index + 1}] ${typeLabel}** (${similarityPercent}% relevância)\n`;
+      formatted += `${result.content}\n\n`;
+    });
+
+    formatted += "---\n";
+    formatted += "Use as informações acima APENAS se forem relevantes para a pergunta do cliente.\n";
+
+    return formatted;
+  }
+
+  /**
+   * Retorna um label amigável para o tipo de conteúdo do RAG
+   */
+  private getRAGTypeLabel(type: string | undefined): string {
+    const labels: Record<string, string> = {
+      company_description: "Sobre a Empresa",
+      products_services: "Produtos/Serviços",
+      faq: "FAQ",
+      policies: "Políticas",
+      custom: "Informação Adicional",
+    };
+    return labels[type || "custom"] || "Informação";
+  }
+
+  /**
    * Formata a lista de produtos do JSON para texto legível pela IA
    * IMPORTANTE: Prioriza JSON estruturado e só usa texto como FALLBACK
    */
@@ -549,6 +588,26 @@ Total: R$ 505,00"
       // FAQ formatado para o contexto
       const formattedFAQ = this.formatFAQForPrompt(aiKnowledge?.faq);
 
+      // ============================================
+      // RAG: Busca conhecimento relevante via embeddings
+      // ============================================
+      let ragContext = "";
+      try {
+        const ragResults = await ragService.searchSimilarContent(
+          customer.companyId,
+          message, // Usa a mensagem atual como query
+          5 // Limite de resultados
+        );
+
+        if (ragResults.length > 0) {
+          console.log(`[AIService] RAG found ${ragResults.length} relevant chunks`);
+          ragContext = this.formatRAGResults(ragResults);
+        }
+      } catch (ragError: any) {
+        console.warn("[AIService] RAG search failed (continuing without):", ragError.message);
+        // Continua sem RAG em caso de erro
+      }
+
       // Formata horário de funcionamento (prioriza campos estruturados)
       let workingHours: string | null = null;
       const businessHoursStart = (aiKnowledge as any)?.businessHoursStart;
@@ -603,6 +662,7 @@ Total: R$ 505,00"
         formattedServices, // Serviços com variáveis de preço
         formattedAdvancedPricing, // Zonas, combos, adicionais, exceções
         formattedFAQ, // FAQ para respostas precisas
+        ragContext, // Conhecimento adicional recuperado via RAG
         policies,
         examplesText,
         negativeExamples,
@@ -707,6 +767,7 @@ Total: R$ 505,00"
       formattedServices,
       formattedAdvancedPricing,
       formattedFAQ,
+      ragContext,
       policies,
       serviceArea,
       workingHours,
@@ -780,6 +841,9 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
 
     // Seção de FAQ (Perguntas Frequentes)
     const faqSection = formattedFAQ ? `\n${formattedFAQ}` : "";
+
+    // Seção de RAG (Conhecimento Adicional Recuperado)
+    const ragSection = ragContext ? `\n${ragContext}` : "";
 
     // Objetivo do Cliente (Se configurado)
     const objectiveSection = objective 
@@ -925,6 +989,7 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
       servicesSection,
       advancedPricingSection,
       faqSection,
+      ragSection,
       objectiveSection,
       constraintsSection,
       contextSection,

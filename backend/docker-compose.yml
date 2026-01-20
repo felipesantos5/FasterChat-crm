@@ -90,7 +90,7 @@ services:
       REDIS_HOST: redis 
       REDIS_PORT: 6379
       # Conexão interna com a Evolution API
-      EVOLUTION_API_URL: http://evolution-api:8080
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       # AI_PROVIDER: ${AI_PROVIDER:-gemini}
       

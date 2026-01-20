@@ -26,6 +26,7 @@ import {
   Filter,
 } from "lucide-react";
 import { TagBadge } from "@/components/ui/tag-badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ImportCustomersDialog } from "@/components/customers/import-customers-dialog";
@@ -270,6 +271,18 @@ function CustomersPageContent() {
                 onClick={() => router.push(`/dashboard/customers/${customer.id}`)}
               >
                 <div className="flex items-start justify-between gap-2 sm:gap-3">
+                  {/* Avatar do cliente */}
+                  <Avatar className="h-10 w-10 flex-shrink-0">
+                    <AvatarImage src={customer.profilePicUrl || undefined} alt={customer.name} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                      {customer.isGroup ? (
+                        <Users className="h-5 w-5" />
+                      ) : (
+                        customer.name.charAt(0).toUpperCase()
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+
                   <div className="flex-1 min-w-0">
                     {/* Nome e badge de grupo */}
                     <div className="flex items-center gap-2 mb-2">
