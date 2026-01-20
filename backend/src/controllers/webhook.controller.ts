@@ -10,7 +10,7 @@ import { EvolutionWebhookPayload } from "../types/message";
 import whatsappService from "../services/whatsapp.service";
 import { linkConversionService } from "../services/link-conversion.service";
 import { AIProvider } from "../types/ai-provider";
-import websocketService from "../services/websocket.service";
+import { websocketService } from "../services/websocket.service";
 
 class WebhookController {
   /**
