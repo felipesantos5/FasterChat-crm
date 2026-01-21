@@ -313,7 +313,6 @@ class MessageService {
     if (isOnlyNumbers) {
       // Se tem mais de 10 dígitos consecutivos, provavelmente é um ID, não um nome
       if (trimmedName.length > 10) {
-        console.warn(`[MessageService] ⚠️ pushName parece ser WABA ID (${trimmedName}), usando phone como nome`);
         return phone;
       }
     }
@@ -323,7 +322,6 @@ class MessageService {
     const cleanPhone = phone.replace(/\D/g, '');
 
     if (cleanPushName === cleanPhone) {
-      console.warn(`[MessageService] ⚠️ pushName é igual ao phone, usando phone como nome`);
       return phone;
     }
 
@@ -350,35 +348,24 @@ class MessageService {
       let isLid = false;
       let extractedFromParticipant = false;
 
-      console.log('[MessageService] 🔍 Processando JID:', remoteJid);
-
       // Verifica se é uma mensagem vinda de um ID de Business (@lid)
       if (remoteJid.includes("@lid")) {
         isLid = true;
-        console.log('[MessageService] 📱 Detectado LID (Business Account)');
 
         // Tenta extrair o número real do campo participant (comum na Evolution API para LIDs)
         // O participant geralmente contém o JID real do usuário (ex: 5511999999999@s.whatsapp.net)
         if (data.key?.participant && data.key.participant.includes("@s.whatsapp.net")) {
           realJid = data.key.participant;
           extractedFromParticipant = true;
-          console.log('[MessageService] ✅ Número real extraído do participant:', realJid);
-        } else {
-          console.warn('[MessageService] ⚠️ Participant não disponível ou inválido, usando LID:', {
-            participant: data.key?.participant,
-            remoteJid
-          });
         }
       }
 
       // Remove os domínios para ficar apenas o número/ID limpo
       const phone = realJid.replace("@s.whatsapp.net", "").replace("@lid", "");
-      console.log('[MessageService] 📞 Phone final extraído:', phone);
 
       // Validação
       const phoneValidation = this.isValidPhoneNumber(phone);
       if (!phoneValidation.valid) {
-        console.warn('[MessageService] ❌ Phone inválido:', phoneValidation.reason);
         return null;
       }
 
@@ -399,8 +386,6 @@ class MessageService {
       // 🚨 ANTI-DUPLICATA: Se não encontrou E estamos usando LID (sem participant)
       // Tenta encontrar um cliente que pode ter sido criado com um número real anteriormente
       if (!customer && isLid && !extractedFromParticipant) {
-        console.log('[MessageService] 🔍 LID sem participant - verificando duplicatas potenciais...');
-
         // Busca clientes recentes da empresa (últimas 100 criações)
         // para ver se algum pode ser o mesmo contato
         const recentCustomers = await prisma.customer.findMany({
@@ -414,7 +399,7 @@ class MessageService {
 
         // Verifica se algum cliente tem nome similar ao pushName ou phone similar
         if (data.pushName && data.pushName.trim() !== '') {
-          const similarCustomer = recentCustomers.find(c => {
+          recentCustomers.find(c => {
             // Se o pushName não é um ID numérico, compara nomes
             const isNumericPushName = /^\d+$/.test(data.pushName!.trim());
             if (!isNumericPushName && c.name === data.pushName) {
@@ -422,34 +407,12 @@ class MessageService {
             }
             return false;
           });
-
-          if (similarCustomer) {
-            console.log('[MessageService] ⚠️ Possível duplicata detectada:', {
-              existingCustomerId: similarCustomer.id,
-              existingName: similarCustomer.name,
-              existingPhone: similarCustomer.phone,
-              newLID: phone,
-              pushName: data.pushName,
-            });
-
-            // IMPORTANTE: Não cria duplicata, mas avisa no log
-            // Você pode decidir se quer usar o cliente existente ou criar novo
-            // Por ora, vamos continuar e criar um novo cliente com o LID
-            // para não quebrar o fluxo, mas logamos o aviso
-          }
         }
       }
 
       if (!customer) {
-        console.log('[MessageService] 👤 Cliente não encontrado, criando novo...');
-
         // 🔧 SANITIZA O NOME: Previne usar WABA IDs como nome
         const sanitizedName = this.sanitizePushName(data.pushName, phone);
-        console.log('[MessageService] 📝 Nome sanitizado:', {
-          pushName: data.pushName,
-          sanitizedName,
-          wasModified: data.pushName !== sanitizedName
-        });
 
         // Busca foto de perfil
         let profilePicUrl: string | null = null;
@@ -458,13 +421,8 @@ class MessageService {
             // Se extraímos o número real do participant, usa ele para buscar foto
             // Caso contrário, tenta com o phone (que pode ser LID)
             profilePicUrl = await whatsappService.getProfilePicture(instanceName, phone);
-            if (profilePicUrl) {
-              console.log('[MessageService] 📷 Foto de perfil obtida com sucesso');
-            } else {
-              console.log('[MessageService] 📷 Foto de perfil não disponível');
-            }
           } catch (picError: any) {
-            console.warn('[MessageService] ⚠️ Erro ao buscar foto de perfil:', picError.message);
+            // Silently ignore profile pic errors
           }
         }
 
@@ -488,18 +446,8 @@ class MessageService {
           },
         });
 
-        console.log('[MessageService] ✅ Cliente criado:', {
-          id: customer.id,
-          name: customer.name,
-          phone: customer.phone,
-          isLid,
-          extractedFromParticipant,
-        });
-
       } else {
-        console.log('[MessageService] 👤 Cliente encontrado:', customer.id);
-
-        // ... (Lógica de atualização existente mantida) ...
+        // Lógica de atualização existente
         const updates: any = {};
         if (customer.isGroup !== isGroup) updates.isGroup = isGroup;
 
@@ -508,10 +456,6 @@ class MessageService {
           const sanitizedName = this.sanitizePushName(data.pushName, phone);
           if (sanitizedName !== customer.phone && sanitizedName !== customer.name) {
             updates.name = sanitizedName;
-            console.log('[MessageService] 📝 Nome atualizado:', {
-              old: customer.name,
-              new: sanitizedName
-            });
           }
         }
 
@@ -521,10 +465,9 @@ class MessageService {
             const profilePicUrl = await whatsappService.getProfilePicture(instanceName, phone);
             if (profilePicUrl) {
               updates.profilePicUrl = profilePicUrl;
-              console.log('[MessageService] 📷 Foto de perfil adicionada ao cliente existente');
             }
           } catch (picError: any) {
-            console.warn('[MessageService] ⚠️ Erro ao buscar foto de perfil:', picError.message);
+            // Silently ignore profile pic errors
           }
         }
 
@@ -533,7 +476,6 @@ class MessageService {
             where: { id: customer.id },
             data: updates,
           });
-          console.log('[MessageService] 🔄 Cliente atualizado com:', updates);
         }
       }
 
@@ -545,18 +487,13 @@ class MessageService {
       let mediaUrl: string | null = null;
       const msgData = data.message;
 
-      console.log(`[MessageService] 📨 Processando mensagem de ${customer.name} (${phone})`);
-      console.log(`[MessageService] Tipo de mensagem disponíveis:`, Object.keys(msgData || {}));
-
       // 1. MENSAGEM DE TEXTO
       if (msgData?.conversation || msgData?.extendedTextMessage?.text) {
         content = msgData.conversation || msgData.extendedTextMessage.text;
-        console.log(`[MessageService] ✅ Mensagem de texto: ${content.substring(0, 50)}...`);
       }
       // 2. MENSAGEM DE ÁUDIO
       else if (msgData?.audioMessage) {
         mediaType = "audio";
-        console.log(`[MessageService] 🎤 Áudio recebido - tentando baixar e transcrever...`);
 
         try {
           // Baixa o áudio da Evolution API
@@ -567,34 +504,28 @@ class MessageService {
           const mimetype = msgData.audioMessage.mimetype || "audio/ogg";
           mediaUrl = `data:${mimetype};base64,${base64Audio}`;
 
-          console.log(`[MessageService] ✅ Áudio baixado: ${(base64Audio.length / 1024).toFixed(2)} KB`);
-
           // Provider é definido via .env (AI_PROVIDER), não usa mais o banco
           const aiProvider: AIProvider = (process.env.AI_PROVIDER as AIProvider) || "gemini";
 
           // Transcreve o áudio com o provedor configurado (Gemini é o padrão)
           try {
             if (aiProvider === "openai" && openaiService.isConfigured()) {
-              console.log(`[MessageService] 🤖 Usando OpenAI Whisper para transcrição de áudio`);
               content = await openaiService.transcribeAudio(base64Audio);
             } else {
-              console.log(`[MessageService] 🤖 Usando Gemini para transcrição de áudio`);
               content = await geminiService.transcribeAudio(base64Audio, mimetype);
             }
-            console.log(`[MessageService] ✅ Áudio transcrito: ${content.substring(0, 50)}...`);
           } catch (transcribeError: any) {
-            console.error(`[MessageService] ⚠️ Erro ao transcrever áudio:`, transcribeError.message);
+            console.error(`[MessageService] Erro ao transcrever áudio:`, transcribeError.message);
             content = "[Áudio recebido - transcrição indisponível]";
           }
         } catch (downloadError: any) {
-          console.error(`[MessageService] ❌ Erro ao baixar áudio:`, downloadError.message);
+          console.error(`[MessageService] Erro ao baixar áudio:`, downloadError.message);
           content = "[Áudio recebido - erro ao processar]";
         }
       }
       // 3. MENSAGEM DE IMAGEM
       else if (msgData?.imageMessage) {
         mediaType = "image";
-        console.log(`[MessageService] 🖼️ Imagem recebida - tentando baixar...`);
 
         try {
           // Baixa a imagem da Evolution API
@@ -607,48 +538,40 @@ class MessageService {
 
           // Usa a legenda se disponível
           content = msgData.imageMessage.caption || "Imagem recebida";
-
-          console.log(`[MessageService] ✅ Imagem baixada: ${(base64Image.length / 1024).toFixed(2)} KB`);
         } catch (downloadError: any) {
-          console.error(`[MessageService] ❌ Erro ao baixar imagem:`, downloadError.message);
+          console.error(`[MessageService] Erro ao baixar imagem:`, downloadError.message);
           content = "[Imagem recebida - erro ao processar]";
         }
       }
       // 4. MENSAGEM DE VÍDEO
       else if (msgData?.videoMessage) {
         mediaType = "video";
-        console.log(`[MessageService] 🎬 Vídeo recebido`);
         content = msgData.videoMessage.caption || "Vídeo recebido";
         // Vídeos são muito grandes para baixar, apenas registra a mensagem
       }
       // 5. MENSAGEM DE DOCUMENTO
       else if (msgData?.documentMessage) {
         mediaType = "document";
-        console.log(`[MessageService] 📄 Documento recebido`);
         content = msgData.documentMessage.fileName || "Documento recebido";
       }
       // 6. MENSAGEM DE STICKER
       else if (msgData?.stickerMessage) {
         mediaType = "sticker";
-        console.log(`[MessageService] 🎨 Sticker recebido`);
         content = "[Sticker]";
       }
       // 7. MENSAGEM DE LOCALIZAÇÃO
       else if (msgData?.locationMessage) {
         mediaType = "location";
-        console.log(`[MessageService] 📍 Localização recebida`);
         content = `Localização: ${msgData.locationMessage.degreesLatitude}, ${msgData.locationMessage.degreesLongitude}`;
       }
       // 8. MENSAGEM DE CONTATO
       else if (msgData?.contactMessage) {
         mediaType = "contact";
-        console.log(`[MessageService] 👤 Contato recebido`);
         content = msgData.contactMessage.displayName || "Contato recebido";
       }
 
       // Se não conseguiu extrair conteúdo, retorna null
       if (!content && !mediaUrl) {
-        console.log(`[MessageService] ⚠️ Mensagem sem conteúdo válido - ignorando`);
         return null;
       }
 
@@ -666,8 +589,6 @@ class MessageService {
         mediaType,
         mediaUrl,
       });
-
-      console.log(`[MessageService] ✅ Mensagem salva: ID ${message.id}, Tipo: ${mediaType}`);
 
       return { message, customer, instance };
 
@@ -785,7 +706,6 @@ class MessageService {
         // FALLBACK: Se não achar conectada, pega a primeira (vai dar erro mais claro no whatsappService)
         if (!whatsappInstance && customer.company.whatsappInstances.length > 0) {
           whatsappInstance = customer.company.whatsappInstances[0];
-          console.warn(`⚠️ Usando instância com status ${whatsappInstance.status} como fallback.`);
         }
       }
 
@@ -825,7 +745,6 @@ class MessageService {
 
       // 🔌 Emite evento WebSocket para mensagem da IA ou Humano
       if (websocketService.isInitialized()) {
-        console.log(`📤 Emitindo mensagem ${sentBy} via WebSocket para customer ${customer.id}`);
         websocketService.emitNewMessage(customer.companyId, {
           id: message.id,
           customerId: message.customerId,
@@ -963,8 +882,6 @@ class MessageService {
 
       // Emite evento WebSocket
       if (websocketService.isInitialized()) {
-        const mediaLabel = isAudio ? 'áudio' : 'imagem';
-        console.log(`📤 Emitindo ${mediaLabel} via WebSocket para customer ${customer.id}`);
         websocketService.emitNewMessage(customer.companyId, {
           id: message.id,
           customerId: message.customerId,

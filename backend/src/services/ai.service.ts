@@ -8,6 +8,7 @@ import { aiAppointmentService } from "./ai-appointment.service";
 import { serviceService } from "./service.service";
 import ragService from "./rag.service";
 import feedbackLearningService from "./feedback-learning.service";
+import conversationContextService from "./conversation-context.service";
 
 /**
  * ============================================
@@ -79,11 +80,9 @@ class AIService {
   private getProvider() {
     switch (AI_PROVIDER) {
       case "openai":
-        console.log("[AIService] Using OpenAI provider");
         return openaiService;
       case "gemini":
       default:
-        console.log("[AIService] Using Gemini provider");
         return geminiService;
     }
   }
@@ -477,7 +476,6 @@ Total: R$ 505,00"
       // Passo A: Verifica se há fluxo de agendamento ativo
       const hasActiveFlow = await aiAppointmentService.hasActiveAppointmentFlow(customerId);
       if (hasActiveFlow) {
-        console.log('[AIService] 🔀 Roteando para fluxo de agendamento ATIVO');
         const customer = await prisma.customer.findUnique({ where: { id: customerId } });
         if (!customer) throw new Error("Customer not found");
 
@@ -495,7 +493,6 @@ Total: R$ 505,00"
       // Passo B: Verifica se há intenção NOVA de agendamento
       const hasAppointmentIntent = aiAppointmentService.detectAppointmentIntent(message);
       if (hasAppointmentIntent) {
-        console.log('[AIService] 🔀 Roteando para NOVO fluxo de agendamento');
         const customer = await prisma.customer.findUnique({ where: { id: customerId } });
         if (!customer) throw new Error("Customer not found");
 
@@ -510,8 +507,7 @@ Total: R$ 505,00"
         }
       }
 
-      // Passo C: Fluxo normal (sem agendamento) - processa com OpenAI
-      console.log('[AIService] ✅ Processando com IA (sem dados do Google Calendar)');
+      // Passo C: Fluxo normal (sem agendamento) - processa com IA
 
       // Busca customer e dados da empresa
       const customer = await prisma.customer.findUnique({
@@ -601,7 +597,6 @@ Total: R$ 505,00"
         );
 
         if (ragResults.length > 0) {
-          console.log(`[AIService] RAG found ${ragResults.length} relevant chunks`);
           ragContext = this.formatRAGResults(ragResults);
         }
       } catch (ragError: any) {
@@ -617,12 +612,30 @@ Total: R$ 505,00"
         const feedbackData = await feedbackLearningService.getFeedbackContext(customer.companyId, 10);
 
         if (feedbackData.badExamples.length > 0 || feedbackData.goodExamples.length > 0) {
-          console.log(`[AIService] Feedback Learning: ${feedbackData.totalGood} positivos, ${feedbackData.totalBad} negativos`);
           feedbackContext = feedbackLearningService.formatFeedbackForPrompt(feedbackData);
         }
       } catch (feedbackError: any) {
         console.warn("[AIService] Feedback learning failed (continuing without):", feedbackError.message);
         // Continua sem feedback learning em caso de erro
+      }
+
+      // ============================================
+      // CONTEXTO DA CONVERSA: Detecta serviço de interesse
+      // ============================================
+      let conversationContext = "";
+      try {
+        const contextData = await conversationContextService.analyzeConversationContext(
+          customer.id,
+          customer.companyId,
+          message
+        );
+
+        if (contextData.detectedService) {
+          conversationContext = conversationContextService.formatContextForPrompt(contextData);
+        }
+      } catch (contextError: any) {
+        console.warn("[AIService] Conversation context failed (continuing without):", contextError.message);
+        // Continua sem contexto em caso de erro
       }
 
       // Formata horário de funcionamento (prioriza campos estruturados)
@@ -681,6 +694,7 @@ Total: R$ 505,00"
         formattedFAQ, // FAQ para respostas precisas
         ragContext, // Conhecimento adicional recuperado via RAG
         feedbackContext, // Aprendizado com feedbacks dos atendentes
+        conversationContext, // Contexto da conversa (serviço de interesse)
         policies,
         examplesText,
         negativeExamples,
@@ -787,6 +801,7 @@ Total: R$ 505,00"
       formattedFAQ,
       ragContext,
       feedbackContext,
+      conversationContext,
       policies,
       serviceArea,
       workingHours,
@@ -1051,6 +1066,9 @@ Resposta: "[TRANSBORDO]Peço desculpas pelo transtorno. Vou encaminhar você ime
     // Seção de Feedback Learning (Aprendizado com feedbacks dos atendentes)
     const feedbackSection = feedbackContext || "";
 
+    // Seção de Contexto da Conversa (Serviço de interesse detectado)
+    const conversationContextSection = conversationContext || "";
+
     return [
       securityAndIdentity,
       businessContext,
@@ -1060,6 +1078,7 @@ Resposta: "[TRANSBORDO]Peço desculpas pelo transtorno. Vou encaminhar você ime
       faqSection,
       ragSection,
       feedbackSection, // Aprendizado com feedbacks
+      conversationContextSection, // Contexto da conversa (serviço de interesse)
       objectiveSection,
       constraintsSection,
       contextSection,

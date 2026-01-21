@@ -30,10 +30,6 @@ class WebhookController {
 
       const payload: EvolutionWebhookPayload = req.body;
 
-      // Log do webhook recebido para debug (apenas eventos importantes)
-      if (payload.event !== "messages.update") {
-        console.log(`[Webhook] Event: ${payload.event}, Instance: ${payload.instance || "NOT PROVIDED"}`);
-      }
 
       // Verifica se é um evento de mensagem recebida
       if (payload.event === "messages.upsert") {
@@ -79,11 +75,10 @@ class WebhookController {
           console.error("[Webhook] Error processing link conversion:", conversionError);
         }
 
-        // ✅ AUTO-FIX: Se recebemos mensagem, estamos conectados.
+        // AUTO-FIX: Se recebemos mensagem, estamos conectados
         if (result.instance.status !== WhatsAppStatus.CONNECTED) {
           await whatsappService.updateConnectionStatus(result.instance.id, WhatsAppStatus.CONNECTED);
-          result.instance.status = WhatsAppStatus.CONNECTED; // Atualiza localmente
-          console.log(`✅ Status auto-corrected to CONNECTED for ${result.instance.instanceName}`);
+          result.instance.status = WhatsAppStatus.CONNECTED;
         }
 
         // Verifica se deve processar com IA
@@ -129,9 +124,8 @@ class WebhookController {
               // NÃO está em fluxo de agendamento, processa normalmente com a IA
               const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
 
-              // 🎯 COMANDO ESPECIAL: Agendamento
+              // COMANDO ESPECIAL: Agendamento
               if (aiResponse.startsWith("[INICIAR_AGENDAMENTO]")) {
-                console.log(`📅 IA detectou intenção de agendamento para ${result.customer.name}`);
                 const aiMessage = aiResponse.replace("[INICIAR_AGENDAMENTO]", "").trim();
 
                 if (aiMessage) {
@@ -151,7 +145,6 @@ class WebhookController {
               }
               // 🚨 COMANDO ESPECIAL: Transbordo
               else if (aiResponse.startsWith("[TRANSBORDO]")) {
-                console.log(`🚨 Transbordo solicitado para cliente ${result.customer.name}`);
                 const cleanMessage = aiResponse.replace("[TRANSBORDO]", "").trim();
 
                 await messageService.sendMessage(result.customer.id, cleanMessage, "AI");

@@ -4,6 +4,7 @@ import { AppointmentType } from '@prisma/client';
 import { formatInTimeZone } from 'date-fns-tz';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { conversationContextService } from './conversation-context.service';
 
 /**
  * Cria uma data no timezone do Brasil (America/Sao_Paulo)
@@ -14,25 +15,10 @@ import { ptBR } from 'date-fns/locale';
  * - O Google Calendar receberá a data no formato correto
  */
 function createBrazilDateTime(dateString: string, timeString: string): Date {
-  // São Paulo está em UTC-3 (Brasil não usa mais horário de verão desde 2019)
+  // São Paulo está em UTC-3
   const SAO_PAULO_OFFSET = '-03:00';
-
-  // Cria a data diretamente no formato ISO com o offset correto
-  // Exemplo: "2025-01-02T14:00:00-03:00"
   const isoString = `${dateString}T${timeString}:00${SAO_PAULO_OFFSET}`;
-
-  const date = new Date(isoString);
-
-  console.log('[AIAppointment] ============================================');
-  console.log('[AIAppointment] CRIANDO AGENDAMENTO - TIMEZONE BRASIL');
-  console.log('[AIAppointment] ============================================');
-  console.log('[AIAppointment] Input:', dateString, timeString);
-  console.log('[AIAppointment] ISO String criada:', isoString);
-  console.log('[AIAppointment] Date UTC (interno):', date.toISOString());
-  console.log('[AIAppointment] Hora em São Paulo:', timeString, '(o que o cliente pediu)');
-  console.log('[AIAppointment] ============================================');
-
-  return date;
+  return new Date(isoString);
 }
 
 /**
@@ -121,23 +107,12 @@ export class AIAppointmentService {
    * Retorna: { serviceType: INSTALLATION, date: "2025-01-03", time: "14:00", address: { street: "Rua das Flores", number: "123" } }
    */
   detectAllFromMessage(message: string): DetectedAppointmentData {
-    console.log('[AIAppointment] 🔍 Detectando todos os dados da mensagem:', message);
-
-    const result: DetectedAppointmentData = {
+    return {
       serviceType: this.detectServiceType(message),
       date: this.detectDate(message),
       time: this.detectTime(message),
       address: this.detectAddressFromMessage(message),
     };
-
-    console.log('[AIAppointment] 📊 Dados detectados:', {
-      serviceType: result.serviceType,
-      date: result.date,
-      time: result.time,
-      hasAddress: result.address !== null,
-    });
-
-    return result;
   }
 
   /**
@@ -150,8 +125,6 @@ export class AIAppointmentService {
    * - CEP: "12345-678"
    */
   detectAddressFromMessage(message: string): DetectedAppointmentData['address'] | null {
-    console.log('[AIAppointment] 🏠 Detectando endereço da mensagem:', message);
-
     const address: DetectedAppointmentData['address'] = {};
     let hasAnyData = false;
 
@@ -160,7 +133,6 @@ export class AIAppointmentService {
     if (cep) {
       address.cep = cep;
       hasAnyData = true;
-      console.log('[AIAppointment]   ✓ CEP detectado:', cep);
     }
 
     // Detecta complemento (apartamento, bloco)
@@ -168,20 +140,14 @@ export class AIAppointmentService {
     if (complement) {
       address.complement = complement;
       hasAnyData = true;
-      console.log('[AIAppointment]   ✓ Complemento detectado:', complement);
     }
 
     // PRIORIDADE: Detecta rua + número junto (formato mais comum)
     const streetWithNumberPatterns = [
-      // "Rua das Flores, 123" (com vírgula)
       /(?:rua|r\.?|avenida|av\.?|alameda|al\.?|travessa|tv\.?|praça|pç\.?)\s+([a-zà-ÿ\s]+?),\s*(\d{1,5})/i,
-      // "Rua das Flores 123" (sem vírgula, espaço direto)
       /(?:rua|r\.?|avenida|av\.?|alameda|al\.?|travessa|tv\.?|praça|pç\.?)\s+([a-zà-ÿ\s]+?)\s+(\d{1,5})(?:\s|,|$)/i,
-      // "na Rua X número 123" ou "na Rua X nº 123"
       /(?:na|em|no)\s+(?:rua|r\.?|avenida|av\.?|alameda)\s+([a-zà-ÿ\s]+?)[\s,]*(?:n[ºo°úu]mero|n[ºo°]?)\s*(\d{1,5})/i,
-      // Padrão genérico: qualquer texto seguido de vírgula e número
       /([a-zà-ÿ]{3,}(?:\s+[a-zà-ÿ]+)*),\s*(\d{1,5})(?:\s|,|$)/i,
-      // Padrão genérico: texto seguido de espaço e número no final
       /([a-zà-ÿ]{3,}(?:\s+[a-zà-ÿ]+)*)\s+(\d{1,5})$/i,
     ];
 
@@ -191,11 +157,7 @@ export class AIAppointmentService {
         const potentialStreet = match[1].trim();
         const number = match[2];
 
-        console.log('[AIAppointment]   🔍 Pattern match - Rua:', potentialStreet, '| Número:', number);
-
-        // Valida que não é só um número ou palavra muito curta
         if (potentialStreet.length > 3 && !potentialStreet.match(/^\d+$/)) {
-          // Ignora se for uma palavra comum que não é endereço
           const ignoreWords = ['quero', 'agendar', 'marcar', 'instalar', 'instalação', 'manutenção', 'às', 'dia', 'hora', 'amanhã', 'hoje'];
           const isIgnoredWord = ignoreWords.some(word => potentialStreet.toLowerCase().includes(word));
 
@@ -203,10 +165,7 @@ export class AIAppointmentService {
             address.street = potentialStreet;
             address.number = number;
             hasAnyData = true;
-            console.log('[AIAppointment]   ✅ Endereço detectado - Rua:', potentialStreet, '| Número:', number);
             break;
-          } else {
-            console.log('[AIAppointment]   ❌ Ignorado (palavra comum):', potentialStreet);
           }
         }
       }
@@ -218,14 +177,7 @@ export class AIAppointmentService {
       if (number) {
         address.number = number;
         hasAnyData = true;
-        console.log('[AIAppointment]   ✓ Número detectado (isolado):', number);
       }
-    }
-
-    if (hasAnyData) {
-      console.log('[AIAppointment]   📦 Resultado final:', address);
-    } else {
-      console.log('[AIAppointment]   ⚠️ Nenhum dado de endereço detectado');
     }
 
     return hasAnyData ? address : null;
@@ -318,23 +270,12 @@ export class AIAppointmentService {
     companyId: string,
     message: string
   ): Promise<{ response?: string }> {
-    console.log(`[AIAppointment] ============================================`);
-    console.log(`[AIAppointment] 🚀 INICIANDO FLUXO INTELIGENTE DE AGENDAMENTO`);
-    console.log(`[AIAppointment] Customer: ${customerId}`);
-    console.log(`[AIAppointment] Mensagem: "${message}"`);
-    console.log(`[AIAppointment] ============================================`);
-
-    // 🔥 VERIFICAÇÃO PROATIVA: Checa se Google Calendar está configurado
+    // Verificação se Google Calendar está configurado
     const { googleCalendarService } = await import('./google-calendar.service');
-    const isGoogleCalendarConfigured = await googleCalendarService.isConfigured(companyId);
+    await googleCalendarService.isConfigured(companyId);
 
-    if (!isGoogleCalendarConfigured) {
-      console.warn('[AIAppointment] ⚠️ Google Calendar não configurado - agendamento será apenas no sistema');
-    }
-
-    // 🆕 SEMPRE busca serviços disponíveis primeiro (prioridade)
+    // Busca serviços disponíveis
     const availableServices = await this.getAvailableServicesForCompany(companyId);
-    console.log(`[AIAppointment] 📋 Serviços disponíveis: ${availableServices.length}`);
 
     // 🆕 DETECÇÃO MÚLTIPLA: Extrai todos os dados possíveis de uma vez
     const detected = this.detectAllFromMessage(message);
@@ -355,21 +296,43 @@ export class AIAppointmentService {
       state.address = detected.address;
     }
 
-    // 🆕 PRIORIDADE: Tenta identificar serviço ESPECÍFICO da lista cadastrada
+    // Contexto inteligente: Analisa histórico da conversa para detectar serviço de interesse
+    let contextServiceId: string | null = null;
+    try {
+      const conversationContext = await conversationContextService.analyzeConversationContext(
+        customerId,
+        companyId,
+        message
+      );
+
+      if (conversationContext.detectedService && conversationContext.detectedService.confidence >= 0.3) {
+        contextServiceId = conversationContext.detectedService.serviceId;
+      }
+    } catch (contextError) {
+      // Silently continue without context
+    }
+
+    // Tenta identificar serviço específico da lista cadastrada
     let matchedService: AvailableService | null = null;
 
     if (availableServices.length > 0) {
+      // Primeiro tenta match direto na mensagem atual
       matchedService = this.matchServiceFromMessage(message, availableServices);
 
+      // Se não encontrou na mensagem, usa o contexto da conversa
+      if (!matchedService && contextServiceId) {
+        const contextMatch = availableServices.find(s => s.id === contextServiceId);
+        if (contextMatch) {
+          matchedService = contextMatch;
+        }
+      }
+
       if (matchedService) {
-        console.log(`[AIAppointment] ✅ Serviço identificado: ${matchedService.name}`);
         state.serviceId = matchedService.id;
         state.serviceName = matchedService.name;
         state.servicePrice = matchedService.price;
         state.duration = matchedService.duration;
-        state.serviceType = AppointmentType.OTHER; // Tipo genérico para serviços dinâmicos
-      } else {
-        console.log(`[AIAppointment] ⚠️ Serviço não identificado na lista. Mostrando opções.`);
+        state.serviceType = AppointmentType.OTHER;
       }
     }
 
@@ -400,17 +363,7 @@ export class AIAppointmentService {
       }
     }
 
-    console.log(`[AIAppointment] 📊 Estado inicial:`, {
-      step: state.step,
-      serviceType: state.serviceType,
-      serviceName: state.serviceName,
-      servicePrice: state.servicePrice,
-      date: state.date,
-      time: state.time,
-      hasAddress: !!state.address,
-    });
-
-    // 🆕 CENÁRIO 1: Identificou serviço + data → Buscar e mostrar horários disponíveis
+    // CENÁRIO 1: Identificou serviço + data → Buscar e mostrar horários disponíveis
     if ((state.serviceName || state.serviceType) && state.date && state.step === 'COLLECTING_TIME') {
       // Busca horários disponíveis
       const selectedDate = new Date(state.date);
@@ -453,9 +406,6 @@ export class AIAppointmentService {
             return {
               response: `Show! Tudo anotado:\n📋 ${serviceLabel}\n📅 ${dateFormatted}\n🕐 ${state.time}\n\nAgora só preciso do endereço completo onde vou fazer o serviço 📍`
             };
-          } else {
-            // Horário não disponível, mostra opções
-            console.log(`[AIAppointment] Horário ${detected.time} não disponível, mostrando alternativas`);
           }
         }
 
