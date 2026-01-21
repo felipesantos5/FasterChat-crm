@@ -811,7 +811,7 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                     </div>
                     <div className="flex items-center justify-between gap-2 mt-1">
                       <div className="flex items-center gap-1">
-                        <p className={cn("text-xs", isInbound ? "text-muted-foreground" : "text-gray-600 dark:text-gray-300", !isAi && "text-white")}>{formatMessageTime(message.timestamp)}</p>
+                        <p className={cn("text-xs", "text-gray-600", !isAi && "text-white")}>{formatMessageTime(message.timestamp)}</p>
                         {/* Checkmarks para mensagens enviadas */}
                         {!isInbound && (
                           <CheckCheck className={cn("h-3 w-3", isInbound ? "text-muted-foreground" : "text-blue-500 dark:text-blue-400")} />

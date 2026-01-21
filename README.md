@@ -248,23 +248,6 @@ docker-compose down -v
 docker-compose up -d
 ```
 
-## 📝 Próximos Passos
-
-Após configurar a estrutura inicial:
-
-1. Definir modelos Prisma no `backend/prisma/schema.prisma`
-2. Implementar autenticação (JWT + NextAuth)
-3. Criar endpoints da API
-4. Desenvolver componentes do frontend
-5. Integrar com Evolution API (WhatsApp)
-6. Implementar sistema de IA com roteamento híbrido
-7. Configurar testes
-8. Deploy
-
-## 📄 Licença
-
-Este projeto está sob licença privada.
-
 ---
 
 Desenvolvido com ❤️ para revolucionar o atendimento ao cliente

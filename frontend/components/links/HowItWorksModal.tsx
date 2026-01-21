@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Link2, Tag, MapPin, Smartphone, BarChart3, Target, Sparkles, Globe, MousePointerClick, Users, TrendingUp } from "lucide-react";
+import { X, Tag, MapPin, Smartphone, BarChart3, Target, Sparkles, MousePointerClick, Users, TrendingUp } from "lucide-react";
 
 interface HowItWorksModalProps {
   onClose: () => void;
@@ -8,7 +8,7 @@ interface HowItWorksModalProps {
 
 export default function HowItWorksModal({ onClose }: HowItWorksModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="mt-0 fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* Header com gradiente */}
         <div className="bg-gradient-to-r from-green-600 to-emerald-500 p-6 text-white relative">
@@ -32,8 +32,8 @@ export default function HowItWorksModal({ onClose }: HowItWorksModalProps) {
 
         {/* Conteúdo */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-          {/* Domínio Custom */}
-          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+
+          {/* <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
             <div className="flex items-center gap-3 mb-2">
               <Globe className="h-5 w-5 text-blue-600" />
               <span className="font-semibold text-blue-900">Domínio Exclusivo</span>
@@ -45,7 +45,7 @@ export default function HowItWorksModal({ onClose }: HowItWorksModalProps) {
             <p className="text-xs text-blue-600 mt-2">
               Exemplo: <code className="bg-blue-100 px-2 py-0.5 rounded">whatsconversas.com.br/sua-campanha</code>
             </p>
-          </div>
+          </div> */}
 
           {/* O que você consegue */}
           <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -175,21 +175,6 @@ export default function HowItWorksModal({ onClose }: HowItWorksModalProps) {
               <div>
                 <span className="font-medium text-gray-900">Parcerias e Influenciadores</span>
                 <p className="text-sm text-gray-600">Dê um link exclusivo para cada parceiro e acompanhe quem está trazendo mais clientes.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-full">
-                <Link2 className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="font-medium text-green-900">Comece agora!</p>
-                <p className="text-sm text-green-700">
-                  Clique em "Novo Link" para criar seu primeiro link rastreável e começar a entender de onde seus clientes vêm.
-                </p>
               </div>
             </div>
           </div>
