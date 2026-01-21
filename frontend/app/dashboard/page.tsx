@@ -233,9 +233,9 @@ function DashboardPageContent() {
                 <PipelineFunnelChart data={chartsData.pipelineFunnel} />
 
                 {/* Atividade de Clientes - Compacto (max 320px altura) */}
-                <div className="max-h-[320px]">
+                {/* <div className="max-h-[320px]">
                   <CustomerActivityChart data={chartsData.customerActivity} />
-                </div>
+                </div> */}
               </div>
             </div>
           </>
