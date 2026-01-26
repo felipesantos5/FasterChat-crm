@@ -16,12 +16,6 @@ if echo "$FAILED_MIGRATIONS" | grep -q "20260119000000_add_knowledge_vectors_rag
   npx prisma migrate resolve --rolled-back 20260119000000_add_knowledge_vectors_rag || true
 fi
 
-# Aplica as migrações pendentes
-echo "🗃️  Aplicando migrações..."
-npx prisma migrate deploy
-
-echo "✅ Migrações aplicadas com sucesso!"
-
-# Inicia o servidor
+# Inicia o servidor (npm start já executa as migrações)
 echo "🌐 Iniciando servidor..."
 exec npm run start

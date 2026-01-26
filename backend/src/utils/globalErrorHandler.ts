@@ -21,9 +21,11 @@ const CONFIG = {
   // Se deve reiniciar em erros fatais (false = apenas log, true = process.exit)
   EXIT_ON_FATAL: false,
   // Máximo de erros não tratados antes de considerar reinício
-  MAX_UNCAUGHT_ERRORS: 10,
+  // Em produção, tolera mais erros para evitar restarts desnecessários
+  MAX_UNCAUGHT_ERRORS: process.env.NODE_ENV === 'production' ? 50 : 10,
   // Janela de tempo para contar erros (ms)
-  ERROR_WINDOW_MS: 60000,
+  // Em produção, janela maior (5 min) para detectar crash loops reais
+  ERROR_WINDOW_MS: process.env.NODE_ENV === 'production' ? 300000 : 60000,
 };
 
 // Rastreamento de erros para detectar loops de falha
