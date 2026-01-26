@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { ConversationSummary } from "@/types/message";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
@@ -14,6 +15,17 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ conversations, selectedCustomerId, onSelectConversation }: ConversationListProps) {
+  // Força re-render a cada 5 minutos para atualizar os tempos relativos
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 5 * 60 * 1000); // 5 minutos
+
+    return () => clearInterval(interval);
+  }, []);
+
   const truncate = (text: string, maxLength = 30) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";

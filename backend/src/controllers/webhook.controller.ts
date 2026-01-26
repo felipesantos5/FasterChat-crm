@@ -186,7 +186,69 @@ class WebhookController {
 
       // Eventos de status de mensagem (delivered, read)
       if (payload.event === "messages.update") {
-        return res.status(200).json({ success: true, message: "Status update received" });
+        try {
+          if (!payload.instance || !payload.data) {
+            return res.status(200).json({ success: true, message: "Invalid status update data" });
+          }
+
+          console.log("📨 [Webhook] messages.update received:", JSON.stringify(payload.data, null, 2));
+
+          // Busca a instância
+          const instance = await prisma.whatsAppInstance.findFirst({
+            where: { instanceName: payload.instance },
+          });
+
+          if (!instance) {
+            return res.status(200).json({ success: true, message: "Instance not found" });
+          }
+
+          // O payload.data pode ser um array de updates ou um único update
+          const updates = Array.isArray(payload.data) ? payload.data : [payload.data];
+
+          for (const update of updates) {
+            const messageId = update.key?.id;
+            const statusValue = update.status;
+
+            console.log(`📨 [Webhook] Processing message ${messageId} with status: ${statusValue} (type: ${typeof statusValue})`);
+
+            if (!messageId || statusValue === undefined) continue;
+
+            // Mapeia o status da Evolution API para o nosso enum
+            // Evolution API pode enviar números OU strings
+            // Números: 0=ERROR, 1=PENDING, 2=SERVER_ACK, 3=DELIVERY_ACK, 4=READ, 5=PLAYED
+            // Strings: "ERROR", "PENDING", "SERVER_ACK", "DELIVERY_ACK", "READ", "PLAYED"
+            let newStatus: "SENT" | "DELIVERED" | "READ" | "FAILED" | null = null;
+
+            // Normaliza para string para comparação
+            const statusStr = String(statusValue).toUpperCase();
+
+            if (statusValue === 0 || statusStr === "ERROR" || statusStr === "FAILED") {
+              newStatus = "FAILED";
+            } else if (statusValue === 1 || statusValue === 2 || statusStr === "PENDING" || statusStr === "SERVER_ACK") {
+              newStatus = "SENT";
+            } else if (statusValue === 3 || statusStr === "DELIVERY_ACK" || statusStr === "DELIVERED") {
+              newStatus = "DELIVERED";
+            } else if (statusValue === 4 || statusValue === 5 || statusStr === "READ" || statusStr === "READ_ACK" || statusStr === "PLAYED") {
+              newStatus = "READ";
+            }
+
+            console.log(`📨 [Webhook] Mapped status: ${statusValue} -> ${newStatus}`);
+
+            if (newStatus) {
+              const result = await messageService.updateMessageStatusByWhatsAppId(
+                instance.id,
+                messageId,
+                newStatus as any
+              );
+              console.log(`📨 [Webhook] Status update result:`, result ? "Updated" : "Message not found");
+            }
+          }
+
+          return res.status(200).json({ success: true, message: "Status updates processed" });
+        } catch (error: any) {
+          console.error("Error processing message status update:", error.message);
+          return res.status(200).json({ success: false, message: error.message });
+        }
       }
 
       // Eventos de conexão

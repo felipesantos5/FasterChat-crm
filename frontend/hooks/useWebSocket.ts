@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { MessageStatus } from '@/types/message';
 
 // Usa NEXT_PUBLIC_WS_URL se definido, senão deriva da API_URL
 const getWebSocketUrl = (): string => {
@@ -25,6 +26,7 @@ interface UseWebSocketOptions {
   onConversationUpdate?: (update: any) => void;
   onTyping?: (data: { customerId: string; isTyping: boolean }) => void;
   onStatsUpdate?: (stats: any) => void;
+  onMessageStatus?: (data: { messageId: string; status: MessageStatus; timestamp: Date }) => void;
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
@@ -34,6 +36,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     onConversationUpdate,
     onTyping,
     onStatsUpdate,
+    onMessageStatus,
   } = options;
 
   const socketRef = useRef<Socket | null>(null);
@@ -109,8 +112,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       socket.on('stats_update', onStatsUpdate);
     }
 
+    if (onMessageStatus) {
+      socket.on('message_status', onMessageStatus);
+    }
+
     socketRef.current = socket;
-  }, [onNewMessage, onConversationUpdate, onTyping, onStatsUpdate]);
+  }, [onNewMessage, onConversationUpdate, onTyping, onStatsUpdate, onMessageStatus]);
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {

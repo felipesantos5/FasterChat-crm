@@ -1,6 +1,7 @@
 import { prisma } from "../utils/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { ServiceType, ZonePricingType } from "@prisma/client";
+import { semanticServiceService } from "./semantic-service.service";
 
 interface CreateServiceDTO {
   name: string;
@@ -190,7 +191,7 @@ export const serviceService = {
       orderBy: { order: "desc" },
     });
 
-    return prisma.service.create({
+    const service = await prisma.service.create({
       data: {
         companyId,
         name: data.name,
@@ -209,18 +210,25 @@ export const serviceService = {
         },
       },
     });
+
+    // Gera embedding semântico para o novo serviço (async, não bloqueia)
+    semanticServiceService.generateServiceEmbedding(service.id).catch((error) => {
+      console.error(`[ServiceService] Erro ao gerar embedding para serviço ${service.id}:`, error);
+    });
+
+    return service;
   },
 
   async updateService(id: string, companyId: string, data: UpdateServiceDTO) {
-    const service = await prisma.service.findFirst({
+    const existingService = await prisma.service.findFirst({
       where: { id, companyId },
     });
 
-    if (!service) {
+    if (!existingService) {
       throw new Error("Serviço não encontrado");
     }
 
-    return prisma.service.update({
+    const updatedService = await prisma.service.update({
       where: { id },
       data: {
         name: data.name,
@@ -242,6 +250,15 @@ export const serviceService = {
         },
       },
     });
+
+    // Atualiza embedding semântico se campos relevantes mudaram (async, não bloqueia)
+    if (data.name || data.description || data.category) {
+      semanticServiceService.generateServiceEmbedding(id).catch((error) => {
+        console.error(`[ServiceService] Erro ao atualizar embedding do serviço ${id}:`, error);
+      });
+    }
+
+    return updatedService;
   },
 
   async deleteService(id: string, companyId: string) {
@@ -557,6 +574,11 @@ export const serviceService = {
         }
       }
 
+      // Atualiza embedding semântico (async, não bloqueia)
+      semanticServiceService.generateServiceEmbedding(service.id).catch((error) => {
+        console.error(`[ServiceService] Erro ao atualizar embedding do serviço ${service.id}:`, error);
+      });
+
       return this.getService(service.id, companyId);
     } else {
       // Create new service
@@ -603,6 +625,11 @@ export const serviceService = {
           });
         }
       }
+
+      // Gera embedding semântico para o novo serviço (async, não bloqueia)
+      semanticServiceService.generateServiceEmbedding(service.id).catch((error) => {
+        console.error(`[ServiceService] Erro ao gerar embedding do serviço ${service.id}:`, error);
+      });
 
       return this.getService(service.id, companyId);
     }

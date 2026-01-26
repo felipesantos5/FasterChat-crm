@@ -1,4 +1,5 @@
 import { prisma } from "../utils/prisma";
+import { semanticServiceService } from "./semantic-service.service";
 
 /**
  * ============================================
@@ -6,6 +7,9 @@ import { prisma } from "../utils/prisma";
  * ============================================
  * Serviço responsável por analisar o contexto da conversa
  * e detectar qual serviço/combo o cliente está interessado.
+ *
+ * MELHORADO: Agora usa busca semântica para detectar serviços
+ * mesmo quando o cliente usa sinônimos ou termos informais.
  *
  * Isso permite que quando o cliente pede para agendar,
  * a IA já saiba qual serviço ele quer sem precisar perguntar novamente.
@@ -42,7 +46,10 @@ class ConversationContextService {
     // Busca últimas 10 mensagens da conversa
     const recentMessages = await prisma.message.findMany({
       where: { customerId },
-      orderBy: { timestamp: "desc" },
+      orderBy: [
+        { timestamp: "desc" },
+        { createdAt: "desc" },
+      ],
       take: 10,
       select: {
         content: true,
@@ -68,12 +75,21 @@ class ConversationContextService {
     // Inverte para ordem cronológica
     const chronologicalMessages = recentMessages.reverse();
 
-    // Detecta o serviço mais provável baseado no contexto
-    const detectedService = this.detectServiceFromHistory(
+    // Tenta primeiro detectar via busca semântica
+    let detectedService = await this.detectServiceSemantic(
+      companyId,
       chronologicalMessages,
-      services,
       currentMessage
     );
+
+    // Se não encontrou via semântica, usa fallback baseado em keywords
+    if (!detectedService) {
+      detectedService = this.detectServiceFromHistory(
+        chronologicalMessages,
+        services,
+        currentMessage
+      );
+    }
 
     // Detecta a intenção do cliente na mensagem atual
     const customerIntent = this.detectCustomerIntent(currentMessage);
@@ -89,11 +105,71 @@ class ConversationContextService {
   }
 
   /**
+   * Detecta serviço de interesse usando busca semântica
+   * Analisa mensagens recentes do cliente e usa embeddings para encontrar matches
+   */
+  private async detectServiceSemantic(
+    companyId: string,
+    messages: Array<{ content: string; direction: string; senderType: string | null }>,
+    currentMessage: string
+  ): Promise<ServiceContext | null> {
+    try {
+      // Combina mensagens recentes do cliente para contexto
+      const customerMessages = messages
+        .filter((m) => m.direction === "INBOUND")
+        .slice(-5) // Últimas 5 mensagens do cliente
+        .map((m) => m.content)
+        .join(" ");
+
+      // Adiciona mensagem atual
+      const combinedText = `${customerMessages} ${currentMessage}`.trim();
+
+      if (combinedText.length < 5) {
+        return null;
+      }
+
+      // Busca semântica com threshold mais baixo para detecção de contexto
+      const results = await semanticServiceService.searchServices(
+        companyId,
+        combinedText,
+        {
+          threshold: 0.6, // Threshold mais permissivo para contexto
+          limit: 1,
+          includeRelated: false,
+        }
+      );
+
+      if (results.length === 0) {
+        return null;
+      }
+
+      const bestMatch = results[0];
+
+      // Só considera se a similaridade for razoável
+      if (bestMatch.similarity < 0.6) {
+        return null;
+      }
+
+      return {
+        serviceId: bestMatch.id,
+        serviceName: bestMatch.name,
+        servicePrice: `R$ ${bestMatch.basePrice.toFixed(2).replace(".", ",")}`,
+        serviceDuration: undefined, // Pode ser adicionado buscando do serviço
+        confidence: bestMatch.similarity,
+        detectedFrom: "explicit_mention", // Pode ser refinado baseado nos matchedTerms
+      };
+    } catch (error) {
+      console.error("[ConversationContext] Erro na detecção semântica:", error);
+      return null;
+    }
+  }
+
+  /**
    * Detecta qual serviço está sendo discutido no histórico
    */
   private detectServiceFromHistory(
     messages: Array<{ content: string; direction: string; senderType: string | null }>,
-    services: Array<{ id: string; name: string; basePrice: number; duration: number | null; description: string | null; category: string | null }>,
+    services: Array<{ id: string; name: string; basePrice: number | { toNumber?: () => number }; duration: number | null; description: string | null; category: string | null }>,
     currentMessage: string
   ): ServiceContext | null {
     if (services.length === 0) return null;
@@ -206,7 +282,9 @@ class ConversationContextService {
     });
 
     // Encontra o serviço com maior pontuação
-    let bestService: { id: string; score: number; detectedFrom: ServiceContext["detectedFrom"] } | null = null;
+    type BestServiceType = { id: string; score: number; detectedFrom: ServiceContext["detectedFrom"] };
+    let bestService: BestServiceType | null = null;
+
     serviceScores.forEach((data, serviceId) => {
       if (!bestService || data.score > bestService.score) {
         bestService = { id: serviceId, score: data.score, detectedFrom: data.detectedFrom };
@@ -214,19 +292,25 @@ class ConversationContextService {
     });
 
     // Se encontrou um serviço com pontuação mínima
-    if (bestService && bestService.score >= 5) {
-      const service = services.find((s) => s.id === bestService!.id);
+    if (bestService !== null && (bestService as BestServiceType).score >= 5) {
+      const foundBest = bestService as BestServiceType;
+      const service = services.find((s) => s.id === foundBest.id);
       if (service) {
         // Calcula confiança (normalizada entre 0-1)
-        const confidence = Math.min(bestService.score / 30, 1);
+        const confidence = Math.min(foundBest.score / 30, 1);
+
+        // Converte basePrice para number se for Decimal
+        const priceNum = typeof service.basePrice === "number"
+          ? service.basePrice
+          : Number(service.basePrice);
 
         return {
           serviceId: service.id,
           serviceName: service.name,
-          servicePrice: `R$ ${service.basePrice.toFixed(2).replace(".", ",")}`,
+          servicePrice: `R$ ${priceNum.toFixed(2).replace(".", ",")}`,
           serviceDuration: service.duration || undefined,
           confidence,
-          detectedFrom: bestService.detectedFrom,
+          detectedFrom: foundBest.detectedFrom,
         };
       }
     }

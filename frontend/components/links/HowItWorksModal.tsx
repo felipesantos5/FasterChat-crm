@@ -8,7 +8,7 @@ interface HowItWorksModalProps {
 
 export default function HowItWorksModal({ onClose }: HowItWorksModalProps) {
   return (
-    <div className="mt-0 fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 !mt-0">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* Header com gradiente */}
         <div className="bg-gradient-to-r from-green-600 to-emerald-500 p-6 text-white relative">
@@ -31,7 +31,7 @@ export default function HowItWorksModal({ onClose }: HowItWorksModalProps) {
         </div>
 
         {/* Conteúdo */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(87vh-180px)] pb-0">
 
           {/* <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
             <div className="flex items-center gap-3 mb-2">

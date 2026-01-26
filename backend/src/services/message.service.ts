@@ -126,9 +126,10 @@ class MessageService {
           customer: true,
           whatsappInstance: true,
         },
-        orderBy: {
-          timestamp: "asc", // Ordenação ascendente para manter cronologia correta
-        },
+        orderBy: [
+          { timestamp: "asc" },   // Primeiro ordena por timestamp
+          { createdAt: "asc" },   // Depois por createdAt para desempate (ordem de criação no banco)
+        ],
         take: limit,
         skip: offset,
       });
@@ -176,11 +177,74 @@ class MessageService {
   }
 
   /**
+   * Atualiza o status de uma mensagem pelo messageId do WhatsApp (Evolution API)
+   * Usado para processar webhooks de status (delivered, read)
+   */
+  async updateMessageStatusByWhatsAppId(
+    whatsappInstanceId: string,
+    messageId: string,
+    status: MessageStatus
+  ): Promise<{ message: any; companyId: string } | null> {
+    try {
+      // Busca a mensagem pelo índice composto
+      const message = await prisma.message.findUnique({
+        where: {
+          whatsappInstanceId_messageId: {
+            whatsappInstanceId,
+            messageId,
+          },
+        },
+        include: {
+          customer: true,
+        },
+      });
+
+      if (!message) {
+        return null;
+      }
+
+      // Só atualiza se o novo status for "mais avançado" que o atual
+      // SENT -> DELIVERED -> READ
+      const statusOrder = { SENT: 1, DELIVERED: 2, READ: 3, FAILED: 0 };
+      const currentOrder = statusOrder[message.status as keyof typeof statusOrder] || 0;
+      const newOrder = statusOrder[status as keyof typeof statusOrder] || 0;
+
+      if (newOrder <= currentOrder) {
+        // Status atual já é igual ou mais avançado, não atualiza
+        return { message, companyId: message.customer.companyId };
+      }
+
+      // Atualiza o status
+      const updatedMessage = await prisma.message.update({
+        where: { id: message.id },
+        data: { status },
+        include: {
+          customer: true,
+        },
+      });
+
+      // Emite via WebSocket
+      if (websocketService.isInitialized()) {
+        websocketService.emitMessageStatusUpdate(
+          updatedMessage.customer.companyId,
+          updatedMessage.id,
+          status
+        );
+      }
+
+      return { message: updatedMessage, companyId: updatedMessage.customer.companyId };
+    } catch (error: any) {
+      console.error("Error updating message status by WhatsApp ID:", error);
+      return null;
+    }
+  }
+
+  /**
    * Obtém resumo de conversas (última mensagem por customer)
    */
   async getConversations(companyId: string): Promise<ConversationSummary[]> {
     try {
-      // Busca todas as mensagens da empresa ordenadas por timestamp
+      // Busca todas as mensagens da empresa ordenadas por timestamp e createdAt
       const messages = await prisma.message.findMany({
         where: {
           customer: {
@@ -196,9 +260,10 @@ class MessageService {
             },
           },
         },
-        orderBy: {
-          timestamp: "desc",
-        },
+        orderBy: [
+          { timestamp: "desc" },
+          { createdAt: "desc" },
+        ],
       });
 
       // Busca todas as conversas da empresa com informações de IA e atribuição
@@ -685,9 +750,10 @@ class MessageService {
             customerId: customer.id,
             direction: MessageDirection.INBOUND,
           },
-          orderBy: {
-            timestamp: "desc",
-          },
+          orderBy: [
+            { timestamp: "desc" },
+            { createdAt: "desc" },
+          ],
           include: {
             whatsappInstance: true,
           },
@@ -824,7 +890,10 @@ class MessageService {
             customerId: customer.id,
             direction: MessageDirection.INBOUND,
           },
-          orderBy: { timestamp: "desc" },
+          orderBy: [
+            { timestamp: "desc" },
+            { createdAt: "desc" },
+          ],
           include: { whatsappInstance: true },
         });
 
@@ -909,9 +978,9 @@ class MessageService {
   }
 
   /**
-   * Adiciona feedback a uma mensagem da IA
+   * Adiciona ou remove feedback de uma mensagem da IA
    */
-  async addFeedback(messageId: string, feedback: "GOOD" | "BAD", feedbackNote?: string) {
+  async addFeedback(messageId: string, feedback: "GOOD" | "BAD" | null, feedbackNote?: string) {
     try {
       // Verifica se a mensagem existe e é da IA
       const existingMessage = await prisma.message.findUnique({
@@ -926,12 +995,12 @@ class MessageService {
         throw new Error("Feedback can only be added to AI messages");
       }
 
-      // Atualiza a mensagem com o feedback
+      // Atualiza a mensagem com o feedback (ou remove se for null)
       const message = await prisma.message.update({
         where: { id: messageId },
         data: {
-          feedback: feedback as MessageFeedback,
-          feedbackNote: feedbackNote || null,
+          feedback: feedback as MessageFeedback | null,
+          feedbackNote: feedback === null ? null : (feedbackNote || null),
         },
         include: {
           customer: true,
@@ -1025,9 +1094,10 @@ class MessageService {
             },
           },
         },
-        orderBy: {
-          timestamp: "desc",
-        },
+        orderBy: [
+          { timestamp: "desc" },
+          { createdAt: "desc" },
+        ],
         take: limit,
         skip: offset,
       });

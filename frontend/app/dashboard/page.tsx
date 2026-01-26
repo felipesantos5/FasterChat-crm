@@ -7,7 +7,6 @@ import { StatChangeBadge } from "@/components/dashboard/stat-change-badge";
 import {
   PipelineFunnelChart,
   MessagesChart,
-  CustomerActivityChart,
 } from "@/components/dashboard/charts";
 import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, CalendarClock, AlertTriangle } from "lucide-react";
 import { cards, typography, spacing } from "@/lib/design-system";

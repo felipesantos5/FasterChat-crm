@@ -106,8 +106,8 @@ export function TagSelector({
   // Filtra tags baseado na busca
   const filteredTags = searchValue
     ? unselectedTags.filter((tag) =>
-        tag.name.toLowerCase().includes(searchValue.toLowerCase())
-      )
+      tag.name.toLowerCase().includes(searchValue.toLowerCase())
+    )
     : unselectedTags;
 
   // Retorna a cor da tag pelo nome (verifica primeiro no mapa local, depois no availableTags)
@@ -168,8 +168,8 @@ export function TagSelector({
               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent 
-            className="w-[var(--radix-popover-trigger-width)] p-0" 
+          <PopoverContent
+            className="w-[var(--radix-popover-trigger-width)] p-0"
             align="start"
             sideOffset={4}
             style={{ maxHeight: '350px' }}
@@ -285,9 +285,6 @@ export function TagSelector({
                       />
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    {creating ? 'Criando tag...' : 'Enter ou + para adicionar'}
-                  </p>
                 </div>
               </div>
             </Command>

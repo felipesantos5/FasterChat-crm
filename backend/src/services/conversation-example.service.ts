@@ -118,9 +118,10 @@ class ConversationExampleService {
               timestamp: true,
               senderType: true,
             },
-            orderBy: {
-              timestamp: 'asc',
-            },
+            orderBy: [
+              { timestamp: 'asc' },
+              { createdAt: 'asc' },
+            ],
           });
 
           return {

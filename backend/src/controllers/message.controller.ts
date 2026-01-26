@@ -246,10 +246,10 @@ class MessageController {
         });
       }
 
-      if (!feedback || !['GOOD', 'BAD'].includes(feedback)) {
+      if (feedback !== null && !['GOOD', 'BAD'].includes(feedback)) {
         return res.status(400).json({
           success: false,
-          message: 'Feedback must be either GOOD or BAD',
+          message: 'Feedback must be GOOD, BAD, or null',
         });
       }
 

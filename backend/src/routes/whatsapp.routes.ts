@@ -35,4 +35,10 @@ router.post('/sync/:instanceId', checkPermission('WHATSAPP_CONFIG', true), whats
 // PATCH /api/whatsapp/instance/:instanceId/name - Atualiza nome da instância
 router.patch('/instance/:instanceId/name', checkPermission('WHATSAPP_CONFIG', true), whatsappController.updateInstanceName);
 
+// GET /api/whatsapp/presence/:instanceId/:phone - Verifica presença de contato
+router.get('/presence/:instanceId/:phone', whatsappController.getContactPresence);
+
+// POST /api/whatsapp/reconfigure-webhook/:instanceId - Reconfigura webhook de uma instância
+router.post('/reconfigure-webhook/:instanceId', checkPermission('WHATSAPP_CONFIG', true), whatsappController.reconfigureWebhook);
+
 export default router;

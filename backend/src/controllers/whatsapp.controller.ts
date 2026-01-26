@@ -305,6 +305,67 @@ class WhatsAppController {
       });
     }
   }
+
+  /**
+   * POST /api/whatsapp/reconfigure-webhook/:instanceId
+   * Reconfigura o webhook de uma instância para incluir novos eventos
+   */
+  async reconfigureWebhook(req: Request, res: Response) {
+    try {
+      const { instanceId } = req.params;
+
+      if (!instanceId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Instance ID is required',
+        });
+      }
+
+      const result = await whatsappService.reconfigureWebhook(instanceId);
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Webhook reconfigured successfully',
+      });
+    } catch (error: any) {
+      console.error('Error in reconfigureWebhook controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to reconfigure webhook',
+      });
+    }
+  }
+
+  /**
+   * GET /api/whatsapp/presence/:instanceId/:phone
+   * Verifica se um contato está online no WhatsApp
+   */
+  async getContactPresence(req: Request, res: Response) {
+    try {
+      const { instanceId, phone } = req.params;
+
+      if (!instanceId || !phone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Instance ID and phone number are required',
+        });
+      }
+
+      const result = await whatsappService.getContactPresence(instanceId, phone);
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('Error in getContactPresence controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to get contact presence',
+      });
+    }
+  }
 }
 
 export default new WhatsAppController();

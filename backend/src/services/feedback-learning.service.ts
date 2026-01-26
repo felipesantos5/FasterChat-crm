@@ -43,6 +43,7 @@ class FeedbackLearningService {
       orderBy: [
         { feedbackNote: "desc" }, // Prioriza os que têm nota explicativa
         { timestamp: "desc" },
+        { createdAt: "desc" },
       ],
       take: limit,
       include: {
@@ -59,7 +60,10 @@ class FeedbackLearningService {
         senderType: "AI",
         feedback: "GOOD",
       },
-      orderBy: { timestamp: "desc" },
+      orderBy: [
+        { timestamp: "desc" },
+        { createdAt: "desc" },
+      ],
       take: limit,
       include: {
         customer: {
@@ -108,7 +112,10 @@ class FeedbackLearningService {
           timestamp: { lt: aiMsg.timestamp },
           direction: "INBOUND",
         },
-        orderBy: { timestamp: "desc" },
+        orderBy: [
+          { timestamp: "desc" },
+          { createdAt: "desc" },
+        ],
       });
 
       if (previousCustomerMsg) {
@@ -269,7 +276,10 @@ class FeedbackLearningService {
         feedback: "BAD",
         feedbackNote: { not: null },
       },
-      orderBy: { timestamp: "desc" },
+      orderBy: [
+        { timestamp: "desc" },
+        { createdAt: "desc" },
+      ],
       select: { feedbackNote: true },
     });
 

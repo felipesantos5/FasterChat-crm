@@ -4,6 +4,7 @@ import Fuse from 'fuse.js'; // npm install fuse.js
 import { googleCalendarService } from '../google-calendar.service';
 import { appointmentService } from '../appointment.service';
 import { AppointmentType } from '@prisma/client';
+import { semanticServiceService } from '../semantic-service.service';
 
 // ==========================================
 // TYPES & INTERFACES
@@ -181,7 +182,7 @@ function parseWorkingHours(workingHoursText: string | null): {
  * [TOOL] Buscar Produtos e Serviços
  * Retorna dados estruturados para a IA responder dúvidas
  *
- * MELHORADO: Agora busca em múltiplas fontes e agrupa variações
+ * MELHORADO: Agora usa busca semântica com expansão de sinônimos
  */
 export async function handleGetProductInfo(args: {
   query: string;
@@ -194,57 +195,206 @@ export async function handleGetProductInfo(args: {
     console.log(`[Tool] GetProductInfo: Buscando "${query}" para company ${companyId}`);
 
     // =============================================
-    // 1. BUSCA NA TABELA SERVICE (COM VARIÁVEIS)
+    // 1. BUSCA SEMÂNTICA (COM SINÔNIMOS E EMBEDDINGS)
     // =============================================
     let servicesWithVariables: any[] = [];
     try {
-      const services = await prisma.service.findMany({
-        where: {
-          companyId,
-          isActive: true,
-          OR: [
-            { name: { contains: query, mode: 'insensitive' } },
-            { description: { contains: query, mode: 'insensitive' } },
-            { category: { contains: query, mode: 'insensitive' } },
-          ]
-        },
-        include: {
-          variables: {
-            include: {
-              options: true
-            }
+      // Tenta busca semântica primeiro
+      const semanticResults = await semanticServiceService.searchServices(
+        companyId,
+        query,
+        {
+          threshold: 0.65,
+          limit: 10,
+          includeRelated: true,
+        }
+      );
+
+      if (semanticResults.length > 0) {
+        console.log(`[Tool] GetProductInfo: Busca semântica encontrou ${semanticResults.length} serviços`);
+
+        // Busca detalhes completos dos serviços encontrados
+        const serviceIds = semanticResults.map((r) => r.id);
+        const services = await prisma.service.findMany({
+          where: {
+            id: { in: serviceIds },
+            isActive: true,
           },
-          pricingTiers: true
-        },
-        take: 10
-      });
+          include: {
+            variables: {
+              include: {
+                options: true,
+              },
+            },
+            pricingTiers: true,
+          },
+        });
 
-      if (services.length > 0) {
-        console.log(`[Tool] GetProductInfo: Encontrados ${services.length} serviços na tabela Service`);
+        // Mapeia serviços com informações de similaridade
+        const serviceMap = new Map(services.map((s) => [s.id, s]));
 
-        servicesWithVariables = services.map(service => {
-          // Calcula todas as variações de preço
+        servicesWithVariables = semanticResults
+          .filter((r) => serviceMap.has(r.id))
+          .map((result) => {
+            const service = serviceMap.get(result.id)!;
+            const variations: Array<{ name: string; price: number; description?: string }> = [];
+            const basePriceNum = Number(service.basePrice);
+
+            if (service.variables && service.variables.length > 0) {
+              for (const variable of service.variables) {
+                for (const option of variable.options) {
+                  const priceModifierNum = Number(option.priceModifier);
+                  const finalPrice = basePriceNum + priceModifierNum;
+                  variations.push({
+                    name: `${service.name} - ${option.name}`,
+                    price: finalPrice,
+                  });
+                }
+              }
+            } else {
+              variations.push({
+                name: service.name,
+                price: basePriceNum,
+                description: service.description || undefined,
+              });
+            }
+
+            return {
+              serviceName: service.name,
+              category: service.category,
+              description: service.description,
+              basePrice: basePriceNum,
+              hasVariations: variations.length > 1,
+              variations: variations,
+              similarity: result.similarity,
+              matchedTerms: result.matchedTerms,
+              relatedServices: result.relatedServices?.map((r) => ({
+                name: r.name,
+                price: r.basePrice,
+                category: r.category,
+              })),
+              pricingTiers: service.pricingTiers?.map((tier) => ({
+                minQty: tier.minQuantity,
+                maxQty: tier.maxQuantity,
+                pricePerUnit: Number(tier.pricePerUnit),
+              })),
+            };
+          });
+      }
+
+      // Fallback: busca lexical simples se semântica não encontrou
+      if (servicesWithVariables.length === 0) {
+        console.log(`[Tool] GetProductInfo: Usando fallback lexical para "${query}"`);
+
+        const services = await prisma.service.findMany({
+          where: {
+            companyId,
+            isActive: true,
+            OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { description: { contains: query, mode: 'insensitive' } },
+              { category: { contains: query, mode: 'insensitive' } },
+            ],
+          },
+          include: {
+            variables: {
+              include: {
+                options: true,
+              },
+            },
+            pricingTiers: true,
+          },
+          take: 10,
+        });
+
+        if (services.length > 0) {
+          console.log(`[Tool] GetProductInfo: Fallback encontrou ${services.length} serviços`);
+
+          servicesWithVariables = services.map((service) => {
+            const variations: Array<{ name: string; price: number; description?: string }> = [];
+            const basePriceNum = Number(service.basePrice);
+
+            if (service.variables && service.variables.length > 0) {
+              for (const variable of service.variables) {
+                for (const option of variable.options) {
+                  const priceModifierNum = Number(option.priceModifier);
+                  const finalPrice = basePriceNum + priceModifierNum;
+                  variations.push({
+                    name: `${service.name} - ${option.name}`,
+                    price: finalPrice,
+                  });
+                }
+              }
+            } else {
+              variations.push({
+                name: service.name,
+                price: basePriceNum,
+                description: service.description || undefined,
+              });
+            }
+
+            return {
+              serviceName: service.name,
+              category: service.category,
+              description: service.description,
+              basePrice: basePriceNum,
+              hasVariations: variations.length > 1,
+              variations: variations,
+              pricingTiers: service.pricingTiers?.map((tier) => ({
+                minQty: tier.minQuantity,
+                maxQty: tier.maxQuantity,
+                pricePerUnit: Number(tier.pricePerUnit),
+              })),
+            };
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('[Tool] GetProductInfo: Erro na busca semântica, usando fallback:', error);
+
+      // Fallback em caso de erro na busca semântica
+      try {
+        const services = await prisma.service.findMany({
+          where: {
+            companyId,
+            isActive: true,
+            OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { description: { contains: query, mode: 'insensitive' } },
+              { category: { contains: query, mode: 'insensitive' } },
+            ],
+          },
+          include: {
+            variables: {
+              include: {
+                options: true,
+              },
+            },
+            pricingTiers: true,
+          },
+          take: 10,
+        });
+
+        servicesWithVariables = services.map((service) => {
           const variations: Array<{ name: string; price: number; description?: string }> = [];
           const basePriceNum = Number(service.basePrice);
 
           if (service.variables && service.variables.length > 0) {
-            // Serviço tem variáveis - calcula preço para cada opção
             for (const variable of service.variables) {
               for (const option of variable.options) {
                 const priceModifierNum = Number(option.priceModifier);
                 const finalPrice = basePriceNum + priceModifierNum;
                 variations.push({
                   name: `${service.name} - ${option.name}`,
-                  price: finalPrice
+                  price: finalPrice,
                 });
               }
             }
           } else {
-            // Serviço sem variáveis - preço único
             variations.push({
               name: service.name,
               price: basePriceNum,
-              description: service.description || undefined
+              description: service.description || undefined,
             });
           }
 
@@ -255,16 +405,16 @@ export async function handleGetProductInfo(args: {
             basePrice: basePriceNum,
             hasVariations: variations.length > 1,
             variations: variations,
-            pricingTiers: service.pricingTiers?.map(tier => ({
+            pricingTiers: service.pricingTiers?.map((tier) => ({
               minQty: tier.minQuantity,
               maxQty: tier.maxQuantity,
-              pricePerUnit: Number(tier.pricePerUnit)
-            }))
+              pricePerUnit: Number(tier.pricePerUnit),
+            })),
           };
         });
+      } catch (fallbackError) {
+        console.error('[Tool] GetProductInfo: Erro no fallback:', fallbackError);
       }
-    } catch (error) {
-      console.warn('[Tool] GetProductInfo: Erro ao buscar na tabela Service:', error);
     }
 
     // =============================================

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Message, MessageDirection, SenderType } from "@/types/message";
+import { Message, MessageDirection, SenderType, MessageStatus } from "@/types/message";
 import { Conversation } from "@/types/conversation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +11,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { messageApi } from "@/lib/message";
 import { conversationApi } from "@/lib/conversation";
+import { whatsappApi } from "@/lib/whatsapp";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, CheckCheck } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -57,6 +58,8 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [isContactOnline, setIsContactOnline] = useState(false);
+  const [whatsappInstanceId, setWhatsappInstanceId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,12 +125,25 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     [customerId, conversation?.aiEnabled]
   );
 
+  // Handler para atualização de status de mensagem
+  const handleWebSocketMessageStatus = useCallback(
+    (data: { messageId: string; status: MessageStatus; timestamp: Date }) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === data.messageId ? { ...msg, status: data.status } : msg
+        )
+      );
+    },
+    []
+  );
+
   // WebSocket - usa hook diretamente para ter controle dos eventos
   const { isConnected, isAuthenticated, subscribeToConversation, unsubscribeFromConversation } = useWebSocket({
     autoConnect: true,
     onNewMessage: handleWebSocketMessage,
     onConversationUpdate: handleWebSocketConversationUpdate,
     onTyping: handleWebSocketTyping,
+    onMessageStatus: handleWebSocketMessageStatus,
   });
 
   // Obtém companyId do usuário logado
@@ -219,6 +235,40 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Extrai whatsappInstanceId das mensagens
+  useEffect(() => {
+    if (messages.length > 0 && !whatsappInstanceId) {
+      // Pega a instância da primeira mensagem que tiver
+      const msgWithInstance = messages.find((m) => m.whatsappInstanceId);
+      if (msgWithInstance) {
+        setWhatsappInstanceId(msgWithInstance.whatsappInstanceId);
+      }
+    }
+  }, [messages, whatsappInstanceId]);
+
+  // Polling de presença do contato a cada 1 minuto
+  useEffect(() => {
+    if (!whatsappInstanceId || !customerPhone) return;
+
+    const checkPresence = async () => {
+      try {
+        const response = await whatsappApi.getContactPresence(whatsappInstanceId, customerPhone);
+        setIsContactOnline(response.data.isOnline);
+      } catch (error) {
+        // Silently fail - não quebra a UX se não conseguir verificar presença
+        setIsContactOnline(false);
+      }
+    };
+
+    // Verifica imediatamente ao abrir a conversa
+    checkPresence();
+
+    // Polling a cada 1 minuto
+    const interval = setInterval(checkPresence, 60000);
+
+    return () => clearInterval(interval);
+  }, [whatsappInstanceId, customerPhone]);
 
   // Focus no input ao carregar
   useEffect(() => {
@@ -560,17 +610,21 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
     }
   };
 
-  // Submete feedback de uma mensagem
-  const handleFeedbackSubmit = async (messageId: string, feedback: "GOOD" | "BAD", note?: string) => {
+  // Submete ou remove feedback de uma mensagem
+  const handleFeedbackSubmit = async (messageId: string, feedback: "GOOD" | "BAD" | null, note?: string) => {
     try {
       await messageApi.addFeedback(messageId, feedback, note);
 
       // Atualiza a mensagem localmente
       setMessages((prevMessages) =>
-        prevMessages.map((msg) => (msg.id === messageId ? { ...msg, feedback: feedback as any, feedbackNote: note || null } : msg))
+        prevMessages.map((msg) => (msg.id === messageId ? { ...msg, feedback: feedback as any, feedbackNote: feedback === null ? null : (note || null) } : msg))
       );
 
-      toast.success(feedback === "GOOD" ? "Feedback positivo registrado!" : "Feedback negativo registrado!");
+      if (feedback === null) {
+        toast.success("Feedback removido!");
+      } else {
+        toast.success(feedback === "GOOD" ? "Feedback positivo registrado!" : "Feedback negativo registrado!");
+      }
     } catch (error: any) {
       console.error("Error submitting feedback:", error);
       toast.error(error.response?.data?.message || "Erro ao enviar feedback");
@@ -653,8 +707,8 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-sm truncate">{customerName}</h2>
-              {isConnected && isAuthenticated && (
-                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Tempo Real" />
+              {isContactOnline && (
+                <span className="h-2 w-2 rounded-full bg-green-500" title="Online" />
               )}
             </div>
             <p className="text-xs text-muted-foreground">{formatPhoneNumber(customerPhone)}</p>
@@ -811,10 +865,20 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                     </div>
                     <div className="flex items-center justify-between gap-2 mt-1">
                       <div className="flex items-center gap-1">
-                        <p className={cn("text-xs", "text-gray-600", !isAi && "text-white")}>{formatMessageTime(message.timestamp)}</p>
-                        {/* Checkmarks para mensagens enviadas */}
+                        <p className={cn("text-xs", isInbound || isAi ? "text-gray-600" : "text-white")}>{formatMessageTime(message.timestamp)}</p>
+                        {/* Checkmarks para mensagens enviadas - baseado no status real */}
                         {!isInbound && (
-                          <CheckCheck className={cn("h-3 w-3", isInbound ? "text-muted-foreground" : "text-blue-500 dark:text-blue-400")} />
+                          <>
+                            {message.status === "FAILED" ? (
+                              <span className="text-red-500 text-xs">!</span>
+                            ) : message.status === "READ" ? (
+                              <CheckCheck className="h-3 w-3 text-blue-500" />
+                            ) : message.status === "DELIVERED" ? (
+                              <CheckCheck className="h-3 w-3 text-gray-400" />
+                            ) : (
+                              <Check className="h-3 w-3 text-gray-400" />
+                            )}
+                          </>
                         )}
                       </div>
                       {/* Mostra feedback apenas para mensagens da IA */}

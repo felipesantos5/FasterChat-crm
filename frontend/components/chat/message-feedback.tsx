@@ -20,7 +20,7 @@ interface MessageFeedbackProps {
   messageId: string;
   currentFeedback?: MessageFeedback | null;
   currentNote?: string | null;
-  onFeedbackSubmit: (messageId: string, feedback: 'GOOD' | 'BAD', note?: string) => Promise<void>;
+  onFeedbackSubmit: (messageId: string, feedback: 'GOOD' | 'BAD' | null, note?: string) => Promise<void>;
 }
 
 export function MessageFeedbackComponent({
@@ -34,12 +34,17 @@ export function MessageFeedbackComponent({
   const [submitting, setSubmitting] = useState(false);
 
   const handleFeedbackClick = async (feedback: 'GOOD' | 'BAD') => {
-    // Se já tem feedback, permite trocar
-    if (currentFeedback) {
-      if (feedback === currentFeedback) {
-        // Se clicar no mesmo feedback, não faz nada
-        return;
+    // Se clicar no mesmo feedback, remove o feedback (toggle)
+    if (currentFeedback === feedback) {
+      try {
+        setSubmitting(true);
+        await onFeedbackSubmit(messageId, null);
+      } catch (error) {
+        console.error('Error removing feedback:', error);
+      } finally {
+        setSubmitting(false);
       }
+      return;
     }
 
     // Se for feedback negativo, abre o modal para nota opcional

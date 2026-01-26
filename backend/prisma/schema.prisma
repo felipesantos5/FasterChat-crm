@@ -596,28 +596,35 @@ enum ServiceType {
 }
 
 model Service {
-  id          String      @id @default(uuid())
-  companyId   String      @map("company_id")
-  name        String
-  description String?     @db.Text
-  basePrice   Decimal     @map("base_price") @db.Decimal(10, 2)
-  type        ServiceType @default(SERVICE)
-  category    String?     // Categoria do produto/serviço
-  duration    Int?        @default(60) // Duração em minutos (padrão: 60)
-  isActive    Boolean     @default(true) @map("is_active")
-  order       Int         @default(0)
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  id            String      @id @default(uuid())
+  companyId     String      @map("company_id")
+  name          String
+  description   String?     @db.Text
+  basePrice     Decimal     @map("base_price") @db.Decimal(10, 2)
+  type          ServiceType @default(SERVICE)
+  category      String?     // Categoria do produto/serviço
+  duration      Int?        @default(60) // Duração em minutos (padrão: 60)
+  equipmentType String?     @map("equipment_type") // Tipo do equipamento (ex: "Split 12000", "Split 18000")
+  actionType    String?     @map("action_type") // Tipo de ação (ex: "installation", "maintenance", "cleaning")
+  isActive      Boolean     @default(true) @map("is_active")
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
 
-  company      Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  variables    ServiceVariable[]
-  pricingTiers ServicePricingTier[] // Faixas de preço por quantidade
-  comboItems   ServiceComboItem[]   // Referência em combos
+  company          Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  variables        ServiceVariable[]
+  pricingTiers     ServicePricingTier[] // Faixas de preço por quantidade
+  comboItems       ServiceComboItem[]   // Referência em combos
+  vectors          ServiceVector[]      // Embeddings semânticos do serviço
+  sourceRelations  ServiceRelationship[] @relation("SourceRelation")
+  relatedRelations ServiceRelationship[] @relation("RelatedRelation")
 
   @@unique([companyId, name])
   @@index([companyId])
   @@index([isActive])
   @@index([type])
+  @@index([equipmentType])
+  @@index([actionType])
   @@map("services")
 }
 
@@ -822,5 +829,59 @@ model KnowledgeVector {
 
   @@index([companyId])
   @@map("knowledge_vectors")
+}
+
+// ============================================
+// SERVICE SEMANTIC SEARCH - Busca Semântica de Serviços
+// ============================================
+
+model ServiceVector {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  serviceId String   @map("service_id")
+  content   String   @db.Text // Conteúdo textual rico (nome + descrição + sinônimos)
+  embedding Unsupported("vector(1536)") // Embedding de 1536 dimensões
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([serviceId])
+  @@map("service_vectors")
+}
+
+model ServiceRelationship {
+  id               String   @id @default(uuid())
+  companyId        String   @map("company_id")
+  sourceServiceId  String   @map("source_service_id")
+  relatedServiceId String   @map("related_service_id")
+  relationshipType String   @map("relationship_type") // complement, alternative, upsell, same_equipment
+  strength         Decimal  @default(0.5) @db.Decimal(3, 2) // 0.00 a 1.00
+  autoDetected     Boolean  @default(false) @map("auto_detected")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  sourceService  Service @relation("SourceRelation", fields: [sourceServiceId], references: [id], onDelete: Cascade)
+  relatedService Service @relation("RelatedRelation", fields: [relatedServiceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceServiceId, relatedServiceId])
+  @@index([companyId])
+  @@index([sourceServiceId])
+  @@index([relatedServiceId])
+  @@map("service_relationships")
+}
+
+model DomainSynonym {
+  id            String   @id @default(uuid())
+  companyId     String?  @map("company_id") // null = sinônimo global
+  canonicalTerm String   @map("canonical_term") // Termo canônico (ex: "ar condicionado")
+  synonyms      String[] // Lista de sinônimos (ex: ["ar frio", "split", "AC"])
+  domain        String?  // Domínio de aplicação (ex: "HVAC", "Eletrica")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@index([canonicalTerm])
+  @@map("domain_synonyms")
 }
 

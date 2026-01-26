@@ -9,6 +9,7 @@ import { serviceService } from "./service.service";
 import ragService from "./rag.service";
 import feedbackLearningService from "./feedback-learning.service";
 import conversationContextService from "./conversation-context.service";
+import { buildModularPrompt, shouldUseModularPrompts } from "../prompts";
 
 /**
  * ============================================
@@ -526,7 +527,10 @@ Total: R$ 505,00"
       // Busca histórico de mensagens
       const messages = await prisma.message.findMany({
         where: { customerId },
-        orderBy: { timestamp: "desc" },
+        orderBy: [
+          { timestamp: "desc" },
+          { createdAt: "desc" },
+        ],
         take: CHATBOT_CONFIG.MAX_MESSAGES_TO_FETCH,
       });
 
@@ -684,31 +688,67 @@ Total: R$ 505,00"
       // Busca exemplos (Few-shot learning)
       const examplesText = await conversationExampleService.getExamplesForPrompt(customer.companyId);
 
-      // Constrói o System Prompt focado em confiabilidade
-      const systemPrompt = this.buildOptimizedPrompt({
-        companyName: customer.company.name,
-        companyInfo,
-        formattedProducts, // Passamos a lista processada
-        formattedServices, // Serviços com variáveis de preço
-        formattedAdvancedPricing, // Zonas, combos, adicionais, exceções
-        formattedFAQ, // FAQ para respostas precisas
-        ragContext, // Conhecimento adicional recuperado via RAG
-        feedbackContext, // Aprendizado com feedbacks dos atendentes
-        conversationContext, // Contexto da conversa (serviço de interesse)
-        policies,
-        examplesText,
-        negativeExamples,
-        serviceArea,
-        workingHours,
-        paymentMethods,
-        deliveryInfo,
-        customerName: customer.name,
-        customerPhone: customer.phone,
-        customerTags: customer.tags,
-        customerNotes: customer.notes,
-        objective: aiKnowledge?.aiObjective, // Objetivo específico do cliente
-        googleCalendarStatus, // Status do Google Calendar
-      });
+      // Decide qual sistema de prompts usar
+      let systemPrompt: string;
+
+      if (shouldUseModularPrompts(aiKnowledge)) {
+        // Usa o novo sistema modular de prompts
+        systemPrompt = buildModularPrompt({
+          companyName: customer.company.name,
+          aiKnowledge,
+          customer: {
+            name: customer.name,
+            phone: customer.phone,
+            tags: customer.tags,
+            notes: customer.notes,
+            isGroup: customer.isGroup,
+          },
+          services: {
+            services: completePricingData.services,
+            zones: completePricingData.zones,
+            combos: completePricingData.combos,
+            additionals: completePricingData.additionals,
+          },
+          ragContext: ragContext || undefined,
+          feedbackContext: feedbackContext ? {
+            goodExamples: [],
+            badExamples: [],
+            insights: [],
+          } : undefined,
+          conversationContext: conversationContext ? {
+            detectedService: undefined,
+            recentTopics: [],
+            intent: undefined,
+          } : undefined,
+          calendarConnected: googleCalendarStatus === "conectado e sincronizado",
+        });
+      } else {
+        // Usa o sistema legado de prompts
+        systemPrompt = this.buildOptimizedPrompt({
+          companyName: customer.company.name,
+          companyInfo,
+          formattedProducts,
+          formattedServices,
+          formattedAdvancedPricing,
+          formattedFAQ,
+          ragContext,
+          feedbackContext,
+          conversationContext,
+          policies,
+          examplesText,
+          negativeExamples,
+          serviceArea,
+          workingHours,
+          paymentMethods,
+          deliveryInfo,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          customerTags: customer.tags,
+          customerNotes: customer.notes,
+          objective: aiKnowledge?.aiObjective,
+          googleCalendarStatus,
+        });
+      }
 
       const userPrompt = this.buildUserPrompt(historyText, message);
 
@@ -910,47 +950,49 @@ ${data.customerNotes ? `Notas: ${data.customerNotes}` : ""}
 
 **REGRA FUNDAMENTAL: NUNCA diga "vou verificar", "vou consultar", "deixa eu ver" - você NÃO enviará uma segunda mensagem!**
 
-1. **Perguntas sobre PRODUTOS/SERVIÇOS (MUITO IMPORTANTE):**
-   Quando o cliente perguntar sobre um produto ou serviço, você DEVE:
+1. **Perguntas sobre PRODUTOS/SERVIÇOS - ABORDAGEM CONSULTIVA (MUITO IMPORTANTE):**
 
-   ✅ **SEMPRE fazer:**
-   - Explicar O QUE É o serviço/produto de forma clara
-   - Mostrar TODOS os preços e variações disponíveis
-   - Mencionar a DESCRIÇÃO com detalhes técnicos
-   - Listar as OPÇÕES/VARIAÇÕES se existirem (ex: diferentes tamanhos, modelos, potências)
-   - Informar o que está INCLUSO no serviço
+   ⚠️ **ANTES de listar opções e preços, FAÇA PERGUNTAS para entender o cenário:**
+
+   ✅ **Se o cliente perguntar de forma genérica (ex: "vocês fazem manutenção de ar?"):**
+   - NÃO liste todas as opções de uma vez
+   - Primeiro pergunte para entender o contexto:
+     • "Sim, fazemos! É para quantos aparelhos?"
+     • "Qual o modelo do seu ar? (Split, janela, etc.)"
+     • "Está apresentando algum problema ou é manutenção preventiva?"
+   - Depois de entender, recomende a opção ideal COM JUSTIFICATIVA
+
+   ✅ **Se o cliente já deu contexto (ex: "preciso limpar 2 splits de 12000 btus"):**
+   - Aí sim, responda com a opção específica e preço
+   - Exemplo: "Para 2 Splits de 12.000 BTUs, o valor fica R$ 280 (R$ 140 cada). Inclui limpeza completa com higienização. Quer agendar?"
 
    ❌ **NUNCA fazer:**
+   - Listar TODAS as opções de uma vez sem perguntar contexto
    - Dizer "Vou verificar essa informação para você"
-   - Escrever código como "get_product_info(...)"
-   - Dar respostas vagas ou incompletas
-   - Omitir preços ou variações disponíveis
+   - Dar respostas genéricas como "O preço varia de acordo com o modelo"
+   - Empurrar o serviço mais caro sem entender a necessidade
 
-   📋 **Formato ideal de resposta sobre serviço:**
-   "[Nome do serviço] é [explicação breve do que é].
+   📋 **Fluxo consultivo ideal:**
 
-   Temos as seguintes opções:
-   • [Variação 1] - R$ [preço]
-   • [Variação 2] - R$ [preço]
-   • [Variação 3] - R$ [preço]
-
-   [Detalhes adicionais da descrição, o que inclui, tempo de duração, etc.]
-
-   Qual opção te interessa?"
-
-   📋 **Exemplo prático:**
    Cliente: "Vocês fazem instalação de ar condicionado?"
-   ✅ CORRETO: "Sim! Fazemos instalação de ar condicionado Split.
 
-   Temos instalação para diferentes potências:
-   • Split 9.000 BTUs - R$ 350,00
-   • Split 12.000 BTUs - R$ 400,00
-   • Split 18.000 BTUs - R$ 500,00
-   • Split 24.000 BTUs - R$ 600,00
+   ✅ CORRETO (Abordagem consultiva):
+   "Sim, fazemos! Pra eu te passar o valor certinho:
+   - Você já tem o aparelho ou precisa comprar também?
+   - Qual a capacidade? (9.000, 12.000 BTUs...)
+   - É residencial ou comercial?"
 
-   A instalação inclui suporte, tubulação de até 3 metros e mão de obra completa. Qual modelo você precisa instalar?"
+   ❌ ERRADO (Lista tudo sem contexto):
+   "Sim! Temos instalação para:
+   • Split 9.000 BTUs - R$ 350
+   • Split 12.000 BTUs - R$ 400
+   [... lista enorme de opções]"
 
-   ❌ ERRADO: "Sim, fazemos instalação. O preço varia de acordo com o modelo."
+   📋 **Quando JÁ tem contexto, seja direto:**
+
+   Cliente: "Quanto custa instalar um split de 12000 btus?"
+
+   ✅ CORRETO: "A instalação do Split 12.000 BTUs fica R$ 400,00. Inclui suporte, tubulação de até 3 metros e mão de obra. É pra sua casa? Qual o local de instalação?"
 
 2. **AGENDAMENTOS - FLUXO COMPLETO:**
    Quando o cliente quiser agendar um serviço, você DEVE coletar TODOS os dados antes de criar o agendamento:

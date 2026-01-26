@@ -86,4 +86,18 @@ export const whatsappApi = {
     });
     return response.data;
   },
+
+  /**
+   * Verifica se um contato está online no WhatsApp
+   */
+  async getContactPresence(instanceId: string, phone: string): Promise<{
+    success: boolean;
+    data: {
+      isOnline: boolean;
+      lastSeen?: string;
+    };
+  }> {
+    const response = await api.get(`/whatsapp/presence/${instanceId}/${phone}`);
+    return response.data;
+  },
 };

@@ -5,7 +5,7 @@ import { campaignApi } from '@/lib/campaign';
 import { Campaign, CampaignStatus, CampaignType } from '@/types/campaign';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Send, Edit, Trash, XCircle, Loader2, Calendar, BarChart3, Megaphone, Clock } from 'lucide-react';
+import { Plus, Send, Edit, Trash, XCircle, Loader2, Calendar, BarChart3, Megaphone, Clock, Sparkles, HelpCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,6 +13,7 @@ import { buttons, cards, typography, spacing, icons } from "@/lib/design-system"
 import { toast } from "sonner";
 import { EditCampaignDialog } from '@/components/campaigns/edit-campaign-dialog';
 import { ScheduleCampaignDialog } from '@/components/campaigns/schedule-campaign-dialog';
+import CampaignsHowItWorksModal from '@/components/campaigns/CampaignsHowItWorksModal';
 import { ProtectedPage } from '@/components/layout/protected-page';
 import { LoadingErrorState } from "@/components/ui/error-state";
 import { useErrorHandler } from "@/hooks/use-error-handler";
@@ -35,6 +36,7 @@ function CampaignsPageContent() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [schedulingCampaign, setSchedulingCampaign] = useState<Campaign | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
 
   const getCompanyId = () => {
     const user = localStorage.getItem('user');
@@ -190,7 +192,22 @@ function CampaignsPageContent() {
     <div className="p-6">
       <div className={spacing.section}>
         {/* Header */}
-        <div className="flex items-center justify-end mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          {/* Botão Como Funciona */}
+          <button
+            onClick={() => setShowHowItWorksModal(true)}
+            className="group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border border-green-200 hover:border-green-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow"
+          >
+            <div className="p-1.5 bg-green-100 group-hover:bg-green-200 rounded-lg transition-colors">
+              <Sparkles className="h-4 w-4 text-green-600" />
+            </div>
+            <div className="text-left">
+              <span className="text-sm font-semibold text-green-800 block">Como funciona?</span>
+              <span className="text-xs text-green-600">Entenda as campanhas de disparo</span>
+            </div>
+            <HelpCircle className="h-4 w-4 text-green-500 ml-1" />
+          </button>
+
           <button
             onClick={() => router.push('/dashboard/campaigns/new')}
             className={buttons.primary}
@@ -423,6 +440,11 @@ function CampaignsPageContent() {
         }}
         onSuccess={handleScheduleSuccess}
       />
+
+      {/* How It Works Modal */}
+      {showHowItWorksModal && (
+        <CampaignsHowItWorksModal onClose={() => setShowHowItWorksModal(false)} />
+      )}
     </div>
   );
 }

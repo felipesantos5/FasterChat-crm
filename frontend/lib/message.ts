@@ -95,9 +95,9 @@ export const messageApi = {
   },
 
   /**
-   * Adiciona feedback a uma mensagem da IA
+   * Adiciona ou remove feedback de uma mensagem da IA
    */
-  async addFeedback(messageId: string, feedback: 'GOOD' | 'BAD', note?: string): Promise<{
+  async addFeedback(messageId: string, feedback: 'GOOD' | 'BAD' | null, note?: string): Promise<{
     success: boolean;
     data: Message;
   }> {

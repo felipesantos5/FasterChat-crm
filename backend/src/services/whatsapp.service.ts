@@ -563,8 +563,9 @@ class WhatsAppService {
 
   /**
    * Configura webhook na Evolution API
+   * Pode ser chamado publicamente para reconfigurar webhooks de instâncias existentes
    */
-  private async configureWebhook(instanceName: string) {
+  async configureWebhook(instanceName: string) {
     try {
       const webhookUrl = process.env.WEBHOOK_URL || process.env.API_URL;
 
@@ -585,6 +586,7 @@ class WhatsAppService {
           webhook_base64: true,
           events: [
             "MESSAGES_UPSERT",
+            "MESSAGES_UPDATE",
             "CONNECTION_UPDATE",
             "QRCODE_UPDATED",
             "SEND_MESSAGE",
@@ -714,6 +716,72 @@ class WhatsAppService {
       console.error("[WhatsApp Service] ❌ Error sending media:", error.response?.data || error.message);
       const evolutionError = error.response?.data?.message || error.response?.data?.error || error.message || "";
       throw Errors.whatsappSendFailed(evolutionError);
+    }
+  }
+
+  /**
+   * Reconfigura o webhook de uma instância específica
+   * Útil para atualizar instâncias existentes com novos eventos
+   */
+  async reconfigureWebhook(instanceId: string): Promise<{ success: boolean }> {
+    try {
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: instanceId },
+      });
+
+      if (!instance) {
+        throw new Error("WhatsApp instance not found");
+      }
+
+      await this.configureWebhook(instance.instanceName);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("[WhatsApp Service] Error reconfiguring webhook:", error.message);
+      throw new Error(`Failed to reconfigure webhook: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verifica o status de presença (online/offline) de um contato
+   * Usa a Evolution API para consultar se o contato está online no WhatsApp
+   */
+  async getContactPresence(instanceId: string, phone: string): Promise<{ isOnline: boolean; lastSeen?: string }> {
+    try {
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: instanceId },
+      });
+
+      if (!instance) {
+        throw new Error("WhatsApp instance not found");
+      }
+
+      if (instance.status !== WhatsAppStatus.CONNECTED) {
+        return { isOnline: false };
+      }
+
+      const remoteJid = this.formatJid(phone);
+
+      // Chama a Evolution API para verificar presença
+      const response = await this.axiosInstance.post(`/chat/fetchPresence/${instance.instanceName}`, {
+        number: remoteJid,
+      }, { timeout: 5000 });
+
+      // A resposta pode variar, mas geralmente contém:
+      // { presence: "available" | "unavailable" | "composing" | "recording" }
+      const presence = response.data?.presence || response.data?.status || "unavailable";
+      const lastSeen = response.data?.lastSeen;
+
+      const isOnline = presence === "available" || presence === "composing" || presence === "recording";
+
+      return {
+        isOnline,
+        lastSeen: lastSeen ? new Date(lastSeen * 1000).toISOString() : undefined,
+      };
+    } catch (error: any) {
+      // Em caso de erro, retorna offline sem quebrar
+      console.log(`[WhatsApp Service] Could not fetch presence for ${phone}: ${error.message}`);
+      return { isOnline: false };
     }
   }
 
