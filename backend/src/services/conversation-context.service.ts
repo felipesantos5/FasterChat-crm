@@ -68,10 +68,16 @@ class ConversationContextService {
     // Inverte para ordem cronológica
     const chronologicalMessages = recentMessages.reverse();
 
+    // Converte Decimal para number para compatibilidade
+    const servicesFormatted = services.map(s => ({
+      ...s,
+      basePrice: Number(s.basePrice),
+    }));
+
     // Detecta o serviço mais provável baseado no contexto
     const detectedService = this.detectServiceFromHistory(
       chronologicalMessages,
-      services,
+      servicesFormatted,
       currentMessage
     );
 
@@ -205,20 +211,24 @@ class ConversationContextService {
       }
     });
 
-    // Encontra o serviço com maior pontuação
-    let bestService: { id: string; score: number; detectedFrom: ServiceContext["detectedFrom"] } | null = null;
-    serviceScores.forEach((data, serviceId) => {
-      if (!bestService || data.score > bestService.score) {
-        bestService = { id: serviceId, score: data.score, detectedFrom: data.detectedFrom };
-      }
-    });
+    // Encontra o serviço com maior pontuação usando reduce
+    const entries = Array.from(serviceScores.entries());
+    const bestMatch = entries.reduce<{ id: string; score: number; detectedFrom: ServiceContext["detectedFrom"] } | null>(
+      (best, [serviceId, data]) => {
+        if (!best || data.score > best.score) {
+          return { id: serviceId, score: data.score, detectedFrom: data.detectedFrom };
+        }
+        return best;
+      },
+      null
+    );
 
     // Se encontrou um serviço com pontuação mínima
-    if (bestService && bestService.score >= 5) {
-      const service = services.find((s) => s.id === bestService!.id);
+    if (bestMatch && bestMatch.score >= 5) {
+      const service = services.find((s) => s.id === bestMatch.id);
       if (service) {
         // Calcula confiança (normalizada entre 0-1)
-        const confidence = Math.min(bestService.score / 30, 1);
+        const confidence = Math.min(bestMatch.score / 30, 1);
 
         return {
           serviceId: service.id,
@@ -226,7 +236,7 @@ class ConversationContextService {
           servicePrice: `R$ ${service.basePrice.toFixed(2).replace(".", ",")}`,
           serviceDuration: service.duration || undefined,
           confidence,
-          detectedFrom: bestService.detectedFrom,
+          detectedFrom: bestMatch.detectedFrom,
         };
       }
     }

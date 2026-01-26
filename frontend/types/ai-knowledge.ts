@@ -40,6 +40,14 @@ export interface AIKnowledge {
   aiPersonality?: string | null;
   toneInstructions?: string | null; // legado
 
+  // Comportamento de Atendimento (Humanização)
+  pricingBehavior?: 'SHOW_IMMEDIATELY' | 'ASK_FIRST' | 'NEVER_SHOW' | null;
+  toneOfVoice?: 'FORMAL' | 'FRIENDLY' | 'TECHNICAL' | null;
+  consultativeMode?: boolean | null;
+  requiredInfoBeforeQuote?: string[] | null;
+  customGreeting?: string | null;
+  customQualifyingQuestions?: string[] | null;
+
   // Políticas
   policies?: string | null;
   workingHours?: string | null; // texto legado
@@ -95,6 +103,14 @@ export interface UpdateAIKnowledgeRequest {
   aiObjective?: string; // Texto customizado (quando objectiveType = 'custom')
   aiPersonality?: string;
   toneInstructions?: string;
+
+  // Comportamento de Atendimento (Humanização)
+  pricingBehavior?: 'SHOW_IMMEDIATELY' | 'ASK_FIRST' | 'NEVER_SHOW';
+  toneOfVoice?: 'FORMAL' | 'FRIENDLY' | 'TECHNICAL';
+  consultativeMode?: boolean;
+  requiredInfoBeforeQuote?: string[];
+  customGreeting?: string;
+  customQualifyingQuestions?: string[];
 
   // Políticas
   policies?: string;

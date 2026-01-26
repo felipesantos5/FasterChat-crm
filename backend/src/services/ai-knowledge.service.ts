@@ -100,6 +100,14 @@ class AIKnowledgeService {
           objectiveType: data.objectiveType,
           aiObjective: data.aiObjective,
 
+          // Comportamento de Atendimento (Humanização)
+          pricingBehavior: data.pricingBehavior as any,
+          toneOfVoice: data.toneOfVoice as any,
+          consultativeMode: data.consultativeMode,
+          requiredInfoBeforeQuote: data.requiredInfoBeforeQuote as any,
+          customGreeting: data.customGreeting,
+          customQualifyingQuestions: data.customQualifyingQuestions as any,
+
           policies: data.policies,
           workingHours: data.workingHours,
           businessHoursStart: data.businessHoursStart,
@@ -132,6 +140,14 @@ class AIKnowledgeService {
           
           objectiveType: data.objectiveType || 'support',
           aiObjective: data.aiObjective,
+
+          // Comportamento de Atendimento (Humanização)
+          pricingBehavior: (data.pricingBehavior || 'SHOW_IMMEDIATELY') as any,
+          toneOfVoice: (data.toneOfVoice || 'FRIENDLY') as any,
+          consultativeMode: data.consultativeMode ?? false,
+          requiredInfoBeforeQuote: (data.requiredInfoBeforeQuote || []) as any,
+          customGreeting: data.customGreeting,
+          customQualifyingQuestions: (data.customQualifyingQuestions || []) as any,
 
           policies: data.policies,
           workingHours: data.workingHours,

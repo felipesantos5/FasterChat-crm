@@ -718,6 +718,38 @@ class WhatsAppService {
   }
 
   /**
+   * Envia indicador de "digitando" (presence: composing) para o cliente
+   * Isso faz o WhatsApp mostrar "digitando..." para o destinatário
+   */
+  async sendTypingIndicator(instanceId: string, to: string, duration: number = 3000): Promise<void> {
+    try {
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: instanceId },
+      });
+
+      if (!instance || instance.status !== WhatsAppStatus.CONNECTED) {
+        return; // Silenciosamente ignora se não estiver conectado
+      }
+
+      const remoteJid = this.formatJid(to);
+
+      // Envia o status "composing" (digitando)
+      await this.axiosInstance.post(`/chat/sendPresence/${instance.instanceName}`, {
+        number: remoteJid,
+        presence: "composing",
+      });
+
+      console.log(`[WhatsApp Service] ⌨️ Typing indicator sent to ${to}`);
+
+      // Opcional: Agenda para parar de digitar após o duration
+      // A Evolution API geralmente para automaticamente após enviar a mensagem
+    } catch (error: any) {
+      // Não falha se o indicador de digitando não funcionar
+      console.log(`[WhatsApp Service] ⚠️ Could not send typing indicator: ${error.message}`);
+    }
+  }
+
+  /**
    * Atualiza o nome amigável (displayName) de uma instância
    */
   async updateInstanceName(instanceId: string, displayName: string): Promise<void> {

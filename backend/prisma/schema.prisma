@@ -271,6 +271,14 @@ model AIKnowledge {
   aiPersonality      String?  @map("ai_personality") @db.Text // Tom de voz e personalidade
   toneInstructions   String?  @map("tone_instructions") @db.Text // Instruções de tom (legado)
 
+  // Comportamento de Atendimento (Humanização)
+  pricingBehavior         String?  @default("SHOW_IMMEDIATELY") @map("pricing_behavior") // SHOW_IMMEDIATELY, ASK_FIRST, NEVER_SHOW
+  toneOfVoice             String?  @default("FRIENDLY") @map("tone_of_voice") // FORMAL, FRIENDLY, TECHNICAL
+  consultativeMode        Boolean  @default(false) @map("consultative_mode") // Modo consultivo (faz perguntas antes de informar)
+  requiredInfoBeforeQuote Json?    @default("[]") @map("required_info_before_quote") // Array de informações obrigatórias antes de passar orçamento
+  customGreeting          String?  @map("custom_greeting") @db.Text // Saudação personalizada
+  customQualifyingQuestions Json?  @default("[]") @map("custom_qualifying_questions") // Perguntas de qualificação customizadas
+
   // Políticas
   policies           String?  @db.Text
   workingHours       String?  @map("working_hours") // Horário de atendimento (texto legado)

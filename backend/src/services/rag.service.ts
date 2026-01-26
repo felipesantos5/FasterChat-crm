@@ -22,10 +22,11 @@ const RAG_CONFIG = {
   CHUNK_OVERLAP: 80,
   // Tamanho mínimo de chunk válido
   MIN_CHUNK_SIZE: 50,
-  // Limite de resultados padrão
-  DEFAULT_SEARCH_LIMIT: 5,
+  // Limite de resultados padrão (aumentado para capturar mais contexto)
+  DEFAULT_SEARCH_LIMIT: 8,
   // Threshold de similaridade (0-1, quanto maior mais restritivo)
-  SIMILARITY_THRESHOLD: 0.7,
+  // Reduzido de 0.7 para 0.65 para capturar mais contexto relevante
+  SIMILARITY_THRESHOLD: 0.65,
 };
 
 // Provider padrão para embeddings (via .env)

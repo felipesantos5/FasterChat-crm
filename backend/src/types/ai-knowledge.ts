@@ -28,6 +28,14 @@ export interface AIKnowledgeData {
   objectiveType?: string | null; // ID do objetivo pré-definido
   aiObjective?: string | null; // Texto customizado (quando objectiveType = 'custom')
 
+  // Comportamento de Atendimento (Humanização)
+  pricingBehavior?: 'SHOW_IMMEDIATELY' | 'ASK_FIRST' | 'NEVER_SHOW' | null;
+  toneOfVoice?: 'FORMAL' | 'FRIENDLY' | 'TECHNICAL' | null;
+  consultativeMode?: boolean | null;
+  requiredInfoBeforeQuote?: string[] | null;
+  customGreeting?: string | null;
+  customQualifyingQuestions?: string[] | null;
+
   // Políticas
   policies?: string | null;
   workingHours?: string | null;
@@ -75,6 +83,14 @@ export interface UpdateAIKnowledgeRequest {
   // Objetivo da IA
   objectiveType?: string; // ID do objetivo pré-definido
   aiObjective?: string; // Texto customizado (quando objectiveType = 'custom')
+
+  // Comportamento de Atendimento (Humanização)
+  pricingBehavior?: 'SHOW_IMMEDIATELY' | 'ASK_FIRST' | 'NEVER_SHOW';
+  toneOfVoice?: 'FORMAL' | 'FRIENDLY' | 'TECHNICAL';
+  consultativeMode?: boolean;
+  requiredInfoBeforeQuote?: string[];
+  customGreeting?: string;
+  customQualifyingQuestions?: string[];
 
   // Políticas
   policies?: string;

@@ -45,6 +45,10 @@ import {
   DollarSign,
   Hash,
   ArrowRight,
+  MessageSquare,
+  HelpCircle,
+  CheckCircle2,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -108,10 +112,11 @@ const OBJECTIVE_ICONS: Record<string, LucideIcon> = {
 const STEPS = [
   { id: 0, title: "Sua Empresa", icon: Building2, description: "Informações básicas" },
   { id: 1, title: "Objetivo da IA", icon: Target, description: "Como a IA deve agir" },
-  { id: 2, title: "Políticas", icon: FileText, description: "Regras do negócio" },
-  { id: 3, title: "Produtos", icon: Package, description: "O que você oferece" },
-  { id: 4, title: "Serviços", icon: Wrench, description: "Serviços com variações" },
-  { id: 5, title: "Finalizar", icon: Sparkles, description: "Gerar contexto" },
+  { id: 2, title: "Comportamento", icon: MessageSquare, description: "Tom e atendimento" },
+  { id: 3, title: "Políticas", icon: FileText, description: "Regras do negócio" },
+  { id: 4, title: "Produtos", icon: Package, description: "O que você oferece" },
+  { id: 5, title: "Serviços", icon: Wrench, description: "Serviços com variações" },
+  { id: 6, title: "Finalizar", icon: Sparkles, description: "Gerar contexto" },
 ];
 
 // Segmentos de negócio sugeridos
@@ -164,6 +169,16 @@ function AISettingsPageContent() {
   const [paymentMethods, setPaymentMethods] = useState("");
   const [deliveryInfo, setDeliveryInfo] = useState("");
   const [warrantyInfo, setWarrantyInfo] = useState("");
+
+  // Estados para Comportamento da IA
+  const [pricingBehavior, setPricingBehavior] = useState<'SHOW_IMMEDIATELY' | 'ASK_FIRST' | 'NEVER_SHOW'>('SHOW_IMMEDIATELY');
+  const [toneOfVoice, setToneOfVoice] = useState<'FORMAL' | 'FRIENDLY' | 'TECHNICAL'>('FRIENDLY');
+  const [consultativeMode, setConsultativeMode] = useState(false);
+  const [requiredInfoBeforeQuote, setRequiredInfoBeforeQuote] = useState<string[]>([]);
+  const [customGreeting, setCustomGreeting] = useState("");
+  const [customQualifyingQuestions, setCustomQualifyingQuestions] = useState<string[]>([]);
+  const [newRequiredInfo, setNewRequiredInfo] = useState("");
+  const [newQuestion, setNewQuestion] = useState("");
 
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -303,6 +318,14 @@ function AISettingsPageContent() {
         setDeliveryInfo(response.data.deliveryInfo || "");
         setWarrantyInfo(response.data.warrantyInfo || "");
 
+        // Comportamento da IA
+        setPricingBehavior(response.data.pricingBehavior || 'SHOW_IMMEDIATELY');
+        setToneOfVoice(response.data.toneOfVoice || 'FRIENDLY');
+        setConsultativeMode(response.data.consultativeMode || false);
+        setRequiredInfoBeforeQuote(response.data.requiredInfoBeforeQuote || []);
+        setCustomGreeting(response.data.customGreeting || "");
+        setCustomQualifyingQuestions(response.data.customQualifyingQuestions || []);
+
         // CORREÇÃO DA TELA BRANCA: Garante que products é sempre um array
         setProducts(Array.isArray(response.data.products) ? response.data.products : []);
 
@@ -339,6 +362,12 @@ function AISettingsPageContent() {
         companyDescription,
         objectiveType,
         aiObjective: objectiveType === 'custom' ? aiObjective : undefined,
+        pricingBehavior,
+        toneOfVoice,
+        consultativeMode,
+        requiredInfoBeforeQuote,
+        customGreeting,
+        customQualifyingQuestions,
         workingHours,
         businessHoursStart,
         businessHoursEnd,
@@ -366,7 +395,7 @@ function AISettingsPageContent() {
     const nextStep = currentStep + 1;
 
     // Se está saindo do step de serviços (step 4), salva os serviços primeiro
-    if (currentStep === 4 && services.length > 0) {
+    if (currentStep === 5 && services.length > 0) {
       const servicesSaved = await saveServices();
       if (!servicesSaved) {
         return; // Se falhou a validação, não avança
@@ -992,28 +1021,223 @@ function AISettingsPageContent() {
                 </div>
               )}
 
-              <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  Comportamento Profissional Automático
-                </h4>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Sua IA já vem configurada com as melhores práticas de atendimento:
+            </>
+          )}
+
+          {/* Step 2: Comportamento */}
+          {currentStep === 2 && (
+            <>
+              {/* Comportamento de Preços */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-medium flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-primary" />
+                    Comportamento de Preços
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Como a IA deve lidar com perguntas sobre valores
+                  </p>
+                </div>
+
+                <div className="grid gap-3">
+                  {[
+                    { value: 'SHOW_IMMEDIATELY' as const, label: 'Mostrar Imediatamente', desc: 'A IA informa preços assim que o cliente perguntar' },
+                    { value: 'ASK_FIRST' as const, label: 'Perguntar Antes (Recomendado)', desc: 'A IA coleta informações do cliente antes de passar valores' },
+                    { value: 'NEVER_SHOW' as const, label: 'Não Mostrar Preços', desc: 'A IA nunca informa preços, sempre direciona para atendimento' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setPricingBehavior(option.value)}
+                      className={cn(
+                        "flex items-start gap-4 p-4 rounded-lg border-2 text-left transition-all",
+                        pricingBehavior === option.value
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-muted-foreground/20 hover:bg-muted/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5",
+                        pricingBehavior === option.value ? "border-primary bg-primary" : "border-muted-foreground/40"
+                      )}>
+                        {pricingBehavior === option.value && <CheckCircle2 className="h-4 w-4 text-primary-foreground" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{option.label}</span>
+                          {option.value === 'ASK_FIRST' && (
+                            <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">Recomendado</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-0.5">{option.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {pricingBehavior === 'ASK_FIRST' && (
+                  <div className="mt-4 p-4 bg-muted/50 rounded-lg border">
+                    <Label className="text-sm font-medium">Informações obrigatórias antes do orçamento</Label>
+                    <p className="text-xs text-muted-foreground mt-1 mb-3">
+                      A IA vai coletar essas informações antes de informar valores
+                    </p>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {requiredInfoBeforeQuote.map((info, i) => (
+                        <Badge key={i} variant="secondary" className="bg-background border px-3 py-1">
+                          {info}
+                          <button onClick={() => setRequiredInfoBeforeQuote(requiredInfoBeforeQuote.filter((_, idx) => idx !== i))} className="ml-2 text-muted-foreground hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newRequiredInfo}
+                        onChange={(e) => setNewRequiredInfo(e.target.value)}
+                        placeholder="Ex: Quantidade de aparelhos"
+                        className="flex-1"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && newRequiredInfo.trim()) {
+                            setRequiredInfoBeforeQuote([...requiredInfoBeforeQuote, newRequiredInfo.trim()]);
+                            setNewRequiredInfo("");
+                          }
+                        }}
+                      />
+                      <Button type="button" onClick={() => {
+                        if (newRequiredInfo.trim()) {
+                          setRequiredInfoBeforeQuote([...requiredInfoBeforeQuote, newRequiredInfo.trim()]);
+                          setNewRequiredInfo("");
+                        }
+                      }} variant="outline">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tom de Voz */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-medium flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                    Tom de Voz
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Escolha o estilo de comunicação da IA
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { value: 'FRIENDLY' as const, label: 'Amigável', emoji: '😊', desc: 'Cordial e acessível' },
+                    { value: 'FORMAL' as const, label: 'Formal', emoji: '👔', desc: 'Profissional e respeitoso' },
+                    { value: 'TECHNICAL' as const, label: 'Técnico', emoji: '🔧', desc: 'Especializado e detalhado' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setToneOfVoice(option.value)}
+                      className={cn(
+                        "p-4 rounded-lg border-2 text-center transition-all",
+                        toneOfVoice === option.value
+                          ? "border-primary bg-primary/5"
+                          : "border-muted hover:border-muted-foreground/20 hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="text-3xl mb-2">{option.emoji}</div>
+                      <div className="font-medium">{option.label}</div>
+                      <p className="text-xs text-muted-foreground mt-1">{option.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Modo Consultivo */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Users className="h-5 w-5 text-primary" />
+                      Modo Consultivo
+                    </h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      A IA faz perguntas para entender melhor a necessidade
+                    </p>
+                  </div>
+                  <Switch
+                    checked={consultativeMode}
+                    onCheckedChange={setConsultativeMode}
+                  />
+                </div>
+
+                {consultativeMode && (
+                  <div className="p-4 bg-muted/50 rounded-lg border">
+                    <Label className="text-sm font-medium">Perguntas de qualificação</Label>
+                    <p className="text-xs text-muted-foreground mt-1 mb-3">
+                      Perguntas que a IA pode fazer para entender a necessidade do cliente
+                    </p>
+                    <div className="space-y-2 mb-3">
+                      {customQualifyingQuestions.map((q, i) => (
+                        <div key={i} className="flex items-center gap-2 p-2 bg-background rounded border">
+                          <HelpCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="flex-1 text-sm">{q}</span>
+                          <button onClick={() => setCustomQualifyingQuestions(customQualifyingQuestions.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newQuestion}
+                        onChange={(e) => setNewQuestion(e.target.value)}
+                        placeholder="Ex: Qual a marca do seu equipamento?"
+                        className="flex-1"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && newQuestion.trim()) {
+                            setCustomQualifyingQuestions([...customQualifyingQuestions, newQuestion.trim()]);
+                            setNewQuestion("");
+                          }
+                        }}
+                      />
+                      <Button type="button" onClick={() => {
+                        if (newQuestion.trim()) {
+                          setCustomQualifyingQuestions([...customQualifyingQuestions, newQuestion.trim()]);
+                          setNewQuestion("");
+                        }
+                      }} variant="outline">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Saudação Personalizada */}
+              <div className="space-y-2">
+                <Label htmlFor="customGreeting" className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Saudação Personalizada (Opcional)
+                </Label>
+                <Textarea
+                  id="customGreeting"
+                  value={customGreeting}
+                  onChange={(e) => setCustomGreeting(e.target.value)}
+                  placeholder="Ex: Olá! Seja bem-vindo à [Nome da Empresa]! Como posso te ajudar hoje?"
+                  rows={3}
+                  className="min-h-[80px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Deixe em branco para usar a saudação padrão
                 </p>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Comunicação educada e profissional</li>
-                  <li>• Respostas claras e objetivas</li>
-                  <li>• Uso moderado de emojis</li>
-                  <li>• Tratamento respeitoso ao cliente</li>
-                  <li>• <strong>Nunca inventa preços</strong> - usa apenas valores cadastrados</li>
-                  <li>• Encaminha para humano quando necessário</li>
-                </ul>
               </div>
             </>
           )}
 
-          {/* Step 2: Políticas */}
-          {currentStep === 2 && (
+          {/* Step 3: Políticas */}
+          {currentStep === 3 && (
             <>
               <div className="space-y-4">
                 <Label className="flex items-center gap-2">
@@ -1121,8 +1345,8 @@ function AISettingsPageContent() {
             </>
           )}
 
-          {/* Step 3: Produtos/Serviços */}
-          {currentStep === 3 && (
+          {/* Step 4: Produtos/Serviços */}
+          {currentStep === 4 && (
             <>
               <div className="flex items-center justify-between">
                 <div>
@@ -1339,8 +1563,8 @@ function AISettingsPageContent() {
             </>
           )}
 
-          {/* Step 4: Serviços com Variações */}
-          {currentStep === 4 && (
+          {/* Step 5: Serviços com Variações */}
+          {currentStep === 5 && (
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1818,8 +2042,8 @@ function AISettingsPageContent() {
             </>
           )}
 
-          {/* Step 5: Finalizar */}
-          {currentStep === 5 && (
+          {/* Step 6: Finalizar */}
+          {currentStep === 6 && (
             <div className="text-center py-8">
               <Wand2 className="h-16 w-16 mx-auto text-primary mb-4" />
               <h3 className="text-xl font-semibold mb-2">Tudo pronto!</h3>

@@ -716,6 +716,24 @@ class MessageService {
       // Importa o whatsappService dinamicamente para evitar dependência circular
       const whatsappService = (await import("./whatsapp.service")).default;
 
+      // 🤖 Se for mensagem da IA, adiciona delay e indicador de "digitando"
+      // para parecer mais natural e não ficar tão na cara que é um bot
+      if (sentBy === "AI") {
+        // Calcula delay baseado no tamanho da mensagem (simulando tempo de digitação)
+        // Mínimo 1.5s, máximo 4s, ~50ms por caractere
+        const typingDelay = Math.min(4000, Math.max(1500, content.length * 50));
+
+        // Envia indicador de "digitando..."
+        await whatsappService.sendTypingIndicator(
+          whatsappInstance.id,
+          customer.phone,
+          typingDelay
+        );
+
+        // Aguarda o delay antes de enviar a mensagem
+        await new Promise((resolve) => setTimeout(resolve, typingDelay));
+      }
+
       // Envia a mensagem via WhatsApp
       const result = await whatsappService.sendMessage({
         instanceId: whatsappInstance.id,
