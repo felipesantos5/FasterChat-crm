@@ -1,73 +1,62 @@
-# backend/Dockerfile
+# Dockerfile para Railway - Backend CRM AI
 
 # ============================================
-# STAGE 1: Builder - Instala dependências e compila
+# STAGE 1: Builder - Build da aplicação
 # ============================================
 FROM node:20-alpine AS builder
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Instala dependências do sistema necessárias para o Prisma e build
-RUN apk add --no-cache \
-    openssl \
-    libc6-compat
+# Instala dependências necessárias para Prisma
+RUN apk add --no-cache openssl libc6-compat
 
-# Copia arquivos de dependência primeiro (para cache do Docker)
+# Copia arquivos de dependências
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Instala TODAS as dependências (incluindo devDependencies para build)
+# Instala todas as dependências (dev + prod para build)
 RUN npm ci
 
-# Gera o cliente do Prisma
+# Gera Prisma Client
 RUN npx prisma generate
 
-# Copia o resto do código fonte
+# Copia código fonte
 COPY . .
 
-# Compila o TypeScript
+# Build do TypeScript
 RUN npm run build
 
 # ============================================
-# STAGE 2: Production - Imagem final otimizada
+# STAGE 2: Production - Imagem final
 # ============================================
-FROM node:20-alpine AS production
+FROM node:20-alpine
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Instala apenas dependências de runtime necessárias
-RUN apk add --no-cache \
-    openssl \
-    libc6-compat
+# Instala dependências de runtime
+RUN apk add --no-cache openssl libc6-compat
 
-# Copia package.json e package-lock.json
+# Copia package.json
 COPY package*.json ./
 
-# Copia o Prisma schema e migrations primeiro
-COPY --from=builder /usr/src/app/prisma ./prisma
+# Copia schema e migrations do Prisma
+COPY --from=builder /app/prisma ./prisma
 
 # Instala apenas dependências de produção
 RUN npm ci --only=production
 
-# Gera o cliente Prisma para a imagem de produção
+# Gera Prisma Client na imagem final
 RUN npx prisma generate
 
-# Copia o código compilado do builder
-COPY --from=builder /usr/src/app/dist ./dist
+# Copia código compilado
+COPY --from=builder /app/dist ./dist
 
-# Copia o script de entrypoint
-COPY docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
-
-# Define variáveis de ambiente
+# Variáveis de ambiente
 ENV NODE_ENV=production
+ENV PORT=3051
 
 # Expõe a porta
 EXPOSE 3051
 
-# Healthcheck (opcional mas recomendado)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3051/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))" || exit 1
-
-# Usa o script de entrypoint que resolve migrações falhadas automaticamente
-CMD ["./docker-entrypoint.sh"]
+# Inicia a aplicação (já roda prisma migrate deploy automaticamente)
+CMD ["npm", "start"]
