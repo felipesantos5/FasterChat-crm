@@ -270,6 +270,13 @@ model AIKnowledge {
   aiObjective        String?  @map("ai_objective") @db.Text // Texto customizado (usado quando objectiveType = 'custom')
   aiPersonality      String?  @map("ai_personality") @db.Text // Tom de voz e personalidade
   toneInstructions   String?  @map("tone_instructions") @db.Text // Instruções de tom (legado)
+  
+  // Configurações avançadas do objetivo (personalizáveis pelo usuário)
+  aiTone             String?  @default("professional") @map("ai_tone") // professional, friendly, casual, formal
+  aiProactivity      String?  @default("medium") @map("ai_proactivity") // low, medium, high
+  aiClosingFocus     Boolean? @default(false) @map("ai_closing_focus") // Se deve tentar fechar venda
+  aiCustomInstructions String? @map("ai_custom_instructions") @db.Text // Instruções personalizadas adicionais
+
 
   // Políticas
   policies           String?  @db.Text

@@ -45,6 +45,7 @@ import {
   DollarSign,
   Hash,
   ArrowRight,
+  HeartHandshake,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -96,6 +97,7 @@ interface Service {
 const OBJECTIVE_ICONS: Record<string, LucideIcon> = {
   support: Headphones,
   sales: ShoppingCart,
+  consultative_attentive: HeartHandshake,
   sales_scheduling: CalendarCheck,
   scheduling_only: Calendar,
   info_faq: Info,
@@ -157,6 +159,13 @@ function AISettingsPageContent() {
   const [objectiveType, setObjectiveType] = useState("support");
   const [objectivePresets, setObjectivePresets] = useState<ObjectivePreset[]>([]);
   const [aiObjective, setAiObjective] = useState(""); // Usado apenas quando objectiveType === 'custom'
+
+  // Configurações avançadas do objetivo
+  const [aiTone, setAiTone] = useState<string>("professional");
+  const [aiProactivity, setAiProactivity] = useState<string>("medium");
+  const [aiClosingFocus, setAiClosingFocus] = useState<boolean>(false);
+  const [aiCustomInstructions, setAiCustomInstructions] = useState("");
+  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
 
   const [workingHours, setWorkingHours] = useState("");
   const [businessHoursStart, setBusinessHoursStart] = useState<number>(9);
@@ -296,6 +305,17 @@ function AISettingsPageContent() {
         setObjectiveType(response.data.objectiveType || "support");
         setAiObjective(response.data.aiObjective || "");
 
+        // Carregar configurações avançadas
+        setAiTone(response.data.aiTone || "professional");
+        setAiProactivity(response.data.aiProactivity || "medium");
+        setAiClosingFocus(response.data.aiClosingFocus ?? false);
+        setAiCustomInstructions(response.data.aiCustomInstructions || "");
+
+        // Expandir seção avançada se houver dados
+        if (response.data.aiTone || response.data.aiProactivity || response.data.aiClosingFocus || response.data.aiCustomInstructions) {
+          setShowAdvancedConfig(true);
+        }
+
         setWorkingHours(response.data.workingHours || "");
         setBusinessHoursStart(response.data.businessHoursStart ?? 9);
         setBusinessHoursEnd(response.data.businessHoursEnd ?? 18);
@@ -339,6 +359,10 @@ function AISettingsPageContent() {
         companyDescription,
         objectiveType,
         aiObjective: objectiveType === 'custom' ? aiObjective : undefined,
+        aiTone,
+        aiProactivity,
+        aiClosingFocus,
+        aiCustomInstructions,
         workingHours,
         businessHoursStart,
         businessHoursEnd,
@@ -796,7 +820,6 @@ function AISettingsPageContent() {
       warrantyInfo={warrantyInfo}
       products={products}
       services={services}
-      generatedContext={generatedContext}
       autoReplyEnabled={autoReplyEnabled}
       onEdit={() => setSetupCompleted(false)}
       onRegenerate={handleGenerateContext}
@@ -989,6 +1012,104 @@ function AISettingsPageContent() {
                   <p className="text-xs text-muted-foreground">
                     Descreva detalhadamente o que você espera que a IA faça ao atender seus clientes.
                   </p>
+                </div>
+              )}
+
+              {/* Configuração Avançada do Objetivo */}
+              {objectiveType !== "custom" && (
+                <div className="space-y-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
+                    className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showAdvancedConfig ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                    Configuração Avançada (opcional)
+                  </button>
+
+                  {showAdvancedConfig && (
+                    <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                      {/* Tom de Voz */}
+                      <div className="space-y-2">
+                        <Label htmlFor="aiTone" className="text-sm">
+                          Tom de Voz
+                        </Label>
+                        <select
+                          id="aiTone"
+                          value={aiTone}
+                          onChange={(e) => setAiTone(e.target.value)}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                          <option value="professional">Profissional</option>
+                          <option value="friendly">Amigável</option>
+                          <option value="casual">Casual</option>
+                          <option value="formal">Formal</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground">
+                          Define o estilo de comunicação da IA com os clientes
+                        </p>
+                      </div>
+
+                      {/* Nível de Proatividade */}
+                      <div className="space-y-2">
+                        <Label htmlFor="aiProactivity" className="text-sm">
+                          Nível de Proatividade
+                        </Label>
+                        <select
+                          id="aiProactivity"
+                          value={aiProactivity}
+                          onChange={(e) => setAiProactivity(e.target.value)}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                          <option value="low">Baixa - Espera o cliente perguntar</option>
+                          <option value="medium">Média - Sugere quando relevante</option>
+                          <option value="high">Alta - Proativa em oferecer soluções</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground">
+                          Controla o quanto a IA toma iniciativa na conversa
+                        </p>
+                      </div>
+
+                      {/* Foco em Fechamento */}
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="aiClosingFocus" className="text-sm font-medium">
+                            Foco em Fechamento de Vendas
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Se ativado, a IA tentará conduzir a conversa para o fechamento
+                          </p>
+                        </div>
+                        <Switch
+                          id="aiClosingFocus"
+                          checked={aiClosingFocus}
+                          onCheckedChange={setAiClosingFocus}
+                        />
+                      </div>
+
+                      {/* Instruções Personalizadas */}
+                      <div className="space-y-2">
+                        <Label htmlFor="aiCustomInstructions" className="text-sm">
+                          Instruções Personalizadas
+                        </Label>
+                        <Textarea
+                          id="aiCustomInstructions"
+                          value={aiCustomInstructions}
+                          onChange={(e) => setAiCustomInstructions(e.target.value)}
+                          placeholder="Ex: Sempre pergunte sobre o orçamento disponível antes de apresentar opções, mencione nossa garantia de 2 anos..."
+                          rows={4}
+                          className="min-h-[100px]"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Adicione regras ou comportamentos específicos que a IA deve seguir
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1935,7 +2056,6 @@ function CompletedView({
   warrantyInfo,
   products,
   services,
-  generatedContext,
   autoReplyEnabled,
   onEdit,
   onRegenerate,
@@ -1958,7 +2078,6 @@ function CompletedView({
   warrantyInfo: string;
   products: Product[];
   services: Service[];
-  generatedContext: string;
   autoReplyEnabled: boolean;
   onEdit: () => void;
   onRegenerate: () => void;
@@ -2174,27 +2293,6 @@ function CompletedView({
         </Card>
       </div>
 
-      {/* Contexto Gerado */}
-      {generatedContext && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              Contexto Gerado pela IA
-            </CardTitle>
-            <CardDescription>
-              Este é o contexto que sua IA usa para responder os clientes
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-muted/50 rounded-lg p-4 max-h-[300px] overflow-y-auto">
-              <pre className="text-sm whitespace-pre-wrap font-sans">
-                {generatedContext}
-              </pre>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

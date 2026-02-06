@@ -448,30 +448,48 @@ class MessageService {
         where: { companyId_phone: { companyId: instance.companyId, phone } },
       });
 
-      // 🚨 ANTI-DUPLICATA: Se não encontrou E estamos usando LID (sem participant)
-      // Tenta encontrar um cliente que pode ter sido criado com um número real anteriormente
-      if (!customer && isLid && !extractedFromParticipant) {
-        // Busca clientes recentes da empresa (últimas 100 criações)
-        // para ver se algum pode ser o mesmo contato
-        const recentCustomers = await prisma.customer.findMany({
-          where: {
-            companyId: instance.companyId,
-            isGroup: false,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 100,
-        });
+      // 🚨 ANTI-DUPLICATA: Se não encontrou pelo phone exato,
+      // tenta encontrar o mesmo contato que pode ter sido salvo com phone/LID diferente.
+      // Cenários cobertos:
+      //   - LID primeiro, phone real depois (ou vice-versa)
+      //   - Webhooks duplicados com JIDs diferentes para o mesmo contato
+      if (!customer) {
+        const trimmedPushName = data.pushName?.trim();
+        // pushName válido = não vazio e não é um ID numérico longo (WABA ID)
+        const isValidPushName = !!trimmedPushName && !/^\d{11,}$/.test(trimmedPushName);
+        const incomingIsLid = isLid && !extractedFromParticipant;
 
-        // Verifica se algum cliente tem nome similar ao pushName ou phone similar
-        if (data.pushName && data.pushName.trim() !== '') {
-          recentCustomers.find(c => {
-            // Se o pushName não é um ID numérico, compara nomes
-            const isNumericPushName = /^\d+$/.test(data.pushName!.trim());
-            if (!isNumericPushName && c.name === data.pushName) {
-              return true;
-            }
-            return false;
+        if (isValidPushName) {
+          // Busca cliente existente com o mesmo nome na empresa
+          const existingByName = await prisma.customer.findFirst({
+            where: {
+              companyId: instance.companyId,
+              name: trimmedPushName,
+              isGroup: false,
+            },
+            orderBy: { updatedAt: 'desc' },
           });
+
+          if (existingByName && existingByName.phone !== phone) {
+            // Confirma que é duplicata LID/Phone: um dos phones deve parecer LID (>=13 dígitos)
+            const existingPhoneIsLid = /^\d{13,}$/.test(existingByName.phone);
+
+            if (existingPhoneIsLid || incomingIsLid) {
+              customer = existingByName;
+
+              // Se temos phone real e o existente era LID, atualiza para o phone real
+              if (!incomingIsLid && existingPhoneIsLid) {
+                try {
+                  customer = await prisma.customer.update({
+                    where: { id: existingByName.id },
+                    data: { phone },
+                  });
+                } catch {
+                  // Unique constraint violation - outro customer já tem esse phone
+                }
+              }
+            }
+          }
         }
       }
 
@@ -500,16 +518,29 @@ class MessageService {
           pipelineStageId = firstStage?.id || null;
         }
 
-        customer = await prisma.customer.create({
-          data: {
-            companyId: instance.companyId,
-            name: sanitizedName, // ✅ Usa nome sanitizado
-            phone, // Aqui agora salvamos o número real (se recuperado) ou o LID limpo
-            isGroup,
-            profilePicUrl,
-            pipelineStageId,
-          },
-        });
+        try {
+          customer = await prisma.customer.create({
+            data: {
+              companyId: instance.companyId,
+              name: sanitizedName,
+              phone,
+              isGroup,
+              profilePicUrl,
+              pipelineStageId,
+            },
+          });
+        } catch (createError: any) {
+          // Race condition: outro webhook criou o customer entre o findUnique e o create
+          // Unique constraint violation (P2002) no companyId_phone
+          if (createError.code === 'P2002') {
+            customer = await prisma.customer.findUnique({
+              where: { companyId_phone: { companyId: instance.companyId, phone } },
+            });
+            if (!customer) throw createError;
+          } else {
+            throw createError;
+          }
+        }
 
       } else {
         // Lógica de atualização existente
@@ -552,6 +583,8 @@ class MessageService {
       let mediaUrl: string | null = null;
       const msgData = data.message;
 
+      console.log(`[MessageService] 📦 Processing inbound message from ${phone}. Type: ${msgData?.audioMessage ? 'audio' : msgData?.imageMessage ? 'image' : 'text/other'}`);
+
       // 1. MENSAGEM DE TEXTO
       if (msgData?.conversation || msgData?.extendedTextMessage?.text) {
         content = msgData.conversation || msgData.extendedTextMessage.text;
@@ -559,52 +592,72 @@ class MessageService {
       // 2. MENSAGEM DE ÁUDIO
       else if (msgData?.audioMessage) {
         mediaType = "audio";
+        console.log(`[MessageService] 🎤 Audio message detected. Checking for base64...`);
 
         try {
-          // Baixa o áudio da Evolution API
-          const audioBuffer = await whatsappService.downloadMedia(instanceName, data.key);
-          const base64Audio = audioBuffer.toString("base64");
+          const mimetype = msgData.audioMessage.mimetype || "audio/ogg";
+          let base64Audio = msgData.audioMessage.base64;
+
+          if (base64Audio) {
+            console.log(`[MessageService] ✅ Audio found in base64 format in payload.`);
+          } else {
+            console.log(`[MessageService] ⬇️ Audio base64 not found in payload. Attempting download...`);
+            // Baixa o áudio da Evolution API
+            const audioBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+            base64Audio = audioBuffer.toString("base64");
+            console.log(`[MessageService] ✅ Audio downloaded and converted to base64.`);
+          }
 
           // Define a URL do áudio em base64
-          const mimetype = msgData.audioMessage.mimetype || "audio/ogg";
           mediaUrl = `data:${mimetype};base64,${base64Audio}`;
 
           // Provider é definido via .env (AI_PROVIDER), não usa mais o banco
           const aiProvider: AIProvider = (process.env.AI_PROVIDER as AIProvider) || "gemini";
 
           // Transcreve o áudio com o provedor configurado (Gemini é o padrão)
+          console.log(`[MessageService] 📝 Starting transcription with ${aiProvider}...`);
           try {
             if (aiProvider === "openai" && openaiService.isConfigured()) {
               content = await openaiService.transcribeAudio(base64Audio);
             } else {
               content = await geminiService.transcribeAudio(base64Audio, mimetype);
             }
+            console.log(`[MessageService] ✅ Transcription successful: "${content.substring(0, 50)}..."`);
           } catch (transcribeError: any) {
-            console.error(`[MessageService] Erro ao transcrever áudio:`, transcribeError.message);
+            console.error(`[MessageService] ❌ Erro ao transcrever áudio:`, transcribeError.message);
             content = "[Áudio recebido - transcrição indisponível]";
           }
         } catch (downloadError: any) {
-          console.error(`[MessageService] Erro ao baixar áudio:`, downloadError.message);
+          console.error(`[MessageService] ❌ Erro ao processar áudio:`, downloadError.message);
           content = "[Áudio recebido - erro ao processar]";
         }
       }
       // 3. MENSAGEM DE IMAGEM
       else if (msgData?.imageMessage) {
         mediaType = "image";
+        console.log(`[MessageService] 📷 Image message detected. Checking for base64...`);
 
         try {
-          // Baixa a imagem da Evolution API
-          const imageBuffer = await whatsappService.downloadMedia(instanceName, data.key);
-          const base64Image = imageBuffer.toString("base64");
+          const mimetype = msgData.imageMessage.mimetype || "image/jpeg";
+          let base64Image = msgData.imageMessage.base64;
+
+          if (base64Image) {
+            console.log(`[MessageService] ✅ Image found in base64 format in payload.`);
+          } else {
+            console.log(`[MessageService] ⬇️ Image base64 not found in payload. Attempting download...`);
+            // Baixa a imagem da Evolution API
+            const imageBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+            base64Image = imageBuffer.toString("base64");
+            console.log(`[MessageService] ✅ Image downloaded and converted to base64.`);
+          }
 
           // Define a URL da imagem em base64
-          const mimetype = msgData.imageMessage.mimetype || "image/jpeg";
           mediaUrl = `data:${mimetype};base64,${base64Image}`;
 
           // Usa a legenda se disponível
           content = msgData.imageMessage.caption || "Imagem recebida";
         } catch (downloadError: any) {
-          console.error(`[MessageService] Erro ao baixar imagem:`, downloadError.message);
+          console.error(`[MessageService] ❌ Erro ao baixar imagem:`, downloadError.message);
           content = "[Imagem recebida - erro ao processar]";
         }
       }

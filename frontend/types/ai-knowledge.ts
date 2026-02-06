@@ -39,6 +39,12 @@ export interface AIKnowledge {
   aiObjective?: string | null; // Texto customizado (quando objectiveType = 'custom')
   aiPersonality?: string | null;
   toneInstructions?: string | null; // legado
+  
+  // Configurações avançadas do objetivo
+  aiTone?: string | null; // professional, friendly, casual, formal
+  aiProactivity?: string | null; // low, medium, high
+  aiClosingFocus?: boolean | null; // Se deve tentar fechar venda
+  aiCustomInstructions?: string | null; // Instruções personalizadas adicionais
 
   // Políticas
   policies?: string | null;
@@ -95,6 +101,12 @@ export interface UpdateAIKnowledgeRequest {
   aiObjective?: string; // Texto customizado (quando objectiveType = 'custom')
   aiPersonality?: string;
   toneInstructions?: string;
+  
+  // Configurações avançadas do objetivo
+  aiTone?: string; // professional, friendly, casual, formal
+  aiProactivity?: string; // low, medium, high
+  aiClosingFocus?: boolean; // Se deve tentar fechar venda
+  aiCustomInstructions?: string; // Instruções personalizadas adicionais
 
   // Políticas
   policies?: string;

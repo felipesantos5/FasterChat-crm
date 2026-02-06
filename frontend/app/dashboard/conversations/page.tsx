@@ -12,7 +12,7 @@ import { customerApi } from "@/lib/customer";
 import { whatsappApi } from "@/lib/whatsapp";
 import { Customer } from "@/types/customer";
 import { WhatsAppInstance } from "@/types/whatsapp";
-import { MessageSquare, Search, X, Bot, User, ChevronRight, Smartphone, ArrowLeft } from "lucide-react";
+import { MessageSquare, Search, X, Bot, User, ChevronRight, Smartphone, ArrowLeft, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -362,9 +362,31 @@ function ConversationsPageContent() {
             {/* Header da Sidebar */}
             <div className="p-3 border-b space-y-2">
               <div className="flex items-center justify-between">
-                <Badge variant="secondary" className="text-xs">
+                {/* Filtros e Instância em linha */}
+                <div className="flex items-center gap-2">
+                  <AdvancedFilters filters={advancedFilters} onFiltersChange={setAdvancedFilters} />
+                  {instances.length > 1 && (
+                    <Select value={selectedInstanceId || "all"} onValueChange={(value) => setSelectedInstanceId(value === "all" ? null : value)}>
+                      <SelectTrigger className="h-8 text-xs flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <Smartphone className="h-3 w-3" />
+                          <SelectValue placeholder="Todas" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as instâncias</SelectItem>
+                        {instances.map((instance) => (
+                          <SelectItem key={instance.id} value={instance.id}>
+                            {instance.displayName || instance.instanceName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                {/* <Badge variant="secondary" className="text-xs">
                   {filteredConversations.length} de {conversations.length}
-                </Badge>
+                </Badge> */}
                 <NewConversationDialog
                   trigger={
                     <Button size="sm" variant="default">
@@ -393,28 +415,7 @@ function ConversationsPageContent() {
                 />
               </div>
 
-              {/* Filtros e Instância em linha */}
-              <div className="flex items-center gap-2">
-                <AdvancedFilters filters={advancedFilters} onFiltersChange={setAdvancedFilters} />
-                {instances.length > 1 && (
-                  <Select value={selectedInstanceId || "all"} onValueChange={(value) => setSelectedInstanceId(value === "all" ? null : value)}>
-                    <SelectTrigger className="h-8 text-xs flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <Smartphone className="h-3 w-3" />
-                        <SelectValue placeholder="Todas" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as instâncias</SelectItem>
-                      {instances.map((instance) => (
-                        <SelectItem key={instance.id} value={instance.id}>
-                          {instance.displayName || instance.instanceName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+
 
               {/* Busca */}
               <div className="relative">
@@ -433,20 +434,24 @@ function ConversationsPageContent() {
               </div>
 
               {/* Filtros Rápidos */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Button variant={filterType === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterType("all")} className="h-6 text-xs px-2">
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-hide no-scrollbar">
+                <Button variant={filterType === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterType("all")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
                   Todas {stats.total}
                 </Button>
-                <Button variant={filterType === "ai" ? "default" : "outline"} size="sm" onClick={() => setFilterType("ai")} className="h-6 text-xs px-2">
+                <Button variant={filterType === "ai" ? "default" : "outline"} size="sm" onClick={() => setFilterType("ai")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
                   <Bot className="h-3 w-3 mr-1" />
                   IA {stats.ai}
                 </Button>
-                <Button variant={filterType === "human" ? "default" : "outline"} size="sm" onClick={() => setFilterType("human")} className="h-6 text-xs px-2">
+                <Button variant={filterType === "human" ? "default" : "outline"} size="sm" onClick={() => setFilterType("human")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
                   <User className="h-3 w-3 mr-1" />
                   Humano {stats.human}
                 </Button>
+                <Button variant={filterType === "needsHelp" ? "default" : "outline"} size="sm" onClick={() => setFilterType("needsHelp")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Aguardando {stats.needsHelp}
+                </Button>
                 {stats.unread > 0 && (
-                  <Button variant={filterType === "unread" ? "default" : "outline"} size="sm" onClick={() => setFilterType("unread")} className="h-6 text-xs px-2">
+                  <Button variant={filterType === "unread" ? "default" : "outline"} size="sm" onClick={() => setFilterType("unread")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1!">
                     <Badge variant="destructive" className="text-[10px] h-4 px-1">{stats.unread}</Badge>
                   </Button>
                 )}

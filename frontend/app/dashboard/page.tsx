@@ -63,8 +63,8 @@ function DashboardPageContent() {
     ? [
       {
         title: "Novos Clientes",
-        value: stats.totalCustomers.current,
-        percentageChange: stats.totalCustomers.percentageChange,
+        value: stats.totalCustomers?.current || 0,
+        percentageChange: stats.totalCustomers?.percentageChange || 0,
         icon: Users,
         color: "text-blue-600",
         bgColor: "bg-blue-100 dark:bg-blue-900/30",
@@ -72,8 +72,8 @@ function DashboardPageContent() {
       },
       {
         title: "Conversas Ativas",
-        value: stats.activeConversations.current,
-        percentageChange: stats.activeConversations.percentageChange,
+        value: stats.activeConversations?.current || 0,
+        percentageChange: stats.activeConversations?.percentageChange || 0,
         icon: MessageSquare,
         color: "text-green-600",
         bgColor: "bg-green-100 dark:bg-green-900/30",
@@ -81,8 +81,8 @@ function DashboardPageContent() {
       },
       {
         title: "Mensagens Recebidas",
-        value: stats.messagesReceived.current,
-        percentageChange: stats.messagesReceived.percentageChange,
+        value: stats.messagesReceived?.current || 0,
+        percentageChange: stats.messagesReceived?.percentageChange || 0,
         icon: Activity,
         color: "text-orange-600",
         bgColor: "bg-orange-100 dark:bg-orange-900/30",
@@ -90,8 +90,8 @@ function DashboardPageContent() {
       },
       {
         title: "Respostas da IA",
-        value: stats.messagesWithAI.current,
-        percentageChange: stats.messagesWithAI.percentageChange,
+        value: stats.messagesWithAI?.current || 0,
+        percentageChange: stats.messagesWithAI?.percentageChange || 0,
         icon: Bot,
         color: "text-green-600",
         bgColor: "bg-green-100 dark:bg-green-900/30",
@@ -99,8 +99,8 @@ function DashboardPageContent() {
       },
       {
         title: "Transbordos",
-        value: stats.handoffConversations.current,
-        percentageChange: stats.handoffConversations.percentageChange,
+        value: stats.handoffConversations?.current || 0,
+        percentageChange: stats.handoffConversations?.percentageChange || 0,
         icon: AlertTriangle,
         color: "text-red-600",
         bgColor: "bg-red-100 dark:bg-red-900/30",
@@ -108,8 +108,8 @@ function DashboardPageContent() {
       },
       {
         title: "Agendamentos Totais",
-        value: stats.totalAppointments.current,
-        percentageChange: stats.totalAppointments.percentageChange,
+        value: stats.totalAppointments?.current || 0,
+        percentageChange: stats.totalAppointments?.percentageChange || 0,
         icon: Calendar,
         color: "text-purple-600",
         bgColor: "bg-purple-100 dark:bg-purple-900/30",
@@ -117,8 +117,8 @@ function DashboardPageContent() {
       },
       {
         title: "Agendamentos Hoje",
-        value: stats.todayAppointments.current,
-        percentageChange: stats.todayAppointments.percentageChange,
+        value: stats.todayAppointments?.current || 0,
+        percentageChange: stats.todayAppointments?.percentageChange || 0,
         icon: CalendarCheck,
         color: "text-blue-600",
         bgColor: "bg-blue-100 dark:bg-blue-900/30",
@@ -126,8 +126,8 @@ function DashboardPageContent() {
       },
       {
         title: "Próximos 7 Dias",
-        value: stats.upcomingAppointments.current,
-        percentageChange: stats.upcomingAppointments.percentageChange,
+        value: stats.upcomingAppointments?.current || 0,
+        percentageChange: stats.upcomingAppointments?.percentageChange || 0,
         icon: CalendarClock,
         color: "text-orange-600",
         bgColor: "bg-orange-100 dark:bg-orange-900/30",

@@ -146,6 +146,14 @@ class WhatsAppService {
         errorMessage = error.message;
       }
 
+      // Log para diagnóstico em caso de erro 500/vago
+      console.error(`[WhatsApp Service] Error processing request to Evolution API:`, {
+        code: error.code,
+        message: error.message,
+        url: this.apiUrl,
+        response: error.response?.data
+      });
+
       throw new Error(`Failed to create WhatsApp instance: ${errorMessage}`);
     }
   }
@@ -535,8 +543,8 @@ class WhatsAppService {
    */
   async downloadMedia(instanceName: string, messageKey: any): Promise<Buffer> {
     try {
-      console.log(`[WhatsApp Service] 📥 Downloading media for message ${messageKey.id}...`);
-
+      console.log(`[WhatsApp Service] ⬇️ Downloading media for instance ${instanceName}, message ${messageKey.id}...`);
+      
       const response = await this.axiosInstance.post(`/chat/getBase64FromMediaMessage/${instanceName}`, {
         message: {
           key: messageKey,
@@ -547,16 +555,15 @@ class WhatsAppService {
       const base64Data = response.data?.base64;
 
       if (!base64Data) {
-        throw new Error("No base64 data in response");
+        console.error(`[WhatsApp Service] ❌ downloadMedia: No base64 data in response for ${messageKey.id}`);
+        throw new Error("No base64 data received from Evolution API");
       }
 
-      console.log(`[WhatsApp Service] ✅ Media base64 received: ${(base64Data.length / 1024).toFixed(2)} KB`);
+      console.log(`[WhatsApp Service] ✅ Media downloaded successfully for ${messageKey.id} (${(base64Data.length / 1024).toFixed(2)} KB)`);
 
-      const mediaBuffer = Buffer.from(base64Data, "base64");
-
-      return mediaBuffer;
+      return Buffer.from(base64Data, "base64");
     } catch (error: any) {
-      console.error("[WhatsApp Service] ❌ Error downloading media:", error.response?.data || error.message);
+      console.error(`[WhatsApp Service] ❌ Error in downloadMedia for ${messageKey.id}:`, error.response?.data || error.message);
       throw new Error(`Failed to download media: ${error.response?.data?.message || error.message}`);
     }
   }
