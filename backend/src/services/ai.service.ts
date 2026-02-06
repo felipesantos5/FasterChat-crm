@@ -710,16 +710,7 @@ Total: R$ 505,00"
             additionals: completePricingData.additionals,
           },
           ragContext: ragContext || undefined,
-          feedbackContext: feedbackContext ? {
-            goodExamples: [],
-            badExamples: [],
-            insights: [],
-          } : undefined,
-          conversationContext: conversationContext ? {
-            detectedService: undefined,
-            recentTopics: [],
-            intent: undefined,
-          } : undefined,
+          examplesText: examplesText || undefined,
           calendarConnected: googleCalendarStatus === "conectado e sincronizado",
         });
       } else {

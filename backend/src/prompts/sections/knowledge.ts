@@ -12,6 +12,31 @@ import { PromptSection, KnowledgeContext, CustomerContext } from "../types";
 const VERSION = "1.0.0";
 
 /**
+ * Gera a seção de exemplos de conversas (Few-shot learning)
+ */
+export function getConversationExamplesSection(examples?: string): PromptSection {
+  if (!examples || examples.trim() === "") {
+    return {
+      id: "section_conversation_examples",
+      title: "EXEMPLOS",
+      priority: 15,
+      required: false,
+      version: VERSION,
+      content: "",
+    };
+  }
+
+  return {
+    id: "section_conversation_examples",
+    title: "EXEMPLOS DE CONVERSAS",
+    priority: 15,
+    required: false,
+    version: VERSION,
+    content: `## EXEMPLOS DE CONVERSAS IDEAIS\n\nEstude os exemplos abaixo e siga o MESMO estilo, tom e abordagem nas suas respostas:\n\n${examples}\n\n**IMPORTANTE:** Use estes exemplos como referência de estilo e abordagem. Adapte o conteúdo para cada situação real.`,
+  };
+}
+
+/**
  * Gera a seção de FAQ
  */
 export function getFAQSection(faq?: Array<{ question: string; answer: string }>): PromptSection {

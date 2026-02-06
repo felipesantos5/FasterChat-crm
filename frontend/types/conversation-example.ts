@@ -16,6 +16,7 @@ export interface ConversationExampleWithMessages extends ConversationExample {
       name: string;
       phone: string;
       email?: string | null;
+      tags?: string[];
     };
     messages: Array<{
       id: string;
@@ -25,4 +26,15 @@ export interface ConversationExampleWithMessages extends ConversationExample {
       senderType?: string | null;
     }>;
   };
+}
+
+export interface SyntheticExampleMessage {
+  role: 'customer' | 'assistant';
+  content: string;
+}
+
+export interface CreateSyntheticExampleRequest {
+  customerName: string;
+  messages: SyntheticExampleMessage[];
+  notes?: string;
 }

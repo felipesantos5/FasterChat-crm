@@ -20,4 +20,9 @@ router.post('/knowledge/generate-context', checkPermission('AI_CONFIG', true), a
 // GET /api/ai/knowledge/objective-presets - Lista objetivos pré-definidos
 router.get('/knowledge/objective-presets', checkPermission('AI_CONFIG', false), aiKnowledgeController.getObjectivePresets);
 
+// RAG Knowledge Management
+router.post('/knowledge/custom', checkPermission('AI_CONFIG', true), aiKnowledgeController.uploadCustomKnowledge);
+router.get('/knowledge/rag-stats', checkPermission('AI_CONFIG', false), aiKnowledgeController.getRAGStats);
+router.delete('/knowledge/custom/:source', checkPermission('AI_CONFIG', true), aiKnowledgeController.deleteCustomKnowledge);
+
 export default router;

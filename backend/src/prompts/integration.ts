@@ -7,7 +7,7 @@
  * com o ai.service.ts existente.
  */
 
-import { buildPrompt, AIObjectiveType, PromptBuildOptions } from "./index";
+import { buildPrompt, AIObjectiveType, PromptBuildOptions, getObjectiveConfig } from "./index";
 
 interface AIKnowledgeData {
   companyName?: string | null;
@@ -17,6 +17,7 @@ interface AIKnowledgeData {
   objectiveType?: string | null;
   aiObjective?: string | null;
   aiPersonality?: string | null;
+  aiCustomInstructions?: string | null;
   workingHours?: string | null;
   businessHoursStart?: number | null;
   businessHoursEnd?: number | null;
@@ -47,6 +48,7 @@ interface BuildModularPromptOptions {
     additionals?: any[];
   };
   ragContext?: string;
+  examplesText?: string;
   feedbackContext?: {
     goodExamples: string[];
     badExamples: string[];
@@ -103,22 +105,30 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
     };
   }
 
+  // Determina customInstructions: sempre inclui aiCustomInstructions independente do tipo
+  const customInstructions = aiKnowledge?.aiCustomInstructions ||
+    (objectiveType === "custom" ? aiKnowledge?.aiObjective : undefined);
+
   // Monta as opções do builder
   const buildOptions: PromptBuildOptions = {
-    objective: objectiveType === "custom" && aiKnowledge?.aiObjective
-      ? {
-          type: "custom",
-          name: "Personalizado",
-          description: "Objetivo personalizado",
-          primaryGoal: aiKnowledge.aiObjective,
-          secondaryGoals: [],
-          tone: "professional",
-          proactivity: "medium",
-          closingFocus: false,
-          schedulingEnabled: false,
-          transferEnabled: true,
-          customInstructions: aiKnowledge.aiObjective,
-        }
+    objective: customInstructions
+      ? (() => {
+          const baseConfig = objectiveType === "custom" && aiKnowledge?.aiObjective
+            ? {
+                type: "custom" as const,
+                name: "Personalizado",
+                description: "Objetivo personalizado",
+                primaryGoal: aiKnowledge.aiObjective,
+                secondaryGoals: [],
+                tone: "professional" as const,
+                proactivity: "medium" as const,
+                closingFocus: false,
+                schedulingEnabled: false,
+                transferEnabled: true,
+              }
+            : getObjectiveConfig(objectiveType);
+          return { ...baseConfig, customInstructions };
+        })()
       : objectiveType,
     company: {
       name: aiKnowledge?.companyName || companyName,
@@ -148,6 +158,7 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
       ragResults: ragContext,
       feedbackLearning: feedbackContext,
       conversationContext,
+      conversationExamples: options.examplesText || undefined,
     },
     includeTools: objectiveType === "sales_scheduling" || objectiveType === "scheduling" || objectiveType === "support",
     includeTransbordo: true,

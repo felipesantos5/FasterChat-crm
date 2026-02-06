@@ -46,6 +46,8 @@ import {
   Hash,
   ArrowRight,
   HeartHandshake,
+  MessageSquare,
+  Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -2290,6 +2292,38 @@ function CompletedView({
               <p className="text-sm text-muted-foreground">Nenhum serviço com variações</p>
             )}
           </CardContent>
+        </Card>
+      </div>
+
+      {/* Links para páginas avançadas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+          <a href="/dashboard/settings/ai/examples">
+            <CardContent className="py-4 flex items-center gap-3">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-medium">Exemplos de Conversa</p>
+                <p className="text-sm text-muted-foreground">
+                  Crie conversas exemplo para ensinar o tom da IA
+                </p>
+              </div>
+              <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground" />
+            </CardContent>
+          </a>
+        </Card>
+        <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+          <a href="/dashboard/settings/ai/knowledge">
+            <CardContent className="py-4 flex items-center gap-3">
+              <Database className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-medium">Base de Conhecimento</p>
+                <p className="text-sm text-muted-foreground">
+                  Upload de manuais, políticas e documentos
+                </p>
+              </div>
+              <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground" />
+            </CardContent>
+          </a>
         </Card>
       </div>
 

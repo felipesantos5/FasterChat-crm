@@ -79,6 +79,7 @@ export interface ServicesContext {
 export interface KnowledgeContext {
   faq?: Array<{ question: string; answer: string }>;
   ragResults?: string;
+  conversationExamples?: string;
   feedbackLearning?: {
     goodExamples: string[];
     badExamples: string[];

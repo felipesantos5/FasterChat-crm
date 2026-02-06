@@ -178,6 +178,135 @@ ${messagesText}`;
   }
 
   /**
+   * Cria um exemplo de conversa sintético (fictício)
+   */
+  async createSyntheticExample(
+    companyId: string,
+    data: {
+      customerName: string;
+      messages: Array<{ role: 'customer' | 'assistant'; content: string }>;
+      notes?: string;
+    }
+  ) {
+    try {
+      // Busca a primeira WhatsApp instance da empresa
+      const whatsappInstance = await prisma.whatsAppInstance.findFirst({
+        where: { companyId },
+      });
+
+      if (!whatsappInstance) {
+        throw new Error('No WhatsApp instance found for this company. Please connect WhatsApp first.');
+      }
+
+      // Usa transação para criar tudo atomicamente
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. Cria Customer sintético
+        const customer = await tx.customer.create({
+          data: {
+            companyId,
+            name: data.customerName,
+            phone: `synthetic-${Date.now()}`,
+            tags: ['exemplo-sintetico'],
+            notes: 'Cliente sintético criado para exemplo de conversa',
+          },
+        });
+
+        // 2. Cria Conversation
+        const conversation = await tx.conversation.create({
+          data: {
+            customerId: customer.id,
+            companyId,
+            aiEnabled: false,
+          },
+        });
+
+        // 3. Cria Messages
+        const now = new Date();
+        for (let i = 0; i < data.messages.length; i++) {
+          const msg = data.messages[i];
+          await tx.message.create({
+            data: {
+              customerId: customer.id,
+              whatsappInstanceId: whatsappInstance.id,
+              direction: msg.role === 'customer' ? 'INBOUND' : 'OUTBOUND',
+              content: msg.content,
+              timestamp: new Date(now.getTime() + i * 60000), // 1 min apart
+              senderType: msg.role === 'customer' ? 'HUMAN' : 'AI',
+              status: 'DELIVERED',
+            },
+          });
+        }
+
+        // 4. Cria ConversationExample
+        const example = await tx.conversationExample.create({
+          data: {
+            companyId,
+            conversationId: conversation.id,
+            notes: data.notes || 'Exemplo sintético',
+          },
+        });
+
+        return example;
+      });
+
+      console.log(`Synthetic example created for company ${companyId}`);
+      return result;
+    } catch (error: any) {
+      console.error('Error creating synthetic example:', error);
+      throw new Error(`Failed to create synthetic example: ${error.message}`);
+    }
+  }
+
+  /**
+   * Deleta um exemplo sintético e todos seus dados associados
+   */
+  async deleteSyntheticExample(exampleId: string, companyId: string) {
+    try {
+      // Busca o exemplo com dados da conversa
+      const example = await prisma.conversationExample.findFirst({
+        where: { id: exampleId, companyId },
+        include: {
+          conversation: {
+            include: {
+              customer: true,
+            },
+          },
+        },
+      });
+
+      if (!example) {
+        throw new Error('Example not found or does not belong to this company');
+      }
+
+      const isSynthetic = example.conversation.customer.tags?.includes('exemplo-sintetico');
+
+      await prisma.$transaction(async (tx) => {
+        // Deleta o exemplo
+        await tx.conversationExample.delete({
+          where: { id: exampleId },
+        });
+
+        if (isSynthetic) {
+          // Para sintéticos, deleta tudo em cascata
+          // Mensagens são deletadas via cascade do customer
+          await tx.conversation.delete({
+            where: { id: example.conversationId },
+          });
+          await tx.customer.delete({
+            where: { id: example.conversation.customerId },
+          });
+        }
+      });
+
+      console.log(`Example ${exampleId} deleted (synthetic: ${isSynthetic})`);
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error deleting example:', error);
+      throw new Error(`Failed to delete example: ${error.message}`);
+    }
+  }
+
+  /**
    * Verifica se uma conversa está marcada como exemplo
    */
   async isMarkedAsExample(conversationId: string): Promise<boolean> {

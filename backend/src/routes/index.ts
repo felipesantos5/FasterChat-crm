@@ -46,7 +46,9 @@ router.use("/services", serviceRoutes);
 // Rotas públicas (sem /api prefix) - devem ser registradas no server.ts
 // router.use('/l', linkRedirectRoutes);
 
-// Rota adicional para listar exemplos
+// Rotas de exemplos de conversas
 router.get("/ai/examples", authenticate, conversationExampleController.getExamples);
+router.post("/ai/examples/synthetic", authenticate, conversationExampleController.createSyntheticExample);
+router.delete("/ai/examples/:id", authenticate, conversationExampleController.deleteSyntheticExample);
 
 export default router;

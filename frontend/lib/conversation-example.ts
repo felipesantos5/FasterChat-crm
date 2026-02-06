@@ -1,5 +1,5 @@
 import { api } from './api';
-import { ConversationExampleWithMessages } from '@/types/conversation-example';
+import { ConversationExampleWithMessages, CreateSyntheticExampleRequest } from '@/types/conversation-example';
 
 export const conversationExampleApi = {
   /**
@@ -45,6 +45,28 @@ export const conversationExampleApi = {
     data: { isExample: boolean };
   }> {
     const response = await api.get(`/conversations/${conversationId}/is-example`);
+    return response.data;
+  },
+
+  /**
+   * Cria um exemplo de conversa sintético
+   */
+  async createSynthetic(data: CreateSyntheticExampleRequest): Promise<{
+    success: boolean;
+    data: any;
+  }> {
+    const response = await api.post('/ai/examples/synthetic', data);
+    return response.data;
+  },
+
+  /**
+   * Deleta um exemplo de conversa
+   */
+  async deleteExample(exampleId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    const response = await api.delete(`/ai/examples/${exampleId}`);
     return response.data;
   },
 };

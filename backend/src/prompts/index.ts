@@ -51,6 +51,7 @@ export { getTransbordoSection } from "./sections/transbordo";
 export { getServicesSection, getAdvancedPricingSection } from "./sections/services";
 export {
   getFAQSection,
+  getConversationExamplesSection,
   getRAGSection,
   getFeedbackLearningSection,
   getConversationContextSection,

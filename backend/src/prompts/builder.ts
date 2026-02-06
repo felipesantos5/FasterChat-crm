@@ -36,6 +36,7 @@ import { getTransbordoSection } from "./sections/transbordo";
 import { getServicesSection, getAdvancedPricingSection } from "./sections/services";
 import {
   getFAQSection,
+  getConversationExamplesSection,
   getRAGSection,
   getFeedbackLearningSection,
   getConversationContextSection,
@@ -121,6 +122,11 @@ export class PromptBuilder {
     // 10. FAQ
     if (this.options.knowledge?.faq) {
       this.addSection(getFAQSection(this.options.knowledge.faq));
+    }
+
+    // 10.5 Exemplos de conversa (Few-shot learning)
+    if (this.options.knowledge?.conversationExamples) {
+      this.addSection(getConversationExamplesSection(this.options.knowledge.conversationExamples));
     }
 
     // 11. RAG

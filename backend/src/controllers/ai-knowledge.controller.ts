@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import aiKnowledgeService from '../services/ai-knowledge.service';
+import ragService from '../services/rag.service';
 
 /**
  * Parse JSON de forma segura, retornando valor padrão em caso de erro
@@ -211,6 +212,118 @@ class AIKnowledgeController {
       return res.status(500).json({
         success: false,
         message: error.message || 'Failed to get objective presets',
+      });
+    }
+  }
+  /**
+   * POST /api/ai/knowledge/custom
+   * Upload de conhecimento customizado para RAG
+   */
+  async uploadCustomKnowledge(req: Request, res: Response) {
+    try {
+      const companyId = req.user?.companyId || req.body.companyId;
+      const { title, content } = req.body;
+
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Company ID is required',
+        });
+      }
+
+      if (!title || !content) {
+        return res.status(400).json({
+          success: false,
+          message: 'Title and content are required',
+        });
+      }
+
+      const source = `custom_${title.replace(/\s+/g, '_').toLowerCase()}`;
+      const result = await ragService.processAndStore(companyId, content, {
+        source,
+        type: 'custom',
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          source,
+          chunksProcessed: result.chunksProcessed,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error in uploadCustomKnowledge controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to upload custom knowledge',
+      });
+    }
+  }
+
+  /**
+   * GET /api/ai/knowledge/rag-stats
+   * Estatísticas do RAG da empresa
+   */
+  async getRAGStats(req: Request, res: Response) {
+    try {
+      const companyId = req.user?.companyId || (req.query.companyId as string);
+
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Company ID is required',
+        });
+      }
+
+      const stats = await ragService.getStats(companyId);
+
+      return res.status(200).json({
+        success: true,
+        data: stats,
+      });
+    } catch (error: any) {
+      console.error('Error in getRAGStats controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to get RAG stats',
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/ai/knowledge/custom/:source
+   * Remove conhecimento customizado por fonte
+   */
+  async deleteCustomKnowledge(req: Request, res: Response) {
+    try {
+      const companyId = req.user?.companyId;
+      const { source } = req.params;
+
+      if (!companyId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Company ID not found in token',
+        });
+      }
+
+      if (!source) {
+        return res.status(400).json({
+          success: false,
+          message: 'Source is required',
+        });
+      }
+
+      await ragService.clearBySource(companyId, source);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Custom knowledge deleted successfully',
+      });
+    } catch (error: any) {
+      console.error('Error in deleteCustomKnowledge controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to delete custom knowledge',
       });
     }
   }
