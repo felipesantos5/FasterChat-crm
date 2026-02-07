@@ -26,6 +26,7 @@ class WhatsAppService {
 
     this.axiosInstance = axios.create({
       baseURL: this.apiUrl,
+      timeout: 10000,
       headers: {
         "Content-Type": "application/json",
         apikey: this.globalApiKey,
@@ -550,7 +551,7 @@ class WhatsAppService {
           key: messageKey,
         },
         convertToMp4: false,
-      });
+      }, { timeout: 30000 });
 
       const base64Data = response.data?.base64;
 

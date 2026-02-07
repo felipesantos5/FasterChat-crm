@@ -230,7 +230,12 @@ class WhatsAppLinkService {
   }> {
     try {
       // Usando ipapi.co (gratuito, 1000 requests/dia)
-      const response = await fetch(`https://ipapi.co/${ip}/json/`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(`https://ipapi.co/${ip}/json/`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`API retornou status ${response.status}`);

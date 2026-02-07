@@ -23,6 +23,39 @@ import { prisma } from "./utils/prisma";
 dotenv.config();
 
 // ============================================
+// VALIDAÇÃO DE VARIÁVEIS DE AMBIENTE
+// Fail-fast: melhor não iniciar do que falhar em runtime
+// ============================================
+function validateEnvironment() {
+  const required = ["DATABASE_URL", "JWT_SECRET", "JWT_REFRESH_SECRET"];
+  const recommended = ["EVOLUTION_API_URL", "EVOLUTION_API_KEY"];
+
+  const missing = required.filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    console.error("");
+    console.error("╔════════════════════════════════════════════════════════════════╗");
+    console.error("║           FATAL: MISSING REQUIRED ENVIRONMENT VARIABLES        ║");
+    console.error("╠════════════════════════════════════════════════════════════════╣");
+    for (const key of missing) {
+      console.error(`║  ❌ ${key.padEnd(58)} ║`);
+    }
+    console.error("╚════════════════════════════════════════════════════════════════╝");
+    console.error("");
+    process.exit(1);
+  }
+
+  const missingRecommended = recommended.filter((key) => !process.env[key]);
+  if (missingRecommended.length > 0) {
+    console.warn("[Startup] ⚠️  Missing recommended env vars (some features may not work):");
+    for (const key of missingRecommended) {
+      console.warn(`  - ${key}`);
+    }
+  }
+}
+
+validateEnvironment();
+
+// ============================================
 // INICIALIZAÇÃO DOS HANDLERS GLOBAIS
 // Deve ser a primeira coisa a ser executada!
 // ============================================

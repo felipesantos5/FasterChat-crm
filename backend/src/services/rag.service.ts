@@ -52,6 +52,20 @@ interface SearchResult {
 
 class RAGService {
   /**
+   * Helper para adicionar timeout em Promises
+   */
+  private withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`[RAG] Timeout: ${label} exceeded ${ms}ms`));
+      }, ms);
+      promise
+        .then((val) => { clearTimeout(timer); resolve(val); })
+        .catch((err) => { clearTimeout(timer); reject(err); });
+    });
+  }
+
+  /**
    * Obtém o serviço de embeddings baseado no provider configurado
    */
   private getEmbeddingService() {
@@ -173,7 +187,11 @@ class RAGService {
       const embeddingService = this.getEmbeddingService();
       console.log(`[RAG] Generating embeddings for ${chunks.length} chunks...`);
 
-      const embeddings = await embeddingService.generateEmbeddings(chunks);
+      const embeddings = await this.withTimeout(
+        embeddingService.generateEmbeddings(chunks),
+        15000,
+        "generateEmbeddings batch"
+      );
 
       // Prepara os dados para inserção
       const timestamp = new Date().toISOString();
@@ -250,7 +268,11 @@ class RAGService {
 
       // Gera embedding da query
       const embeddingService = this.getEmbeddingService();
-      const queryEmbedding = await embeddingService.generateEmbedding(query);
+      const queryEmbedding = await this.withTimeout(
+        embeddingService.generateEmbedding(query),
+        10000,
+        "generateEmbedding query"
+      );
 
       // Converte para formato pgvector
       const queryVector = `[${queryEmbedding.join(",")}]`;
