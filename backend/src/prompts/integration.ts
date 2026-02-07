@@ -48,12 +48,6 @@ interface BuildModularPromptOptions {
     additionals?: any[];
   };
   ragContext?: string;
-  examplesText?: string;
-  feedbackContext?: {
-    goodExamples: string[];
-    badExamples: string[];
-    insights: string[];
-  };
   conversationContext?: {
     detectedService?: string;
     recentTopics?: string[];
@@ -66,7 +60,7 @@ interface BuildModularPromptOptions {
  * Constrói um prompt usando o sistema modular
  */
 export function buildModularPrompt(options: BuildModularPromptOptions): string {
-  const { companyName, aiKnowledge, customer, services, ragContext, feedbackContext, conversationContext, calendarConnected } = options;
+  const { companyName, aiKnowledge, customer, services, ragContext, conversationContext, calendarConnected } = options;
 
   // Determina o tipo de objetivo
   let objectiveType: AIObjectiveType = "customer_service";
@@ -156,9 +150,7 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
     knowledge: {
       faq: aiKnowledge?.faq ? (Array.isArray(aiKnowledge.faq) ? aiKnowledge.faq : []) : undefined,
       ragResults: ragContext,
-      feedbackLearning: feedbackContext,
       conversationContext,
-      conversationExamples: options.examplesText || undefined,
     },
     includeTools: objectiveType === "sales_scheduling" || objectiveType === "scheduling" || objectiveType === "support",
     includeTransbordo: true,

@@ -6,6 +6,7 @@ import geminiService from "./ai-providers/gemini.service";
 import { websocketService } from "./websocket.service";
 import whatsappService from "./whatsapp.service";
 import { Errors, AppError } from "../utils/errors";
+import ragService from "./rag.service";
 import { AIProvider } from "../types/ai-provider";
 
 class MessageService {
@@ -1060,6 +1061,42 @@ class MessageService {
           whatsappInstance: true,
         },
       });
+
+      // Indexa feedback no RAG para aprendizado semântico
+      const companyId = message.customer.companyId;
+      const ragSource = `feedback_msg_${messageId}`;
+
+      if (feedback === null) {
+        // Feedback removido - limpa do RAG
+        ragService.clearBySource(companyId, ragSource).catch(() => {});
+      } else {
+        // Busca a mensagem do cliente que gerou esta resposta da IA
+        const previousCustomerMsg = await prisma.message.findFirst({
+          where: {
+            customerId: message.customerId,
+            timestamp: { lt: message.timestamp },
+            direction: "INBOUND",
+          },
+          orderBy: [{ timestamp: "desc" }, { createdAt: "desc" }],
+        });
+
+        const customerQuestion = previousCustomerMsg?.content || "(contexto não disponível)";
+        const ragType = feedback === "GOOD" ? "feedback_good" : "feedback_bad";
+
+        let ragText: string;
+        if (feedback === "GOOD") {
+          ragText = `[FEEDBACK POSITIVO] Exemplo de boa resposta da IA:\nCliente perguntou: "${customerQuestion}"\nResposta da IA (aprovada): "${message.content}"`;
+          if (feedbackNote) ragText += `\nNota do avaliador: "${feedbackNote}"`;
+        } else {
+          ragText = `[FEEDBACK NEGATIVO] Exemplo de resposta ruim da IA - EVITE repetir:\nCliente perguntou: "${customerQuestion}"\nResposta problemática: "${message.content}"`;
+          if (feedbackNote) ragText += `\nMotivo da reclamação: "${feedbackNote}"`;
+        }
+
+        ragService.processAndStore(companyId, ragText, {
+          source: ragSource,
+          type: ragType,
+        }).catch((err: any) => console.warn("[MessageService] Erro ao indexar feedback no RAG:", err.message));
+      }
 
       return message;
     } catch (error: any) {

@@ -182,7 +182,8 @@ class AIKnowledgeService {
         data.companyDescription !== undefined ||
         data.productsServices !== undefined ||
         data.policies !== undefined ||
-        data.faq !== undefined;
+        data.faq !== undefined ||
+        data.products !== undefined;
 
       if (shouldUpdateEmbeddings) {
         // Executa em background para não travar a resposta da API
@@ -191,6 +192,7 @@ class AIKnowledgeService {
           productsServices: data.productsServices,
           policies: data.policies,
           faq: data.faq as Array<{ question: string; answer: string }> | undefined,
+          products: data.products as Array<{ name: string; description?: string; price?: string; category?: string }> | undefined,
         }).catch(err =>
           console.error('[AI Knowledge] Background embedding sync failed:', err)
         );
@@ -323,6 +325,7 @@ class AIKnowledgeService {
       productsServices?: string | null;
       policies?: string | null;
       faq?: Array<{ question: string; answer: string }> | null;
+      products?: Array<{ name: string; description?: string; price?: string; category?: string }> | null;
     }
   ): Promise<void> {
     try {
@@ -385,6 +388,30 @@ class AIKnowledgeService {
           );
         } else {
           tasks.push(ragService.clearBySource(companyId, 'faq'));
+        }
+      }
+
+      // Produtos (JSON estruturado)
+      if (data.products !== undefined) {
+        if (data.products && data.products.length > 0) {
+          const productsText = data.products
+            .map(p => {
+              let text = `Produto: ${p.name}`;
+              if (p.price) text += ` - Preço: R$ ${p.price}`;
+              if (p.category) text += ` [${p.category}]`;
+              if (p.description) text += `\nDescrição: ${p.description}`;
+              return text;
+            })
+            .join('\n\n');
+
+          tasks.push(
+            ragService.processAndStore(companyId, productsText, {
+              source: 'products_json',
+              type: 'products_services',
+            })
+          );
+        } else {
+          tasks.push(ragService.clearBySource(companyId, 'products_json'));
         }
       }
 

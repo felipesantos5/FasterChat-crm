@@ -2,6 +2,174 @@ import { prisma } from "../utils/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { ServiceType, ZonePricingType } from "@prisma/client";
 import { semanticServiceService } from "./semantic-service.service";
+import ragService from "./rag.service";
+
+/**
+ * Formata todos os dados de serviços/produtos da empresa em texto para o RAG.
+ * Inclui serviços, variações, preços, zonas, combos e adicionais.
+ */
+async function formatCompanyServicesForRAG(companyId: string): Promise<string> {
+  const [services, zones, combos, additionals] = await Promise.all([
+    prisma.service.findMany({
+      where: { companyId, isActive: true },
+      include: {
+        variables: {
+          include: { options: { orderBy: { order: "asc" } } },
+          orderBy: { order: "asc" },
+        },
+        pricingTiers: { orderBy: { minQuantity: "asc" } },
+      },
+      orderBy: { order: "asc" },
+    }),
+    prisma.serviceZone.findMany({
+      where: { companyId, isActive: true },
+      orderBy: { order: "asc" },
+    }),
+    prisma.serviceCombo.findMany({
+      where: { companyId, isActive: true },
+      include: {
+        items: {
+          include: { service: { select: { name: true } } },
+          orderBy: { order: "asc" },
+        },
+      },
+      orderBy: { order: "asc" },
+    }),
+    prisma.serviceAdditional.findMany({
+      where: { companyId, isActive: true },
+      orderBy: { order: "asc" },
+    }),
+  ]);
+
+  if (services.length === 0 && combos.length === 0) return "";
+
+  const parts: string[] = [];
+
+  // Serviços e Produtos
+  const products = services.filter((s) => s.type === "PRODUCT");
+  const svcs = services.filter((s) => s.type === "SERVICE");
+
+  if (products.length > 0) {
+    parts.push("PRODUTOS E PREÇOS:");
+    for (const p of products) {
+      const cat = p.category ? ` [${p.category}]` : "";
+      parts.push(`- ${p.name}${cat}: R$ ${Number(p.basePrice).toFixed(2)}`);
+      if (p.description) parts.push(`  Descrição: ${p.description}`);
+      for (const v of p.variables) {
+        parts.push(`  ${v.name}${v.isRequired ? " (obrigatório)" : ""}:`);
+        for (const o of v.options) {
+          const mod = Number(o.priceModifier);
+          const final = Number(p.basePrice) + mod;
+          parts.push(`    - ${o.name}: R$ ${final.toFixed(2)}${mod !== 0 ? ` (base ${mod > 0 ? "+" : ""}R$ ${mod.toFixed(2)})` : ""}`);
+        }
+      }
+    }
+    parts.push("");
+  }
+
+  if (svcs.length > 0) {
+    parts.push("SERVIÇOS DISPONÍVEIS:");
+    for (const s of svcs) {
+      const cat = s.category ? ` [${s.category}]` : "";
+      parts.push(`- ${s.name}${cat}`);
+      if (s.description) parts.push(`  Descrição: ${s.description}`);
+      if (s.duration) parts.push(`  Duração: ${s.duration} minutos`);
+
+      if (s.pricingTiers.length > 0) {
+        parts.push("  Preços por quantidade:");
+        for (const t of s.pricingTiers) {
+          const max = t.maxQuantity ? `${t.maxQuantity}` : "+";
+          parts.push(`    - ${t.minQuantity} a ${max} unidades: R$ ${Number(t.pricePerUnit).toFixed(2)} cada`);
+        }
+      } else {
+        parts.push(`  Preço base: R$ ${Number(s.basePrice).toFixed(2)}`);
+      }
+
+      for (const v of s.variables) {
+        parts.push(`  ${v.name}${v.isRequired ? " (obrigatório)" : ""}:`);
+        for (const o of v.options) {
+          const mod = Number(o.priceModifier);
+          const final = Number(s.basePrice) + mod;
+          parts.push(`    - ${o.name}: R$ ${final.toFixed(2)}${mod !== 0 ? ` (base ${mod > 0 ? "+" : ""}R$ ${mod.toFixed(2)})` : ""}`);
+        }
+      }
+    }
+    parts.push("");
+  }
+
+  if (combos.length > 0) {
+    parts.push("PACOTES E COMBOS (PREÇO FIXO):");
+    for (const c of combos) {
+      parts.push(`- ${c.name}: R$ ${Number(c.fixedPrice).toFixed(2)}`);
+      if (c.description) parts.push(`  Descrição: ${c.description}`);
+      if (c.items.length > 0) {
+        parts.push("  Inclui:");
+        for (const i of c.items) {
+          parts.push(`    - ${i.quantity}x ${i.service.name}${i.notes ? ` (${i.notes})` : ""}`);
+        }
+      }
+    }
+    parts.push("");
+  }
+
+  if (zones.length > 0) {
+    parts.push("ZONAS DE ATENDIMENTO E TAXAS:");
+    for (const z of zones) {
+      const def = z.isDefault ? " (padrão)" : "";
+      const quote = z.requiresQuote ? " - requer orçamento especial" : "";
+      parts.push(`- ${z.name}${def}${quote}`);
+      if (z.description) parts.push(`  ${z.description}`);
+      if (!z.isDefault && !z.requiresQuote) {
+        if (z.pricingType === "FIXED") {
+          parts.push(`  Taxa adicional: +R$ ${Number(z.priceModifier).toFixed(2)}`);
+        } else {
+          parts.push(`  Taxa adicional: +${Number(z.priceModifier)}%`);
+        }
+      }
+      if (z.neighborhoods.length > 0) {
+        parts.push(`  Bairros: ${z.neighborhoods.join(", ")}`);
+      }
+    }
+    parts.push("");
+  }
+
+  if (additionals.length > 0) {
+    parts.push("SERVIÇOS ADICIONAIS:");
+    for (const a of additionals) {
+      parts.push(`- ${a.name}: +R$ ${Number(a.price).toFixed(2)}`);
+      if (a.description) parts.push(`  ${a.description}`);
+      if (a.appliesToCategories.length > 0) {
+        parts.push(`  Aplica-se a: ${a.appliesToCategories.join(", ")}`);
+      }
+    }
+  }
+
+  return parts.join("\n");
+}
+
+/**
+ * Sincroniza todos os serviços/produtos da empresa no RAG (em background)
+ */
+async function syncServicesToRAG(companyId: string): Promise<void> {
+  try {
+    const text = await formatCompanyServicesForRAG(companyId);
+
+    if (!text || text.trim().length < 20) {
+      await ragService.clearBySource(companyId, "services_structured");
+      console.log(`[ServiceRAG] No services to index for company ${companyId}`);
+      return;
+    }
+
+    await ragService.processAndStore(companyId, text, {
+      source: "services_structured",
+      type: "products_services",
+    });
+
+    console.log(`[ServiceRAG] Synced services to RAG for company ${companyId}`);
+  } catch (error: any) {
+    console.error(`[ServiceRAG] Error syncing services to RAG:`, error.message);
+  }
+}
 
 interface CreateServiceDTO {
   name: string;
@@ -216,6 +384,9 @@ export const serviceService = {
       console.error(`[ServiceService] Erro ao gerar embedding para serviço ${service.id}:`, error);
     });
 
+    // Sincroniza todos os serviços no RAG (async, não bloqueia)
+    syncServicesToRAG(companyId).catch(() => {});
+
     return service;
   },
 
@@ -258,6 +429,9 @@ export const serviceService = {
       });
     }
 
+    // Sincroniza todos os serviços no RAG (async, não bloqueia)
+    syncServicesToRAG(companyId).catch(() => {});
+
     return updatedService;
   },
 
@@ -270,9 +444,14 @@ export const serviceService = {
       throw new Error("Serviço não encontrado");
     }
 
-    return prisma.service.delete({
+    const result = await prisma.service.delete({
       where: { id },
     });
+
+    // Sincroniza todos os serviços no RAG (async, não bloqueia)
+    syncServicesToRAG(companyId).catch(() => {});
+
+    return result;
   },
 
   async reorderServices(companyId: string, serviceIds: string[]) {
@@ -579,6 +758,9 @@ export const serviceService = {
         console.error(`[ServiceService] Erro ao atualizar embedding do serviço ${service.id}:`, error);
       });
 
+      // Sincroniza todos os serviços no RAG (async, não bloqueia)
+      syncServicesToRAG(companyId).catch(() => {});
+
       return this.getService(service.id, companyId);
     } else {
       // Create new service
@@ -630,6 +812,9 @@ export const serviceService = {
       semanticServiceService.generateServiceEmbedding(service.id).catch((error) => {
         console.error(`[ServiceService] Erro ao gerar embedding do serviço ${service.id}:`, error);
       });
+
+      // Sincroniza todos os serviços no RAG (async, não bloqueia)
+      syncServicesToRAG(companyId).catch(() => {});
 
       return this.getService(service.id, companyId);
     }
@@ -716,7 +901,7 @@ export const serviceService = {
       orderBy: { order: "desc" },
     });
 
-    return prisma.serviceZone.create({
+    const zone = await prisma.serviceZone.create({
       data: {
         companyId,
         name: data.name,
@@ -730,6 +915,9 @@ export const serviceService = {
         order: (lastZone?.order ?? -1) + 1,
       },
     });
+
+    syncServicesToRAG(companyId).catch(() => {});
+    return zone;
   },
 
   async updateZone(id: string, companyId: string, data: UpdateZoneDTO) {
@@ -749,7 +937,7 @@ export const serviceService = {
       });
     }
 
-    return prisma.serviceZone.update({
+    const updated = await prisma.serviceZone.update({
       where: { id },
       data: {
         name: data.name,
@@ -763,6 +951,9 @@ export const serviceService = {
         order: data.order,
       },
     });
+
+    syncServicesToRAG(companyId).catch(() => {});
+    return updated;
   },
 
   async deleteZone(id: string, companyId: string) {
@@ -774,9 +965,12 @@ export const serviceService = {
       throw new Error("Zona não encontrada");
     }
 
-    return prisma.serviceZone.delete({
+    const result = await prisma.serviceZone.delete({
       where: { id },
     });
+
+    syncServicesToRAG(companyId).catch(() => {});
+    return result;
   },
 
   async findZoneByNeighborhood(companyId: string, neighborhood: string) {
@@ -993,6 +1187,7 @@ export const serviceService = {
       });
     }
 
+    syncServicesToRAG(companyId).catch(() => {});
     return this.getCombo(combo.id, companyId);
   },
 
@@ -1037,9 +1232,12 @@ export const serviceService = {
       throw new Error("Combo não encontrado");
     }
 
-    return prisma.serviceCombo.delete({
+    const result = await prisma.serviceCombo.delete({
       where: { id },
     });
+
+    syncServicesToRAG(companyId).catch(() => {});
+    return result;
   },
 
   async setComboItems(comboId: string, companyId: string, items: CreateComboItemDTO[]) {
@@ -1093,7 +1291,7 @@ export const serviceService = {
       orderBy: { order: "desc" },
     });
 
-    return prisma.serviceAdditional.create({
+    const additional = await prisma.serviceAdditional.create({
       data: {
         companyId,
         name: data.name,
@@ -1104,6 +1302,9 @@ export const serviceService = {
         order: (lastAdditional?.order ?? -1) + 1,
       },
     });
+
+    syncServicesToRAG(companyId).catch(() => {});
+    return additional;
   },
 
   async updateAdditional(id: string, companyId: string, data: UpdateAdditionalDTO) {
@@ -1115,7 +1316,7 @@ export const serviceService = {
       throw new Error("Adicional não encontrado");
     }
 
-    return prisma.serviceAdditional.update({
+    const updated = await prisma.serviceAdditional.update({
       where: { id },
       data: {
         name: data.name,
@@ -1126,6 +1327,9 @@ export const serviceService = {
         order: data.order,
       },
     });
+
+    syncServicesToRAG(companyId).catch(() => {});
+    return updated;
   },
 
   async deleteAdditional(id: string, companyId: string) {
@@ -1137,9 +1341,12 @@ export const serviceService = {
       throw new Error("Adicional não encontrado");
     }
 
-    return prisma.serviceAdditional.delete({
+    const result = await prisma.serviceAdditional.delete({
       where: { id },
     });
+
+    syncServicesToRAG(companyId).catch(() => {});
+    return result;
   },
 
   // ==================== ZONE EXCEPTIONS ====================

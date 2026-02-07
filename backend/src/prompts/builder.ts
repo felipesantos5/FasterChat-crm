@@ -36,9 +36,7 @@ import { getTransbordoSection } from "./sections/transbordo";
 import { getServicesSection, getAdvancedPricingSection } from "./sections/services";
 import {
   getFAQSection,
-  getConversationExamplesSection,
   getRAGSection,
-  getFeedbackLearningSection,
   getConversationContextSection,
   getCustomerContextSection,
 } from "./sections/knowledge";
@@ -124,24 +122,12 @@ export class PromptBuilder {
       this.addSection(getFAQSection(this.options.knowledge.faq));
     }
 
-    // 10.5 Exemplos de conversa (Few-shot learning)
-    if (this.options.knowledge?.conversationExamples) {
-      this.addSection(getConversationExamplesSection(this.options.knowledge.conversationExamples));
-    }
-
-    // 11. RAG
+    // 11. RAG (inclui serviços, produtos, feedback, exemplos de conversa, etc.)
     if (this.options.knowledge?.ragResults) {
       this.addSection(getRAGSection(this.options.knowledge.ragResults));
     }
 
-    // 12. Feedback Learning
-    if (this.options.knowledge?.feedbackLearning) {
-      this.addSection(
-        getFeedbackLearningSection(this.options.knowledge.feedbackLearning)
-      );
-    }
-
-    // 13. Contexto da conversa
+    // 12. Contexto da conversa
     if (this.options.knowledge?.conversationContext) {
       this.addSection(
         getConversationContextSection(this.options.knowledge.conversationContext)

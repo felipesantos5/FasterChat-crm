@@ -36,7 +36,7 @@ const EMBEDDING_PROVIDER: AIProvider =
 
 interface ChunkMetadata {
   source: string;
-  type: "company_description" | "products_services" | "faq" | "policies" | "custom";
+  type: "company_description" | "products_services" | "faq" | "policies" | "custom" | "feedback_good" | "feedback_bad" | "conversation_example";
   chunkIndex: number;
   totalChunks: number;
   originalLength: number;
