@@ -97,7 +97,7 @@ export function getRAGSection(ragResults?: string): PromptSection {
  * Gera a seção de aprendizado por feedback
  */
 export function getFeedbackLearningSection(
-  feedbackLearning?: KnowledgeContext["feedbackLearning"]
+  feedbackLearning?: { goodExamples: string[]; badExamples: string[]; insights: string[] }
 ): PromptSection {
   if (!feedbackLearning) {
     return {

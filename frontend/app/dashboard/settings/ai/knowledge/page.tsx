@@ -32,6 +32,9 @@ const TYPE_LABELS: Record<string, string> = {
   faq: "FAQ",
   policies: "Políticas",
   custom: "Customizado",
+  feedback_good: "Feedback Positivo",
+  feedback_bad: "Feedback Negativo",
+  conversation_example: "Exemplo de Conversa",
   unknown: "Outro",
 };
 

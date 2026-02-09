@@ -1,13 +1,10 @@
 import { prisma } from "../utils/prisma";
-import conversationExampleService from "./conversation-example.service";
 import openaiService from "./ai-providers/openai.service";
 import geminiService from "./ai-providers/gemini.service";
 import { AIProvider } from "../types/ai-provider";
 import { essentialTools } from "./ai-tools";
 import { aiAppointmentService } from "./ai-appointment.service";
-import { serviceService } from "./service.service";
 import ragService from "./rag.service";
-import feedbackLearningService from "./feedback-learning.service";
 import conversationContextService from "./conversation-context.service";
 import { buildModularPrompt, shouldUseModularPrompts } from "../prompts";
 
@@ -403,6 +400,9 @@ Total: R$ 505,00"
       faq: "FAQ",
       policies: "Políticas",
       custom: "Informação Adicional",
+      feedback_good: "Feedback Positivo",
+      feedback_bad: "Feedback Negativo",
+      conversation_example: "Exemplo de Conversa",
     };
     return labels[type || "custom"] || "Informação";
   }
@@ -565,21 +565,6 @@ Total: R$ 505,00"
         companyInfo = "Empresa de atendimento.";
       }
 
-      // Busca dados completos de precificação (serviços, zonas, combos, adicionais, exceções)
-      const completePricingData = await serviceService.getCompletePricingForAI(customer.companyId);
-      const formattedServices = this.formatServicesForPrompt(completePricingData.services);
-      const formattedAdvancedPricing = this.formatAdvancedPricingForPrompt(completePricingData);
-
-      // Fallback para produtos legados (se existirem e não houver serviços cadastrados)
-      // Isso garante retrocompatibilidade durante a migração
-      let formattedProducts = "";
-      if (completePricingData.services.length === 0) {
-        formattedProducts = this.formatProductsForPrompt(
-          aiKnowledge?.products,
-          aiKnowledge?.productsServices || null
-        );
-      }
-
       const policies = aiKnowledge?.policies || "";
       const paymentMethods = aiKnowledge?.paymentMethods || null;
       const deliveryInfo = aiKnowledge?.deliveryInfo || null;
@@ -597,7 +582,7 @@ Total: R$ 505,00"
         const ragResults = await ragService.searchSimilarContent(
           customer.companyId,
           message, // Usa a mensagem atual como query
-          5 // Limite de resultados
+          10 // Limite de resultados (serviços, feedback, exemplos, etc.)
         );
 
         if (ragResults.length > 0) {
@@ -606,21 +591,6 @@ Total: R$ 505,00"
       } catch (ragError: any) {
         console.warn("[AIService] RAG search failed (continuing without):", ragError.message);
         // Continua sem RAG em caso de erro
-      }
-
-      // ============================================
-      // FEEDBACK LEARNING: Aprende com feedbacks dos atendentes
-      // ============================================
-      let feedbackContext = "";
-      try {
-        const feedbackData = await feedbackLearningService.getFeedbackContext(customer.companyId, 10);
-
-        if (feedbackData.badExamples.length > 0 || feedbackData.goodExamples.length > 0) {
-          feedbackContext = feedbackLearningService.formatFeedbackForPrompt(feedbackData);
-        }
-      } catch (feedbackError: any) {
-        console.warn("[AIService] Feedback learning failed (continuing without):", feedbackError.message);
-        // Continua sem feedback learning em caso de erro
       }
 
       // ============================================
@@ -685,9 +655,6 @@ Total: R$ 505,00"
       // Constrói histórico otimizado
       const { historyText } = this.buildOptimizedHistory(messageHistory, customer.name);
 
-      // Busca exemplos (Few-shot learning)
-      const examplesText = await conversationExampleService.getExamplesForPrompt(customer.companyId);
-
       // Decide qual sistema de prompts usar
       let systemPrompt: string;
 
@@ -703,14 +670,7 @@ Total: R$ 505,00"
             notes: customer.notes,
             isGroup: customer.isGroup,
           },
-          services: {
-            services: completePricingData.services,
-            zones: completePricingData.zones,
-            combos: completePricingData.combos,
-            additionals: completePricingData.additionals,
-          },
           ragContext: ragContext || undefined,
-          examplesText: examplesText || undefined,
           calendarConnected: googleCalendarStatus === "conectado e sincronizado",
         });
       } else {
@@ -718,15 +678,10 @@ Total: R$ 505,00"
         systemPrompt = this.buildOptimizedPrompt({
           companyName: customer.company.name,
           companyInfo,
-          formattedProducts,
-          formattedServices,
-          formattedAdvancedPricing,
           formattedFAQ,
           ragContext,
-          feedbackContext,
           conversationContext,
           policies,
-          examplesText,
           negativeExamples,
           serviceArea,
           workingHours,
@@ -826,12 +781,8 @@ Total: R$ 505,00"
     const {
       companyName,
       companyInfo,
-      formattedProducts,
-      formattedServices,
-      formattedAdvancedPricing,
       formattedFAQ,
       ragContext,
-      feedbackContext,
       conversationContext,
       policies,
       serviceArea,
@@ -894,15 +845,6 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
       businessContext += `- Informe os horários livres de forma clara e organizada\n`;
       businessContext += `- Se o cliente quiser agendar, peça para ele dizer "quero agendar" para iniciar o fluxo completo\n`;
     }
-
-    // Seção de Produtos (A mais importante para a confiabilidade)
-    const productSection = formattedProducts ? `\n${formattedProducts}` : "";
-
-    // Seção de Serviços com Variáveis de Preço
-    const servicesSection = formattedServices ? `\n${formattedServices}` : "";
-
-    // Seção de Precificação Avançada (zonas, combos, adicionais, exceções)
-    const advancedPricingSection = formattedAdvancedPricing ? `\n${formattedAdvancedPricing}` : "";
 
     // Seção de FAQ (Perguntas Frequentes)
     const faqSection = formattedFAQ ? `\n${formattedFAQ}` : "";
@@ -1096,21 +1038,14 @@ Resposta: "[TRANSBORDO]Peço desculpas pelo transtorno. Vou encaminhar você ime
    - Ou simplesmente finalize sem perguntar nada se a resposta já foi completa.
 `.trim();
 
-    // Seção de Feedback Learning (Aprendizado com feedbacks dos atendentes)
-    const feedbackSection = feedbackContext || "";
-
     // Seção de Contexto da Conversa (Serviço de interesse detectado)
     const conversationContextSection = conversationContext || "";
 
     return [
       securityAndIdentity,
       businessContext,
-      productSection,
-      servicesSection,
-      advancedPricingSection,
       faqSection,
       ragSection,
-      feedbackSection, // Aprendizado com feedbacks
       conversationContextSection, // Contexto da conversa (serviço de interesse)
       objectiveSection,
       constraintsSection,

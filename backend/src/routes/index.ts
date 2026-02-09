@@ -20,6 +20,7 @@ import adminRoutes from "./admin.routes";
 import serviceRoutes from "./service.routes";
 import conversationExampleController from "../controllers/conversation-example.controller";
 import { authenticate } from "../middlewares/auth";
+import { asyncHandler } from "../middlewares/errorHandler";
 
 const router = Router();
 
@@ -47,8 +48,8 @@ router.use("/services", serviceRoutes);
 // router.use('/l', linkRedirectRoutes);
 
 // Rotas de exemplos de conversas
-router.get("/ai/examples", authenticate, conversationExampleController.getExamples);
-router.post("/ai/examples/synthetic", authenticate, conversationExampleController.createSyntheticExample);
-router.delete("/ai/examples/:id", authenticate, conversationExampleController.deleteSyntheticExample);
+router.get("/ai/examples", authenticate, asyncHandler(conversationExampleController.getExamples));
+router.post("/ai/examples/synthetic", authenticate, asyncHandler(conversationExampleController.createSyntheticExample));
+router.delete("/ai/examples/:id", authenticate, asyncHandler(conversationExampleController.deleteSyntheticExample));
 
 export default router;

@@ -303,7 +303,7 @@ class GeminiService {
       const functionCalls = response.functionCalls();
 
       if (functionCalls && functionCalls.length > 0 && context) {
-        logger.info(`AI decided to call ${functionCalls.length} function(s): ${functionCalls.map(fc => fc.name).join(', ')}`);
+        logger.info(`AI decided to call ${functionCalls.length} function(s): ${functionCalls.map((fc: any) => fc.name).join(', ')}`);
 
         // Importa handlers dinamicamente
         const { executeToolCall } = await import("../ai-tools/handlers");

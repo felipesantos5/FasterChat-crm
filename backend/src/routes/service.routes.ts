@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { serviceController } from "../controllers/service.controller";
 import { authenticate } from "../middlewares/auth";
+import { asyncHandler } from "../middlewares/errorHandler";
 
 const router = Router();
 
@@ -8,54 +9,54 @@ const router = Router();
 router.use(authenticate);
 
 // ==================== SERVICES ====================
-router.get("/", serviceController.listServices);
-router.get("/for-ai", serviceController.getServicesForAI);
-router.get("/pricing-complete", serviceController.getCompletePricingForAI);
-router.get("/:id", serviceController.getService);
-router.post("/", serviceController.createService);
-router.post("/save-complete", serviceController.saveServiceComplete);
-router.put("/reorder", serviceController.reorderServices);
-router.put("/:id", serviceController.updateService);
-router.delete("/:id", serviceController.deleteService);
+router.get("/", asyncHandler(serviceController.listServices));
+router.get("/for-ai", asyncHandler(serviceController.getServicesForAI));
+router.get("/pricing-complete", asyncHandler(serviceController.getCompletePricingForAI));
+router.get("/:id", asyncHandler(serviceController.getService));
+router.post("/", asyncHandler(serviceController.createService));
+router.post("/save-complete", asyncHandler(serviceController.saveServiceComplete));
+router.put("/reorder", asyncHandler(serviceController.reorderServices));
+router.put("/:id", asyncHandler(serviceController.updateService));
+router.delete("/:id", asyncHandler(serviceController.deleteService));
 
 // ==================== VARIABLES ====================
-router.post("/:serviceId/variables", serviceController.createVariable);
-router.put("/variables/:variableId", serviceController.updateVariable);
-router.delete("/variables/:variableId", serviceController.deleteVariable);
+router.post("/:serviceId/variables", asyncHandler(serviceController.createVariable));
+router.put("/variables/:variableId", asyncHandler(serviceController.updateVariable));
+router.delete("/variables/:variableId", asyncHandler(serviceController.deleteVariable));
 
 // ==================== OPTIONS ====================
-router.post("/variables/:variableId/options", serviceController.createOption);
-router.put("/options/:optionId", serviceController.updateOption);
-router.delete("/options/:optionId", serviceController.deleteOption);
+router.post("/variables/:variableId/options", asyncHandler(serviceController.createOption));
+router.put("/options/:optionId", asyncHandler(serviceController.updateOption));
+router.delete("/options/:optionId", asyncHandler(serviceController.deleteOption));
 
 // ==================== PRICING TIERS ====================
-router.get("/:serviceId/pricing-tiers", serviceController.listPricingTiers);
-router.put("/:serviceId/pricing-tiers", serviceController.setPricingTiers);
+router.get("/:serviceId/pricing-tiers", asyncHandler(serviceController.listPricingTiers));
+router.put("/:serviceId/pricing-tiers", asyncHandler(serviceController.setPricingTiers));
 
 // ==================== ZONES ====================
-router.get("/zones/list", serviceController.listZones);
-router.get("/zones/:id", serviceController.getZone);
-router.post("/zones", serviceController.createZone);
-router.put("/zones/:id", serviceController.updateZone);
-router.delete("/zones/:id", serviceController.deleteZone);
+router.get("/zones/list", asyncHandler(serviceController.listZones));
+router.get("/zones/:id", asyncHandler(serviceController.getZone));
+router.post("/zones", asyncHandler(serviceController.createZone));
+router.put("/zones/:id", asyncHandler(serviceController.updateZone));
+router.delete("/zones/:id", asyncHandler(serviceController.deleteZone));
 
 // ==================== COMBOS ====================
-router.get("/combos/list", serviceController.listCombos);
-router.get("/combos/:id", serviceController.getCombo);
-router.post("/combos", serviceController.createCombo);
-router.put("/combos/:id", serviceController.updateCombo);
-router.delete("/combos/:id", serviceController.deleteCombo);
-router.put("/combos/:id/items", serviceController.setComboItems);
+router.get("/combos/list", asyncHandler(serviceController.listCombos));
+router.get("/combos/:id", asyncHandler(serviceController.getCombo));
+router.post("/combos", asyncHandler(serviceController.createCombo));
+router.put("/combos/:id", asyncHandler(serviceController.updateCombo));
+router.delete("/combos/:id", asyncHandler(serviceController.deleteCombo));
+router.put("/combos/:id/items", asyncHandler(serviceController.setComboItems));
 
 // ==================== ADDITIONALS ====================
-router.get("/additionals/list", serviceController.listAdditionals);
-router.post("/additionals", serviceController.createAdditional);
-router.put("/additionals/:id", serviceController.updateAdditional);
-router.delete("/additionals/:id", serviceController.deleteAdditional);
+router.get("/additionals/list", asyncHandler(serviceController.listAdditionals));
+router.post("/additionals", asyncHandler(serviceController.createAdditional));
+router.put("/additionals/:id", asyncHandler(serviceController.updateAdditional));
+router.delete("/additionals/:id", asyncHandler(serviceController.deleteAdditional));
 
 // ==================== ZONE EXCEPTIONS ====================
-router.get("/zone-exceptions/list", serviceController.listZoneExceptions);
-router.post("/zone-exceptions", serviceController.createZoneException);
-router.delete("/zone-exceptions/:id", serviceController.deleteZoneException);
+router.get("/zone-exceptions/list", asyncHandler(serviceController.listZoneExceptions));
+router.post("/zone-exceptions", asyncHandler(serviceController.createZoneException));
+router.delete("/zone-exceptions/:id", asyncHandler(serviceController.deleteZoneException));
 
 export default router;
