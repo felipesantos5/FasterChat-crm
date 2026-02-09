@@ -291,36 +291,42 @@ function PipelinePageContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="p-4">
-        <div className="flex justify-between mb-6">
-          <div className="flex gap-4">
-            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm w-56">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Users className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Total de Leads</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalLeads}</p>
-                </div>
+      <div className="p-3 sm:p-4">
+        {/* Header Compacto com Stats */}
+        <div className="flex items-center justify-between gap-4 mb-4 bg-white p-2.5 px-4 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-4 sm:gap-8">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 bg-blue-50 rounded-lg">
+                <Users className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 leading-none mb-1">Total Leads</p>
+                <p className="text-lg font-bold text-gray-900 leading-none">{stats.totalLeads}</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm w-56">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Taxa de Conversão</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.responseRate}%</p>
-                </div>
+            <div className="hidden sm:block w-px h-8 bg-gray-100" />
+
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 bg-green-50 rounded-lg">
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 leading-none mb-1">Conversão</p>
+                <p className="text-lg font-bold text-green-600 leading-none">{stats.responseRate}%</p>
               </div>
             </div>
           </div>
-          <Button onClick={() => setManageStagesOpen(true)} variant="outline" className="border-gray-300">
-            <Settings2 className="h-4 w-4 mr-2" />
-            Gerenciar Estágios
+
+          <Button
+            onClick={() => setManageStagesOpen(true)}
+            variant="outline"
+            size="sm"
+            className="h-9 text-xs font-bold border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg"
+          >
+            <Settings2 className="h-3.5 w-3.5 mr-1.5" />
+            <span className="hidden sm:inline">Gerenciar Estágios</span>
+            <span className="sm:hidden">Estágios</span>
           </Button>
         </div>
 
@@ -356,16 +362,16 @@ function PipelinePageContent() {
                     onDragStart={() => handleDragStart(customer, null)}
                     onClick={() => handleCustomerClick(customer)}
                     className={cn(
-                      "bg-gray-50 rounded-lg p-3 cursor-pointer border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group",
+                      "bg-gray-50 rounded-lg p-2.5 cursor-pointer border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all group",
                       draggedCustomer?.id === customer.id && "opacity-50 scale-95"
                     )}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <p className="font-medium text-sm text-gray-900 truncate flex-1">{customer.name}</p>
-                      <GripVertical className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab flex-shrink-0" />
+                    <div className="flex items-start justify-between mb-1">
+                      <p className="font-bold text-xs text-gray-900 truncate flex-1">{customer.name}</p>
+                      <GripVertical className="h-3.5 w-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab flex-shrink-0" />
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
                       <Phone className="h-3 w-3" />
                       <span className="truncate">{formatPhone(customer.phone)}</span>
                     </div>
@@ -379,7 +385,7 @@ function PipelinePageContent() {
                             <Badge
                               key={tag}
                               variant="outline"
-                              className="text-[10px] px-1.5 py-0"
+                              className="text-[9px] px-1 py-0 leading-tight h-4"
                               style={tagColor ? {
                                 backgroundColor: `${tagColor}20`,
                                 borderColor: tagColor,
@@ -395,7 +401,7 @@ function PipelinePageContent() {
                           );
                         })}
                         {customer.tags.length > 2 && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-white border-gray-200 text-gray-600">
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 leading-tight h-4 bg-white border-gray-200 text-gray-600">
                             +{customer.tags.length - 2}
                           </Badge>
                         )}
@@ -405,7 +411,7 @@ function PipelinePageContent() {
                 ))}
 
                 {board.customersWithoutStage.length === 0 && (
-                  <div className="text-center py-8 text-gray-400 text-sm">Arraste leads aqui para tirar do funil</div>
+                  <div className="text-center py-8 text-gray-400 text-xs italic">Sem leads</div>
                 )}
               </div>
             </div>
@@ -444,26 +450,28 @@ function PipelinePageContent() {
                     onDragStart={() => handleDragStart(customer, stageData.stage.id)}
                     onClick={() => handleCustomerClick(customer)}
                     className={cn(
-                      "bg-gray-50 rounded-lg p-3 cursor-pointer border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group",
+                      "bg-gray-50 rounded-lg p-2.5 cursor-pointer border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group",
                       draggedCustomer?.id === customer.id && "opacity-50 scale-95"
                     )}
                   >
                     {/* Customer Name */}
-                    <div className="flex items-start justify-between mb-2">
-                      <p className="font-medium text-sm text-gray-900 truncate flex-1">{customer.name}</p>
-                      <GripVertical className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab flex-shrink-0" />
+                    <div className="flex items-start justify-between mb-1">
+                      <p className="font-bold text-xs text-gray-900 truncate flex-1">{customer.name}</p>
+                      <GripVertical className="h-3.5 w-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab flex-shrink-0" />
                     </div>
 
-                    {/* Phone */}
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-2">
-                      <Phone className="h-3 w-3" />
-                      <span className="truncate">{formatPhone(customer.phone)}</span>
-                    </div>
+                    <div className="flex items-center gap-3">
+                      {/* Phone */}
+                      <div className="flex items-center gap-1 text-[10px] text-gray-500 truncate">
+                        <Phone className="h-2.5 w-2.5" />
+                        <span className="truncate">{formatPhone(customer.phone)}</span>
+                      </div>
 
-                    {/* Date */}
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      <Calendar className="h-3 w-3" />
-                      <span>{formatDate(customer.createdAt)}</span>
+                      {/* Date */}
+                      <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                        <Calendar className="h-2.5 w-2.5" />
+                        <span>{formatDate(customer.createdAt)}</span>
+                      </div>
                     </div>
 
                     {/* Tags */}
@@ -475,7 +483,7 @@ function PipelinePageContent() {
                             <Badge
                               key={tag}
                               variant="outline"
-                              className="text-[10px] px-1.5 py-0"
+                              className="text-[9px] px-1 py-0 leading-tight h-4"
                               style={tagColor ? {
                                 backgroundColor: `${tagColor}20`,
                                 borderColor: tagColor,
@@ -491,7 +499,7 @@ function PipelinePageContent() {
                           );
                         })}
                         {customer.tags.length > 2 && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-white border-gray-200 text-gray-600">
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 leading-tight h-4 bg-white border-gray-200 text-gray-600">
                             +{customer.tags.length - 2}
                           </Badge>
                         )}
@@ -500,7 +508,7 @@ function PipelinePageContent() {
                   </div>
                 ))}
 
-                {stageData.customers.length === 0 && <div className="text-center py-8 text-gray-400 text-sm">Arraste leads para cá</div>}
+                {stageData.customers.length === 0 && <div className="text-center py-8 text-gray-400 text-sm italic">Sem leads</div>}
               </div>
             </div>
           ))}

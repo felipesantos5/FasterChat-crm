@@ -97,15 +97,15 @@ function DashboardPageContent() {
         bgColor: "bg-green-100 dark:bg-green-900/30",
         description: "Automação de respostas",
       },
-      {
-        title: "Transbordos",
-        value: stats.handoffConversations?.current || 0,
-        percentageChange: stats.handoffConversations?.percentageChange || 0,
-        icon: AlertTriangle,
-        color: "text-red-600",
-        bgColor: "bg-red-100 dark:bg-red-900/30",
-        description: "IA transferiu para humano",
-      },
+      // {
+      //   title: "Transbordos",
+      //   value: stats.handoffConversations?.current || 0,
+      //   percentageChange: stats.handoffConversations?.percentageChange || 0,
+      //   icon: AlertTriangle,
+      //   color: "text-red-600",
+      //   bgColor: "bg-red-100 dark:bg-red-900/30",
+      //   description: "IA transferiu para humano",
+      // },
       {
         title: "Agendamentos Totais",
         value: stats.totalAppointments?.current || 0,
@@ -124,15 +124,15 @@ function DashboardPageContent() {
         bgColor: "bg-blue-100 dark:bg-blue-900/30",
         description: "Agendamentos de hoje",
       },
-      {
-        title: "Próximos 7 Dias",
-        value: stats.upcomingAppointments?.current || 0,
-        percentageChange: stats.upcomingAppointments?.percentageChange || 0,
-        icon: CalendarClock,
-        color: "text-orange-600",
-        bgColor: "bg-orange-100 dark:bg-orange-900/30",
-        description: "Agendamentos futuros",
-      }
+      // {
+      //   title: "Próximos 7 Dias",
+      //   value: stats.upcomingAppointments?.current || 0,
+      //   percentageChange: stats.upcomingAppointments?.percentageChange || 0,
+      //   icon: CalendarClock,
+      //   color: "text-orange-600",
+      //   bgColor: "bg-orange-100 dark:bg-orange-900/30",
+      //   description: "Agendamentos futuros",
+      // }
     ]
     : [];
 

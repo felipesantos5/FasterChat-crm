@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Calendar as BigCalendar, dateFnsLocalizer, View } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay, addDays, subDays } from "date-fns";
+import { format, parse, startOfWeek, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar, Plus, Settings, Clock, MapPin, User, Edit, Trash2, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -21,9 +21,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AppointmentModal } from "@/components/appointments/AppointmentModal";
 import { EditAppointmentModal } from "@/components/appointments/EditAppointmentModal";
 import { GoogleCalendarModal } from "@/components/appointments/GoogleCalendarModal";
-import { buttons, cards, badges, icons } from "@/lib/design-system";
+import { cards } from "@/lib/design-system";
 // ✅ NOVOS IMPORTS
 import { useAuthStore } from "@/lib/store/auth.store";
+import { cn } from "@/lib/utils";
+
 import { useCustomers } from "@/hooks/use-customers";
 import { CalendarSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
@@ -92,6 +94,97 @@ function CalendarioPageContent() {
   const [showGoogleCalendar, setShowGoogleCalendar] = useState(false);
   const [showEventDetails, setShowEventDetails] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+
+  // ✅ Custom Toolbar for better vertical space usage
+  const CustomToolbar = (toolbarProps: any) => {
+    const { label, onNavigate, onView, view, views } = toolbarProps;
+
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100 pt-0">
+        {/* Lado Esquerdo: Navegação e Data */}
+        <div className="flex items-center gap-2 flex-grow sm:flex-grow-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate("TODAY")}
+            className="h-9 px-3 text-xs font-bold bg-white border-gray-200 hover:bg-green-50 hover:border-green-300 text-gray-700 hover:text-green-700 rounded-lg shadow-sm transition-all"
+          >
+            Hoje
+          </Button>
+          <div className="flex border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+            <button
+              onClick={() => onNavigate("PREV")}
+              className="p-2 hover:bg-gray-100 transition-colors border-r border-gray-200"
+              title="Anterior"
+            >
+              <ChevronLeft className="h-4 w-4 text-gray-700" />
+            </button>
+            <button
+              onClick={() => onNavigate("NEXT")}
+              className="p-2 hover:bg-gray-100 transition-colors"
+              title="Próximo"
+            >
+              <ChevronRight className="h-4 w-4 text-gray-700" />
+            </button>
+          </div>
+          <span className="text-sm sm:text-base font-bold text-gray-900 ml-1 sm:ml-2 whitespace-nowrap capitalize">
+            {label}
+          </span>
+        </div>
+
+        {/* Lado Direito: View Selectors + Actions */}
+        <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+          {/* View Selectors - Ocultar no celular para economizar espaço */}
+          <div className="hidden md:flex border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+            {views.map((v: string) => (
+              <button
+                key={v}
+                onClick={() => onView(v)}
+                className={cn(
+                  "px-3 py-2 text-xs font-bold transition-all border-r border-gray-200 last:border-0",
+                  view === v
+                    ? "bg-black text-white"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                )}
+              >
+                {(messages as any)[v] || v}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Google Calendar Button */}
+            {googleStatus?.connected ? (
+              <button
+                onClick={() => setShowGoogleCalendar(true)}
+                className="flex items-center justify-center h-10 w-10 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-all border border-green-200 shadow-sm"
+                title="Google Calendar Conectado"
+              >
+                <CheckCircle className="h-5 w-5" />
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowGoogleCalendar(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-all border border-yellow-200 text-xs font-bold h-10 shadow-sm whitespace-nowrap"
+              >
+                <Settings className="h-4 w-4" />
+                <span className="hidden xl:inline">Google Calendar</span>
+              </button>
+            )}
+
+            {/* New Appointment Button */}
+            <button
+              onClick={() => setShowNewAppointment(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-all shadow-sm hover:shadow-md text-sm font-bold h-10 whitespace-nowrap"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Novo Agendamento</span>
+              <span className="sm:hidden">Novo</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // ✅ Removido código hardcoded:
   // const companyId = "af874797-cd69-4aed-bc6a-fa9737418905";
@@ -295,19 +388,6 @@ function CalendarioPageContent() {
     }
   };
 
-  // ✅ Funções de navegação para mobile
-  const handlePreviousDay = () => {
-    setDate(subDays(date, 1));
-  };
-
-  const handleNextDay = () => {
-    setDate(addDays(date, 1));
-  };
-
-  const handleToday = () => {
-    setDate(new Date());
-  };
-
   // ✅ Loading state inicial enquanto não temos companyId
   if (!companyId) {
     return (
@@ -330,86 +410,9 @@ function CalendarioPageContent() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      {/* Header */}
-
-
       {/* Calendar */}
-      <div className="flex-1 px-3 md:px-6 pb-3 md:pb-6 pt-0">
-        <div className="flex-shrink-0 p-3 md:p-6 pb-2 md:pb-4 bg-white border-b">
-          {isMobile ? (
-            <div className="space-y-3">
-              {/* Mobile Navigation */}
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  onClick={handlePreviousDay}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                  title="Dia anterior"
-                >
-                  <ChevronLeft className="h-5 w-5 text-gray-700" />
-                </button>
-                <div className="text-center flex-1">
-                  <p className="text-sm font-medium text-gray-500">
-                    {format(date, "EEEE", { locale: ptBR })}
-                  </p>
-                  <p className="text-lg font-bold text-gray-900">
-                    {format(date, "dd 'de' MMMM", { locale: ptBR })}
-                  </p>
-                </div>
-                <button
-                  onClick={handleNextDay}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                  title="Próximo dia"
-                >
-                  <ChevronRight className="h-5 w-5 text-gray-700" />
-                </button>
-              </div>
-
-              {/* Mobile Action Buttons */}
-              <div className="flex gap-2">
-                {new Date().toDateString() !== date.toDateString() && (
-                  <button
-                    onClick={handleToday}
-                    className="flex-1 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Hoje
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowNewAppointment(true)}
-                  className="flex-1 px-3 py-2 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-1"
-                >
-                  <Plus className="h-4 w-4" />
-                  Novo
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-end gap-4">
-              {googleStatus?.connected ? (
-                <button
-                  onClick={() => setShowGoogleCalendar(true)}
-                  className={badges.success + " cursor-pointer hover:shadow-sm transition-all"}
-                >
-                  <CheckCircle className={`${icons.small} mr-1`} />
-                  Google Calendar Conectado
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowGoogleCalendar(true)}
-                  className={badges.warning + " cursor-pointer hover:shadow-sm transition-all"}
-                >
-                  <Settings className={`${icons.small} mr-1`} />
-                  Conectar Google Calendar
-                </button>
-              )}
-              <button onClick={() => setShowNewAppointment(true)} className={buttons.primary}>
-                <Plus className={`${icons.default} inline-block mr-2`} />
-                Novo Agendamento
-              </button>
-            </div>
-          )}
-        </div>
-        <div className={`${cards.default} h-full`}>
+      <div className="flex-1 px-3 md:px-6 pb-3 md:pb-6 pt-4 sm:pt-6">
+        <div className={`${cards.default} h-full pt-2`}>
           <div className="calendar-container h-full p-2 md:p-4">
             <BigCalendar
               localizer={localizer}
@@ -427,6 +430,9 @@ function CalendarioPageContent() {
               onSelectSlot={handleSelectSlot}
               selectable
               popup
+              components={{
+                toolbar: CustomToolbar
+              }}
               views={isMobile ? ["day"] : ["month", "week", "day", "agenda"]}
               step={isMobile ? 60 : 30}
               timeslots={isMobile ? 1 : 2}
@@ -764,12 +770,14 @@ function CalendarioPageContent() {
         /* Responsividade */
         @media (max-width: 768px) {
           .rbc-toolbar {
-            display: none;
+            padding: 0; /* Remove default padding */
+            margin-bottom: 1rem; /* Add some space below the custom toolbar */
           }
 
           .rbc-toolbar-label {
-            margin: 8px 0;
+            margin: 0; /* Reset margin */
           }
+
 
           .rbc-header {
             padding: 12px 4px;
