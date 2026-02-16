@@ -83,6 +83,10 @@ class AIKnowledgeController {
         // Objetivo da IA
         objectiveType,
         aiObjective,
+        aiTone,
+        aiProactivity,
+        aiClosingFocus,
+        aiCustomInstructions,
         // Políticas
         policies,
         workingHours,
@@ -131,6 +135,10 @@ class AIKnowledgeController {
         companyInfo,
         objectiveType,
         aiObjective,
+        aiTone,
+        aiProactivity,
+        aiClosingFocus,
+        aiCustomInstructions,
         policies,
         workingHours,
         businessHoursStart,

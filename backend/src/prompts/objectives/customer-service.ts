@@ -36,7 +36,9 @@ export const CUSTOMER_SERVICE_CONFIG: AIObjectiveConfig = {
 /**
  * Gera a seção de objetivo para atendimento ao cliente
  */
-export function getCustomerServiceObjectiveSection(customInstructions?: string): PromptSection {
+export function getCustomerServiceObjectiveSection(config: AIObjectiveConfig): PromptSection {
+  const { customInstructions, closingFocus } = config;
+
   let content = `
 ## SEU OBJETIVO: ATENDIMENTO AO CLIENTE
 
@@ -47,7 +49,22 @@ Você é um assistente de atendimento ao cliente. Seu foco é:
 - Fornecer informações precisas e úteis
 - Resolver problemas dentro da sua capacidade
 - Direcionar para humano quando necessário
+`;
 
+  if (!closingFocus) {
+    content += `
+### Postura Não-Agressiva (IMPORTANTE)
+Como seu objetivo é focado em suporte e atendimento leve:
+- **NÃO passe o valor logo de cara** se o cliente ainda não entendeu bem o serviço/produto.
+- **NÃO empurre um agendamento ou a venda** precocemente.
+- **DÊ ÊNFASE** em mostrar os serviços ou produtos disponíveis primeiro.
+- **FAÇA PERGUNTAS** para entender qual opção se encaixa melhor na necessidade dele.
+- **DETALHAMENTO:** Forneça o máximo de detalhes sobre o serviço ou produto em questão.
+- **EVOLUÇÃO:** Foque em um atendimento leve e evolutivo, construindo a conversa passo a passo.
+`;
+  }
+
+  content += `
 ### Como Agir
 1. **Primeiro Contato:** Cumprimente e pergunte como pode ajudar
 2. **Entendimento:** Ouça/leia atentamente e entenda a necessidade

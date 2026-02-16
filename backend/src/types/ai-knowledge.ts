@@ -27,6 +27,10 @@ export interface AIKnowledgeData {
   // Objetivo da IA
   objectiveType?: string | null; // ID do objetivo pré-definido
   aiObjective?: string | null; // Texto customizado (quando objectiveType = 'custom')
+  aiTone?: string | null;
+  aiProactivity?: string | null;
+  aiClosingFocus?: boolean | null;
+  aiCustomInstructions?: string | null;
 
   // Políticas
   policies?: string | null;
@@ -75,6 +79,10 @@ export interface UpdateAIKnowledgeRequest {
   // Objetivo da IA
   objectiveType?: string; // ID do objetivo pré-definido
   aiObjective?: string; // Texto customizado (quando objectiveType = 'custom')
+  aiTone?: string;
+  aiProactivity?: string;
+  aiClosingFocus?: boolean;
+  aiCustomInstructions?: string;
 
   // Políticas
   policies?: string;

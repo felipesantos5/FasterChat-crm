@@ -32,6 +32,8 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import { useMemo } from "react";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
+import { useDashboardFilter } from "@/contexts/DashboardFilterContext";
 
 interface PageInfo {
   label: string;
@@ -148,12 +150,21 @@ export function Header() {
   };
 
   const PageIcon = currentPage.icon;
+  const isDashboardPage = pathname === "/dashboard";
+
+  // Hook do filtro (só é usado quando está no dashboard)
+  let dashboardFilterHook;
+  try {
+    dashboardFilterHook = useDashboardFilter();
+  } catch {
+    // Não está dentro do provider, ignora
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background px-2 md:px-4 lg:px-6">
       <div className="flex flex-1 items-center justify-between gap-2 md:gap-4">
-        {/* Mobile Menu Button + Current Page Info */}
-        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+        {/* Mobile Menu Button + Current Page Info + Dashboard Filter */}
+        <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
           {/* Botão Hamburger - apenas mobile */}
           <button
             onClick={toggle}
@@ -166,10 +177,20 @@ export function Header() {
           <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-green-100 flex-shrink-0">
             <PageIcon className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0">
             <h1 className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 truncate">{currentPage.label}</h1>
             <p className="text-xs text-gray-500 hidden sm:block">{currentPage.description}</p>
           </div>
+
+          {/* Dashboard Date Filter - ao lado do título */}
+          {isDashboardPage && dashboardFilterHook && (
+            <div className="hidden lg:block flex-shrink-0 ml-2">
+              <DateRangeFilter
+                value={dashboardFilterHook.dateFilter}
+                onChange={dashboardFilterHook.setDateFilter}
+              />
+            </div>
+          )}
         </div>
 
         {/* User Menu */}

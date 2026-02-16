@@ -210,6 +210,26 @@ class ConversationService {
       throw new Error(`Failed to get assigned conversations: ${error.message}`);
     }
   }
+
+  /**
+   * Conta conversas que transbordaram (needsHelp = true) e não foram atendidas
+   */
+  async getHandoffsCount(companyId: string): Promise<number> {
+    try {
+      const count = await prisma.conversation.count({
+        where: {
+          companyId,
+          needsHelp: true,
+          assignedToId: null, // Ainda não foi atribuída a ninguém
+        },
+      });
+
+      return count;
+    } catch (error: any) {
+      console.error('Error getting handoffs count:', error);
+      throw new Error(`Failed to get handoffs count: ${error.message}`);
+    }
+  }
 }
 
 export default new ConversationService();

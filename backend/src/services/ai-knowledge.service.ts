@@ -106,6 +106,10 @@ class AIKnowledgeService {
           
           objectiveType: data.objectiveType,
           aiObjective: data.aiObjective,
+          aiTone: data.aiTone,
+          aiProactivity: data.aiProactivity,
+          aiClosingFocus: data.aiClosingFocus,
+          aiCustomInstructions: data.aiCustomInstructions,
 
           policies: data.policies,
           workingHours: data.workingHours,
@@ -139,6 +143,10 @@ class AIKnowledgeService {
           
           objectiveType: data.objectiveType || 'support',
           aiObjective: data.aiObjective,
+          aiTone: data.aiTone || 'professional',
+          aiProactivity: data.aiProactivity || 'medium',
+          aiClosingFocus: data.aiClosingFocus ?? false,
+          aiCustomInstructions: data.aiCustomInstructions,
 
           policies: data.policies,
           workingHours: data.workingHours,
@@ -237,6 +245,10 @@ class AIKnowledgeService {
         companySegment: knowledge.companySegment || 'Geral',
         companyDescription: knowledge.companyDescription || knowledge.companyInfo || '',
         objectivePrompt,
+        aiTone: knowledge.aiTone || 'professional',
+        aiProactivity: knowledge.aiProactivity || 'medium',
+        aiClosingFocus: knowledge.aiClosingFocus ?? false,
+        aiCustomInstructions: knowledge.aiCustomInstructions || '',
         policies: knowledge.policies || '',
         serviceArea: knowledge.serviceArea || '',
       };
@@ -281,9 +293,12 @@ class AIKnowledgeService {
     REGRAS CRÍTICAS DE GERAÇÃO:
     1. **NÃO LISTE PREÇOS OU PRODUTOS ESPECÍFICOS**: A lista de preços será injetada dinamicamente pelo sistema via JSON. Não a resuma aqui para evitar alucinações de valores.
     2. Foque na **Proposta de Valor**: O que torna essa empresa especial?
-    3. Defina o **Tom de Voz** ideal para o segmento "${info.companySegment}".
+    3. Defina o **Tom de Voz** ideal baseado na configuração "${info.aiTone}" e no segmento "${info.companySegment}".
     4. Resuma as **Regras Operacionais** (políticas) em tópicos claros e imperativos.
-    5. O texto deve ser formatado em Markdown.
+    5. **Comportamento Estratégico**: 
+       - Se o foco em fechamento (aiClosingFocus) for falso: Priorize suporte, educação do cliente e atendimento leve/evolutivo. NÃO sugira fechamento ou agendamento de forma agressiva.
+       - Use as instruções customizadas: "${info.aiCustomInstructions}" para moldar o perfil.
+    6. O texto deve ser formatado em Markdown.
     `;
 
     try {

@@ -118,6 +118,12 @@ Sempre confirme dados importantes como endereço e horário antes de agendar.`,
 • Atendimento imediato (sempre agendar)
 • Descontos além dos já oferecidos`,
 
+      // Campos novos - configurações avançadas
+      aiTone: 'professional',
+      aiProactivity: 'medium',
+      aiClosingFocus: false,
+      aiCustomInstructions: 'Sempre priorize a experiência do cliente e a clareza técnica.',
+
       provider: 'openai',
       model: 'gpt-4o-mini',
       temperature: 0.7,

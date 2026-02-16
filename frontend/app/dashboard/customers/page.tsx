@@ -37,6 +37,16 @@ import { CustomerGridSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
 import { useErrorHandler } from "@/hooks/use-error-handler";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function CustomersPage() {
   return (
@@ -55,6 +65,8 @@ function CustomersPageContent() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const { hasError, handleError, clearError } = useErrorHandler();
 
   // Paginação
@@ -125,14 +137,21 @@ function CustomersPageContent() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este cliente?")) {
-      try {
-        await customerApi.delete(id);
-        loadCustomers();
-      } catch (error) {
-        console.error("Error deleting customer:", error);
-      }
+  const handleDeleteClick = (customer: Customer) => {
+    setCustomerToDelete(customer);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!customerToDelete) return;
+
+    try {
+      await customerApi.delete(customerToDelete.id);
+      setDeleteModalOpen(false);
+      setCustomerToDelete(null);
+      loadCustomers();
+    } catch (error) {
+      console.error("Error deleting customer:", error);
     }
   };
 
@@ -362,7 +381,7 @@ function CustomersPageContent() {
                       <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(customer.id);
+                          handleDeleteClick(customer);
                         }}
                         className="text-destructive"
                       >
@@ -443,6 +462,33 @@ function CustomersPageContent() {
           loadCustomers();
         }}
       />
+
+      {/* Modal de confirmação de exclusão */}
+      <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir cliente?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Tem certeza que deseja excluir <strong>{customerToDelete?.name}</strong>?
+              </p>
+              <p className="text-destructive font-medium">
+                ⚠️ Todas as conversas e mensagens deste cliente também serão excluídas permanentemente.
+              </p>
+              <p className="text-sm">Esta ação não pode ser desfeita.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

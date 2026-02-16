@@ -94,6 +94,9 @@ export default function CustomerDetailPage() {
   // Customer notes state
   const [customerNotes, setCustomerNotes] = useState<CustomerNote[]>([]);
 
+  // Delete customer modal state
+  const [deleteCustomerModalOpen, setDeleteCustomerModalOpen] = useState(false);
+
   const loadCustomer = async () => {
     try {
       setLoading(true);
@@ -162,16 +165,21 @@ export default function CustomerDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (customer && confirm("Tem certeza que deseja excluir este cliente?")) {
-      try {
-        await customerApi.delete(customer.id);
-        toast.success("Cliente excluído com sucesso!");
-        router.push("/dashboard/customers");
-      } catch (error) {
-        console.error("Error deleting customer:", error);
-        toast.error("Erro ao excluir cliente");
-      }
+  const handleDeleteClick = () => {
+    setDeleteCustomerModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!customer) return;
+
+    try {
+      await customerApi.delete(customer.id);
+      setDeleteCustomerModalOpen(false);
+      toast.success("Cliente excluído com sucesso!");
+      router.push("/dashboard/customers");
+    } catch (error) {
+      console.error("Error deleting customer:", error);
+      toast.error("Erro ao excluir cliente");
     }
   };
 
@@ -314,7 +322,7 @@ export default function CustomerDetailPage() {
             <Edit className="mr-2 h-4 w-4" />
             Editar
           </Button>
-          <Button variant="destructive" onClick={handleDelete}>
+          <Button variant="destructive" onClick={handleDeleteClick}>
             <Trash className="mr-2 h-4 w-4" />
             Excluir
           </Button>
@@ -803,6 +811,33 @@ export default function CustomerDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteServiceCard}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Customer Confirmation */}
+      <AlertDialog open={deleteCustomerModalOpen} onOpenChange={setDeleteCustomerModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir cliente?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Tem certeza que deseja excluir <strong>{customer?.name}</strong>?
+              </p>
+              <p className="text-destructive font-medium">
+                ⚠️ Todas as conversas, mensagens, endereços e serviços deste cliente também serão excluídos permanentemente.
+              </p>
+              <p className="text-sm">Esta ação não pode ser desfeita.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>

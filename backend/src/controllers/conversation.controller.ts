@@ -194,6 +194,39 @@ class ConversationController {
       });
     }
   }
+
+  /**
+   * GET /api/conversations/handoffs/count
+   * Retorna o número de conversas que transbordaram (needsHelp = true) e não foram visualizadas
+   */
+  async getHandoffsCount(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        console.log('[getHandoffsCount] User not authenticated');
+        return res.status(401).json({
+          success: false,
+          message: 'Not authenticated',
+        });
+      }
+
+      const companyId = req.user.companyId;
+      console.log('[getHandoffsCount] Fetching for company:', companyId);
+
+      const count = await conversationService.getHandoffsCount(companyId);
+      console.log('[getHandoffsCount] Count result:', count);
+
+      return res.status(200).json({
+        success: true,
+        data: { count },
+      });
+    } catch (error: any) {
+      console.error('[getHandoffsCount] Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to get handoffs count',
+      });
+    }
+  }
 }
 
 export default new ConversationController();

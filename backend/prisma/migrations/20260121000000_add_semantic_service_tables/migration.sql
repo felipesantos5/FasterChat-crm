@@ -3,8 +3,9 @@
 -- Date: 2025-01-21
 -- IMPORTANTE: Requer extensão pgvector instalada no PostgreSQL
 
--- Habilita extensão pgvector (deve já existir se knowledge_vectors foi criada)
+-- Habilita extensões necessárias
 CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pgcrypto; -- Necessário para gen_random_uuid()
 
 -- 1. Adiciona novos campos na tabela services
 ALTER TABLE "services" ADD COLUMN IF NOT EXISTS "equipment_type" TEXT;
@@ -98,13 +99,13 @@ CREATE INDEX IF NOT EXISTS "domain_synonyms_canonical_term_idx" ON "domain_synon
 -- Sinônimos globais (company_id = NULL)
 INSERT INTO "domain_synonyms" ("id", "company_id", "canonical_term", "synonyms", "domain", "is_active")
 VALUES
-  (gen_random_uuid(), NULL, 'ar condicionado', ARRAY['ar frio', 'split', 'climatizador', 'AC', 'ar-condicionado', 'ar', 'arcondicionado'], 'HVAC'),
-  (gen_random_uuid(), NULL, 'instalacao', ARRAY['instalar', 'instalação', 'colocar', 'montar', 'montagem', 'colocação'], NULL),
-  (gen_random_uuid(), NULL, 'manutencao', ARRAY['manutenção', 'conserto', 'consertar', 'arrumar', 'reparo', 'reparar', 'defeito', 'problema'], NULL),
-  (gen_random_uuid(), NULL, 'limpeza', ARRAY['limpar', 'higienização', 'higienizacao', 'higienizar', 'lavagem', 'lavar'], NULL),
-  (gen_random_uuid(), NULL, 'BTU', ARRAY['btu', 'btus', '9000', '12000', '18000', '24000', '9k', '12k', '18k', '24k'], 'HVAC'),
-  (gen_random_uuid(), NULL, 'preco', ARRAY['preço', 'valor', 'custo', 'quanto custa', 'quanto é', 'quanto fica', 'qual o valor'], NULL),
-  (gen_random_uuid(), NULL, 'agendar', ARRAY['marcar', 'reservar', 'horário', 'horario', 'agenda', 'disponibilidade'], NULL)
+  (gen_random_uuid(), NULL, 'ar condicionado', ARRAY['ar frio', 'split', 'climatizador', 'AC', 'ar-condicionado', 'ar', 'arcondicionado'], 'HVAC', true),
+  (gen_random_uuid(), NULL, 'instalacao', ARRAY['instalar', 'instalação', 'colocar', 'montar', 'montagem', 'colocação'], NULL, true),
+  (gen_random_uuid(), NULL, 'manutencao', ARRAY['manutenção', 'conserto', 'consertar', 'arrumar', 'reparo', 'reparar', 'defeito', 'problema'], NULL, true),
+  (gen_random_uuid(), NULL, 'limpeza', ARRAY['limpar', 'higienização', 'higienizacao', 'higienizar', 'lavagem', 'lavar'], NULL, true),
+  (gen_random_uuid(), NULL, 'BTU', ARRAY['btu', 'btus', '9000', '12000', '18000', '24000', '9k', '12k', '18k', '24k'], 'HVAC', true),
+  (gen_random_uuid(), NULL, 'preco', ARRAY['preço', 'valor', 'custo', 'quanto custa', 'quanto é', 'quanto fica', 'qual o valor'], NULL, true),
+  (gen_random_uuid(), NULL, 'agendar', ARRAY['marcar', 'reservar', 'horário', 'horario', 'agenda', 'disponibilidade'], NULL, true)
 ON CONFLICT DO NOTHING;
 
 -- ============================================

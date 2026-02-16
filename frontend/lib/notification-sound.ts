@@ -5,14 +5,24 @@
 
 class NotificationSoundService {
   private audioContext: AudioContext | null = null;
-  private isEnabled: boolean = true;
+  private isEnabled: boolean = true; // Controle global (legacy)
+  private newMessageSoundEnabled: boolean = true;
+  private transbordoSoundEnabled: boolean = true;
   private volume: number = 0.5;
 
   constructor() {
     // Carrega preferências do localStorage
     if (typeof window !== 'undefined') {
+      // Legacy - controle global
       const saved = localStorage.getItem('notification_sound_enabled');
       this.isEnabled = saved !== 'false';
+
+      // Controles individuais
+      const newMessageSaved = localStorage.getItem('notification_new_message_enabled');
+      this.newMessageSoundEnabled = newMessageSaved !== 'false';
+
+      const transbordoSaved = localStorage.getItem('notification_transbordo_enabled');
+      this.transbordoSoundEnabled = transbordoSaved !== 'false';
 
       const savedVolume = localStorage.getItem('notification_sound_volume');
       if (savedVolume) {
@@ -36,7 +46,7 @@ class NotificationSoundService {
    * Som de alerta tipo "ding" para transbordo
    */
   playTransbordoAlert(): void {
-    if (!this.isEnabled || typeof window === 'undefined') return;
+    if (!this.isEnabled || !this.transbordoSoundEnabled || typeof window === 'undefined') return;
 
     try {
       const ctx = this.getAudioContext();
@@ -104,7 +114,7 @@ class NotificationSoundService {
    * Reproduz som de nova mensagem (mais suave)
    */
   playNewMessageSound(): void {
-    if (!this.isEnabled || typeof window === 'undefined') return;
+    if (!this.isEnabled || !this.newMessageSoundEnabled || typeof window === 'undefined') return;
 
     try {
       const ctx = this.getAudioContext();
@@ -170,9 +180,59 @@ class NotificationSoundService {
    */
   testTransbordoSound(): void {
     const wasEnabled = this.isEnabled;
+    const wasTransbordoEnabled = this.transbordoSoundEnabled;
     this.isEnabled = true;
+    this.transbordoSoundEnabled = true;
     this.playTransbordoAlert();
     this.isEnabled = wasEnabled;
+    this.transbordoSoundEnabled = wasTransbordoEnabled;
+  }
+
+  /**
+   * Testa o som de nova mensagem (para configurações)
+   */
+  testNewMessageSound(): void {
+    const wasEnabled = this.isEnabled;
+    const wasNewMessageEnabled = this.newMessageSoundEnabled;
+    this.isEnabled = true;
+    this.newMessageSoundEnabled = true;
+    this.playNewMessageSound();
+    this.isEnabled = wasEnabled;
+    this.newMessageSoundEnabled = wasNewMessageEnabled;
+  }
+
+  /**
+   * Habilita/desabilita som de nova mensagem
+   */
+  setNewMessageSoundEnabled(enabled: boolean): void {
+    this.newMessageSoundEnabled = enabled;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('notification_new_message_enabled', String(enabled));
+    }
+  }
+
+  /**
+   * Habilita/desabilita som de transbordo
+   */
+  setTransbordoSoundEnabled(enabled: boolean): void {
+    this.transbordoSoundEnabled = enabled;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('notification_transbordo_enabled', String(enabled));
+    }
+  }
+
+  /**
+   * Retorna se o som de nova mensagem está habilitado
+   */
+  getNewMessageSoundEnabled(): boolean {
+    return this.newMessageSoundEnabled;
+  }
+
+  /**
+   * Retorna se o som de transbordo está habilitado
+   */
+  getTransbordoSoundEnabled(): boolean {
+    return this.transbordoSoundEnabled;
   }
 }
 

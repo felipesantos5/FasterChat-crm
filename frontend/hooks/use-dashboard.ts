@@ -1,10 +1,15 @@
 import useSWR from 'swr'
 import { dashboardApi } from '@/lib/dashboard'
+import { DateRangePreset, DateRange } from '@/components/dashboard/date-range-filter'
 
-export function useDashboardStats(period: 'today' | 'week' | 'month' = 'week') {
+export function useDashboardStats(preset: DateRangePreset = '7days', customRange?: DateRange) {
+  const cacheKey = preset === 'custom' && customRange
+    ? `/dashboard/stats/${preset}/${customRange.from.toISOString()}/${customRange.to.toISOString()}`
+    : `/dashboard/stats/${preset}`;
+
   const { data, error, isLoading, mutate } = useSWR(
-    `/dashboard/stats/${period}`,
-    () => dashboardApi.getStats(period),
+    cacheKey,
+    () => dashboardApi.getStats(preset, customRange),
     {
       dedupingInterval: 30000,
       refreshInterval: 60000,
@@ -19,10 +24,14 @@ export function useDashboardStats(period: 'today' | 'week' | 'month' = 'week') {
   }
 }
 
-export function useDashboardCharts(period: 'week' | 'month' | 'quarter' = 'month') {
+export function useDashboardCharts(preset: DateRangePreset = '30days', customRange?: DateRange) {
+  const cacheKey = preset === 'custom' && customRange
+    ? `/dashboard/charts/${preset}/${customRange.from.toISOString()}/${customRange.to.toISOString()}`
+    : `/dashboard/charts/${preset}`;
+
   const { data, error, isLoading, mutate } = useSWR(
-    `/dashboard/charts/${period}`,
-    () => dashboardApi.getChartsData(period),
+    cacheKey,
+    () => dashboardApi.getChartsData(preset, customRange),
     {
       dedupingInterval: 30000,
       refreshInterval: 120000,

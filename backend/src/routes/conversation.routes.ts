@@ -9,6 +9,10 @@ const router = Router();
 // Todas as rotas requerem autenticação
 router.use(authenticate);
 
+// GET /api/conversations/handoffs/count - Conta conversas que transbordaram
+// IMPORTANTE: Esta rota deve vir ANTES de /:customerId para não ser interpretada como customerId
+router.get('/handoffs/count', checkPermission('CONVERSATIONS', false), asyncHandler(conversationController.getHandoffsCount));
+
 // GET /api/conversations/:customerId - Obtém ou cria conversa
 router.get('/:customerId', checkPermission('CONVERSATIONS', false), asyncHandler(conversationController.getConversation));
 

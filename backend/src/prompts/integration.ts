@@ -17,6 +17,9 @@ interface AIKnowledgeData {
   objectiveType?: string | null;
   aiObjective?: string | null;
   aiPersonality?: string | null;
+  aiTone?: string | null;
+  aiProactivity?: string | null;
+  aiClosingFocus?: boolean | null;
   aiCustomInstructions?: string | null;
   workingHours?: string | null;
   businessHoursStart?: number | null;
@@ -81,6 +84,11 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
     }
   }
 
+  // Configurações avançadas do objetivo
+  const tone = (aiKnowledge?.aiTone as any) || "professional";
+  const proactivity = (aiKnowledge?.aiProactivity as any) || "medium";
+  const closingFocus = aiKnowledge?.aiClosingFocus ?? (objectiveType === "sales" || objectiveType === "sales_scheduling");
+
   // Monta o horário de funcionamento
   let workingHours: { start: number; end: number; text?: string } | undefined;
 
@@ -100,30 +108,22 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
   }
 
   // Determina customInstructions: sempre inclui aiCustomInstructions independente do tipo
-  const customInstructions = aiKnowledge?.aiCustomInstructions ||
-    (objectiveType === "custom" ? aiKnowledge?.aiObjective : undefined);
+  const customInstructions = (aiKnowledge?.aiCustomInstructions ||
+    (objectiveType === "custom" ? aiKnowledge?.aiObjective : undefined)) || undefined;
+
+  // Monta o objetivo completo com as flags do usuário
+  const baseConfig = getObjectiveConfig(objectiveType);
+  const objectiveConfig = {
+    ...baseConfig,
+    tone,
+    proactivity,
+    closingFocus,
+    customInstructions,
+  };
 
   // Monta as opções do builder
   const buildOptions: PromptBuildOptions = {
-    objective: customInstructions
-      ? (() => {
-          const baseConfig = objectiveType === "custom" && aiKnowledge?.aiObjective
-            ? {
-                type: "custom" as const,
-                name: "Personalizado",
-                description: "Objetivo personalizado",
-                primaryGoal: aiKnowledge.aiObjective,
-                secondaryGoals: [],
-                tone: "professional" as const,
-                proactivity: "medium" as const,
-                closingFocus: false,
-                schedulingEnabled: false,
-                transferEnabled: true,
-              }
-            : getObjectiveConfig(objectiveType);
-          return { ...baseConfig, customInstructions };
-        })()
-      : objectiveType,
+    objective: objectiveConfig,
     company: {
       name: aiKnowledge?.companyName || companyName,
       segment: aiKnowledge?.companySegment || undefined,
@@ -190,8 +190,8 @@ export function shouldUseModularPrompts(aiKnowledge: AIKnowledgeData | null): bo
     return true;
   }
 
-  // Usa modular se tem objectiveType definido e diferente do default
-  if (aiKnowledge?.objectiveType && aiKnowledge.objectiveType !== "support") {
+  // Usa modular se tem objectiveType definido
+  if (aiKnowledge?.objectiveType) {
     return true;
   }
 

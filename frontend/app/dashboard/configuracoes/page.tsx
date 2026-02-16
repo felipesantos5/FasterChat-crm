@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Save, User, Building } from "lucide-react";
+import { Loader2, Save, User, Building, Volume2, Bell } from "lucide-react";
 import { spacing } from "@/lib/design-system";
+import { notificationSound } from "@/lib/notification-sound";
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
@@ -18,6 +20,10 @@ export default function SettingsPage() {
     name: "",
     companyName: "",
   });
+
+  // Estados para notificações sonoras
+  const [newMessageSoundEnabled, setNewMessageSoundEnabled] = useState(true);
+  const [transbordoSoundEnabled, setTransbordoSoundEnabled] = useState(true);
 
   const isAdmin = user?.role === "ADMIN";
 
@@ -28,6 +34,10 @@ export default function SettingsPage() {
         companyName: user.companyName || "",
       });
     }
+
+    // Carrega configurações de som
+    setNewMessageSoundEnabled(notificationSound.getNewMessageSoundEnabled());
+    setTransbordoSoundEnabled(notificationSound.getTransbordoSoundEnabled());
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -125,6 +135,112 @@ export default function SettingsPage() {
                     O plano atual permite até <strong>5 conexões</strong> de WhatsApp e usuários ilimitados.
                   </p>
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Configurações de Notificações Sonoras */}
+          <div className="mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <Volume2 className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <CardTitle>Notificações Sonoras</CardTitle>
+                    <CardDescription>
+                      Controle os sons de alerta do sistema
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Som de Nova Mensagem */}
+                <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Bell className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="new-message-sound" className="text-base font-medium cursor-pointer">
+                        Som de Nova Mensagem
+                      </Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Toca quando você recebe uma nova mensagem de cliente
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => notificationSound.testNewMessageSound()}
+                    >
+                      Testar
+                    </Button>
+                    <Switch
+                      id="new-message-sound"
+                      checked={newMessageSoundEnabled}
+                      onCheckedChange={(checked) => {
+                        setNewMessageSoundEnabled(checked);
+                        notificationSound.setNewMessageSoundEnabled(checked);
+                        toast.success(
+                          checked
+                            ? "Som de nova mensagem ativado"
+                            : "Som de nova mensagem desativado"
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Som de Transbordo */}
+                <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Bell className="h-4 w-4 text-orange-600" />
+                      <Label htmlFor="transbordo-sound" className="text-base font-medium cursor-pointer">
+                        Som de Transbordo
+                      </Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Alerta quando um cliente precisa de atendimento humano
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => notificationSound.testTransbordoSound()}
+                    >
+                      Testar
+                    </Button>
+                    <Switch
+                      id="transbordo-sound"
+                      checked={transbordoSoundEnabled}
+                      onCheckedChange={(checked) => {
+                        setTransbordoSoundEnabled(checked);
+                        notificationSound.setTransbordoSoundEnabled(checked);
+                        toast.success(
+                          checked
+                            ? "Som de transbordo ativado"
+                            : "Som de transbordo desativado"
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+                  <p className="flex items-start gap-2">
+                    <span className="text-lg">💡</span>
+                    <span>
+                      <strong>Dica:</strong> Use os botões "Testar" para ouvir como cada som será reproduzido.
+                      As configurações são salvas automaticamente.
+                    </span>
+                  </p>
+                </div> */}
               </CardContent>
             </Card>
           </div>

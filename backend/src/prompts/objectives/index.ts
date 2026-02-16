@@ -66,13 +66,15 @@ export function getObjectiveConfig(type: AIObjectiveType): AIObjectiveConfig {
  */
 export function getObjectiveSection(
   type: AIObjectiveType,
-  customInstructions?: string
+  config: AIObjectiveConfig
 ): PromptSection {
+  const { customInstructions } = config;
+
   switch (type) {
     case "customer_service":
-      return getCustomerServiceObjectiveSection(customInstructions);
+      return getCustomerServiceObjectiveSection(config);
     case "support":
-      return getSupportObjectiveSection(customInstructions);
+      return getSupportObjectiveSection(config);
     case "sales":
       return getSalesObjectiveSection(customInstructions);
     case "sales_scheduling":
@@ -84,7 +86,7 @@ export function getObjectiveSection(
     case "custom":
       return getCustomObjectiveSection(customInstructions);
     default:
-      return getCustomerServiceObjectiveSection(customInstructions);
+      return getCustomerServiceObjectiveSection(config);
   }
 }
 

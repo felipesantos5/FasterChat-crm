@@ -1,9 +1,10 @@
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DateRangePreset } from "./date-range-filter";
 
 interface StatChangeBadgeProps {
   percentageChange: number;
-  period?: "today" | "week" | "month";
+  period?: DateRangePreset;
 }
 
 export function StatChangeBadge({ percentageChange, period = "today" }: StatChangeBadgeProps) {
@@ -15,10 +16,18 @@ export function StatChangeBadge({ percentageChange, period = "today" }: StatChan
     switch (period) {
       case "today":
         return "vs ontem";
-      case "week":
-        return "vs última semana";
-      case "month":
-        return "vs último mês";
+      case "yesterday":
+        return "vs anterior";
+      case "7days":
+        return "vs 7 dias anteriores";
+      case "30days":
+        return "vs 30 dias anteriores";
+      case "3months":
+        return "vs período anterior";
+      case "all":
+        return "total";
+      case "custom":
+        return "vs período anterior";
       default:
         return "";
     }

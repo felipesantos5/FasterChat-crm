@@ -16,7 +16,9 @@ class DashboardController {
       }
 
       const companyId = req.user.companyId;
-      const period = (req.query.period as "today" | "week" | "month") || "today";
+      const preset = (req.query.preset as string) || "7days";
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
 
       if (!companyId) {
         return res.status(400).json({
@@ -25,7 +27,7 @@ class DashboardController {
         });
       }
 
-      const stats = await dashboardService.getDashboardStats(companyId, period);
+      const stats = await dashboardService.getDashboardStats(companyId, preset, startDate, endDate);
 
       return res.status(200).json({
         success: true,
@@ -66,8 +68,11 @@ class DashboardController {
         return;
       }
 
-      const period = (req.query.period as "week" | "month" | "quarter") || "month";
-      const chartsData = await dashboardService.getChartsData(req.user.companyId, period);
+      const preset = (req.query.preset as string) || "7days";
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+
+      const chartsData = await dashboardService.getChartsData(req.user.companyId, preset, startDate, endDate);
 
       res.status(200).json({
         success: true,

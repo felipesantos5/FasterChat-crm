@@ -95,40 +95,104 @@ class DashboardService {
     return Number((((current - previous) / previous) * 100).toFixed(1));
   }
 
-  async getDashboardStats(
-    companyId: string,
-    period: "today" | "week" | "month" = "today"
-  ): Promise<DashboardStats> {
+  private getDateRangeFromPreset(preset: string, startDate?: string, endDate?: string): {
+    currentStart: Date;
+    currentEnd: Date;
+    previousStart: Date;
+    previousEnd: Date;
+  } {
     const now = new Date();
     let currentStart: Date;
+    let currentEnd: Date = now;
     let previousStart: Date;
     let previousEnd: Date;
 
-    switch (period) {
+    // Se for custom, usa as datas fornecidas
+    if (preset === 'custom' && startDate && endDate) {
+      currentStart = new Date(startDate);
+      currentEnd = new Date(endDate);
+
+      const diff = currentEnd.getTime() - currentStart.getTime();
+      previousEnd = new Date(currentStart);
+      previousStart = new Date(previousEnd.getTime() - diff);
+
+      return { currentStart, currentEnd, previousStart, previousEnd };
+    }
+
+    // Presets padrão
+    switch (preset) {
       case "today":
         currentStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        currentEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
         previousStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-        previousEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        previousEnd = currentStart;
         break;
 
-      case "week":
+      case "yesterday":
+        currentStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        currentEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        previousStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2);
+        previousEnd = currentStart;
+        break;
+
+      case "7days":
         currentStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        currentEnd = now;
         previousStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
         previousEnd = currentStart;
         break;
 
-      case "month":
+      case "30days":
         currentStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        currentEnd = now;
         previousStart = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
         previousEnd = currentStart;
         break;
+
+      case "3months":
+        currentStart = new Date(now);
+        currentStart.setMonth(currentStart.getMonth() - 3);
+        currentEnd = now;
+        previousStart = new Date(currentStart);
+        previousStart.setMonth(previousStart.getMonth() - 3);
+        previousEnd = currentStart;
+        break;
+
+      case "all":
+        // Define "all" como 1 ano atrás
+        currentStart = new Date(now);
+        currentStart.setFullYear(currentStart.getFullYear() - 1);
+        currentEnd = now;
+        previousStart = new Date(currentStart);
+        previousStart.setFullYear(previousStart.getFullYear() - 1);
+        previousEnd = currentStart;
+        break;
+
+      default:
+        // Fallback para 7 dias
+        currentStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        currentEnd = now;
+        previousStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+        previousEnd = currentStart;
     }
+
+    return { currentStart, currentEnd, previousStart, previousEnd };
+  }
+
+  async getDashboardStats(
+    companyId: string,
+    preset: string = "7days",
+    startDate?: string,
+    endDate?: string
+  ): Promise<DashboardStats> {
+    const now = new Date();
+    const { currentStart, currentEnd, previousStart, previousEnd } = this.getDateRangeFromPreset(preset, startDate, endDate);
 
     const [currentCustomers, previousCustomers] = await Promise.all([
       prisma.customer.count({
         where: {
           companyId,
-          createdAt: { gte: currentStart },
+          createdAt: { gte: currentStart, lte: currentEnd },
         },
       }),
       prisma.customer.count({
@@ -144,7 +208,7 @@ class DashboardService {
         by: ["customerId"],
         where: {
           customer: { companyId },
-          timestamp: { gte: currentStart },
+          timestamp: { gte: currentStart, lte: currentEnd },
         },
       }).then((result) => result.length),
       prisma.message.groupBy({
@@ -161,7 +225,7 @@ class DashboardService {
         where: {
           customer: { companyId },
           direction: MessageDirection.INBOUND,
-          timestamp: { gte: currentStart },
+          timestamp: { gte: currentStart, lte: currentEnd },
         },
       }),
       prisma.message.count({
@@ -179,7 +243,7 @@ class DashboardService {
           customer: { companyId },
           direction: MessageDirection.OUTBOUND,
           senderType: "AI",
-          timestamp: { gte: currentStart },
+          timestamp: { gte: currentStart, lte: currentEnd },
         },
       }),
       prisma.message.count({
@@ -198,7 +262,7 @@ class DashboardService {
         where: {
           companyId,
           needsHelp: true,
-          updatedAt: { gte: currentStart },
+          updatedAt: { gte: currentStart, lte: currentEnd },
         },
       }),
       prisma.conversation.count({
@@ -215,7 +279,7 @@ class DashboardService {
       prisma.appointment.count({
         where: {
           companyId,
-          startTime: { gte: currentStart },
+          startTime: { gte: currentStart, lte: currentEnd },
         },
       }),
       prisma.appointment.count({
@@ -358,26 +422,15 @@ class DashboardService {
 
   async getChartsData(
     companyId: string,
-    period: "week" | "month" | "quarter" = "month"
+    preset: string = "7days",
+    customStartDate?: string,
+    customEndDate?: string
   ): Promise<DashboardChartsData> {
     const now = new Date();
-    let startDate: Date;
-    let daysCount: number;
+    const { currentStart, currentEnd } = this.getDateRangeFromPreset(preset, customStartDate, customEndDate);
 
-    switch (period) {
-      case "week":
-        daysCount = 7;
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "month":
-        daysCount = 30;
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case "quarter":
-        daysCount = 90;
-        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        break;
-    }
+    // Calcula o número de dias para agrupamento dos gráficos
+    const daysCount = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24));
 
     const [
       pipelineFunnel,
@@ -387,8 +440,8 @@ class DashboardService {
       customerActivity,
     ] = await Promise.all([
       this.getPipelineFunnelData(companyId),
-      this.getMessagesOverTimeData(companyId, startDate, daysCount),
-      this.getAppointmentsOverTimeData(companyId, startDate, daysCount),
+      this.getMessagesOverTimeData(companyId, currentStart, daysCount),
+      this.getAppointmentsOverTimeData(companyId, currentStart, daysCount),
       this.getAppointmentsByStatusData(companyId),
       this.getCustomerActivityData(companyId),
     ]);
@@ -413,34 +466,43 @@ class DashboardService {
       },
     });
 
-    const customersWithoutStage = await prisma.customer.count({
+    // Busca clientes sem estágio e atribui ao primeiro estágio automaticamente
+    const customersWithoutStage = await prisma.customer.findMany({
       where: {
         companyId,
         pipelineStageId: null,
       },
+      select: { id: true },
     });
 
-    const result: PipelineFunnelData[] = [];
+    if (customersWithoutStage.length > 0) {
+      const firstStage = stages[0];
+      if (firstStage) {
+        // Atualiza clientes sem estágio para o primeiro estágio
+        await prisma.customer.updateMany({
+          where: {
+            companyId,
+            pipelineStageId: null,
+          },
+          data: {
+            pipelineStageId: firstStage.id,
+          },
+        });
 
-    if (customersWithoutStage > 0) {
-      result.push({
-        stageId: "no-stage",
-        stageName: "Sem Estágio",
-        stageColor: "#9CA3AF",
-        count: customersWithoutStage,
-        order: -1,
-      });
+        // Adiciona a contagem ao primeiro estágio
+        if (stages[0]) {
+          stages[0]._count.customers += customersWithoutStage.length;
+        }
+      }
     }
 
-    stages.forEach((stage) => {
-      result.push({
-        stageId: stage.id,
-        stageName: stage.name,
-        stageColor: stage.color,
-        count: stage._count.customers,
-        order: stage.order,
-      });
-    });
+    const result: PipelineFunnelData[] = stages.map((stage) => ({
+      stageId: stage.id,
+      stageName: stage.name,
+      stageColor: stage.color,
+      count: stage._count.customers,
+      order: stage.order,
+    }));
 
     return result;
   }
@@ -450,10 +512,22 @@ class DashboardService {
     startDate: Date,
     daysCount: number
   ): Promise<MessagesOverTimeData[]> {
+    const endDate = new Date(startDate.getTime() + daysCount * 24 * 60 * 60 * 1000);
+
+    console.log('[Dashboard] Fetching messages:', {
+      companyId,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      daysCount,
+    });
+
     const messages = await prisma.message.findMany({
       where: {
         customer: { companyId },
-        timestamp: { gte: startDate },
+        timestamp: {
+          gte: startDate,
+          lte: endDate,
+        },
       },
       select: {
         timestamp: true,
@@ -461,6 +535,8 @@ class DashboardService {
         senderType: true,
       },
     });
+
+    console.log(`[Dashboard] Found ${messages.length} messages`);
 
     const dataMap = new Map<string, MessagesOverTimeData>();
 
@@ -490,7 +566,10 @@ class DashboardService {
       }
     });
 
-    return Array.from(dataMap.values());
+    const result = Array.from(dataMap.values());
+    console.log('[Dashboard] Messages over time result:', result);
+
+    return result;
   }
 
   private async getAppointmentsOverTimeData(
@@ -498,10 +577,15 @@ class DashboardService {
     startDate: Date,
     daysCount: number
   ): Promise<AppointmentsOverTimeData[]> {
+    const endDate = new Date(startDate.getTime() + daysCount * 24 * 60 * 60 * 1000);
+
     const appointments = await prisma.appointment.findMany({
       where: {
         companyId,
-        startTime: { gte: startDate },
+        startTime: {
+          gte: startDate,
+          lte: endDate,
+        },
       },
       select: {
         startTime: true,

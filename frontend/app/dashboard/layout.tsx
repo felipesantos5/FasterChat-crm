@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { DashboardFilterProvider } from "@/contexts/DashboardFilterContext";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -33,15 +34,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <WebSocketProvider>
       <SidebarProvider>
-        <div className="flex h-screen overflow-hidden bg-gray-50">
-          <Sidebar />
+        <DashboardFilterProvider>
+          <div className="flex h-screen overflow-hidden bg-gray-50">
+            <Sidebar />
 
-          {/* Main Content - responsivo */}
-          <div className="flex flex-1 flex-col overflow-hidden lg:pl-64">
-            <Header />
-            <main className="flex-1 overflow-y-auto bg-gray-50">{children}</main>
+            {/* Main Content - responsivo */}
+            <div className="flex flex-1 flex-col overflow-hidden lg:pl-64">
+              <Header />
+              <main className="flex-1 overflow-y-auto bg-gray-50">{children}</main>
+            </div>
           </div>
-        </div>
+        </DashboardFilterProvider>
       </SidebarProvider>
     </WebSocketProvider>
   );

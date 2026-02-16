@@ -3,3 +3,10 @@ export { MessagesChart } from './messages-chart'
 export { AppointmentsChart } from './appointments-chart'
 export { AppointmentsStatusChart } from './appointments-status-chart'
 export { CustomerActivityChart } from './customer-activity-chart'
+
+// Modern charts
+export { ModernMessagesChart } from './modern-messages-chart'
+export { ModernFunnelDonut } from './modern-funnel-donut'
+export { ModernVolumeBars } from './modern-volume-bars'
+export { ActivityHeatmap } from './activity-heatmap'
+export { TopCustomersList } from './top-customers-list'

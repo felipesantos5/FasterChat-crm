@@ -1,4 +1,5 @@
 import { api } from './api';
+import { DateRange, DateRangePreset } from '@/components/dashboard/date-range-filter';
 
 export interface PeriodStats {
   current: number;
@@ -71,10 +72,15 @@ export interface DashboardChartsData {
 }
 
 export const dashboardApi = {
-  async getStats(period: 'today' | 'week' | 'month' = 'today'): Promise<DashboardStats> {
-    const response = await api.get<{ data: DashboardStats }>('/dashboard/stats', {
-      params: { period },
-    });
+  async getStats(preset: DateRangePreset, customRange?: DateRange): Promise<DashboardStats> {
+    const params: Record<string, string> = { preset };
+
+    if (preset === 'custom' && customRange) {
+      params.startDate = customRange.from.toISOString();
+      params.endDate = customRange.to.toISOString();
+    }
+
+    const response = await api.get<{ data: DashboardStats }>('/dashboard/stats', { params });
     return response.data.data;
   },
 
@@ -83,10 +89,15 @@ export const dashboardApi = {
     return response.data.data;
   },
 
-  async getChartsData(period: 'week' | 'month' | 'quarter' = 'month'): Promise<DashboardChartsData> {
-    const response = await api.get<{ data: DashboardChartsData }>('/dashboard/charts', {
-      params: { period },
-    });
+  async getChartsData(preset: DateRangePreset, customRange?: DateRange): Promise<DashboardChartsData> {
+    const params: Record<string, string> = { preset };
+
+    if (preset === 'custom' && customRange) {
+      params.startDate = customRange.from.toISOString();
+      params.endDate = customRange.to.toISOString();
+    }
+
+    const response = await api.get<{ data: DashboardChartsData }>('/dashboard/charts', { params });
     return response.data.data;
   },
 };

@@ -93,7 +93,7 @@ export class PromptBuilder {
 
     // 7. OBJETIVO específico
     this.addSection(
-      getObjectiveSection(objectiveType, objectiveConfig.customInstructions)
+      getObjectiveSection(objectiveType, objectiveConfig)
     );
 
     // 7.1. Regras de venda consultiva (para objetivos de vendas)
