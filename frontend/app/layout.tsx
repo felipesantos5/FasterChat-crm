@@ -10,6 +10,7 @@ import { Suspense } from "react";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://admin.fasterchat.com.br"),
   title: {
     default: "FasterChat - CRM",
     template: "%s | FasterChat",
