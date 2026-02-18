@@ -6,11 +6,8 @@ import { ModernStatCard } from "@/components/dashboard/modern-stat-card";
 import {
   ModernMessagesChart,
   ModernFunnelDonut,
-  ModernVolumeBars,
-  ActivityHeatmap,
-  TopCustomersList,
 } from "@/components/dashboard/charts";
-import { Users, MessageSquare, Bot, Activity, Calendar, CalendarCheck, UserPlus, MessageCircle } from "lucide-react";
+import { MessageSquare, Bot, UserPlus, MessageCircle } from "lucide-react";
 import { spacing } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";

@@ -24,7 +24,6 @@ export function ModernStatCard({
 }: ModernStatCardProps) {
   const isPositive = percentageChange > 0;
   const isNegative = percentageChange < 0;
-  const isNeutral = percentageChange === 0;
 
   // Auto-detect trend if not provided
   const finalTrend = trend || (isPositive ? "up" : isNegative ? "down" : "neutral");

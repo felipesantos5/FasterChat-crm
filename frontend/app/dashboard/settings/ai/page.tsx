@@ -181,7 +181,6 @@ function AISettingsPageContent() {
   const [showProductForm, setShowProductForm] = useState(false);
 
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(true);
-  const [generatedContext, setGeneratedContext] = useState("");
 
   // Estados para Serviços com Variações
   const [services, setServices] = useState<Service[]>([]);
@@ -329,7 +328,6 @@ function AISettingsPageContent() {
         setProducts(Array.isArray(response.data.products) ? response.data.products : []);
 
         setAutoReplyEnabled(response.data.autoReplyEnabled ?? true);
-        setGeneratedContext(response.data.generatedContext || "");
         setSetupCompleted(response.data.setupCompleted ?? false);
         setCurrentStep(response.data.setupStep ?? 0);
       }
@@ -430,7 +428,6 @@ function AISettingsPageContent() {
       const response = await aiKnowledgeApi.generateContext(companyId);
 
       if (response.data) {
-        setGeneratedContext(response.data.generatedContext);
         setSetupCompleted(true);
 
         // CORREÇÃO DO ERRO DE SALVAMENTO:
