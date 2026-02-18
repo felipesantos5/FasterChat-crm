@@ -110,6 +110,7 @@ class AIKnowledgeController {
         provider,
         model,
         autoReplyEnabled,
+        replyDelay,
       } = req.body;
 
       if (!companyId) {
@@ -156,6 +157,7 @@ class AIKnowledgeController {
         provider,
         model,
         autoReplyEnabled,
+        replyDelay,
       });
 
       return res.status(200).json({

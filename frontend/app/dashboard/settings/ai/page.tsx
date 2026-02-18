@@ -181,6 +181,7 @@ function AISettingsPageContent() {
   const [showProductForm, setShowProductForm] = useState(false);
 
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(true);
+  const [replyDelay, setReplyDelay] = useState<number>(10);
 
   // Estados para Serviços com Variações
   const [services, setServices] = useState<Service[]>([]);
@@ -328,6 +329,7 @@ function AISettingsPageContent() {
         setProducts(Array.isArray(response.data.products) ? response.data.products : []);
 
         setAutoReplyEnabled(response.data.autoReplyEnabled ?? true);
+        setReplyDelay(response.data.replyDelay ?? 10);
         setSetupCompleted(response.data.setupCompleted ?? false);
         setCurrentStep(response.data.setupStep ?? 0);
       }
@@ -373,6 +375,7 @@ function AISettingsPageContent() {
         // Preserva o FAQ se existir no objeto knowledge original
         faq: knowledge?.faq || undefined,
         autoReplyEnabled: overrides?.autoReplyEnabled ?? autoReplyEnabled,
+        replyDelay: replyDelay,
         setupStep: nextStep ?? currentStep,
         setupCompleted,
       });
@@ -449,6 +452,7 @@ function AISettingsPageContent() {
           products, // <--- OBRIGATÓRIO PARA NÃO APAGAR OS PRODUTOS
           faq: knowledge?.faq || undefined, // Preserva FAQ
           autoReplyEnabled,
+          replyDelay,
           setupStep: 4,
           setupCompleted: true, // Força o status de completo
         });
@@ -820,6 +824,7 @@ function AISettingsPageContent() {
       products={products}
       services={services}
       autoReplyEnabled={autoReplyEnabled}
+      replyDelay={replyDelay}
       onEdit={() => setSetupCompleted(false)}
       onRegenerate={handleGenerateContext}
       generatingContext={generatingContext}
@@ -1105,6 +1110,28 @@ function AISettingsPageContent() {
                         />
                         <p className="text-xs text-muted-foreground">
                           Adicione regras ou comportamentos específicos que a IA deve seguir
+                        </p>
+                      </div>
+
+                      {/* Atraso na Resposta */}
+                      <div className="space-y-2">
+                        <Label htmlFor="replyDelay" className="text-sm">
+                          Tempo de Resposta (segundos)
+                        </Label>
+                        <select
+                          id="replyDelay"
+                          value={replyDelay}
+                          onChange={(e) => setReplyDelay(parseInt(e.target.value))}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                          {Array.from({ length: 12 }, (_, i) => (i + 1) * 10).map((seconds) => (
+                            <option key={seconds} value={seconds}>
+                              {seconds} segundos {seconds === 10 ? "(Padrão)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-muted-foreground">
+                          Tempo que a IA aguarda antes de enviar a resposta (ajuda a parecer mais humano)
                         </p>
                       </div>
                     </div>
@@ -2056,6 +2083,7 @@ function CompletedView({
   products,
   services,
   autoReplyEnabled,
+  replyDelay,
   onEdit,
   onRegenerate,
   generatingContext,
@@ -2078,6 +2106,7 @@ function CompletedView({
   products: Product[];
   services: Service[];
   autoReplyEnabled: boolean;
+  replyDelay: number;
   onEdit: () => void;
   onRegenerate: () => void;
   generatingContext: boolean;
@@ -2096,16 +2125,21 @@ function CompletedView({
             <div className="space-y-0.5">
               <Label className="text-base">Resposta Automática</Label>
               <p className="text-sm text-muted-foreground">
-                Permite que a IA responda automaticamente mensagens dos clientes
+                pode permitir que a IA responda automaticamente mensagens dos clientes
               </p>
             </div>
-            <Switch
-              checked={autoReplyEnabled}
-              onCheckedChange={(checked) => {
-                setAutoReplyEnabled(checked);
-                saveKnowledge(undefined, { autoReplyEnabled: checked });
-              }}
-            />
+            <div className="flex flex-col gap-1 items-end">
+              <Switch
+                checked={autoReplyEnabled}
+                onCheckedChange={(checked) => {
+                  setAutoReplyEnabled(checked);
+                  saveKnowledge(undefined, { autoReplyEnabled: checked });
+                }}
+              />
+              <span className="text-[10px] text-muted-foreground">
+                Delay: {replyDelay}s
+              </span>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onEdit}>

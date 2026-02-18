@@ -124,6 +124,15 @@ class WebhookController {
               // NÃO está em fluxo de agendamento, processa normalmente com a IA
               const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
 
+              // ⏱️ APLICA DELAY DE RESPOSTA (se configurado)
+              const replyDelay = (aiKnowledge?.replyDelay || 10) * 1000;
+              if (replyDelay > 0) {
+                // Emite indicador de "digitando" enquanto espera
+                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, true);
+                await new Promise(resolve => setTimeout(resolve, replyDelay));
+                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
+              }
+
               // COMANDO ESPECIAL: Agendamento
               if (aiResponse.startsWith("[INICIAR_AGENDAMENTO]")) {
                 const aiMessage = aiResponse.replace("[INICIAR_AGENDAMENTO]", "").trim();

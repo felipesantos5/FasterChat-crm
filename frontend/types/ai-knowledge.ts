@@ -77,6 +77,7 @@ export interface AIKnowledge {
   temperature?: number | null;
   maxTokens?: number | null;
   autoReplyEnabled?: boolean | null;
+  replyDelay?: number | null;
 
   createdAt: string;
   updatedAt: string;
@@ -135,6 +136,7 @@ export interface UpdateAIKnowledgeRequest {
   temperature?: number;
   maxTokens?: number;
   autoReplyEnabled?: boolean;
+  replyDelay?: number;
 }
 
 export interface UpdateAIKnowledgeResponse {

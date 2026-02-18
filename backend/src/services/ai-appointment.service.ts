@@ -2081,7 +2081,10 @@ export class AIAppointmentService {
   ): Promise<{ shouldContinue: boolean; response: string }> {
     const lowerMessage = message.toLowerCase();
 
-    if (lowerMessage.includes('sim') || lowerMessage.includes('confirmar') || lowerMessage.includes('confirmo')) {
+    const confirmationWords = ['sim', 'confirmar', 'confirmo', 'isso', 'exato', 'correto', 'perfeito', 'fechou', 'pode marcar', 'ok', 'pode ser'];
+    const isConfirmation = confirmationWords.some(word => lowerMessage.includes(word));
+
+    if (isConfirmation) {
       try {
         // Cria o agendamento
         const customer = await prisma.customer.findUnique({

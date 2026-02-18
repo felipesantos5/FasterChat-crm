@@ -36,7 +36,7 @@ export function getToolsSection(options?: {
 **Quando usar:** Cliente pergunta sobre produto, serviço, preço ou detalhes
 **O que faz:** Busca informações completas sobre produtos/serviços
 **Retorna:** Nome, preço, variações, descrição completa
-**IMPORTANTE:** Use ANTES de responder sobre produtos para garantir dados corretos
+**IMPORTANTE:** Use ANTES de responder sobre produtos para garantir dados corretos. Chame apenas pelo nome 'get_product_info', NUNCA use 'defaultapi' ou 'print'.
 `;
 
   if (schedulingEnabled) {

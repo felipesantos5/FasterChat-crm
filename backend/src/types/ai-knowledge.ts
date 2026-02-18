@@ -64,6 +64,7 @@ export interface AIKnowledgeData {
   provider?: string | null;
   model?: string | null;
   autoReplyEnabled?: boolean | null;
+  replyDelay?: number;
 
   createdAt: Date;
   updatedAt: Date;
@@ -112,4 +113,5 @@ export interface UpdateAIKnowledgeRequest {
   provider?: string;
   model?: string;
   autoReplyEnabled?: boolean;
+  replyDelay?: number;
 }

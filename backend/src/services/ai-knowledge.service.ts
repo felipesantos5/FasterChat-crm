@@ -133,6 +133,7 @@ class AIKnowledgeService {
           provider: data.provider || process.env.AI_PROVIDER || 'gemini',
           model: data.model,
           autoReplyEnabled: data.autoReplyEnabled,
+          replyDelay: data.replyDelay,
         },
         create: {
           companyId,
@@ -167,6 +168,7 @@ class AIKnowledgeService {
           setupStep: data.setupStep ?? 0,
           provider: process.env.AI_PROVIDER || 'gemini',
           autoReplyEnabled: true,
+          replyDelay: data.replyDelay || 10,
         },
       });
 

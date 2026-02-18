@@ -734,7 +734,7 @@ class GeminiService {
 
         // Usa o modelo de embedding do Gemini
         const embeddingModel = this.client.getGenerativeModel({
-          model: "text-embedding-004",
+          model: "gemini-embedding-001",
         });
 
         const result = await embeddingModel.embedContent(text);
