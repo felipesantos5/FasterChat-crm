@@ -180,6 +180,16 @@ class WebhookController {
             }
           } catch (aiError: any) {
             console.error("Error processing AI response:", aiError.message);
+            // Envia mensagem de fallback ao cliente para que a conversa não fique em silêncio
+            try {
+              await messageService.sendMessage(
+                result.customer.id,
+                "Desculpe, tive um problema técnico momentâneo. Pode repetir sua mensagem? 🙏",
+                "AI"
+              );
+            } catch (fallbackSendError: any) {
+              console.error("Failed to send AI fallback message:", fallbackSendError.message);
+            }
           }
         }
 

@@ -387,10 +387,59 @@ class GeminiService {
         }
       }
 
-      const finalContent = response.text();
+      // Tenta obter o texto da resposta
+      let finalContent = '';
+      try {
+        finalContent = response.text();
+      } catch (textError: any) {
+        logger.warn(`response.text() threw an error: ${textError.message}`);
+      }
 
+      // Fallback 1: tenta extrair texto dos candidatos diretamente
       if (!finalContent) {
-        throw new Error("No content in Gemini response");
+        try {
+          const candidate = response.candidates?.[0];
+          const candidateText = candidate?.content?.parts
+            ?.map((p: any) => p.text)
+            .filter(Boolean)
+            .join(' ');
+          if (candidateText) {
+            logger.warn('response.text() was empty, recovered text from candidates');
+            finalContent = candidateText;
+          }
+        } catch (candidateError: any) {
+          logger.warn(`Failed to extract from candidates: ${candidateError.message}`);
+        }
+      }
+
+      // Fallback 2: nova chamada sem tools para garantir resposta
+      if (!finalContent) {
+        logger.warn('No content in Gemini response after tool call — retrying without tools');
+        try {
+          const fallbackModel = this.client.getGenerativeModel({
+            model: params.model || this.model,
+            systemInstruction: params.systemPrompt,
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: params.maxTokens || 1024,
+            },
+          });
+          const fallbackResult = await withTimeout(
+            fallbackModel.generateContent(params.userPrompt),
+            GEMINI_CONFIG.TOOL_CALL_TIMEOUT,
+            'Fallback generation timeout'
+          );
+          finalContent = fallbackResult.response.text();
+          logger.info('Fallback generation succeeded');
+        } catch (fallbackError: any) {
+          logger.error(`Fallback generation also failed: ${fallbackError.message}`);
+        }
+      }
+
+      // Fallback 3: mensagem genérica amigável — NUNCA deixa o usuário sem resposta
+      if (!finalContent) {
+        logger.warn('All fallbacks failed — returning friendly default message');
+        finalContent = 'Desculpe, não consegui processar sua solicitação no momento. Pode reformular a pergunta ou entrar em contato com nossa equipe?';
       }
 
       // Log de uso de tokens (apenas em debug)
