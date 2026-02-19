@@ -129,6 +129,7 @@ Sempre confirme dados importantes como endereço e horário antes de agendar.`,
       temperature: 0.7,
       maxTokens: 500,
       autoReplyEnabled: true,
+      replyDelay: 10,
     },
   });
   console.log('✓ Created AI Knowledge configuration');
