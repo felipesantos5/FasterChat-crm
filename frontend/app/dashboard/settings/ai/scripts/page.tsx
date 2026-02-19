@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import api from "@/lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -47,28 +48,20 @@ interface IntentScript {
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 async function fetchScripts(): Promise<IntentScript[]> {
-  const res = await fetch("/api/ai/intent-scripts", { credentials: "include" });
-  if (!res.ok) throw new Error("Falha ao carregar scripts");
-  const json = await res.json();
-  return json.data;
+  const res = await api.get("/ai/intent-scripts");
+  return res.data.data;
 }
 
 async function saveScripts(scripts: IntentScript[]) {
-  const res = await fetch("/api/ai/intent-scripts", {
-    method: "PUT",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      scripts: scripts.map(s => ({
-        id: s.id,
-        enabled: s.enabled,
-        customTriggers: s.customTriggers,
-        customInstructions: s.customInstructions
-      }))
-    }),
+  const res = await api.put("/ai/intent-scripts", {
+    scripts: scripts.map(s => ({
+      id: s.id,
+      enabled: s.enabled,
+      customTriggers: s.customTriggers,
+      customInstructions: s.customInstructions
+    }))
   });
-  if (!res.ok) throw new Error("Falha ao salvar configuração");
-  return res.json();
+  return res.data;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
