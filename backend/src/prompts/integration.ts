@@ -8,6 +8,7 @@
  */
 
 import { buildPrompt, AIObjectiveType, PromptBuildOptions, getObjectiveConfig } from "./index";
+import { detectIntentScript } from "./sections/intent-scripts";
 
 interface AIKnowledgeData {
   companyName?: string | null;
@@ -57,13 +58,41 @@ interface BuildModularPromptOptions {
     intent?: string;
   };
   calendarConnected?: boolean;
+  /**
+   * Mensagem atual do cliente (usada para detectar intenção e ativar scripts).
+   * Também pode ser o texto combinado das últimas mensagens para detecção mais precisa.
+   */
+  currentMessage?: string;
+  /**
+   * ID do script de intenção a ser forçado (sobrescreve a detecção automática).
+   * Use quando já tiver detectado a intenção externamente.
+   */
+  forceIntentScriptId?: string | null;
 }
 
 /**
  * Constrói um prompt usando o sistema modular
  */
 export function buildModularPrompt(options: BuildModularPromptOptions): string {
-  const { companyName, aiKnowledge, customer, services, ragContext, conversationContext, calendarConnected } = options;
+  const { companyName, aiKnowledge, customer, services, ragContext, conversationContext, calendarConnected, currentMessage, forceIntentScriptId } = options;
+
+  // ============================================
+  // DETECÇÃO DE INTENT SCRIPT
+  // ============================================
+  // Determina qual script de atendimento estruturado deve ser ativado.
+  // Prioridade: forçado externamente > detecção automática pela mensagem
+  let intentScriptId: string | null = null;
+
+  if (forceIntentScriptId !== undefined) {
+    // Script forçado externamente (passado pelo ai.service.ts ou já detectado)
+    intentScriptId = forceIntentScriptId;
+  } else if (currentMessage) {
+    // Detecção automática baseada na mensagem atual
+    intentScriptId = detectIntentScript(currentMessage);
+    if (intentScriptId) {
+      console.log(`[PromptBuilder] Intent script detected: ${intentScriptId}`);
+    }
+  }
 
   // Determina o tipo de objetivo
   let objectiveType: AIObjectiveType = "customer_service";
@@ -150,6 +179,7 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
     knowledge: {
       faq: aiKnowledge?.faq ? (Array.isArray(aiKnowledge.faq) ? aiKnowledge.faq : []) : undefined,
       ragResults: ragContext,
+      intentScriptId,
       conversationContext,
     },
     includeTools: objectiveType === "sales_scheduling" || objectiveType === "scheduling" || objectiveType === "support",

@@ -20,6 +20,7 @@ import {
   FunnelPlus,
   X,
   DollarSign,
+  Zap,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import logo from "@/assets/logo2.webp";
@@ -107,6 +108,12 @@ const menuItems: MenuItem[] = [
         label: "Precificação",
         icon: DollarSign,
         href: "/dashboard/settings/pricing",
+        permission: "AI_CONFIG",
+      },
+      {
+        label: "Scripts de Atendimento",
+        icon: Zap,
+        href: "/dashboard/settings/ai/scripts",
         permission: "AI_CONFIG",
       },
     ],

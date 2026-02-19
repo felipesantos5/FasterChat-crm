@@ -40,6 +40,7 @@ import {
   getConversationContextSection,
   getCustomerContextSection,
 } from "./sections/knowledge";
+import { getIntentScriptSection } from "./sections/intent-scripts";
 
 /**
  * Classe principal para construção de prompts
@@ -96,7 +97,15 @@ export class PromptBuilder {
       getObjectiveSection(objectiveType, objectiveConfig)
     );
 
-    // 7.1. Regras de venda consultiva (para objetivos de vendas)
+    // 7.1. Script de intenção detectada (ex: instalação de AC)
+    // Injeta roteiro estruturado de perguntas/fases quando uma intenção específica é detectada
+    if (this.options.knowledge?.intentScriptId) {
+      this.addSection(
+        getIntentScriptSection(this.options.knowledge.intentScriptId)
+      );
+    }
+
+    // 7.2. Regras de venda consultiva (para objetivos de vendas)
     if (objectiveType === "sales" || objectiveType === "sales_scheduling") {
       this.addSection(getConsultativeSalesRulesSection());
     }

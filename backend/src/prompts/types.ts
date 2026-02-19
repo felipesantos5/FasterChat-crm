@@ -79,6 +79,13 @@ export interface ServicesContext {
 export interface KnowledgeContext {
   faq?: Array<{ question: string; answer: string }>;
   ragResults?: string;
+  /**
+   * ID do script de atendimento a ser ativado.
+   * Quando preenchido, o PromptBuilder injeta um roteiro estruturado
+   * de perguntas e fases específicas para aquela intenção.
+   * Ex: 'ac_installation', 'ac_maintenance', 'ac_cleaning'
+   */
+  intentScriptId?: string | null;
   conversationContext?: {
     detectedService?: string;
     recentTopics?: string[];

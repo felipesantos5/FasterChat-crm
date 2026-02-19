@@ -16,3 +16,4 @@ export * from "./style";
 export * from "./transbordo";
 export * from "./services";
 export * from "./knowledge";
+export * from "./intent-scripts";

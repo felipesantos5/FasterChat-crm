@@ -312,6 +312,10 @@ model AIKnowledge {
   autoReplyEnabled   Boolean  @default(true) @map("auto_reply_enabled") // Resposta automática ativada
   replyDelay         Int      @default(10) @map("reply_delay") // Delay em segundos para resposta
 
+  // Scripts de atendimento por intenção detectada
+  // JSON: { [scriptId]: { enabled, customTriggers, customInstructions } }
+  intentScriptsConfig Json?   @map("intent_scripts_config")
+
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 

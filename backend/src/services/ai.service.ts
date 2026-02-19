@@ -672,6 +672,7 @@ Total: R$ 505,00"
           },
           ragContext: ragContext || undefined,
           calendarConnected: googleCalendarStatus === "conectado e sincronizado",
+          currentMessage: message, // Habilita detecção automática de intent scripts
         });
       } else {
         // Usa o sistema legado de prompts
