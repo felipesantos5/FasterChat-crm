@@ -12,7 +12,6 @@ import {
   ArrowRight,
   Loader2,
   Settings2,
-  Info,
 } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
