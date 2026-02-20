@@ -8,25 +8,39 @@ const router = Router();
 
 router.use(authenticate);
 
-// GET /api/ai/intent-scripts - Lista scripts com configurações da empresa
+// GET /api/ai/intent-scripts — lista todos os scripts da empresa
 router.get(
   '/intent-scripts',
   checkPermission('AI_CONFIG', false),
-  asyncHandler(intentScriptsController.listScripts)
+  asyncHandler(intentScriptsController.listScripts.bind(intentScriptsController))
 );
 
-// PUT /api/ai/intent-scripts - Salva configurações dos scripts
+// POST /api/ai/intent-scripts — cria um novo script
+router.post(
+  '/intent-scripts',
+  checkPermission('AI_CONFIG', true),
+  asyncHandler(intentScriptsController.createScript.bind(intentScriptsController))
+);
+
+// PUT /api/ai/intent-scripts — bulk save (compatibilidade)
 router.put(
   '/intent-scripts',
   checkPermission('AI_CONFIG', true),
-  asyncHandler(intentScriptsController.updateScripts)
+  asyncHandler(intentScriptsController.updateScripts.bind(intentScriptsController))
 );
 
-// GET /api/ai/intent-scripts/available - Lista scripts disponíveis (sem autenticação forte)
-router.get(
-  '/intent-scripts/available',
-  checkPermission('AI_CONFIG', false),
-  asyncHandler(intentScriptsController.listAvailable)
+// PUT /api/ai/intent-scripts/:id — atualiza um script específico
+router.put(
+  '/intent-scripts/:id',
+  checkPermission('AI_CONFIG', true),
+  asyncHandler(intentScriptsController.updateScript.bind(intentScriptsController))
+);
+
+// DELETE /api/ai/intent-scripts/:id — remove um script
+router.delete(
+  '/intent-scripts/:id',
+  checkPermission('AI_CONFIG', true),
+  asyncHandler(intentScriptsController.deleteScript.bind(intentScriptsController))
 );
 
 export default router;

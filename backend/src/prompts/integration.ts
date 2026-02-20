@@ -8,7 +8,7 @@
  */
 
 import { buildPrompt, AIObjectiveType, PromptBuildOptions, getObjectiveConfig } from "./index";
-import { detectIntentScript } from "./sections/intent-scripts";
+import { detectIntentScriptFromConfig, IntentScriptsCompanyConfig } from "./sections/intent-scripts";
 
 interface AIKnowledgeData {
   companyName?: string | null;
@@ -60,35 +60,45 @@ interface BuildModularPromptOptions {
   calendarConnected?: boolean;
   /**
    * Mensagem atual do cliente (usada para detectar intenção e ativar scripts).
-   * Também pode ser o texto combinado das últimas mensagens para detecção mais precisa.
    */
   currentMessage?: string;
   /**
-   * ID do script de intenção a ser forçado (sobrescreve a detecção automática).
-   * Use quando já tiver detectado a intenção externamente.
+   * ID do script de intenção a ser forçado (persistido na conversa).
+   * Use quando o script já estava ativo na mensagem anterior.
    */
   forceIntentScriptId?: string | null;
+  /**
+   * Configs dos scripts da empresa (do banco).
+   * Necessário para detecção e para construir o prompt do script.
+   */
+  companyScripts?: IntentScriptsCompanyConfig;
+  /**
+   * Dados coletados pelo script até o momento.
+   */
+  intentScriptCollectedData?: Record<string, string>;
 }
 
 /**
  * Constrói um prompt usando o sistema modular
  */
 export function buildModularPrompt(options: BuildModularPromptOptions): string {
-  const { companyName, aiKnowledge, customer, services, ragContext, conversationContext, calendarConnected, currentMessage, forceIntentScriptId } = options;
+  const {
+    companyName, aiKnowledge, customer, services, ragContext, conversationContext,
+    calendarConnected, currentMessage, forceIntentScriptId, companyScripts, intentScriptCollectedData
+  } = options;
 
   // ============================================
   // DETECÇÃO DE INTENT SCRIPT
   // ============================================
-  // Determina qual script de atendimento estruturado deve ser ativado.
-  // Prioridade: forçado externamente > detecção automática pela mensagem
+  // Prioridade: forçado (persistido na conversa) > detecção automática
   let intentScriptId: string | null = null;
 
   if (forceIntentScriptId !== undefined) {
-    // Script forçado externamente (passado pelo ai.service.ts ou já detectado)
+    // Script já estava ativo — mantém o mesmo script
     intentScriptId = forceIntentScriptId;
-  } else if (currentMessage) {
-    // Detecção automática baseada na mensagem atual
-    intentScriptId = detectIntentScript(currentMessage);
+  } else if (currentMessage && companyScripts) {
+    // Detecção automática usando configs da empresa do banco
+    intentScriptId = detectIntentScriptFromConfig(currentMessage, companyScripts);
     if (intentScriptId) {
       console.log(`[PromptBuilder] Intent script detected: ${intentScriptId}`);
     }
@@ -180,6 +190,8 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
       faq: aiKnowledge?.faq ? (Array.isArray(aiKnowledge.faq) ? aiKnowledge.faq : []) : undefined,
       ragResults: ragContext,
       intentScriptId,
+      companyScripts: options.companyScripts,
+      intentScriptCollectedData: options.intentScriptCollectedData,
       conversationContext,
     },
     includeTools: objectiveType === "sales_scheduling" || objectiveType === "scheduling" || objectiveType === "support",

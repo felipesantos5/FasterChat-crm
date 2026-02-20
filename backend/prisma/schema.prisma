@@ -240,6 +240,9 @@ model Conversation {
   aiEnabled          Boolean  @default(true) @map("ai_enabled")
   needsHelp          Boolean  @default(false) @map("needs_help")
   appointmentState   Json?    @map("appointment_state") // Estado do fluxo de agendamento via IA
+  // Script de atendimento ativo nesta conversa
+  activeIntentScriptId String? @map("active_intent_script_id") // ID do script ativo (ex: "ac_installation")
+  intentScriptCollectedData Json? @map("intent_script_collected_data") // Dados coletados pelo script
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 

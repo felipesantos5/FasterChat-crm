@@ -1,27 +1,45 @@
 import { api } from './api';
 
+export interface IntentScriptPhase {
+  id: string;
+  title: string;
+  icon: string;
+  description: string;
+  type: 'trigger' | 'question' | 'action' | 'output';
+}
+
 export interface IntentScriptData {
   id: string;
   label: string;
-  triggers: string[];
-  requiredData: string[];
   enabled: boolean;
+  triggers: string[];
   customTriggers: string[];
+  requiredData: string[];
+  phases: IntentScriptPhase[];
   customInstructions: string;
 }
 
-export interface UpdateIntentScriptsRequest {
-  scripts: Array<{
-    id: string;
-    enabled: boolean;
-    customTriggers: string[];
-    customInstructions: string;
-  }>;
+export interface CreateIntentScriptRequest {
+  label: string;
+  triggers: string[];
+  requiredData: string[];
+  phases: IntentScriptPhase[];
+  customInstructions?: string;
+}
+
+export interface UpdateIntentScriptRequest {
+  label?: string;
+  enabled?: boolean;
+  triggers?: string[];
+  customTriggers?: string[];
+  requiredData?: string[];
+  phases?: IntentScriptPhase[];
+  customInstructions?: string;
 }
 
 export const intentScriptsApi = {
   /**
-   * Lista todos os scripts disponíveis com configurações da empresa
+   * Lista todos os scripts da empresa
    */
   async listScripts(): Promise<{ success: boolean; data: IntentScriptData[] }> {
     const response = await api.get('/ai/intent-scripts');
@@ -29,10 +47,26 @@ export const intentScriptsApi = {
   },
 
   /**
-   * Salva configurações dos scripts
+   * Cria um novo script
    */
-  async updateScripts(data: UpdateIntentScriptsRequest): Promise<{ success: boolean; message: string }> {
-    const response = await api.put('/ai/intent-scripts', data);
+  async createScript(data: CreateIntentScriptRequest): Promise<{ success: boolean; data: IntentScriptData }> {
+    const response = await api.post('/ai/intent-scripts', data);
+    return response.data;
+  },
+
+  /**
+   * Atualiza um script específico
+   */
+  async updateScript(id: string, data: UpdateIntentScriptRequest): Promise<{ success: boolean; data: IntentScriptData }> {
+    const response = await api.put(`/ai/intent-scripts/${id}`, data);
+    return response.data;
+  },
+
+  /**
+   * Remove um script
+   */
+  async deleteScript(id: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.delete(`/ai/intent-scripts/${id}`);
     return response.data;
   },
 };

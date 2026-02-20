@@ -7,6 +7,7 @@ import { aiAppointmentService } from "./ai-appointment.service";
 import ragService from "./rag.service";
 import conversationContextService from "./conversation-context.service";
 import { buildModularPrompt, shouldUseModularPrompts } from "../prompts";
+import { detectIntentScriptFromConfig, detectScriptExit, IntentScriptsCompanyConfig } from "../prompts/sections/intent-scripts";
 
 /**
  * ============================================
@@ -524,6 +525,101 @@ Total: R$ 505,00"
 
       if (!customer) throw new Error("Customer not found");
 
+      // ============================================
+      // INTENT SCRIPTS: Carrega e gerencia estado do script ativo
+      // ============================================
+      // Busca a conversa para verificar o script ativo persistido
+      let conversation = await (prisma.conversation as any).findUnique({
+        where: { customerId },
+        select: {
+          id: true,
+          activeIntentScriptId: true,
+          intentScriptCollectedData: true,
+        },
+      });
+
+      // Carrega scripts configurados pela empresa
+      let companyScripts: IntentScriptsCompanyConfig = {};
+      try {
+        const aiKnowledgeForScripts = await (prisma.aIKnowledge as any).findUnique({
+          where: { companyId: customer.companyId },
+          select: { intentScriptsConfig: true },
+        });
+        if (aiKnowledgeForScripts?.intentScriptsConfig) {
+          const raw = aiKnowledgeForScripts.intentScriptsConfig;
+          companyScripts = (typeof raw === 'string' ? JSON.parse(raw) : raw) as IntentScriptsCompanyConfig;
+        }
+      } catch (e) {
+        console.warn('[AIService] Failed to load intent scripts config:', e);
+      }
+
+      // Determina o script ativo
+      let activeScriptId: string | null = (conversation as any)?.activeIntentScriptId || null;
+      let collectedData: Record<string, string> = {};
+      try {
+        const rawCollected = (conversation as any)?.intentScriptCollectedData;
+        if (rawCollected) {
+          collectedData = typeof rawCollected === 'string' ? JSON.parse(rawCollected) : rawCollected;
+        }
+      } catch (e) { collectedData = {}; }
+
+      // Lógica de transição de script:
+      if (activeScriptId) {
+        // Verifica se o cliente quer sair do script atual
+        const scriptLabel = companyScripts[activeScriptId]?.label || '';
+        if (detectScriptExit(message, scriptLabel)) {
+          console.log(`[AIService] Script exit detected — clearing script ${activeScriptId}`);
+          activeScriptId = null;
+          collectedData = {};
+          // Atualiza conversa: limpa script ativo
+          if (conversation) {
+            await (prisma.conversation as any).update({
+              where: { customerId },
+              data: { activeIntentScriptId: null, intentScriptCollectedData: {} },
+            });
+          }
+        } else {
+          // Script continua ativo — verifica se um NOVO script foi detectado (override)
+          const newScriptId = detectIntentScriptFromConfig(message, companyScripts);
+          if (newScriptId && newScriptId !== activeScriptId) {
+            console.log(`[AIService] New script detected (${newScriptId}), switching from ${activeScriptId}`);
+            activeScriptId = newScriptId;
+            collectedData = {};
+          }
+        }
+      } else {
+        // Sem script ativo — tenta detectar um novo
+        const detectedScriptId = detectIntentScriptFromConfig(message, companyScripts);
+        if (detectedScriptId) {
+          console.log(`[AIService] Intent script activated: ${detectedScriptId}`);
+          activeScriptId = detectedScriptId;
+          collectedData = {};
+          // Cria/atualiza conversa com o novo script
+          if (conversation) {
+            await (prisma.conversation as any).update({
+              where: { customerId },
+              data: { activeIntentScriptId: activeScriptId, intentScriptCollectedData: {} },
+            });
+          } else {
+            await (prisma.conversation as any).upsert({
+              where: { customerId },
+              create: {
+                customerId,
+                companyId: customer.companyId,
+                activeIntentScriptId: activeScriptId,
+                intentScriptCollectedData: {},
+              },
+              update: {
+                activeIntentScriptId: activeScriptId,
+                intentScriptCollectedData: {},
+              },
+            });
+          }
+        }
+      }
+
+      const intentScriptActive = activeScriptId && companyScripts[activeScriptId]?.enabled;
+
       // Busca histórico de mensagens
       const messages = await prisma.message.findMany({
         where: { customerId },
@@ -672,7 +768,10 @@ Total: R$ 505,00"
           },
           ragContext: ragContext || undefined,
           calendarConnected: googleCalendarStatus === "conectado e sincronizado",
-          currentMessage: message, // Habilita detecção automática de intent scripts
+          // Script ativo persistido na conversa (não detecta novamente aqui — já foi feito acima)
+          forceIntentScriptId: intentScriptActive ? activeScriptId : null,
+          companyScripts,
+          intentScriptCollectedData: collectedData,
         });
       } else {
         // Usa o sistema legado de prompts

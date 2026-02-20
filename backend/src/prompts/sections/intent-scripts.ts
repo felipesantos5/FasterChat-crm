@@ -2,475 +2,200 @@
  * ============================================
  * INTENT SCRIPTS - Scripts de Atendimento por Intenção
  * ============================================
- * Versão: 1.0.0
+ * Versão: 2.0.0
  *
- * Quando uma intenção específica é detectada na conversa
- * (ex: "INSTALAÇÃO DE AR CONDICIONADO"), um script estruturado
- * é injetado no system prompt, guiando a IA pelas fases corretas.
+ * Os scripts são criados PELOS USUÁRIOS via admin, sem nenhum script padrão.
+ * Cada empresa pode criar seus próprios scripts com:
+ * - Triggers (palavras-chave que ativam o script)
+ * - Perguntas sequenciais (uma por vez)
+ * - Dados obrigatórios a coletar
+ * - Instruções personalizadas para a IA
  *
- * Como funciona:
- * 1. O conversationContextService detecta a intenção do cliente
- * 2. O PromptBuilder injeta a seção correta via getIntentScriptSection()
- * 3. A IA segue o script de perguntas/fases obrigatórias
+ * Persistência de estado: o script ativo é salvo na Conversation.activeIntentScriptId
+ * para que a IA continue o mesmo fluxo durante toda a conversa.
  *
- * Para adicionar novos scripts: crie um novo IntentScript abaixo
- * e registre-o no mapa INTENT_SCRIPTS.
+ * Saída do script: a IA sai automaticamente quando o cliente:
+ * - Muda de assunto claramente (pergunta sobre outra coisa)
+ * - Pede para cancelar / voltar / não quer mais
+ * - O script é considerado concluído (todos os dados coletados)
  */
 
 import { PromptSection } from "../types";
 
-const VERSION = "1.0.0";
+const VERSION = "2.0.0";
 
 // ============================================
-// TIPOS
+// TIPOS PÚBLICOS
 // ============================================
 
 export interface IntentScriptPhase {
   id: string;
   title: string;
   icon: string;       // emoji
-  description: string; // o que a IA faz/pergunta nessa fase
-  type: "trigger" | "question" | "action" | "output"; // tipo do nó no fluxo
+  description: string;
+  type: "trigger" | "question" | "action" | "output";
 }
 
 export interface IntentScript {
-  /** Identificador único da intenção */
+  /** Identificador único — gerado pelo usuário ou UUID */
   id: string;
-  /** Label amigável para logs/debug */
+  /** Label amigável exibido no admin */
   label: string;
-  /** Palavras-chave que ativam este script (usadas na detecção) */
+  /** Palavras-chave base (triggers principais) */
   triggers: string[];
   /** Dados obrigatórios que DEVEM ser coletados antes de avançar */
   requiredData: string[];
-  /** Fases do fluxo — usado para renderização visual no admin */
+  /** Fases visuais do fluxo (renderização no admin) */
   phases: IntentScriptPhase[];
-  /** Gera o conteúdo do script para o system prompt */
-  buildPrompt: () => string;
+
+  // Campos de configuração por empresa (preenchidos ao buscar do banco)
+  enabled?: boolean;
+  customTriggers?: string[];
+  customInstructions?: string;
 }
 
 // ============================================
-// SCRIPT: INSTALAÇÃO DE AR CONDICIONADO
+// INTERFACE DE CONFIG DA EMPRESA
 // ============================================
 
-const acInstallationScript: IntentScript = {
-  id: "ac_installation",
-  label: "Instalação de Ar Condicionado",
-  triggers: [
-    "instalação", "instalar", "instalação de ar", "ar condicionado instalação",
-    "instalar ar condicionado", "instalar split", "instalar ar", "quero instalar",
-    "preciso instalar", "instalação split", "instalar aparelho",
-  ],
-  requiredData: [
-    "tipo_equipamento",     // Split, janela, cassete, multi-split
-    "capacidade_btus",      // 9.000, 12.000, 18.000, 24.000 BTUs
-    "quantidade",           // Quantas unidades
-    "tipo_ambiente",        // Quarto, sala, escritório, loja
-    "situacao_instalacao",  // Parede alvenaria/drywall, altura, distância condensadora
-    "necessidade_eletrica", // Precisa de circuito dedicado?
-    "endereco_regiao",      // Bairro/região para verificar cobertura e taxa
-  ],
-  phases: [
-    {
-      id: "fase_1",
-      title: "Acolhimento & Tipo de Equipamento",
-      icon: "👋",
-      description: "Confirmar a intenção e identificar o tipo de aparelho: Split, Janela, Cassete ou Multi-Split.",
-      type: "trigger",
-    },
-    {
-      id: "fase_2",
-      title: "Capacidade (BTUs) & Quantidade",
-      icon: "❄️",
-      description: "Perguntar os BTUs do aparelho e quantas unidades serão instaladas. Ajudar o cliente se não souber os BTUs.",
-      type: "question",
-    },
-    {
-      id: "fase_3",
-      title: "Situação Técnica da Instalação",
-      icon: "🔧",
-      description: "Verificar tipo de parede (alvenaria ou drywall), distância da condensadora e andar/altura.",
-      type: "question",
-    },
-    {
-      id: "fase_4",
-      title: "Necessidade Elétrica",
-      icon: "⚡",
-      description: "Verificar se o local já tem circuito dedicado ou se precisa incluir instalação elétrica (serviço adicional).",
-      type: "question",
-    },
-    {
-      id: "fase_5",
-      title: "Localização / Região",
-      icon: "📍",
-      description: "Coletar o bairro/região para confirmar cobertura e calcular taxa de deslocamento.",
-      type: "question",
-    },
-    {
-      id: "fase_6",
-      title: "Apresentação do Orçamento",
-      icon: "💰",
-      description: "Apresentar o valor detalhado (serviço + elétrica + deslocamento) apenas após coletar todos os dados.",
-      type: "output",
-    },
-    {
-      id: "fase_7",
-      title: "Agendamento",
-      icon: "📅",
-      description: "Quando o cliente confirmar interesse, coletar data preferida, endereço completo e criar o agendamento.",
-      type: "action",
-    },
-  ],
-  buildPrompt: () => `
-## 🚨 SCRIPT ATIVO: INSTALAÇÃO DE AR CONDICIONADO
+export interface IntentScriptCompanyConfig {
+  enabled: boolean;
+  customTriggers?: string[];
+  customInstructions?: string;
+}
 
-O cliente demonstrou interesse em **INSTALAÇÃO DE AR CONDICIONADO**.
-Ative o roteiro estruturado abaixo. Siga as fases NA ORDEM. Não pule etapas.
+export interface IntentScriptsCompanyConfig {
+  [scriptId: string]: IntentScriptCompanyConfig & {
+    // Dados completos do script (label, triggers, requiredData, phases, buildPrompt)
+    id: string;
+    label: string;
+    triggers: string[];
+    requiredData: string[];
+    phases: IntentScriptPhase[];
+    /** Instruções de como conduzir o script (gerado dinamicamente) */
+    promptInstructions?: string;
+  };
+}
+
+// ============================================
+// BUILDER DE PROMPT DINÂMICO
+// ============================================
+
+/**
+ * Gera o bloco de prompt para um script de usuário.
+ * Usa os dados configurados pelo usuário: triggers, requiredData, phases, customInstructions.
+ */
+export function buildDynamicScriptPrompt(script: {
+  id: string;
+  label: string;
+  triggers: string[];
+  requiredData: string[];
+  phases: IntentScriptPhase[];
+  customInstructions?: string;
+  collectedData?: Record<string, string>;
+}): string {
+  const { label, requiredData, phases, customInstructions, collectedData = {} } = script;
+
+  // Monta checklist de dados a coletar
+  const checklist = requiredData.map(item => {
+    const alreadyCollected = Object.keys(collectedData).some(key =>
+      key.toLowerCase() === item.toLowerCase()
+    );
+    return `- [${alreadyCollected ? 'x' : ' '}] ${item}`;
+  }).join('\n');
+
+  // Monta descrição das fases
+  const phasesDescription = phases.map((phase, i) => {
+    const typeLabel = {
+      trigger: '🎯 GATILHO',
+      question: '❓ PERGUNTA',
+      action: '⚡ AÇÃO',
+      output: '📤 SAÍDA',
+    }[phase.type] || '📌';
+
+    return `### FASE ${i + 1} — ${phase.icon} ${phase.title.toUpperCase()} [${typeLabel}]\n${phase.description}`;
+  }).join('\n\n');
+
+  const customBlock = customInstructions?.trim()
+    ? `\n\n### 📌 INSTRUÇÕES ESPECIAIS DESTA EMPRESA\n${customInstructions}`
+    : '';
+
+  return `
+## 🚨 SCRIPT ATIVO: ${label.toUpperCase()}
+
+O cliente demonstrou interesse em **${label.toUpperCase()}**.
+Siga este roteiro estruturado. **UMA PERGUNTA POR MENSAGEM. NUNCA PULE ETAPAS.**
 
 ---
 
 ### REGRA CRÍTICA: UMA PERGUNTA POR VEZ
 ❌ NUNCA faça mais de 1 pergunta na mesma mensagem.
 ✅ Colete os dados UM POR UM, de forma conversacional e natural.
+✅ Aguarde a resposta do cliente antes de fazer a próxima pergunta.
 
 ---
 
-### ✅ CHECKLIST OBRIGATÓRIO (colete todos antes de apresentar orçamento)
-Você PRECISA descobrir:
-- [ ] Tipo de equipamento (Split, Janela, Cassete, Multi-Split)
-- [ ] Capacidade em BTUs (9.000 / 12.000 / 18.000 / 24.000 /outros)
-- [ ] Quantidade de unidades a instalar
-- [ ] Tipo de ambiente (quarto, sala, escritório, loja, etc.)
-- [ ] Situação da instalação (alvenaria ou drywall? altura do teto? distância da condensadora prevista)
-- [ ] Necessidade elétrica (já tem circuito dedicado ou precisa instalar?)
-- [ ] Endereço / região (para calcular taxa de deslocamento se houver)
+### ✅ CHECKLIST OBRIGATÓRIO (colete TODOS antes de avançar)
+${checklist || '- Siga as fases abaixo'}
 
 ---
 
-### FASE 1 — ACOLHIMENTO E TIPO DE EQUIPAMENTO
-**Objetivo:** Confirmar a intenção e identificar o tipo de equipamento.
-
-Exemplo de abertura:
-> "Ótimo! Vou te ajudar com a instalação. Pode me dizer qual o tipo de aparelho? Por exemplo: Split (o mais comum, com unidade interna e externa), Janela, Cassete de teto, ou Multi-Split (mais de 1 ambiente)?"
-
-⛔ Não fale de preço ainda.
-⛔ Não pergunte BTUs ainda — espere a resposta do tipo primeiro.
+${phasesDescription}
 
 ---
 
-### FASE 2 — CAPACIDADE (BTUs) E QUANTIDADE
-**Objetivo:** Entender o tamanho e quantas unidades.
+### ⚠️ QUANDO SAIR DESTE SCRIPT
+Você deve **sair do script e voltar ao atendimento normal** apenas se:
+- O cliente claramente mudar de assunto (ex: perguntar sobre outra coisa completamente diferente)
+- O cliente disser que não quer mais / cancelar / "esquece" / "não preciso mais"
+- Você tiver coletado TODOS os dados obrigatórios acima
 
-Depois de saber o tipo, pergunte BTUs:
-> "Qual a capacidade do aparelho em BTUs? Por exemplo: 9.000, 12.000, 18.000 ou 24.000 BTUs."
-
-Se o cliente não souber os BTUs:
-> "Sem problemas! Me conta: é para um quarto, sala ou outro ambiente? E tem ideia do tamanho em metros quadrados? Assim consigo te orientar sobre a capacidade ideal."
-
-Depois dos BTUs, pergunte quantidade (se não ficou claro):
-> "Vai instalar quantos aparelhos?"
+**Enquanto o cliente responder sobre ${label}, continue o script!**
+Não saia por falta de resposta, demora ou respostas curtas como "ok", "sim", "pode ser".
 
 ---
 
-### FASE 3 — SITUAÇÃO TÉCNICA DA INSTALAÇÃO
-**Objetivo:** Entender se há complexidade na instalação que afeta o preço.
-
-Pergunte de forma simples:
-> "Para eu calcular certinho, preciso entender a situação da instalação. A parede onde vai fixar a unidade interna é de alvenaria (tijolo/concreto) ou drywall/gesso?"
-
-Depois, pergunte sobre distância:
-> "Tem uma ideia de onde ficará a unidade externa (condensadora)? É próxima à unidade interna, no mesmo andar, ou precisaria de uma tubulação longa?"
-
-Se houver andares/altura:
-> "A instalação é em qual andar? Pergunto porque alturas maiores podem exigir rapel ou equipamento especial."
-
----
-
-### FASE 4 — ELÉTRICA
-**Objetivo:** Verificar se precisa de serviço elétrico adicional.
-
-> "O local já tem circuito elétrico dedicado para o ar condicionado (tomada específica com disjuntor próprio)? Ou precisaria incluir a instalação elétrica também?"
-
-Se precisar de elétrica — informe que é um serviço adicional com custo separado.
-
----
-
-### FASE 5 — LOCALIZAÇÃO / REGIÃO
-**Objetivo:** Verificar cobertura e calcular taxa de deslocamento (se houver).
-
-> "Qual o bairro ou região onde será feita a instalação?"
-
-Use a região para:
-- Confirmar que atende aquela área
-- Aplicar taxa de deslocamento (se houver faixas de zona configuradas)
-
----
-
-### FASE 6 — ORÇAMENTO E APRESENTAÇÃO
-**Objetivo:** Apresentar o valor de forma clara APENAS após ter todos os dados.
-
-✅ Só entre nesta fase quando tiver: tipo + BTUs + quantidade + situação + elétrica + região.
-
-Formato de resposta de orçamento:
-\`\`\`
-Ótimo! Com base nas informações que você me passou, aqui está o orçamento:
-
-📋 Serviço: Instalação de Split [BTUs]
-📦 Quantidade: [N] unidade(s)
-🏗️ Situação: [alvenaria/drywall, sem/com complexidade]
-[se precisar de elétrica] ⚡ Circuito dedicado: incluso / +R$ XX,00
-
-💰 Valor total estimado: R$ [valor]
-[se houver taxa de zona] 🚗 Taxa de deslocamento ([bairro]): +R$ [valor]
-━━━━━━━━━━━━━━━
-Total: R$ [valor final]
-
-Esse valor inclui [o que está incluso: mão de obra, suporte, etc.].
-Ficou alguma dúvida? Quer agendar uma visita?
-\`\`\`
-
----
-
-### FASE 7 — AGENDAMENTO (Só quando cliente confirmar interesse)
-Sinais de que o cliente quer agendar:
-- "quero agendar", "pode marcar", "quando tem disponível", "vamos lá"
-
-Ao identificar interesse:
-1. Pergunte preferência de data/horário
-2. Use a ferramenta \`get_available_slots\` para verificar agenda
-3. Colete o endereço completo com número
-4. Confirme TODOS os dados antes de criar o agendamento
-5. Use \`create_appointment\` apenas após confirmação explícita
-
----
-
-### ⚠️ REGRAS GERAIS DESTE SCRIPT
-- ❌ Nunca invente preços — use SEMPRE os valores cadastrados no catálogo de serviços
-- ❌ Nunca pule para o agendamento sem ter o orçamento aprovado
-- ✅ Se o cliente não souber responder uma pergunta técnica, ofereça ajuda: "Sem problema, posso te orientar"
-- ✅ Se a região não tiver cobertura, informe educadamente e ofereça alternativas (se houver)
-- ✅ Se for complexo (rapel, altura elevada, drywall), informe que pode exigir vistoria prévia
-`.trim(),
-};
+### ❌ PROIBIDO
+- Inventar preços — use SEMPRE os valores cadastrados no catálogo de serviços
+- Pular para agendamento sem ter todos os dados
+- Fazer mais de uma pergunta por mensagem
+- Sair do script se o cliente ainda estiver respondendo sobre ${label}${customBlock}
+`.trim();
+}
 
 // ============================================
-// SCRIPT: MANUTENÇÃO DE AR CONDICIONADO
-// ============================================
-
-const acMaintenanceScript: IntentScript = {
-  id: "ac_maintenance",
-  label: "Manutenção de Ar Condicionado",
-  triggers: [
-    "manutenção", "manutencao", "manutenção de ar", "revisão", "revisao",
-    "checar ar condicionado", "verificar ar condicionado", "ar condicionado com problema",
-    "ar condicionado não está gelando", "ar não gela", "ar condicionado com defeito",
-    "ar condicionado barulhento", "ar condicionado com cheiro", "manutenção preventiva",
-  ],
-  requiredData: [
-    "tipo_equipamento",
-    "capacidade_btus",
-    "quantidade",
-    "problema_descricao",
-    "ultimo_servico",
-    "endereco_regiao",
-  ],
-  phases: [
-    {
-      id: "fase_1",
-      title: "Diagnóstico Inicial",
-      icon: "🔍",
-      description: "Perguntar se há um problema específico (sintoma) ou se é uma manutenção preventiva de rotina.",
-      type: "trigger",
-    },
-    {
-      id: "fase_2",
-      title: "Identificação do Equipamento",
-      icon: "🌬️",
-      description: "Coletar tipo de aparelho (Split/Janela), capacidade em BTUs e quantidade de unidades.",
-      type: "question",
-    },
-    {
-      id: "fase_3",
-      title: "Histórico de Manutenção",
-      icon: "📋",
-      description: "Perguntar quando foi a última manutenção para definir o serviço mais adequado.",
-      type: "question",
-    },
-    {
-      id: "fase_4",
-      title: "Região / Localização",
-      icon: "📍",
-      description: "Coletar bairro/região para verificar disponibilidade e calcular deslocamento.",
-      type: "question",
-    },
-    {
-      id: "fase_5",
-      title: "Orçamento & Recomendação",
-      icon: "💰",
-      description: "Apresentar valor e tipo de serviço recomendado (limpeza simples, completa ou diagnóstico técnico).",
-      type: "output",
-    },
-  ],
-  buildPrompt: () => `
-## 🚨 SCRIPT ATIVO: MANUTENÇÃO DE AR CONDICIONADO
-
-O cliente demonstrou interesse em **MANUTENÇÃO / REVISÃO DE AR CONDICIONADO**.
-Siga o roteiro abaixo. UMA PERGUNTA POR VEZ.
-
-### ✅ CHECKLIST OBRIGATÓRIO
-- [ ] Tipo de equipamento (Split, Janela...)
-- [ ] Capacidade em BTUs
-- [ ] Quantidade de aparelhos
-- [ ] Descrição do problema ou motivo da manutenção
-- [ ] Quando foi a última manutenção (ou se nunca fez)
-- [ ] Região / bairro
-
-### FASE 1 — DIAGNÓSTICO INICIAL
-> "Claro! Para te ajudar melhor: o ar condicionado está com algum problema específico, ou é uma manutenção preventiva de rotina?"
-
-**Se tiver problema:** pergunte o sintoma (não gela, barulho, cheiro, água vazando, etc.)
-**Se for preventivo:** ótimo, siga para entender o equipamento.
-
-### FASE 2 — EQUIPAMENTO
-> "Qual o tipo de aparelho? É Split, Janela ou outro modelo?"
-> "Qual a capacidade em BTUs? (9.000, 12.000, 18.000...)"
-> "Quantos aparelhos precisam de manutenção?"
-
-### FASE 3 — HISTÓRICO
-> "Quando foi a última manutenção no aparelho? Pergunto porque isso ajuda a definir o serviço mais adequado."
-
-### FASE 4 — REGIÃO
-> "Qual o bairro ou região para eu verificar a disponibilidade e calcular o valor?"
-
-### FASE 5 — ORÇAMENTO
-Apresente o valor após coletar todos os dados, incluindo tipo de serviço recomendado (limpeza simples vs. limpeza completa vs. diagnóstico técnico).
-`.trim(),
-};
-
-// ============================================
-// SCRIPT: LIMPEZA DE AR CONDICIONADO
-// ============================================
-
-const acCleaningScript: IntentScript = {
-  id: "ac_cleaning",
-  label: "Limpeza de Ar Condicionado",
-  triggers: [
-    "limpeza", "higienização", "higienizacao", "limpar ar condicionado",
-    "limpeza de ar", "limpeza split", "limpeza do ar", "higienização de ar",
-    "ar condicionado com cheiro", "ar fedendo", "ar com mau cheiro",
-  ],
-  requiredData: [
-    "tipo_equipamento",
-    "capacidade_btus",
-    "quantidade",
-    "ultimo_servico",
-    "endereco_regiao",
-  ],
-  phases: [
-    {
-      id: "fase_1",
-      title: "Tipo de Equipamento",
-      icon: "🌬️",
-      description: "Identificar o tipo de aparelho (Split, Janela ou outro modelo).",
-      type: "trigger",
-    },
-    {
-      id: "fase_2",
-      title: "BTUs & Quantidade",
-      icon: "❄️",
-      description: "Perguntar a capacidade em BTUs e quantos aparelhos precisam de limpeza.",
-      type: "question",
-    },
-    {
-      id: "fase_3",
-      title: "Histórico de Limpeza",
-      icon: "📋",
-      description: "Perguntar quando foi a última limpeza para recomendar limpeza simples ou higienização completa com bactericida.",
-      type: "question",
-    },
-    {
-      id: "fase_4",
-      title: "Região / Localização",
-      icon: "📍",
-      description: "Coletar bairro/região para calcular o valor com deslocamento.",
-      type: "question",
-    },
-    {
-      id: "fase_5",
-      title: "Orçamento & Tipo de Limpeza",
-      icon: "✨",
-      description: "Apresentar o valor e o tipo de limpeza recomendado baseado no histórico do aparelho.",
-      type: "output",
-    },
-  ],
-  buildPrompt: () => `
-## 🚨 SCRIPT ATIVO: LIMPEZA DE AR CONDICIONADO
-
-O cliente está interessado em **LIMPEZA / HIGIENIZAÇÃO DE AR CONDICIONADO**.
-Siga o roteiro. UMA PERGUNTA POR VEZ.
-
-### ✅ CHECKLIST OBRIGATÓRIO
-- [ ] Tipo de equipamento (Split, Janela...)
-- [ ] Capacidade em BTUs
-- [ ] Quantidade de aparelhos
-- [ ] Última limpeza (para recomendar tipo: simples ou completa)
-- [ ] Região / bairro
-
-### FASE 1 — EQUIPAMENTO
-> "Ótimo! Vamos à limpeza. Primeiro: qual o tipo de aparelho? Split, Janela ou outro?"
-
-### FASE 2 — BTUs E QUANTIDADE
-> "Qual a capacidade em BTUs?" → depois → "Quantos aparelhos?"
-
-### FASE 3 — HISTÓRICO
-> "Quando foi a última limpeza? Isso ajuda a determinar se recomendamos a limpeza simples ou a higienização completa com bactericida."
-
-### FASE 4 — REGIÃO
-> "Qual o bairro ou região para eu calcular o valor com deslocamento?"
-
-### FASE 5 — ORÇAMENTO
-Apresente o valor e o tipo de limpeza recomendado baseado no histórico.
-`.trim(),
-};
-
-// ============================================
-// MAPA DE SCRIPTS
-// ============================================
-
-export const INTENT_SCRIPTS: Record<string, IntentScript> = {
-  ac_installation: acInstallationScript,
-  ac_maintenance: acMaintenanceScript,
-  ac_cleaning: acCleaningScript,
-};
-
-// ============================================
-// DETECTOR DE INTENÇÃO
+// DETECTOR DE INTENÇÃO (baseado em configs do banco)
 // ============================================
 
 /**
  * Detecta qual script deve ser ativado baseado na mensagem do cliente.
- * Retorna o ID do script ou null se nenhum script for detectado.
+ * Agora recebe as configurações da empresa do banco de dados.
  *
- * @param message - Mensagem atual ou histórico recente da conversa
+ * @param message - Mensagem atual do cliente
+ * @param companyScripts - Scripts configurados pela empresa (do banco)
+ * @returns ID do script ativado ou null
  */
-export function detectIntentScript(message: string): string | null {
-  if (!message) return null;
+export function detectIntentScriptFromConfig(
+  message: string,
+  companyScripts: IntentScriptsCompanyConfig
+): string | null {
+  if (!message || !companyScripts) return null;
 
   const normalized = message.toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, ""); // Remove acentos para comparação
+    .replace(/[\u0300-\u036f]/g, "");
 
-  // Verifica cada script na ordem de prioridade
-  const scriptsByPriority = [
-    "ac_installation",
-    "ac_cleaning",
-    "ac_maintenance",
-  ];
+  // Verifica cada script habilitado pela empresa
+  for (const [scriptId, scriptConfig] of Object.entries(companyScripts)) {
+    if (!scriptConfig.enabled) continue;
 
-  for (const scriptId of scriptsByPriority) {
-    const script = INTENT_SCRIPTS[scriptId];
-    if (!script) continue;
+    // Combina triggers base + custom triggers da empresa
+    const allTriggers = [
+      ...scriptConfig.triggers,
+      ...(scriptConfig.customTriggers || []),
+    ];
 
-    const matched = script.triggers.some(trigger => {
+    const matched = allTriggers.some(trigger => {
       const normalizedTrigger = trigger
         .toLowerCase()
         .normalize("NFD")
@@ -486,38 +211,96 @@ export function detectIntentScript(message: string): string | null {
   return null;
 }
 
+/**
+ * Detecta se o cliente está tentando SAIR do script atual.
+ * Usado para resetar o script ativo quando o cliente muda de assunto.
+ *
+ * @param message - Mensagem atual do cliente
+ * @param currentScriptLabel - Label do script atual (para contexto)
+ */
+export function detectScriptExit(message: string, currentScriptLabel?: string): boolean {
+  if (!message) return false;
+
+  const normalized = message.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  // Palavras de cancelamento explícito
+  const explicitExit = [
+    "esquece", "esqueça", "nao quero mais", "não quero mais",
+    "cancela", "cancelar", "desisti", "mudei de ideia",
+    "nao preciso", "não preciso", "para", "chega",
+    "nao e isso", "não é isso", "outra coisa",
+  ];
+
+  return explicitExit.some(phrase => normalized.includes(phrase));
+}
+
 // ============================================
-// SEÇÃO DO PROMPT
+// SEÇÃO DO PROMPT (compatibilidade com sistema modular)
 // ============================================
 
 /**
- * Gera a seção de prompt com o script de intenção detectado.
- * Se nenhum script for detectado, retorna uma seção vazia.
+ * Gera a seção de prompt com o script de intenção.
+ * Adaptada para scripts criados pelo usuário.
  *
- * @param intentScriptId - ID do script a ser ativado (ou null)
+ * @param options - Opções para gerar a seção
  */
-export function getIntentScriptSection(intentScriptId?: string | null): PromptSection {
+export function getIntentScriptSection(options?: {
+  scriptId?: string | null;
+  companyScripts?: IntentScriptsCompanyConfig;
+  collectedData?: Record<string, string>;
+}): PromptSection {
   const emptySection: PromptSection = {
     id: "section_intent_script",
     title: "SCRIPT DE INTENÇÃO",
-    priority: 11, // Logo após o objetivo principal
+    priority: 11,
     required: false,
     version: VERSION,
     content: "",
   };
 
-  if (!intentScriptId || !INTENT_SCRIPTS[intentScriptId]) {
+  if (!options?.scriptId || !options?.companyScripts) {
     return emptySection;
   }
 
-  const script = INTENT_SCRIPTS[intentScriptId];
+  const { scriptId, companyScripts, collectedData } = options;
+  const scriptConfig = companyScripts[scriptId];
+
+  if (!scriptConfig || !scriptConfig.enabled) {
+    return emptySection;
+  }
+
+  const content = buildDynamicScriptPrompt({
+    id: scriptId,
+    label: scriptConfig.label,
+    triggers: scriptConfig.triggers,
+    requiredData: scriptConfig.requiredData,
+    phases: scriptConfig.phases,
+    customInstructions: scriptConfig.customInstructions,
+    collectedData,
+  });
 
   return {
     id: "section_intent_script",
-    title: `SCRIPT: ${script.label.toUpperCase()}`,
+    title: `SCRIPT: ${scriptConfig.label.toUpperCase()}`,
     priority: 11,
     required: false,
     version: VERSION,
-    content: script.buildPrompt(),
+    content,
   };
 }
+
+// ============================================
+// LEGADO: Detecta intenção a partir dos triggers hardcoded
+// (mantido apenas para retrocompatibilidade - NÃO USAR em código novo)
+// ============================================
+
+/** @deprecated Use detectIntentScriptFromConfig */
+export function detectIntentScript(_message: string): string | null {
+  // Sem scripts padrão — cada empresa cria os seus
+  return null;
+}
+
+/** @deprecated Sem scripts hardcoded */
+export const INTENT_SCRIPTS: Record<string, IntentScript> = {};

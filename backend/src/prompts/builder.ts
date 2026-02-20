@@ -97,11 +97,15 @@ export class PromptBuilder {
       getObjectiveSection(objectiveType, objectiveConfig)
     );
 
-    // 7.1. Script de intenção detectada (ex: instalação de AC)
+    // 7.1. Script de intenção detectada (criado pelo usuário)
     // Injeta roteiro estruturado de perguntas/fases quando uma intenção específica é detectada
     if (this.options.knowledge?.intentScriptId) {
       this.addSection(
-        getIntentScriptSection(this.options.knowledge.intentScriptId)
+        getIntentScriptSection({
+          scriptId: this.options.knowledge.intentScriptId,
+          companyScripts: this.options.knowledge.companyScripts as any,
+          collectedData: this.options.knowledge.intentScriptCollectedData,
+        })
       );
     }
 

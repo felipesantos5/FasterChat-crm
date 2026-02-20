@@ -81,11 +81,18 @@ export interface KnowledgeContext {
   ragResults?: string;
   /**
    * ID do script de atendimento a ser ativado.
-   * Quando preenchido, o PromptBuilder injeta um roteiro estruturado
-   * de perguntas e fases específicas para aquela intenção.
-   * Ex: 'ac_installation', 'ac_maintenance', 'ac_cleaning'
+   * Quando preenchido, o PromptBuilder injeta um roteiro estruturado.
    */
   intentScriptId?: string | null;
+  /**
+   * Scripts configurados pela empresa (do banco).
+   * Necessário para gerar o prompt dinâmico do script.
+   */
+  companyScripts?: Record<string, any>;
+  /**
+   * Dados coletados pelo script até o momento na conversa.
+   */
+  intentScriptCollectedData?: Record<string, string>;
   conversationContext?: {
     detectedService?: string;
     recentTopics?: string[];
