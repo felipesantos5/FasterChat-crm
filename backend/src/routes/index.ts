@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { flowRouter } from "./flow.routes";
+import { flowWebhookRouter } from "./flow-webhook.routes";
 import authRoutes from "./auth.routes";
 import customerRoutes from "./customer.routes";
 import whatsappRoutes from "./whatsapp.routes";
@@ -30,6 +32,7 @@ router.use("/customers", customerRoutes);
 router.use("/whatsapp", whatsappRoutes);
 router.use("/messages", messageRoutes);
 router.use("/webhooks", webhookRoutes);
+router.use("/webhooks/flow", flowWebhookRouter);
 router.use("/conversations", conversationRoutes);
 router.use("/conversations", conversationExampleRoutes);
 router.use("/ai", aiKnowledgeRoutes);
@@ -45,6 +48,7 @@ router.use("/customer-notes", customerNoteRoutes);
 router.use("/collaborators", collaboratorRoutes);
 router.use("/admin", adminRoutes);
 router.use("/services", serviceRoutes);
+router.use("/flows", flowRouter);
 
 // Rotas públicas (sem /api prefix) - devem ser registradas no server.ts
 // router.use('/l', linkRedirectRoutes);

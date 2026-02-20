@@ -75,6 +75,15 @@ class WebhookController {
           console.error("[Webhook] Error processing link conversion:", conversionError);
         }
 
+        // 🔄 FLOW ENGINE: Verifica se há fluxo esperando resposta deste cliente
+        try {
+          const { FlowEngineService } = await import("../services/FlowEngineService");
+          const flowEngine = new FlowEngineService();
+          await flowEngine.handleIncomingMessage(result.customer.phone, result.customer.companyId);
+        } catch (flowError) {
+          console.error("[Webhook] Error processing flow engine reply:", flowError);
+        }
+
         // AUTO-FIX: Se recebemos mensagem, estamos conectados
         if (result.instance.status !== WhatsAppStatus.CONNECTED) {
           await whatsappService.updateConnectionStatus(result.instance.id, WhatsAppStatus.CONNECTED);
@@ -129,6 +138,10 @@ class WebhookController {
               if (replyDelay > 0) {
                 // Emite indicador de "digitando" enquanto espera
                 websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, true);
+                
+                // Emite status de "digitando" no WhatsApp
+                await whatsappService.sendPresence(result.instance.id, result.customer.phone, replyDelay, "composing");
+                
                 await new Promise(resolve => setTimeout(resolve, replyDelay));
                 websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
               }

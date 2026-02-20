@@ -21,6 +21,7 @@ import {
   X,
   DollarSign,
   Zap,
+  Network,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import logo from "@/assets/logo2.webp";
@@ -81,6 +82,11 @@ const menuItems: MenuItem[] = [
     icon: Link2,
     href: "/dashboard/links",
     permission: "WHATSAPP_LINKS",
+  },
+  {
+    label: "Fluxos de Automação",
+    icon: Network,
+    href: "/dashboard/flows",
   },
   {
     label: "Configurações",

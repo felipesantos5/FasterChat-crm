@@ -1,0 +1,32 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+import { FlowCanvas } from '@/components/flows/FlowCanvas';
+import { useRouter } from 'next/navigation';
+
+export default function FlowBuilderPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
+  const isNew = params.id === 'new';
+
+  // Real implementation would fetch flow by ID from our created API
+  // For now, let's just render the FlowCanvas
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-65px)] w-full relative">
+      <div className="absolute top-4 left-4 z-10 bg-white shadow-sm p-3 rounded-md border flex items-center space-x-4">
+        <button onClick={() => router.back()} className="text-gray-500 hover:text-black">
+          &larr; Voltar
+        </button>
+        <span className="font-semibold">{isNew ? 'Novo Fluxo' : 'Editando Fluxo'}</span>
+      </div>
+
+      <div className="absolute top-4 right-4 z-10 flex space-x-2">
+        <button className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium shadow-sm">
+          Salvar
+        </button>
+      </div>
+
+      <FlowCanvas flowId={params.id} />
+    </div>
+  );
+}

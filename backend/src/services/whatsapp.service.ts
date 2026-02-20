@@ -680,8 +680,12 @@ class WhatsAppService {
 
         const response = await this.axiosInstance.post(`/message/sendWhatsAppAudio/${instance.instanceName}`, {
           number: remoteJid,
-          audio: base64Data, // Evolution API aceita base64 direto para áudio
+          audio: base64Data, // Evolution API aceita base64 ou URL direto para áudio
           encoding: true, // Habilita encoding automático para formato compatível com WhatsApp
+          ptt: true, // Força envio como áudio gravado na hora / Voice Note
+          options: {
+            ptt: true
+          }
         });
 
         console.log(`[WhatsApp Service] ✅ Audio sent successfully to ${to}`);
@@ -809,6 +813,31 @@ class WhatsAppService {
     } catch (error: any) {
       console.error("✗ Error updating instance display name:", error);
       throw new Error(`Failed to update instance display name: ${error.message}`);
+    }
+  }
+
+  /**
+   * Envia status de presença (ex: digitando, gravando áudio)
+   */
+  async sendPresence(instanceId: string, to: string, delayMs: number = 2000, presence: "composing" | "recording" | "unavailable" = "composing"): Promise<void> {
+    try {
+      const instance = await prisma.whatsAppInstance.findUnique({
+        where: { id: instanceId },
+      });
+
+      if (!instance || instance.status !== "CONNECTED") return;
+
+      const remoteJid = this.formatJid(to);
+
+      console.log(`[WhatsApp Service] ✍️ Sending '${presence}' presence to ${to} for ${delayMs}ms`);
+
+      await this.axiosInstance.post(`/chat/sendPresence/${instance.instanceName}`, {
+        number: remoteJid,
+        delay: delayMs,
+        presence,
+      });
+    } catch (error: any) {
+      console.error("[WhatsApp Service] Error sending presence:", error.message);
     }
   }
 }
