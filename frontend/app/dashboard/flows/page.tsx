@@ -65,10 +65,7 @@ export default function FlowsPage() {
   return (
     <div className="flex-1 space-y-6 p-4 pt-6 md:p-8 bg-gray-50/30 min-h-screen font-sans">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900">Fluxos de WhatsApp</h2>
-          <p className="text-gray-500 mt-1">Crie e gerencie automações visuais para suas conversas.</p>
-        </div>
+        <div />
         <Link
           href="/dashboard/flows/new"
           className="inline-flex items-center justify-center rounded-lg text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-primary bg-primary text-white hover:bg-primary/90 h-11 px-5 shadow-sm gap-2"

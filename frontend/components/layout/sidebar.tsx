@@ -205,8 +205,13 @@ export function Sidebar() {
     const Icon = item.icon;
     const hasChildren = item.children && item.children.length > 0;
     const isOpen = openMenus.includes(item.label);
-    const isActive = item.href === pathname;
-    const isParentActive = item.children?.some((child) => child.href === pathname);
+    // Dashboard usa match exato; demais rotas usam startsWith para marcar subrotas também
+    const isActive = item.href === '/dashboard'
+      ? pathname === '/dashboard'
+      : item.href ? pathname.startsWith(item.href) : false;
+    const isParentActive = item.children?.some((child) =>
+      child.href ? pathname.startsWith(child.href) : false
+    );
 
     // Item com submenu
     if (hasChildren) {

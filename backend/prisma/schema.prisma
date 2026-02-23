@@ -8,442 +8,670 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  ADMIN
-  MANAGER
-  AGENT
-  USER
+model ai_knowledge {
+  id                     String    @id
+  company_id             String    @unique
+  company_name           String?
+  company_segment        String?
+  company_description    String?
+  company_info           String?
+  ai_objective           String?
+  ai_personality         String?
+  tone_instructions      String?
+  policies               String?
+  working_hours          String?
+  payment_methods        String?
+  delivery_info          String?
+  warranty_info          String?
+  service_area           String?
+  products_services      String?
+  products               Json?     @default("[]")
+  negative_examples      String?
+  faq                    Json?     @default("[]")
+  generated_context      String?
+  context_generated_at   DateTime?
+  setup_completed        Boolean   @default(false)
+  setup_step             Int       @default(0)
+  provider               String?   @default("openai")
+  model                  String?
+  temperature            Float?    @default(0.7)
+  maxTokens              Int?      @default(500)
+  auto_reply_enabled     Boolean   @default(true)
+  created_at             DateTime  @default(now())
+  updated_at             DateTime
+  objective_type         String?   @default("support")
+  business_hours_end     Int?      @default(18)
+  business_hours_start   Int?      @default(9)
+  ai_closing_focus       Boolean?  @default(false)
+  ai_custom_instructions String?
+  ai_proactivity         String?   @default("medium")
+  ai_tone                String?   @default("professional")
+  reply_delay            Int       @default(10)
+  intent_scripts_config  Json?
+  companies              companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
 }
 
-enum InviteStatus {
-  PENDING
-  ACCEPTED
-  EXPIRED
-  CANCELLED
-}
-
-enum PermissionPage {
-  DASHBOARD
-  CUSTOMERS
-  CONVERSATIONS
-  PIPELINE
-  CALENDAR
-  CAMPAIGNS
-  WHATSAPP_LINKS
-  AI_CONFIG
-  WHATSAPP_CONFIG
-}
-
-model Company {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  users                 User[]
-  customers             Customer[]
-  whatsappInstances     WhatsAppInstance[]
-  aiKnowledge           AIKnowledge?
-  campaigns             Campaign[]
-  tags                  Tag[]
-  pipelineStages        PipelineStage[]
-  googleCalendar        GoogleCalendar?
-  appointments          Appointment[]
-  whatsappLinks         WhatsAppLink[]
-  invites               Invite[]
-  services              Service[]
-  serviceZones          ServiceZone[]
-  serviceCombos         ServiceCombo[]
-  serviceAdditionals    ServiceAdditional[]
-  serviceZoneExceptions ServiceZoneException[]
-  Flow                  Flow[]
-
-  @@map("companies")
-}
-
-model Tag {
-  id        String   @id @default(uuid())
-  companyId String   @map("company_id")
-  name      String
-  color     String?  @default("#8B5CF6") // Cor padrão roxa
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  @@unique([companyId, name])
-  @@index([companyId])
-  @@map("tags")
-}
-
-model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String?  @map("password_hash")
-  name         String
-  role         UserRole @default(USER)
-  cargo        String?
-  status       String   @default("ACTIVE")
-  companyId    String   @map("company_id")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  conversations  Conversation[]
-  customerNotes  CustomerNote[]
-  permissions    Permission[]
-  sentInvites    Invite[]       @relation("InviteSender")
-  receivedInvite Invite?        @relation("InviteReceiver")
-
-  @@index([companyId])
-  @@index([email])
-  @@index([status])
-  @@map("users")
-}
-
-model Customer {
-  id              String   @id @default(uuid())
-  companyId       String   @map("company_id")
-  name            String
-  phone           String
-  email           String?
-  tags            String[] @default([])
+model appointments {
+  id              String            @id
+  company_id      String
+  customer_id     String
+  title           String
+  description     String?
+  type            AppointmentType   @default(VISIT)
+  status          AppointmentStatus @default(SCHEDULED)
+  start_time      DateTime
+  end_time        DateTime
+  duration        Int               @default(60)
+  location        String?
+  google_event_id String?
   notes           String?
-  profilePicUrl   String?  @map("profile_pic_url") // URL da foto de perfil do WhatsApp
-  isGroup         Boolean  @default(false) @map("is_group") // Identifica se é um grupo do WhatsApp
-  pipelineStageId String?  @map("pipeline_stage_id") // Estágio atual no funil de vendas
-  zoneId          String?  @map("zone_id") // Zona de preço do cliente (opcional)
-  address         String?  @db.Text // Endereço do cliente
-  neighborhood    String? // Bairro do cliente (para cálculo automático de zona)
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  created_at      DateTime          @default(now())
+  updated_at      DateTime
+  companies       companies         @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  customers       customers         @relation(fields: [customer_id], references: [id], onDelete: Cascade)
 
-  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  pipelineStage PipelineStage? @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
-  zone          ServiceZone?   @relation("CustomerZone", fields: [zoneId], references: [id], onDelete: SetNull)
-  messages      Message[]
-  conversations Conversation[]
-  appointments  Appointment[]
-  customerNotes CustomerNote[]
-
-  @@unique([companyId, phone])
-  @@index([companyId])
-  @@index([phone])
-  @@index([email])
-  @@index([isGroup])
-  @@index([pipelineStageId])
-  @@index([zoneId])
-  @@map("customers")
-}
-
-model CustomerNote {
-  id         String   @id @default(uuid())
-  customerId String   @map("customer_id")
-  userId     String   @map("user_id")
-  note       String   @db.Text
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([customerId])
-  @@index([userId])
-  @@index([createdAt])
-  @@map("customer_notes")
-}
-
-enum WhatsAppStatus {
-  DISCONNECTED
-  CONNECTING
-  CONNECTED
-}
-
-model WhatsAppInstance {
-  id           String         @id @default(uuid())
-  companyId    String         @map("company_id")
-  instanceName String         @map("instance_name") // Nome técnico usado pela Evolution API
-  displayName  String?        @map("display_name") // Nome amigável definido pelo usuário
-  apiKey       String?        @map("api_key")
-  qrCode       String?        @map("qr_code") @db.Text
-  status       WhatsAppStatus @default(DISCONNECTED)
-  phoneNumber  String?        @map("phone_number")
-  connectedAt  DateTime?      @map("connected_at") // Data/hora em que conectou
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
-
-  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  messages Message[]
-
-  @@unique([companyId, instanceName])
-  @@index([companyId])
-  @@index([status])
-  @@map("whatsapp_instances")
-}
-
-enum MessageDirection {
-  INBOUND
-  OUTBOUND
-}
-
-enum MessageStatus {
-  SENT
-  DELIVERED
-  READ
-  FAILED
-}
-
-enum SenderType {
-  HUMAN
-  AI
-}
-
-enum MessageFeedback {
-  GOOD
-  BAD
-}
-
-model Message {
-  id                 String           @id @default(uuid())
-  customerId         String           @map("customer_id")
-  whatsappInstanceId String           @map("whatsapp_instance_id")
-  direction          MessageDirection
-  content            String           @db.Text
-  timestamp          DateTime
-  status             MessageStatus    @default(SENT)
-  messageId          String?          @map("message_id")
-  senderType         SenderType?      @default(HUMAN) @map("sender_type")
-  feedback           MessageFeedback? @map("feedback")
-  feedbackNote       String?          @map("feedback_note") @db.Text
-  mediaType          String?          @default("text") @map("media_type") // text, audio, image, video, document
-  mediaUrl           String?          @map("media_url") @db.Text // URL ou base64 da mídia
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
-
-  customer         Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  whatsappInstance WhatsAppInstance @relation(fields: [whatsappInstanceId], references: [id], onDelete: Cascade)
-
-  @@unique([whatsappInstanceId, messageId])
-  @@index([customerId])
-  @@index([whatsappInstanceId])
-  @@index([timestamp])
-  @@index([messageId])
-  @@index([feedback])
-  @@index([mediaType])
-  @@map("messages")
-}
-
-model Conversation {
-  id                        String   @id @default(uuid())
-  customerId                String   @map("customer_id")
-  companyId                 String   @map("company_id")
-  assignedToId              String?  @map("assigned_to_id")
-  aiEnabled                 Boolean  @default(true) @map("ai_enabled")
-  needsHelp                 Boolean  @default(false) @map("needs_help")
-  appointmentState          Json?    @map("appointment_state") // Estado do fluxo de agendamento via IA
-  // Script de atendimento ativo nesta conversa
-  activeIntentScriptId      String?  @map("active_intent_script_id") // ID do script ativo (ex: "ac_installation")
-  intentScriptCollectedData Json?    @map("intent_script_collected_data") // Dados coletados pelo script
-  createdAt                 DateTime @default(now()) @map("created_at")
-  updatedAt                 DateTime @updatedAt @map("updated_at")
-
-  customer            Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  assignedTo          User?                @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
-  conversationExample ConversationExample?
-
-  @@unique([customerId])
-  @@index([companyId])
-  @@index([assignedToId])
-  @@index([aiEnabled])
-  @@index([needsHelp])
-  @@map("conversations")
-}
-
-model AIKnowledge {
-  id        String @id @default(uuid())
-  companyId String @unique @map("company_id")
-
-  // Informações da empresa (estruturadas)
-  companyName        String? @map("company_name") // Nome da empresa
-  companySegment     String? @map("company_segment") // Segmento de atuação
-  companyDescription String? @map("company_description") @db.Text // Descrição geral
-  companyInfo        String? @map("company_info") @db.Text // Campo legado - visão geral
-
-  // Objetivo da IA
-  objectiveType    String? @default("support") @map("objective_type") // ID do objetivo pré-definido (support, sales, sales_scheduling, etc.)
-  aiObjective      String? @map("ai_objective") @db.Text // Texto customizado (usado quando objectiveType = 'custom')
-  aiPersonality    String? @map("ai_personality") @db.Text // Tom de voz e personalidade
-  toneInstructions String? @map("tone_instructions") @db.Text // Instruções de tom (legado)
-
-  // Configurações avançadas do objetivo (personalizáveis pelo usuário)
-  aiTone               String?  @default("professional") @map("ai_tone") // professional, friendly, casual, formal
-  aiProactivity        String?  @default("medium") @map("ai_proactivity") // low, medium, high
-  aiClosingFocus       Boolean? @default(false) @map("ai_closing_focus") // Se deve tentar fechar venda
-  aiCustomInstructions String?  @map("ai_custom_instructions") @db.Text // Instruções personalizadas adicionais
-
-  // Políticas
-  policies           String? @db.Text
-  workingHours       String? @map("working_hours") // Horário de atendimento (texto legado)
-  businessHoursStart Int?    @default(9) @map("business_hours_start") // Hora de início do expediente (0-23)
-  businessHoursEnd   Int?    @default(18) @map("business_hours_end") // Hora de fim do expediente (0-23)
-  paymentMethods     String? @map("payment_methods") // Formas de pagamento
-  deliveryInfo       String? @map("delivery_info") @db.Text // Info de entrega/prazos
-  warrantyInfo       String? @map("warranty_info") @db.Text // Garantias
-  serviceArea        String? @map("service_area") @db.Text // Área de atendimento (CEPs, bairros, cidades)
-
-  // Produtos e Serviços (JSON array para cards)
-  productsServices String? @map("products_services") @db.Text // Campo legado
-  products         Json?   @default("[]") // Array de produtos [{name, description, price, category}]
-
-  // Configurações adicionais
-  negativeExamples String? @map("negative_examples") @db.Text // O que NÃO fazer
-  faq              Json?   @default("[]") // Perguntas frequentes [{question, answer}]
-
-  // Contexto gerado pela IA (texto completo otimizado)
-  generatedContext   String?   @map("generated_context") @db.Text
-  contextGeneratedAt DateTime? @map("context_generated_at")
-
-  // Status do onboarding
-  setupCompleted Boolean @default(false) @map("setup_completed")
-  setupStep      Int     @default(0) @map("setup_step") // 0-5 para controle do wizard
-
-  // Configurações avançadas da IA (internas, não expostas ao cliente)
-  provider         String? @default("openai") // openai, gemini ou anthropic
-  model            String? // Nome do modelo específico (opcional)
-  temperature      Float?  @default(0.7) // 0.0 a 1.0 (menor = mais conservador)
-  maxTokens        Int?    @default(500) // Limite de tokens na resposta
-  autoReplyEnabled Boolean @default(true) @map("auto_reply_enabled") // Resposta automática ativada
-  replyDelay       Int     @default(10) @map("reply_delay") // Delay em segundos para resposta
-
-  // Scripts de atendimento por intenção detectada
-  // JSON: { [scriptId]: { enabled, customTriggers, customInstructions } }
-  intentScriptsConfig Json? @map("intent_scripts_config")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  @@index([companyId])
-  @@map("ai_knowledge")
-}
-
-model ConversationExample {
-  id             String   @id @default(uuid())
-  companyId      String   @map("company_id")
-  conversationId String   @unique @map("conversation_id")
-  notes          String?  @db.Text
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([companyId])
-  @@index([conversationId])
-  @@map("conversation_examples")
-}
-
-enum CampaignType {
-  MANUAL
-  SCHEDULED
-}
-
-enum CampaignStatus {
-  DRAFT
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-  CANCELED
-}
-
-model Campaign {
-  id              String         @id @default(uuid())
-  companyId       String         @map("company_id")
-  name            String
-  messageTemplate String         @map("message_template") @db.Text
-  targetTags      String[]       @default([]) @map("target_tags")
-  type            CampaignType
-  status          CampaignStatus @default(DRAFT)
-  scheduledAt     DateTime?      @map("scheduled_at")
-  sentCount       Int            @default(0) @map("sent_count")
-  failedCount     Int            @default(0) @map("failed_count")
-  totalTarget     Int            @default(0) @map("total_target") // Total de destinatários
-  startedAt       DateTime?      @map("started_at") // Quando começou a execução
-  completedAt     DateTime?      @map("completed_at") // Quando terminou
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-
-  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  logs    CampaignLog[]
-
-  @@index([companyId])
+  @@index([company_id])
+  @@index([customer_id])
+  @@index([start_time])
   @@index([status])
   @@index([type])
-  @@index([scheduledAt])
-  @@map("campaigns")
 }
 
-enum CampaignLogStatus {
-  PENDING
-  SENT
-  FAILED
-}
+model campaign_logs {
+  id             String            @id
+  campaign_id    String
+  customer_id    String
+  customer_name  String
+  customer_phone String
+  status         CampaignLogStatus @default(PENDING)
+  message        String
+  error          String?
+  sent_at        DateTime?
+  created_at     DateTime          @default(now())
+  campaigns      campaigns         @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
 
-model CampaignLog {
-  id            String            @id @default(uuid())
-  campaignId    String            @map("campaign_id")
-  customerId    String            @map("customer_id")
-  customerName  String            @map("customer_name")
-  customerPhone String            @map("customer_phone")
-  status        CampaignLogStatus @default(PENDING)
-  message       String            @db.Text // Mensagem personalizada enviada
-  error         String?           @db.Text // Erro em caso de falha
-  sentAt        DateTime?         @map("sent_at")
-  createdAt     DateTime          @default(now()) @map("created_at")
-
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-
-  @@index([campaignId])
-  @@index([customerId])
+  @@index([campaign_id])
+  @@index([customer_id])
   @@index([status])
-  @@map("campaign_logs")
 }
 
-model PipelineStage {
-  id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
-  name        String // Nome do estágio (ex: "Lead", "Negociação", "Fechado")
-  description String? // Descrição opcional do estágio
-  color       String   @default("#8B5CF6") // Cor do estágio no Kanban
-  order       Int // Ordem de exibição (0, 1, 2, ...)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+model campaigns {
+  id               String          @id
+  company_id       String
+  name             String
+  message_template String
+  target_tags      String[]        @default([])
+  type             CampaignType
+  status           CampaignStatus  @default(DRAFT)
+  scheduled_at     DateTime?
+  sent_count       Int             @default(0)
+  failed_count     Int             @default(0)
+  total_target     Int             @default(0)
+  started_at       DateTime?
+  completed_at     DateTime?
+  created_at       DateTime        @default(now())
+  updated_at       DateTime
+  campaign_logs    campaign_logs[]
+  companies        companies       @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  customers Customer[]
+  @@index([company_id])
+  @@index([scheduled_at])
+  @@index([status])
+  @@index([type])
+}
 
-  @@unique([companyId, name])
-  @@index([companyId])
+model companies {
+  id                      String                    @id
+  name                    String
+  created_at              DateTime                  @default(now())
+  updated_at              DateTime
+  ai_knowledge            ai_knowledge?
+  appointments            appointments[]
+  campaigns               campaigns[]
+  customers               customers[]
+  flows                   flows[]
+  google_calendars        google_calendars?
+  invites                 invites[]
+  pipeline_stages         pipeline_stages[]
+  service_additionals     service_additionals[]
+  service_combos          service_combos[]
+  service_zone_exceptions service_zone_exceptions[]
+  service_zones           service_zones[]
+  services                services[]
+  tags                    tags[]
+  users                   users[]
+  whatsapp_instances      whatsapp_instances[]
+  whatsapp_links          whatsapp_links[]
+}
+
+model conversation_examples {
+  id              String        @id
+  company_id      String
+  conversation_id String        @unique
+  notes           String?
+  created_at      DateTime      @default(now())
+  updated_at      DateTime
+  conversations   conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+  @@index([conversation_id])
+}
+
+model conversations {
+  id                           String                 @id
+  customer_id                  String                 @unique
+  company_id                   String
+  assigned_to_id               String?
+  ai_enabled                   Boolean                @default(true)
+  needs_help                   Boolean                @default(false)
+  appointment_state            Json?
+  created_at                   DateTime               @default(now())
+  updated_at                   DateTime
+  active_intent_script_id      String?
+  intent_script_collected_data Json?
+  conversation_examples        conversation_examples?
+  users                        users?                 @relation(fields: [assigned_to_id], references: [id])
+  customers                    customers              @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@index([ai_enabled])
+  @@index([assigned_to_id])
+  @@index([company_id])
+  @@index([needs_help])
+}
+
+model customer_notes {
+  id          String    @id
+  customer_id String
+  user_id     String
+  note        String
+  created_at  DateTime  @default(now())
+  updated_at  DateTime
+  customers   customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([created_at])
+  @@index([customer_id])
+  @@index([user_id])
+}
+
+model customers {
+  id                String           @id
+  company_id        String
+  name              String
+  phone             String
+  email             String?
+  tags              String[]         @default([])
+  notes             String?
+  profile_pic_url   String?
+  is_group          Boolean          @default(false)
+  pipeline_stage_id String?
+  created_at        DateTime         @default(now())
+  updated_at        DateTime
+  address           String?
+  neighborhood      String?
+  zone_id           String?
+  appointments      appointments[]
+  conversations     conversations?
+  customer_notes    customer_notes[]
+  companies         companies        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  pipeline_stages   pipeline_stages? @relation(fields: [pipeline_stage_id], references: [id])
+  service_zones     service_zones?   @relation(fields: [zone_id], references: [id])
+  messages          messages[]
+
+  @@unique([company_id, phone])
+  @@index([company_id])
+  @@index([email])
+  @@index([is_group])
+  @@index([phone])
+  @@index([pipeline_stage_id])
+  @@index([zone_id])
+}
+
+model flow_edges {
+  id                                               String     @id
+  flow_id                                          String
+  source_node_id                                   String
+  source_handle                                    String?
+  target_node_id                                   String
+  target_handle                                    String?
+  created_at                                       DateTime   @default(now())
+  flows                                            flows      @relation(fields: [flow_id], references: [id], onDelete: Cascade)
+  flow_nodes_flow_edges_source_node_idToflow_nodes flow_nodes @relation("flow_edges_source_node_idToflow_nodes", fields: [source_node_id], references: [id], onDelete: Cascade)
+  flow_nodes_flow_edges_target_node_idToflow_nodes flow_nodes @relation("flow_edges_target_node_idToflow_nodes", fields: [target_node_id], references: [id], onDelete: Cascade)
+
+  @@index([flow_id])
+  @@index([source_node_id])
+  @@index([target_node_id])
+}
+
+model flow_executions {
+  id              String              @id
+  flow_id         String
+  contact_phone   String
+  current_node_id String?
+  history         Json?               @default("[]")
+  variables       Json?               @default("{}")
+  status          FlowExecutionStatus @default(RUNNING)
+  error           String?
+  resumes_at      DateTime?
+  started_at      DateTime            @default(now())
+  completed_at    DateTime?
+  updated_at      DateTime            @default(now())
+  flow_nodes      flow_nodes?         @relation(fields: [current_node_id], references: [id])
+  flows           flows               @relation(fields: [flow_id], references: [id], onDelete: Cascade)
+
+  @@index([contact_phone])
+  @@index([flow_id])
+  @@index([resumes_at])
+  @@index([status])
+}
+
+model flow_nodes {
+  id                                               String            @id
+  flow_id                                          String
+  type                                             String
+  data                                             Json
+  position_x                                       Float
+  position_y                                       Float
+  created_at                                       DateTime          @default(now())
+  updated_at                                       DateTime          @default(now())
+  flow_edges_flow_edges_source_node_idToflow_nodes flow_edges[]      @relation("flow_edges_source_node_idToflow_nodes")
+  flow_edges_flow_edges_target_node_idToflow_nodes flow_edges[]      @relation("flow_edges_target_node_idToflow_nodes")
+  flow_executions                                  flow_executions[]
+  flows                                            flows             @relation(fields: [flow_id], references: [id], onDelete: Cascade)
+
+  @@index([flow_id])
+}
+
+model flows {
+  id                   String            @id
+  company_id           String
+  name                 String
+  description          String?
+  trigger_type         String            @default("webhook")
+  webhook_slug         String?           @unique
+  last_webhook_payload Json?
+  status               FlowStatus        @default(DRAFT)
+  created_at           DateTime          @default(now())
+  updated_at           DateTime          @default(now())
+  flow_edges           flow_edges[]
+  flow_executions      flow_executions[]
+  flow_nodes           flow_nodes[]
+  companies            companies         @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+  @@index([status])
+}
+
+model google_calendars {
+  id            String    @id
+  company_id    String    @unique
+  access_token  String
+  refresh_token String
+  token_expiry  DateTime
+  calendar_id   String?
+  email         String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime
+  companies     companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+}
+
+model invites {
+  id                                 String        @id
+  company_id                         String
+  email                              String
+  name                               String
+  cargo                              String?
+  token                              String        @unique
+  status                             InviteStatus  @default(PENDING)
+  invited_by_id                      String
+  user_id                            String?       @unique
+  expires_at                         DateTime
+  created_at                         DateTime      @default(now())
+  updated_at                         DateTime
+  companies                          companies     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  users_invites_invited_by_idTousers users         @relation("invites_invited_by_idTousers", fields: [invited_by_id], references: [id], onDelete: Cascade)
+  users_invites_user_idTousers       users?        @relation("invites_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade)
+  permissions                        permissions[]
+
+  @@index([company_id])
+  @@index([email])
+  @@index([expires_at])
+  @@index([status])
+  @@index([token])
+}
+
+model link_clicks {
+  id             String         @id
+  link_id        String
+  ip_address     String?
+  user_agent     String?
+  referer        String?
+  country        String?
+  region         String?
+  city           String?
+  latitude       Float?
+  longitude      Float?
+  device_type    String?
+  browser        String?
+  os             String?
+  converted      Boolean        @default(false)
+  converted_at   DateTime?
+  customer_id    String?
+  clicked_at     DateTime       @default(now())
+  whatsapp_links whatsapp_links @relation(fields: [link_id], references: [id], onDelete: Cascade)
+
+  @@index([clicked_at])
+  @@index([converted])
+  @@index([country])
+  @@index([device_type])
+  @@index([link_id])
+}
+
+model messages {
+  id                   String             @id
+  customer_id          String
+  whatsapp_instance_id String
+  direction            MessageDirection
+  content              String
+  timestamp            DateTime
+  status               MessageStatus      @default(SENT)
+  message_id           String?
+  sender_type          SenderType?        @default(HUMAN)
+  feedback             MessageFeedback?
+  feedback_note        String?
+  media_type           String?            @default("text")
+  media_url            String?
+  created_at           DateTime           @default(now())
+  updated_at           DateTime
+  customers            customers          @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  whatsapp_instances   whatsapp_instances @relation(fields: [whatsapp_instance_id], references: [id], onDelete: Cascade)
+
+  @@unique([whatsapp_instance_id, message_id])
+  @@index([customer_id])
+  @@index([feedback])
+  @@index([media_type])
+  @@index([message_id])
+  @@index([timestamp])
+  @@index([whatsapp_instance_id])
+}
+
+model permissions {
+  id         String         @id
+  user_id    String?
+  invite_id  String?
+  page       PermissionPage
+  can_view   Boolean        @default(true)
+  can_edit   Boolean        @default(false)
+  created_at DateTime       @default(now())
+  updated_at DateTime
+  invites    invites?       @relation(fields: [invite_id], references: [id], onDelete: Cascade)
+  users      users?         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, page])
+  @@index([invite_id])
+  @@index([page])
+  @@index([user_id])
+}
+
+model pipeline_stages {
+  id          String      @id
+  company_id  String
+  name        String
+  description String?
+  color       String      @default("#8B5CF6")
+  order       Int
+  created_at  DateTime    @default(now())
+  updated_at  DateTime
+  customers   customers[]
+  companies   companies   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, name])
+  @@index([company_id])
   @@index([order])
-  @@map("pipeline_stages")
 }
 
-model GoogleCalendar {
-  id           String   @id @default(uuid())
-  companyId    String   @unique @map("company_id")
-  accessToken  String   @map("access_token") @db.Text
-  refreshToken String   @map("refresh_token") @db.Text
-  tokenExpiry  DateTime @map("token_expiry")
-  calendarId   String?  @map("calendar_id") // ID do calendário principal
-  email        String? // Email da conta Google conectada
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+model service_additionals {
+  id                    String    @id
+  company_id            String
+  name                  String
+  description           String?
+  price                 Decimal   @db.Decimal(10, 2)
+  applies_to_categories String[]  @default([])
+  is_active             Boolean   @default(true)
+  order                 Int       @default(0)
+  created_at            DateTime  @default(now())
+  updated_at            DateTime
+  companies             companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  @@unique([company_id, name])
+  @@index([company_id])
+  @@index([is_active])
+}
 
-  @@index([companyId])
-  @@map("google_calendars")
+model service_combo_items {
+  id             String         @id
+  combo_id       String
+  service_id     String
+  quantity       Int            @default(1)
+  notes          String?
+  order          Int            @default(0)
+  service_combos service_combos @relation(fields: [combo_id], references: [id], onDelete: Cascade)
+  services       services       @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@index([combo_id])
+  @@index([service_id])
+}
+
+model service_combos {
+  id                  String                @id
+  company_id          String
+  name                String
+  description         String?
+  fixed_price         Decimal               @db.Decimal(10, 2)
+  category            String?
+  is_active           Boolean               @default(true)
+  order               Int                   @default(0)
+  created_at          DateTime              @default(now())
+  updated_at          DateTime
+  service_combo_items service_combo_items[]
+  companies           companies             @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, name])
+  @@index([category])
+  @@index([company_id])
+  @@index([is_active])
+}
+
+model service_pricing_tiers {
+  id             String   @id
+  service_id     String
+  min_quantity   Int
+  max_quantity   Int?
+  price_per_unit Decimal  @db.Decimal(10, 2)
+  order          Int      @default(0)
+  created_at     DateTime @default(now())
+  updated_at     DateTime
+  services       services @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@index([service_id])
+}
+
+model service_variable_options {
+  id                String            @id
+  variable_id       String
+  name              String
+  price_modifier    Decimal           @db.Decimal(10, 2)
+  order             Int               @default(0)
+  created_at        DateTime          @default(now())
+  updated_at        DateTime
+  service_variables service_variables @relation(fields: [variable_id], references: [id], onDelete: Cascade)
+
+  @@index([variable_id])
+}
+
+model service_variables {
+  id                       String                     @id
+  service_id               String
+  name                     String
+  description              String?
+  is_required              Boolean                    @default(true)
+  order                    Int                        @default(0)
+  created_at               DateTime                   @default(now())
+  updated_at               DateTime
+  service_variable_options service_variable_options[]
+  services                 services                   @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@index([service_id])
+}
+
+model service_zone_exceptions {
+  id             String    @id
+  company_id     String
+  zone_id        String
+  service_id     String?
+  category       String?
+  min_quantity   Int?
+  exception_type String
+  custom_fee     Decimal?  @db.Decimal(10, 2)
+  description    String?
+  is_active      Boolean   @default(true)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime
+  companies      companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([category])
+  @@index([company_id])
+  @@index([service_id])
+  @@index([zone_id])
+}
+
+model service_zones {
+  id             String          @id
+  company_id     String
+  name           String
+  description    String?
+  pricing_type   ZonePricingType @default(FIXED)
+  price_modifier Decimal         @default(0) @db.Decimal(10, 2)
+  neighborhoods  String[]        @default([])
+  is_default     Boolean         @default(false)
+  requires_quote Boolean         @default(false)
+  is_active      Boolean         @default(true)
+  order          Int             @default(0)
+  created_at     DateTime        @default(now())
+  updated_at     DateTime
+  customers      customers[]
+  companies      companies       @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, name])
+  @@index([company_id])
+  @@index([is_active])
+  @@index([is_default])
+}
+
+model services {
+  id                    String                  @id
+  company_id            String
+  name                  String
+  description           String?
+  base_price            Decimal                 @db.Decimal(10, 2)
+  type                  ServiceType             @default(SERVICE)
+  category              String?
+  is_active             Boolean                 @default(true)
+  order                 Int                     @default(0)
+  created_at            DateTime                @default(now())
+  updated_at            DateTime
+  duration              Int?                    @default(60)
+  action_type           String?
+  equipment_type        String?
+  service_combo_items   service_combo_items[]
+  service_pricing_tiers service_pricing_tiers[]
+  service_variables     service_variables[]
+  companies             companies               @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, name])
+  @@index([company_id])
+  @@index([is_active])
+  @@index([type])
+}
+
+model tags {
+  id         String    @id
+  company_id String
+  name       String
+  color      String?   @default("#8B5CF6")
+  created_at DateTime  @default(now())
+  updated_at DateTime
+  companies  companies @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, name])
+  @@index([company_id])
+}
+
+model users {
+  id                                   String           @id
+  email                                String           @unique
+  password_hash                        String?
+  name                                 String
+  role                                 UserRole         @default(USER)
+  company_id                           String
+  created_at                           DateTime         @default(now())
+  updated_at                           DateTime
+  cargo                                String?
+  status                               String           @default("ACTIVE")
+  conversations                        conversations[]
+  customer_notes                       customer_notes[]
+  invites_invites_invited_by_idTousers invites[]        @relation("invites_invited_by_idTousers")
+  invites_invites_user_idTousers       invites?         @relation("invites_user_idTousers")
+  permissions                          permissions[]
+  companies                            companies        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+  @@index([email])
+  @@index([status])
+}
+
+model whatsapp_instances {
+  id            String         @id
+  company_id    String
+  instance_name String
+  display_name  String?
+  api_key       String?
+  qr_code       String?
+  status        WhatsAppStatus @default(DISCONNECTED)
+  phone_number  String?
+  connected_at  DateTime?
+  created_at    DateTime       @default(now())
+  updated_at    DateTime
+  messages      messages[]
+  companies     companies      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@unique([company_id, instance_name])
+  @@index([company_id])
+  @@index([status])
+}
+
+model whatsapp_links {
+  id           String        @id
+  company_id   String
+  name         String
+  slug         String        @unique
+  phone_number String
+  message      String?
+  auto_tag     String?
+  is_active    Boolean       @default(true)
+  created_at   DateTime      @default(now())
+  updated_at   DateTime
+  link_clicks  link_clicks[]
+  companies    companies     @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([company_id])
+  @@index([is_active])
+  @@index([slug])
 }
 
 enum AppointmentStatus {
@@ -462,446 +690,34 @@ enum AppointmentType {
   OTHER
 }
 
-model Appointment {
-  id            String            @id @default(uuid())
-  companyId     String            @map("company_id")
-  customerId    String            @map("customer_id")
-  title         String
-  description   String?           @db.Text
-  type          AppointmentType   @default(VISIT)
-  status        AppointmentStatus @default(SCHEDULED)
-  startTime     DateTime          @map("start_time")
-  endTime       DateTime          @map("end_time")
-  duration      Int               @default(60) // Duração em minutos
-  location      String?
-  googleEventId String?           @map("google_event_id") // ID do evento no Google Calendar
-  notes         String?           @db.Text
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
-
-  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  @@index([companyId])
-  @@index([customerId])
-  @@index([startTime])
-  @@index([status])
-  @@index([type])
-  @@map("appointments")
+enum CampaignLogStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
-// ============================================
-// WHATSAPP LINK TRACKING
-// ============================================
-
-model WhatsAppLink {
-  id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
-  name        String // Nome/descrição do link (ex: "Instagram Bio", "Campanha Black Friday")
-  slug        String   @unique // Slug único para o link (ex: "black-friday-2024")
-  phoneNumber String   @map("phone_number") // Número do WhatsApp (com código do país, ex: "5511999999999")
-  message     String?  @db.Text // Mensagem pré-preenchida opcional
-  autoTag     String?  @map("auto_tag") // Tag automática para aplicar quando o cliente enviar mensagem
-  isActive    Boolean  @default(true) @map("is_active") // Link ativo ou desativado
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  company Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  clicks  LinkClick[]
-
-  @@index([companyId])
-  @@index([slug])
-  @@index([isActive])
-  @@map("whatsapp_links")
+enum CampaignStatus {
+  DRAFT
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELED
 }
 
-model LinkClick {
-  id     String @id @default(uuid())
-  linkId String @map("link_id")
-
-  // Dados do visitante
-  ipAddress String? @map("ip_address")
-  userAgent String? @map("user_agent") @db.Text
-  referer   String? @db.Text // De onde veio (ex: Instagram, Google, etc)
-
-  // Geolocalização (pode ser obtida via API de IP)
-  country   String?
-  region    String? // Estado/Província
-  city      String?
-  latitude  Float?
-  longitude Float?
-
-  // Informações do dispositivo
-  deviceType String? @map("device_type") // mobile, desktop, tablet
-  browser    String?
-  os         String?
-
-  // Conversão (quando o cliente realmente envia mensagem)
-  converted   Boolean   @default(false) // Se o cliente enviou mensagem
-  convertedAt DateTime? @map("converted_at") // Quando converteu
-  customerId  String?   @map("customer_id") // Cliente que converteu (se identificado)
-
-  // Timestamp
-  clickedAt DateTime @default(now()) @map("clicked_at")
-
-  link WhatsAppLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
-
-  @@index([linkId])
-  @@index([clickedAt])
-  @@index([country])
-  @@index([deviceType])
-  @@index([converted])
-  @@map("link_clicks")
+enum CampaignType {
+  MANUAL
+  SCHEDULED
 }
 
-model Invite {
-  id          String       @id @default(uuid())
-  companyId   String       @map("company_id")
-  email       String
-  name        String
-  cargo       String?
-  token       String       @unique
-  status      InviteStatus @default(PENDING)
-  invitedById String       @map("invited_by_id")
-  userId      String?      @unique @map("user_id")
-  expiresAt   DateTime     @map("expires_at")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-
-  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  invitedBy   User         @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
-  user        User?        @relation("InviteReceiver", fields: [userId], references: [id], onDelete: Cascade)
-  permissions Permission[]
-
-  @@index([companyId])
-  @@index([email])
-  @@index([token])
-  @@index([status])
-  @@index([expiresAt])
-  @@map("invites")
+enum FlowExecutionStatus {
+  DELAYED
+  RUNNING
+  PAUSED
+  WAITING_REPLY
+  COMPLETED
+  FAILED
 }
-
-model Permission {
-  id        String         @id @default(uuid())
-  userId    String?        @map("user_id")
-  inviteId  String?        @map("invite_id")
-  page      PermissionPage
-  canView   Boolean        @default(true) @map("can_view")
-  canEdit   Boolean        @default(false) @map("can_edit")
-  createdAt DateTime       @default(now()) @map("created_at")
-  updatedAt DateTime       @updatedAt @map("updated_at")
-
-  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  invite Invite? @relation(fields: [inviteId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, page])
-  @@index([userId])
-  @@index([inviteId])
-  @@index([page])
-  @@map("permissions")
-}
-
-// ============================================
-// SERVICES - Sistema de Serviços/Produtos com Variáveis
-// ============================================
-
-enum ServiceType {
-  PRODUCT
-  SERVICE
-}
-
-model Service {
-  id            String      @id @default(uuid())
-  companyId     String      @map("company_id")
-  name          String
-  description   String?     @db.Text
-  basePrice     Decimal     @map("base_price") @db.Decimal(10, 2)
-  type          ServiceType @default(SERVICE)
-  category      String? // Categoria do produto/serviço
-  duration      Int?        @default(60) // Duração em minutos (padrão: 60)
-  equipmentType String?     @map("equipment_type") // Tipo do equipamento (ex: "Split 12000", "Split 18000")
-  actionType    String?     @map("action_type") // Tipo de ação (ex: "installation", "maintenance", "cleaning")
-  isActive      Boolean     @default(true) @map("is_active")
-  order         Int         @default(0)
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
-
-  company          Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  variables        ServiceVariable[]
-  pricingTiers     ServicePricingTier[] // Faixas de preço por quantidade
-  comboItems       ServiceComboItem[] // Referência em combos
-  vectors          ServiceVector[] // Embeddings semânticos do serviço
-  sourceRelations  ServiceRelationship[] @relation("SourceRelation")
-  relatedRelations ServiceRelationship[] @relation("RelatedRelation")
-
-  @@unique([companyId, name])
-  @@index([companyId])
-  @@index([isActive])
-  @@index([type])
-  @@index([equipmentType])
-  @@index([actionType])
-  @@map("services")
-}
-
-model ServiceVariable {
-  id          String   @id @default(uuid())
-  serviceId   String   @map("service_id")
-  name        String
-  description String?  @db.Text
-  isRequired  Boolean  @default(true) @map("is_required")
-  order       Int      @default(0)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  service Service                 @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  options ServiceVariableOption[]
-
-  @@index([serviceId])
-  @@map("service_variables")
-}
-
-model ServiceVariableOption {
-  id            String   @id @default(uuid())
-  variableId    String   @map("variable_id")
-  name          String
-  priceModifier Decimal  @map("price_modifier") @db.Decimal(10, 2)
-  order         Int      @default(0)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  variable ServiceVariable @relation(fields: [variableId], references: [id], onDelete: Cascade)
-
-  @@index([variableId])
-  @@map("service_variable_options")
-}
-
-// ============================================
-// PRICING TIERS - Faixas de preço por quantidade
-// Exemplo: 1 unidade = R$275, 2-4 = R$250/cada, 5+ = R$200/cada
-// ============================================
-
-model ServicePricingTier {
-  id           String   @id @default(uuid())
-  serviceId    String   @map("service_id")
-  minQuantity  Int      @map("min_quantity") // Quantidade mínima (ex: 1, 2, 5)
-  maxQuantity  Int?     @map("max_quantity") // Quantidade máxima (null = infinito)
-  pricePerUnit Decimal  @map("price_per_unit") @db.Decimal(10, 2) // Preço por unidade nessa faixa
-  order        Int      @default(0)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  @@index([serviceId])
-  @@map("service_pricing_tiers")
-}
-
-// ============================================
-// SERVICE ZONES - Zonas de preço por região/bairro
-// Exemplo: Continente (base), Ilha (+R$55), Extremos (orçamento)
-// ============================================
-
-enum ZonePricingType {
-  FIXED // Adicional fixo (ex: +R$55)
-  PERCENTAGE // Adicional percentual (ex: +10%)
-  CUSTOM // Requer orçamento personalizado
-}
-
-model ServiceZone {
-  id            String          @id @default(uuid())
-  companyId     String          @map("company_id")
-  name          String // Nome da zona (ex: "Continente", "Ilha", "Extremos")
-  description   String?         @db.Text
-  pricingType   ZonePricingType @default(FIXED) @map("pricing_type")
-  priceModifier Decimal         @default(0) @map("price_modifier") @db.Decimal(10, 2) // Valor adicional ou percentual
-  neighborhoods String[]        @default([]) // Lista de bairros incluídos
-  isDefault     Boolean         @default(false) @map("is_default") // Zona padrão (preço base)
-  requiresQuote Boolean         @default(false) @map("requires_quote") // Requer orçamento especial
-  isActive      Boolean         @default(true) @map("is_active")
-  order         Int             @default(0)
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
-
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  customers Customer[] @relation("CustomerZone")
-
-  @@unique([companyId, name])
-  @@index([companyId])
-  @@index([isDefault])
-  @@index([isActive])
-  @@map("service_zones")
-}
-
-// ============================================
-// SERVICE COMBOS - Pacotes/combos com preço fixo
-// Exemplo: "1 Split 9K + 1 Split 18K" = R$1.550
-// ============================================
-
-model ServiceCombo {
-  id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
-  name        String // Nome do combo (ex: "Instalação 1x9K + 1x18K")
-  description String?  @db.Text
-  fixedPrice  Decimal  @map("fixed_price") @db.Decimal(10, 2) // Preço fixo do combo
-  category    String? // Categoria (ex: "Instalação", "Limpeza")
-  isActive    Boolean  @default(true) @map("is_active")
-  order       Int      @default(0)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  items   ServiceComboItem[]
-
-  @@unique([companyId, name])
-  @@index([companyId])
-  @@index([isActive])
-  @@index([category])
-  @@map("service_combos")
-}
-
-model ServiceComboItem {
-  id        String  @id @default(uuid())
-  comboId   String  @map("combo_id")
-  serviceId String  @map("service_id")
-  quantity  Int     @default(1) // Quantidade deste serviço no combo
-  notes     String? // Notas adicionais (ex: "9K ou 12K")
-  order     Int     @default(0)
-
-  combo   ServiceCombo @relation(fields: [comboId], references: [id], onDelete: Cascade)
-  service Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  @@index([comboId])
-  @@index([serviceId])
-  @@map("service_combo_items")
-}
-
-// ============================================
-// SERVICE ADDITIONALS - Adicionais opcionais
-// Exemplo: Rapel +R$650, Infra complexa +R$200
-// ============================================
-
-model ServiceAdditional {
-  id                  String   @id @default(uuid())
-  companyId           String   @map("company_id")
-  name                String // Nome do adicional (ex: "Rapel", "Infra complexa")
-  description         String?  @db.Text
-  price               Decimal  @db.Decimal(10, 2) // Preço do adicional
-  appliesToCategories String[] @default([]) @map("applies_to_categories") // Categorias onde se aplica (vazio = todas)
-  isActive            Boolean  @default(true) @map("is_active")
-  order               Int      @default(0)
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  @@unique([companyId, name])
-  @@index([companyId])
-  @@index([isActive])
-  @@map("service_additionals")
-}
-
-// ============================================
-// ZONE EXCEPTIONS - Exceções de taxa por zona
-// Exemplo: "Limpeza de +2 equipamentos não tem taxa da Ilha"
-// ============================================
-
-model ServiceZoneException {
-  id            String   @id @default(uuid())
-  companyId     String   @map("company_id")
-  zoneId        String   @map("zone_id") // Zona afetada
-  serviceId     String?  @map("service_id") // Serviço específico (null = categoria)
-  category      String? // Categoria (ex: "Limpeza")
-  minQuantity   Int?     @map("min_quantity") // Quantidade mínima para exceção
-  exceptionType String   @map("exception_type") // "NO_FEE" = sem taxa, "CUSTOM_FEE" = taxa diferente
-  customFee     Decimal? @map("custom_fee") @db.Decimal(10, 2) // Taxa customizada (se aplicável)
-  description   String?  @db.Text // Descrição da exceção
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  @@index([companyId])
-  @@index([zoneId])
-  @@index([serviceId])
-  @@index([category])
-  @@map("service_zone_exceptions")
-}
-
-// ============================================
-// RAG - Knowledge Vector Store
-// Armazena embeddings para busca semântica
-// ============================================
-
-model KnowledgeVector {
-  id        String                      @id @default(uuid())
-  companyId String                      @map("company_id")
-  content   String                      @db.Text // Conteúdo original do chunk
-  metadata  Json?                       @default("{}") // Metadados (fonte, tipo, etc)
-  embedding Unsupported("vector(1536)") // Embedding de 1536 dimensões (OpenAI/Gemini)
-  createdAt DateTime                    @default(now()) @map("created_at")
-  updatedAt DateTime                    @updatedAt @map("updated_at")
-
-  @@index([companyId])
-  @@map("knowledge_vectors")
-}
-
-// ============================================
-// SERVICE SEMANTIC SEARCH - Busca Semântica de Serviços
-// ============================================
-
-model ServiceVector {
-  id        String                      @id @default(uuid())
-  companyId String                      @map("company_id")
-  serviceId String                      @map("service_id")
-  content   String                      @db.Text // Conteúdo textual rico (nome + descrição + sinônimos)
-  embedding Unsupported("vector(1536)") // Embedding de 1536 dimensões
-  createdAt DateTime                    @default(now()) @map("created_at")
-  updatedAt DateTime                    @updatedAt @map("updated_at")
-
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  @@index([companyId])
-  @@index([serviceId])
-  @@map("service_vectors")
-}
-
-model ServiceRelationship {
-  id               String   @id @default(uuid())
-  companyId        String   @map("company_id")
-  sourceServiceId  String   @map("source_service_id")
-  relatedServiceId String   @map("related_service_id")
-  relationshipType String   @map("relationship_type") // complement, alternative, upsell, same_equipment
-  strength         Decimal  @default(0.5) @db.Decimal(3, 2) // 0.00 a 1.00
-  autoDetected     Boolean  @default(false) @map("auto_detected")
-  createdAt        DateTime @default(now()) @map("created_at")
-
-  sourceService  Service @relation("SourceRelation", fields: [sourceServiceId], references: [id], onDelete: Cascade)
-  relatedService Service @relation("RelatedRelation", fields: [relatedServiceId], references: [id], onDelete: Cascade)
-
-  @@unique([sourceServiceId, relatedServiceId])
-  @@index([companyId])
-  @@index([sourceServiceId])
-  @@index([relatedServiceId])
-  @@map("service_relationships")
-}
-
-model DomainSynonym {
-  id            String   @id @default(uuid())
-  companyId     String?  @map("company_id") // null = sinônimo global
-  canonicalTerm String   @map("canonical_term") // Termo canônico (ex: "ar condicionado")
-  synonyms      String[] // Lista de sinônimos (ex: ["ar frio", "split", "AC"])
-  domain        String? // Domínio de aplicação (ex: "HVAC", "Eletrica")
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-
-  @@index([companyId])
-  @@index([canonicalTerm])
-}
-
-// ============================================
-// FLOW BUILDER - Construtor visual de fluxos WhatsApp
-// ============================================
 
 enum FlowStatus {
   DRAFT
@@ -910,96 +726,67 @@ enum FlowStatus {
   ARCHIVED
 }
 
-model Flow {
-  id          String     @id @default(uuid())
-  companyId   String     @map("company_id")
-  name        String
-  description String?    @db.Text
-  triggerType        String     @default("webhook") @map("trigger_type") // webhook, keyword, etc
-  webhookSlug        String?    @unique @map("webhook_slug") // URL path para acionar
-  lastWebhookPayload Json?      @map("last_webhook_payload") // Guarda o último payload pra extrair variáveis
-  status             FlowStatus @default(DRAFT)
-  createdAt          DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
-
-  company    Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  nodes      FlowNode[]
-  edges      FlowEdge[]
-  executions FlowExecution[]
-
-  @@index([companyId])
-  @@index([status])
-  @@map("flows")
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
 }
 
-model FlowNode {
-  id        String   @id // Mantemos string (gerado pelo xyflow)
-  flowId    String   @map("flow_id")
-  type      String // message, condition, delay, webhook_trigger, etc
-  data      Json // Content (text, variables, delayTime, etc)
-  positionX Float    @map("position_x")
-  positionY Float    @map("position_y")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  flow        Flow       @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  sourceEdges FlowEdge[] @relation("SourceNode")
-  targetEdges FlowEdge[] @relation("TargetNode")
-
-  executions FlowExecution[] @relation("CurrentNode")
-
-  @@index([flowId])
-  @@map("flow_nodes")
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
 }
 
-model FlowEdge {
-  id           String   @id // ID do React Flow
-  flowId       String   @map("flow_id")
-  sourceNodeId String   @map("source_node_id")
-  sourceHandle String?  @map("source_handle") // left/right/respondeu/nao_respondeu
-  targetNodeId String   @map("target_node_id")
-  targetHandle String?  @map("target_handle")
-  createdAt    DateTime @default(now()) @map("created_at")
-
-  flow       Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  sourceNode FlowNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
-  targetNode FlowNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
-
-  @@index([flowId])
-  @@index([sourceNodeId])
-  @@index([targetNodeId])
-  @@map("flow_edges")
+enum MessageFeedback {
+  GOOD
+  BAD
 }
 
-enum FlowExecutionStatus {
-  DELAYED
-  RUNNING
-  PAUSED
-  WAITING_REPLY // Esperando cliente responder
-  COMPLETED
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
   FAILED
 }
 
-model FlowExecution {
-  id            String              @id @default(uuid())
-  flowId        String              @map("flow_id")
-  contactPhone  String              @map("contact_phone") // Telefone do lead
-  currentNodeId String?             @map("current_node_id") // Nó onde o fluxo parou/está
-  history       Json?               @default("[]") // Histórico de IDs de nós visitados
-  variables     Json?               @default("{}") // Variáveis coletadas pelo webhook (nome, etc)
-  status        FlowExecutionStatus @default(RUNNING)
-  error         String?             @db.Text
-  resumesAt     DateTime?           @map("resumes_at") // Preenchido se status for WAITING_REPLY ou DELAYED
-  startedAt     DateTime            @default(now()) @map("started_at")
-  completedAt   DateTime?           @map("completed_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
+enum PermissionPage {
+  DASHBOARD
+  CUSTOMERS
+  CONVERSATIONS
+  PIPELINE
+  CALENDAR
+  CAMPAIGNS
+  WHATSAPP_LINKS
+  AI_CONFIG
+  WHATSAPP_CONFIG
+}
 
-  flow        Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  currentNode FlowNode? @relation("CurrentNode", fields: [currentNodeId], references: [id], onDelete: SetNull)
+enum SenderType {
+  HUMAN
+  AI
+}
 
-  @@index([flowId])
-  @@index([contactPhone])
-  @@index([status])
-  @@index([resumesAt])
-  @@map("flow_executions")
+enum ServiceType {
+  PRODUCT
+  SERVICE
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  AGENT
+  USER
+}
+
+enum WhatsAppStatus {
+  DISCONNECTED
+  CONNECTING
+  CONNECTED
+}
+
+enum ZonePricingType {
+  FIXED
+  PERCENTAGE
+  CUSTOM
 }

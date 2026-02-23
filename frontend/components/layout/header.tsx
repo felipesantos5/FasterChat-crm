@@ -26,6 +26,7 @@ import {
   Kanban,
   CalendarDays,
   Link2,
+  Zap,
   LucideIcon,
   Menu,
 } from "lucide-react";
@@ -76,6 +77,11 @@ const pageMap: Record<string, PageInfo> = {
     label: "Links de WhatsApp",
     icon: Link2,
     description: "Links de conversão",
+  },
+  "/dashboard/flows": {
+    label: "Fluxos de Automação",
+    icon: Zap,
+    description: "Automações visuais de WhatsApp",
   },
   "/dashboard/settings/ai": {
     label: "Configurações de IA",
