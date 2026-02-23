@@ -1,18 +1,19 @@
 import { Router } from 'express';
 import { FlowController } from '../controllers/FlowController';
 import { authenticate } from '../middlewares/auth';
+import { asyncHandler } from '../middlewares/errorHandler';
 
 const flowRouter = Router();
 const flowController = new FlowController();
 
 flowRouter.use(authenticate);
 
-flowRouter.get('/', flowController.getFlows);
-flowRouter.post('/', flowController.createFlow);
-flowRouter.get('/:id', flowController.getFlowById);
-flowRouter.put('/:id', flowController.updateFlow);
-flowRouter.get('/:id/variables', flowController.getFlowVariables);
-flowRouter.post('/:id/nodes', flowController.saveFlowNodes);
-flowRouter.delete('/:id', flowController.deleteFlow);
+flowRouter.get('/', asyncHandler(flowController.getFlows));
+flowRouter.post('/', asyncHandler(flowController.createFlow));
+flowRouter.get('/:id', asyncHandler(flowController.getFlowById));
+flowRouter.put('/:id', asyncHandler(flowController.updateFlow));
+flowRouter.get('/:id/variables', asyncHandler(flowController.getFlowVariables));
+flowRouter.post('/:id/nodes', asyncHandler(flowController.saveFlowNodes));
+flowRouter.delete('/:id', asyncHandler(flowController.deleteFlow));
 
 export { flowRouter };

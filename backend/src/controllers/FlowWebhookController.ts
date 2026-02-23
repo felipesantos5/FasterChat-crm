@@ -10,21 +10,30 @@ export class FlowWebhookController {
     const variables = { ...req.query, ...req.body };
     const contactPhone = variables.phone || variables.telefone || variables.contact;
 
-    if (!contactPhone) {
-      return res.status(400).json({ error: 'Missing contact phone (phone, telefone or contact)' });
-    }
-
     try {
-      const flow = await prisma.flow.update({
+      // Find the flow first
+      const flow = await prisma.flow.findFirst({
         where: { webhookSlug: slug, status: 'ACTIVE' },
-        data: {
-          lastWebhookPayload: variables
-        },
         include: { nodes: true, edges: true } 
       });
 
       if (!flow) {
         return res.status(404).json({ error: 'Flow not found or not active' });
+      }
+
+      // Automatically update the last webhook payload even if no phone is mapped (useful for admin panel variable extraction)
+      await prisma.flow.update({
+        where: { id: flow.id },
+        data: {
+          lastWebhookPayload: variables
+        }
+      });
+
+      if (!contactPhone) {
+        return res.status(200).json({ 
+          message: 'Webhook received and variables mapped. No contact phone provided to execute flow automatically.',
+          variablesMapped: true
+        });
       }
 
       const flowEngine = new FlowEngineService();

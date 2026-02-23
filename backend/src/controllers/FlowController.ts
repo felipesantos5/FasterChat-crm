@@ -45,6 +45,15 @@ export class FlowController {
     const { companyId } = req.user!;
     const { name, description, triggerType = 'webhook' } = req.body;
 
+    if (!name) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR' as any,
+        message: 'Name is required to create a flow',
+        userMessage: 'Nome do fluxo é obrigatório',
+        statusCode: 400
+      });
+    }
+
     // Generate unique webhook slug
     const webhookSlug = `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
 

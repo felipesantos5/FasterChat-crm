@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { Pencil, ArrowLeft } from 'lucide-react';
 import {
   ReactFlow,
   Controls,
@@ -51,6 +52,8 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [loading, setLoading] = useState(true);
   const [variables, setVariables] = useState<string[]>([]);
+  const [flowName, setFlowName] = useState('Novo Fluxo');
+  const [isEditingName, setIsEditingName] = useState(false);
   const { updateNodeData, getNodes } = useReactFlow();
 
   // Load or Create Flow
@@ -66,6 +69,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
 
         const res = await api.get(`/flows/${flowId}`);
         const flow = res.data;
+        if (flow.name) setFlowName(flow.name);
 
         let loadedNodes = initialNodes;
 
@@ -121,6 +125,12 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
 
   const saveFlow = async () => {
     try {
+      // 1. Atualiza dados do fluxo (Nome)
+      if (flowId !== 'new') {
+        await api.put(`/flows/${flowId}`, { name: flowName });
+      }
+
+      // 2. Atualiza Nódulos do Fluxo
       const payload = {
         nodes: nodes.map(n => ({
           id: n.id,
@@ -193,59 +203,89 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   };
 
   return (
-    <div className="w-full h-full flex flex-row mt-16 border-t font-sans relative">
-      <div className="absolute top-[-50px] right-4 z-10 flex space-x-2">
-        <button onClick={saveFlow} className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium shadow-sm">
+    <div className="flex flex-col h-full w-full font-sans bg-gray-50/50">
+      <div className="flex items-center justify-between px-6 py-4 bg-white border-b z-20">
+        <div className="flex items-center space-x-4">
+          <button onClick={() => router.back()} className="text-gray-500 hover:text-black flex items-center shadow-sm p-2 rounded-md border transition-colors hover:bg-gray-50" title="Voltar">
+            <ArrowLeft size={18} />
+          </button>
+
+          <div className="flex items-center space-x-2">
+            {isEditingName ? (
+              <input
+                type="text"
+                className="border p-1.5 rounded text-sm text-gray-800 font-semibold focus:outline-none focus:ring-2 focus:ring-primary w-64"
+                value={flowName}
+                onChange={e => setFlowName(e.target.value)}
+                onBlur={() => setIsEditingName(false)}
+                autoFocus
+                onKeyDown={e => e.key === 'Enter' && setIsEditingName(false)}
+              />
+            ) : (
+              <div
+                className="font-semibold text-lg cursor-pointer flex items-center gap-2 hover:bg-gray-50 px-2 py-1 rounded transition-colors text-gray-800"
+                onClick={() => setIsEditingName(true)}
+                title="Editar Nome do Fluxo"
+              >
+                {flowName} <Pencil size={14} className="text-gray-400" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button onClick={saveFlow} className="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary/90 text-sm font-semibold shadow-md transition-colors">
           Salvar
         </button>
       </div>
 
-      <div className="flex-1 h-full">
-        {loading ? (
-          <div className="flex w-full h-full items-center justify-center text-gray-400">Carregando fluxo...</div>
-        ) : (
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            fitView
-            proOptions={{ hideAttribution: true }}
-          >
-            <Controls />
-            <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
-          </ReactFlow>
-        )}
-      </div>
-
-      <div className="w-80 border-l bg-gray-50 h-full flex flex-col z-10">
-        <div className="flex-1 overflow-y-auto">
-          <NodeSidebar handleAddNode={handleAddNode} />
+      <div className="flex-1 w-full h-full flex flex-row relative z-10">
+        <div className="flex-1 h-full relative">
+          {loading ? (
+            <div className="flex w-full h-full items-center justify-center text-gray-400">Carregando fluxo...</div>
+          ) : (
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              fitView
+              proOptions={{ hideAttribution: true }}
+            >
+              <Controls />
+              <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+            </ReactFlow>
+          )}
         </div>
 
-        {/* Painel de Variáveis */}
-        <div className="border-t bg-white p-4 max-h-[40%] overflow-y-auto">
-          <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-2">Variáveis do Webhook</h3>
-          {variables.length > 0 ? (
-            <div className="flex flex-wrap gap-2 text-xs">
-              {variables.map(v => (
-                <button
-                  key={v}
-                  onClick={() => handleVariableClick(v)}
-                  className="bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded hover:bg-primary/20 transition cursor-pointer"
-                  title="Clique para adicionar no bloco selecionado"
-                >
-                  {`{{${v}}}`}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded text-center">
-              Nenhuma variável detectada ainda. Seu webhook precisa receber dados primeiro.
-            </div>
-          )}
+        <div className="w-80 border-l bg-gray-50 h-full flex flex-col z-10">
+          <div className="flex-1 overflow-y-auto">
+            <NodeSidebar handleAddNode={handleAddNode} />
+          </div>
+
+          {/* Painel de Variáveis */}
+          <div className="border-t bg-white p-4 max-h-[40%] overflow-y-auto">
+            <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-2">Variáveis do Webhook</h3>
+            {variables.length > 0 ? (
+              <div className="flex flex-wrap gap-2 text-xs">
+                {variables.map(v => (
+                  <button
+                    key={v}
+                    onClick={() => handleVariableClick(v)}
+                    className="bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded hover:bg-primary/20 transition cursor-pointer"
+                    title="Clique para adicionar no bloco selecionado"
+                  >
+                    {`{{${v}}}`}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded text-center">
+                Nenhuma variável detectada ainda. Seu webhook precisa receber dados primeiro.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
