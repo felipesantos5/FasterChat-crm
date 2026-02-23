@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { use } from 'react';
 import { FlowCanvas } from '@/components/flows/FlowCanvas';
 import { useRouter } from 'next/navigation';
 
-export default function FlowBuilderPage({ params }: { params: { id: string } }) {
+export default function FlowBuilderPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const isNew = params.id === 'new';
+  const { id } = use(params);
+  const isNew = id === 'new';
 
   // Real implementation would fetch flow by ID from our created API
   // For now, let's just render the FlowCanvas
@@ -26,7 +27,7 @@ export default function FlowBuilderPage({ params }: { params: { id: string } }) 
         </button>
       </div>
 
-      <FlowCanvas flowId={params.id} />
+      <FlowCanvas flowId={id} />
     </div>
   );
 }

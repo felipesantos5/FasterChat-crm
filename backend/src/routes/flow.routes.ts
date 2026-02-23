@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { FlowController } from '../controllers/FlowController';
-import { ensureAuthenticated } from '../middlewares/ensureAuthenticated';
+import { authenticate } from '../middlewares/auth';
 
 const flowRouter = Router();
 const flowController = new FlowController();
 
-flowRouter.use(ensureAuthenticated);
+flowRouter.use(authenticate);
 
 flowRouter.get('/', flowController.getFlows);
 flowRouter.post('/', flowController.createFlow);

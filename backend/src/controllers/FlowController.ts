@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
-import { AppError } from '../errors/AppError';
+import { AppError } from '../utils/errors';
 
 export class FlowController {
   public async getFlows(req: Request, res: Response): Promise<Response> {
-    const { companyId } = req.user;
+    const { companyId } = req.user!;
 
     const flows = await prisma.flow.findMany({
       where: { companyId },
@@ -19,7 +19,7 @@ export class FlowController {
 
   public async getFlowById(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
-    const { companyId } = req.user;
+    const { companyId } = req.user!;
 
     const flow = await prisma.flow.findUnique({
       where: { id, companyId },
@@ -30,14 +30,19 @@ export class FlowController {
     });
 
     if (!flow) {
-      throw new AppError('Flow not found', 404);
+      throw new AppError({
+        code: 'VALIDATION_ERROR' as any,
+        message: 'Flow not found',
+        userMessage: 'Fluxo não encontrado',
+        statusCode: 404
+      });
     }
 
     return res.json(flow);
   }
 
   public async createFlow(req: Request, res: Response): Promise<Response> {
-    const { companyId } = req.user;
+    const { companyId } = req.user!;
     const { name, description, triggerType = 'webhook' } = req.body;
 
     // Generate unique webhook slug
@@ -58,7 +63,7 @@ export class FlowController {
 
   public async updateFlow(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
-    const { companyId } = req.user;
+    const { companyId } = req.user!;
     const { name, description, status, webhookSlug } = req.body;
 
     const flowExists = await prisma.flow.findUnique({
@@ -66,7 +71,12 @@ export class FlowController {
     });
 
     if (!flowExists) {
-      throw new AppError('Flow not found', 404);
+      throw new AppError({
+        code: 'VALIDATION_ERROR' as any,
+        message: 'Flow not found',
+        userMessage: 'Fluxo não encontrado',
+        statusCode: 404
+      });
     }
 
     const flow = await prisma.flow.update({
@@ -84,7 +94,7 @@ export class FlowController {
 
   public async saveFlowNodes(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
-    const { companyId } = req.user;
+    const { companyId } = req.user!;
     const { nodes, edges } = req.body;
 
     const flowExists = await prisma.flow.findUnique({
@@ -92,7 +102,12 @@ export class FlowController {
     });
 
     if (!flowExists) {
-      throw new AppError('Flow not found', 404);
+      throw new AppError({
+        code: 'VALIDATION_ERROR' as any,
+        message: 'Flow not found',
+        userMessage: 'Fluxo não encontrado',
+        statusCode: 404
+      });
     }
 
     // Using a transaction to clear existing nodes/edges and insert the new ones
@@ -137,14 +152,19 @@ export class FlowController {
 
   public async deleteFlow(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
-    const { companyId } = req.user;
+    const { companyId } = req.user!;
 
     const flowExists = await prisma.flow.findUnique({
       where: { id, companyId },
     });
 
     if (!flowExists) {
-      throw new AppError('Flow not found', 404);
+      throw new AppError({
+        code: 'VALIDATION_ERROR' as any,
+        message: 'Flow not found',
+        userMessage: 'Fluxo não encontrado',
+        statusCode: 404
+      });
     }
 
     await prisma.flow.delete({

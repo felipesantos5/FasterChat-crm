@@ -10,8 +10,7 @@ import {
   Connection,
   Edge,
   Node,
-  BackgroundVariant,
-  Panel
+  BackgroundVariant
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -44,6 +43,8 @@ type FlowCanvasProps = {
 };
 
 export function FlowCanvas({ flowId }: FlowCanvasProps) {
+  // eslint-disable-next-line no-console
+  console.log('Rendering canvas for flow:', flowId);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
