@@ -12,7 +12,6 @@ import {
   ChevronRight,
   Play,
   Clock,
-  MoreVertical
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -98,8 +97,8 @@ export default function FlowsPage() {
                 </div>
                 <div className="flex gap-2">
                   <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full ${flow.status === 'ACTIVE'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-yellow-100 text-yellow-700'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-yellow-100 text-yellow-700'
                     }`}>
                     {flow.status === 'ACTIVE' ? 'Ativo' : 'Rascunho'}
                   </span>
