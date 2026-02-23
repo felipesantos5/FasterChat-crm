@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
-import { Trash2, HelpCircle, CheckCircle2, XCircle, MessageCircle, Clock } from 'lucide-react';
+import { Trash2, HelpCircle, CheckCircle2, Clock } from 'lucide-react';
 
 export const ConditionNode = memo(({ id, data }: any) => {
   const { deleteElements, updateNodeData } = useReactFlow();
@@ -71,22 +71,6 @@ export const ConditionNode = memo(({ id, data }: any) => {
               <span className="text-[11px] font-bold text-green-700 uppercase">Respondeu "SIM"</span>
             </div>
             <Handle type="source" position={Position.Right} id="sim" className="w-3 h-3 bg-green-500 border-2 border-white -mr-1" />
-          </div>
-
-          <div className="flex items-center justify-between bg-red-50/40 p-2.5 rounded-lg border border-red-100 relative group hover:bg-red-50 transition-colors">
-            <div className="flex items-center gap-2">
-              <XCircle size={14} className="text-red-500" />
-              <span className="text-[11px] font-bold text-red-700 uppercase">Respondeu "NÃO"</span>
-            </div>
-            <Handle type="source" position={Position.Right} id="nao" className="w-3 h-3 bg-red-500 border-2 border-white -mr-1" />
-          </div>
-
-          <div className="flex items-center justify-between bg-blue-50/40 p-2.5 rounded-lg border border-blue-100 relative group hover:bg-blue-50 transition-colors">
-            <div className="flex items-center gap-2">
-              <MessageCircle size={14} className="text-blue-500" />
-              <span className="text-[11px] font-bold text-blue-700 uppercase">Qualquer outra</span>
-            </div>
-            <Handle type="source" position={Position.Right} id="respondeu" className="w-3 h-3 bg-blue-500 border-2 border-white -mr-1" />
           </div>
 
           <div className="flex items-center justify-between bg-gray-50/40 p-2.5 rounded-lg border border-gray-100 relative group hover:bg-gray-100 transition-colors">

@@ -102,7 +102,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
             id: n.id,
             type: n.type,
             position: { x: n.positionX, y: n.positionY },
-            data: n.data,
+            data: { ...n.data, flowId },
           }));
         }
 
@@ -239,6 +239,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         data: {
           name,
           label: name,
+          flowId,
           ...(type === 'audio' ? { mediaUrl: '', fileName: '' } : {})
         },
       };

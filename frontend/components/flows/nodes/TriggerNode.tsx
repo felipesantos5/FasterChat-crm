@@ -25,7 +25,7 @@ export const TriggerNode = memo(({ data }: any) => {
   };
 
   return (
-    <div className="bg-white border-2 border-primary rounded-md shadow-md min-w-[280px] overflow-hidden">
+    <div className="bg-white border-2 border-primary rounded-md shadow-md min-w-[280px] max-w-[430px] overflow-hidden">
       <div className="bg-primary/10 px-3 py-2 border-b border-primary/20 flex items-center justify-between">
         <span className="text-sm font-semibold text-primary">⚡ Gatilho</span>
       </div>

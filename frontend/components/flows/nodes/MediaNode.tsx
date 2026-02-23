@@ -1,12 +1,26 @@
-import { memo, useRef } from 'react';
+import { memo, useRef, useState, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
-import { Trash2, ImageIcon, Video, Upload, X } from 'lucide-react';
+import { Trash2, ImageIcon, Video, Upload, X, Tag } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { VariablePickerModal } from '../VariablePickerModal';
 
 export const MediaNode = memo(({ id, data, type }: any) => {
   const { updateNodeData, deleteElements } = useReactFlow();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const captionRef = useRef<HTMLTextAreaElement>(null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [localPreview, setLocalPreview] = useState<string | null>(data?.mediaUrl || null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Sync local preview with data changes (e.g. on load)
+  useEffect(() => {
+    if (data?.mediaUrl) {
+      setLocalPreview(data.mediaUrl);
+    } else {
+      setLocalPreview(null);
+    }
+  }, [data?.mediaUrl]);
 
   const isVideo = type === 'video';
   const Icon = isVideo ? Video : ImageIcon;
@@ -25,11 +39,15 @@ export const MediaNode = memo(({ id, data, type }: any) => {
       return;
     }
 
+    // Set local preview immediately
+    const objectUrl = URL.createObjectURL(file);
+    setLocalPreview(objectUrl);
+    setIsUploading(true);
+
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      toast.loading(`Enviando ${isVideo ? 'vídeo' : 'imagem'}...`, { id: `upload-media-${id}` });
       const response = await api.post('/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -38,10 +56,14 @@ export const MediaNode = memo(({ id, data, type }: any) => {
 
       const url = response.data.url;
       updateNodeData(id, { mediaUrl: url, fileName: file.name });
-      toast.success(`${isVideo ? 'Vídeo' : 'Imagem'} enviado com sucesso!`, { id: `upload-media-${id}` });
+      setLocalPreview(url); // Update with final URL
+      toast.success(`${isVideo ? 'Vídeo' : 'Imagem'} enviado com sucesso!`);
     } catch (error) {
       console.error('Error uploading media', error);
-      toast.error('Erro ao enviar arquivo', { id: `upload-media-${id}` });
+      toast.error('Erro ao enviar arquivo');
+      setLocalPreview(data?.mediaUrl || null); // Revert on error
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -49,8 +71,28 @@ export const MediaNode = memo(({ id, data, type }: any) => {
     updateNodeData(id, { caption: e.target.value });
   };
 
+  const insertVariable = (variable: string) => {
+    const variableText = `{{${variable}}}`;
+    const textarea = captionRef.current;
+    const currentCaption = data?.caption || '';
+
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newText = currentCaption.substring(0, start) + variableText + currentCaption.substring(end);
+      updateNodeData(id, { caption: newText });
+
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + variableText.length, start + variableText.length);
+      }, 0);
+    } else {
+      updateNodeData(id, { caption: currentCaption + ' ' + variableText });
+    }
+  };
+
   return (
-    <div className={`bg-white border-2 rounded-xl shadow-lg min-w-[280px] overflow-hidden transition-all ${isVideo
+    <div className={`bg-white border-2 rounded-xl shadow-lg min-w-[320px] max-w-[400px] overflow-hidden transition-all ${isVideo
       ? 'border-indigo-400 hover:shadow-indigo-100 hover:border-indigo-500'
       : 'border-pink-400 hover:shadow-pink-100 hover:border-pink-500'
       }`}>
@@ -81,25 +123,39 @@ export const MediaNode = memo(({ id, data, type }: any) => {
       </div>
 
       <div className="p-4 bg-white flex flex-col gap-4">
-        {data?.mediaUrl ? (
-          <div className="w-full space-y-3">
+        {localPreview ? (
+          <div className="w-full space-y-4">
             <div className={`relative group aspect-video rounded-lg overflow-hidden border flex items-center justify-center ${isVideo ? 'bg-indigo-50/30 border-indigo-100' : 'bg-pink-50/30 border-pink-100'
               }`}>
               {isVideo ? (
                 <video
-                  src={data.mediaUrl}
+                  src={localPreview}
                   className="w-full h-full object-contain bg-black/5"
                   controls
                 />
               ) : (
                 <img
-                  src={data.mediaUrl}
+                  src={localPreview}
                   alt="Preview"
                   className="w-full h-full object-cover"
+                  crossOrigin="anonymous"
                 />
               )}
+
+              {isUploading && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px]">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-[10px] text-white font-bold tracking-tight uppercase">Enviando...</span>
+                  </div>
+                </div>
+              )}
+
               <button
-                onClick={() => updateNodeData(id, { mediaUrl: null, fileName: null })}
+                onClick={() => {
+                  updateNodeData(id, { mediaUrl: null, fileName: null });
+                  setLocalPreview(null);
+                }}
                 className="absolute top-2 right-2 bg-white/90 p-1 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm nodrag"
               >
                 <X size={14} />
@@ -107,11 +163,23 @@ export const MediaNode = memo(({ id, data, type }: any) => {
             </div>
 
             <div className="space-y-1.5">
-              <label className={`text-[10px] font-bold uppercase tracking-widest ml-1 ${isVideo ? 'text-indigo-600' : 'text-pink-600'
-                }`}>
-                Legenda (Opcional)
-              </label>
+              <div className="flex items-center justify-between px-1">
+                <label className={`text-[10px] font-bold uppercase tracking-widest ${isVideo ? 'text-indigo-600' : 'text-pink-600'
+                  }`}>
+                  Legenda (Opcional)
+                </label>
+                <button
+                  onClick={() => setIsPickerOpen(true)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold transition-all nodrag border border-dashed ${isVideo
+                    ? 'text-indigo-600 border-indigo-200 hover:bg-indigo-100'
+                    : 'text-pink-600 border-pink-200 hover:bg-pink-100'
+                    }`}
+                >
+                  <Tag size={10} /> Variáveis
+                </button>
+              </div>
               <textarea
+                ref={captionRef}
                 className={`w-full p-2.5 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 nodrag resize-none transition-all ${isVideo ? 'focus:ring-indigo-500/20 focus:border-indigo-400' : 'focus:ring-pink-500/20 focus:border-pink-400'
                   }`}
                 rows={2}
@@ -162,6 +230,13 @@ export const MediaNode = memo(({ id, data, type }: any) => {
           className="hidden"
         />
       </div>
+
+      <VariablePickerModal
+        isOpen={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        onSelect={insertVariable}
+        flowId={data?.flowId}
+      />
 
       <Handle
         type="source"
