@@ -265,10 +265,9 @@ export class FlowEngineService {
 
   private async executeConditionNode(execution: any, node: any, data: any) {
     // For a "wait for reply" condition, we pause the execution
-    // and ideally schedule a BullMQ job for the "timeout" (e.g. 24 hours)
     
     // Let's calculate the timeout date based on data
-    const delayMinutes = data.waitMinutes || 60 * 24; // Default 24h
+    const delayMinutes = data.waitHours ? Number(data.waitHours) * 60 : (data.waitMinutes || 60 * 24); // Default 24h
     const resumesAt = new Date();
     resumesAt.setMinutes(resumesAt.getMinutes() + delayMinutes);
 
@@ -280,9 +279,7 @@ export class FlowEngineService {
       }
     });
 
-    // Here we would enqueue a job in BullMQ to wake up after `delayMinutes`
-    // queue.add('flow-timeout', { executionId: execution.id, nodeId: node.id }, { delay: delayMinutes * 60 * 1000 });
-    console.log(`[FlowEngine] Flow paused at condition node, waiting for reply until ${resumesAt}`);
+    console.log(`[FlowEngine] Flow paused at condition node, waiting for reply until ${resumesAt} (limit: ${delayMinutes} mins)`);
   }
 
   private async executeDelayNode(execution: any, node: any, data: any) {

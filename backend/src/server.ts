@@ -12,6 +12,7 @@ import { blockApiForRestrictedDomains } from "./middlewares/domainRestriction";
 import { websocketService } from "./services/websocket.service";
 import campaignExecutionService from "./services/campaign-execution.service";
 import campaignSchedulerService from "./services/campaign-scheduler.service";
+import flowSchedulerService from "./services/flow-scheduler.service";
 import { config } from "./config";
 import {
   initializeGlobalErrorHandlers,
@@ -77,6 +78,7 @@ registerServer(httpServer);
 registerCleanup(async () => {
   console.log("[Cleanup] Stopping campaign scheduler...");
   campaignSchedulerService.stop();
+  flowSchedulerService.stop();
 });
 
 registerCleanup(async () => {
@@ -102,6 +104,9 @@ campaignExecutionService.startWorkers();
 
 // Inicializa Scheduler de Campanhas (backup para jobs agendados)
 campaignSchedulerService.start();
+
+// Inicializa Scheduler do Fluxo de Automação (WhatsApp Builder)
+flowSchedulerService.start();
 
 // ===========================================
 // SECURITY MIDDLEWARES
