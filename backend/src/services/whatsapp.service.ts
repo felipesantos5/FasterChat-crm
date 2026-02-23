@@ -687,8 +687,8 @@ class WhatsAppService {
       if (mediaType === "audio") {
         console.log(`[WhatsApp Service] 🎤 Sending audio to ${to} (${remoteJid})...`);
 
-        // ✅ PADRÃO EVOLUTION V2: 'sendAudio' com PTT e Encoding
-        const response = await this.axiosInstance.post(`/message/sendAudio/${instance.instanceName}`, {
+        // ✅ PADRÃO EVOLUTION V2: 'sendWhatsAppAudio' com PTT e Encoding
+        const response = await this.axiosInstance.post(`/message/sendWhatsAppAudio/${instance.instanceName}`, {
           number: remoteJid,
           audio: base64Data,
           delay: 1000, // Simula um pequeno delay de gravação
