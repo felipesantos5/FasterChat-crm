@@ -16,16 +16,6 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
         <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-3">Adicionar Ação</h3>
         <div className="grid grid-cols-1 gap-2">
 
-          <button
-            onClick={() => addNode('ai_action', 'Ação da IA')}
-            className="flex items-center gap-3 p-3 bg-white border rounded-md shadow-sm hover:border-emerald-400 hover:shadow-md transition-all text-left group"
-          >
-            <div className="bg-emerald-100 p-2 rounded-md text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors">🤖</div>
-            <div>
-              <p className="font-medium text-sm text-gray-900 font-sans">Status da IA</p>
-              <p className="text-xs text-gray-500">Ligar ou Desligar IA</p>
-            </div>
-          </button>
 
           <button
             onClick={() => addNode('message', 'Enviar Mensagem')}
@@ -90,6 +80,17 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
             <div>
               <p className="font-medium text-sm text-gray-900 font-sans">Vídeo</p>
               <p className="text-xs text-gray-500">Enviar MP4/Vídeo</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => addNode('ai_action', 'Ação da IA')}
+            className="flex items-center gap-3 p-3 bg-white border rounded-md shadow-sm hover:border-emerald-400 hover:shadow-md transition-all text-left group"
+          >
+            <div className="bg-emerald-100 p-2 rounded-md text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors">🤖</div>
+            <div>
+              <p className="font-medium text-sm text-gray-900 font-sans">Status da IA</p>
+              <p className="text-xs text-gray-500">Ligar ou Desligar IA</p>
             </div>
           </button>
 

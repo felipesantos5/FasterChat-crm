@@ -102,15 +102,11 @@ export class FlowEngineService {
     
     // Find edges coming from the current node
     let edges = flow.edges.filter(e => e.sourceNodeId === currentNodeId);
-    console.log(`[FlowEngine] 🔎 processNextNodes: node ${currentNodeId}, handle passed: ${sourceHandle}`);
-    console.log(`[FlowEngine] 🔄 All outgoing edges from ${currentNodeId}:`, edges.map(e => ({ target: e.targetNodeId, handle: e.sourceHandle })));
     
     // If a specific handle was provided (e.g., 'respondeu' or 'nao_respondeu'), filter by it
     if (sourceHandle) {
       edges = edges.filter(e => e.sourceHandle === sourceHandle || (sourceHandle === 'respondeu' && !e.sourceHandle));
     }
-
-    console.log(`[FlowEngine] 🎯 Filtered edges matching handle:`, edges.map(e => ({ target: e.targetNodeId, handle: e.sourceHandle })));
 
     if (edges.length === 0) {
       // Flow ended
@@ -350,7 +346,8 @@ export class FlowEngineService {
   }
 
   private async executeAiActionNode(execution: any, node: any, data: any) {
-    const turnOn = data.aiAction === 'enable'; // 'enable' or 'disable'
+    const action = data.aiAction || 'enable';
+    const turnOn = action === 'enable'; // 'enable' or 'disable'
     
     const customer = await prisma.customer.findFirst({
       where: { phone: execution.contactPhone, companyId: execution.flow.companyId }
@@ -366,6 +363,7 @@ export class FlowEngineService {
         if (websocketService.isInitialized()) {
           websocketService.emitConversationUpdate(execution.flow.companyId, customer.id, {
             aiEnabled: turnOn,
+            ...(turnOn ? { needsHelp: false } : {})
           });
         }
         console.log(`[FlowEngine] 🤖 AI for customer ${customer.id} set to ${turnOn ? 'ON' : 'OFF'}`);
@@ -381,8 +379,6 @@ export class FlowEngineService {
   public async handleIncomingMessage(contactPhone: string, companyId: string, messageText: string = ''): Promise<boolean> {
     const cleanPhone = contactPhone.replace(/\D/g, '');
     const rightDigits = cleanPhone.length > 8 ? cleanPhone.slice(-8) : cleanPhone;
-
-    console.log(`[FlowEngine] 📥 Incoming message for flow check. Phone: ${cleanPhone}, looking for endsWith: ${rightDigits}`);
 
     // Find if there's any active execution waiting for a reply for this contact
     const executions = await prisma.flowExecution.findMany({

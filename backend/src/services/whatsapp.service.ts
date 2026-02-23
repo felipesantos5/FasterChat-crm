@@ -380,8 +380,6 @@ class WhatsAppService {
           connectedAt: status === WhatsAppStatus.CONNECTED && !instance.connectedAt ? new Date() : instance.connectedAt,
         },
       });
-
-      console.log(`[WhatsApp Service] Status updated via Webhook: ${instance.instanceName} -> ${status}`);
     } catch (error: any) {
       console.error("[WhatsApp Service] Error updating connection status:", error.message);
     }
@@ -843,8 +841,6 @@ class WhatsAppService {
       if (!instance || instance.status !== "CONNECTED") return;
 
       const remoteJid = this.formatJid(to);
-
-      console.log(`[WhatsApp Service] ✍️ Sending '${presence}' presence to ${to} for ${delayMs}ms`);
 
       await this.axiosInstance.post(`/chat/sendPresence/${instance.instanceName}`, {
         number: remoteJid,

@@ -226,7 +226,8 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
           name,
           label: name,
           flowId,
-          ...(type === 'audio' ? { mediaUrl: '', fileName: '' } : {})
+          ...(type === 'audio' ? { mediaUrl: '', fileName: '' } : {}),
+          ...(type === 'ai_action' ? { aiAction: 'enable' } : {})
         },
       };
 
