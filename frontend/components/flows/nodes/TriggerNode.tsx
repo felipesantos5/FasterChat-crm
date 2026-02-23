@@ -29,21 +29,18 @@ export const TriggerNode = memo(({ data }: any) => {
       <div className="bg-primary/10 px-3 py-2 border-b border-primary/20 flex items-center justify-between">
         <span className="text-sm font-semibold text-primary">⚡ Gatilho</span>
       </div>
-      <div className="p-3">
-        <p className="text-sm text-gray-700 font-medium mb-1">Webhook URL:</p>
-        <div className="flex items-center gap-2">
-          <div className="bg-gray-100 p-2 rounded text-xs overflow-x-hidden whitespace-nowrap border text-gray-500 font-mono flex-1 text-ellipsis">
-            {fullUrl}
-          </div>
-          <button
-            onClick={handleCopy}
-            className="p-2 border rounded bg-white hover:bg-gray-50 text-gray-500 hover:text-primary transition-colors cursor-pointer nodrag"
-            title="Copiar Link"
-          >
-            <Copy size={14} />
-          </button>
-        </div>
-        {/* <p className="text-[10px] text-gray-400 mt-2">Dispara quando receber POST do seu Hub/Checkout.</p> */}
+      <div className="p-3 flex flex-col gap-2">
+        <button
+          onClick={handleCopy}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-900 border border-gray-800 text-white rounded-md text-sm hover:bg-black transition-colors cursor-pointer nodrag font-medium"
+        >
+          <Copy size={16} />
+          Copiar link do webhook
+        </button>
+
+        <p className="text-xs text-center text-gray-500 mt-1 leading-relaxed">
+          Para ativar, faça um <strong>POST</strong> enviando suas propriedades e coloque o <strong>phone</strong> para ativar o fluxo e enviar a mensagem.
+        </p>
       </div>
       <Handle type="source" position={Position.Right} id="a" className="w-3 h-3 bg-primary" />
     </div>

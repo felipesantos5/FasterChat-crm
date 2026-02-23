@@ -47,7 +47,7 @@ class WhatsAppService {
     }
 
     // Remove caracteres não numéricos
-    const cleanNumber = contact.replace(/\D/g, "");
+    let cleanNumber = contact.replace(/\D/g, "");
 
     // Detecção de LID (Linked Identifier / Business ID)
     // LIDs geralmente têm 15 dígitos e começam com números específicos (ex: 2)
@@ -55,6 +55,11 @@ class WhatsAppService {
     if (cleanNumber.length >= 15) {
       // console.log(`[WhatsApp Service] ℹ️ Detectado ID de Business (LID): ${cleanNumber}`);
       return `${cleanNumber}@lid`;
+    }
+
+    // Auto-fix para números do Brasil que foram inseridos sem o DDI (55)
+    if (cleanNumber.length === 10 || cleanNumber.length === 11) {
+      cleanNumber = `55${cleanNumber}`;
     }
 
     // Padrão para números de telefone
