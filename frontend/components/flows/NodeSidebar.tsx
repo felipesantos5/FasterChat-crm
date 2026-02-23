@@ -1,21 +1,13 @@
-import { Dispatch, SetStateAction } from 'react';
-import { Node } from '@xyflow/react';
+
 
 type NodeSidebarProps = {
-  setNodes: Dispatch<SetStateAction<Node[]>>;
+  handleAddNode: (type: string, name: string) => void;
 };
 
-export function NodeSidebar({ setNodes }: NodeSidebarProps) {
+export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
 
   const addNode = (type: string, name: string) => {
-    const newNode: Node = {
-      id: `${type}-${Date.now()}`,
-      type,
-      position: { x: 400 + Math.random() * 50, y: 300 + Math.random() * 50 },
-      data: { name, label: name },
-    };
-
-    setNodes((nds) => nds.concat(newNode));
+    handleAddNode(type, name);
   };
 
   return (

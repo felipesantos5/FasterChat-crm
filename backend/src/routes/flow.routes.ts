@@ -11,6 +11,7 @@ flowRouter.get('/', flowController.getFlows);
 flowRouter.post('/', flowController.createFlow);
 flowRouter.get('/:id', flowController.getFlowById);
 flowRouter.put('/:id', flowController.updateFlow);
+flowRouter.get('/:id/variables', flowController.getFlowVariables);
 flowRouter.post('/:id/nodes', flowController.saveFlowNodes);
 flowRouter.delete('/:id', flowController.deleteFlow);
 

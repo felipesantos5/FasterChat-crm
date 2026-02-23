@@ -21,11 +21,7 @@ export default function FlowBuilderPage({ params }: { params: Promise<{ id: stri
         <span className="font-semibold">{isNew ? 'Novo Fluxo' : 'Editando Fluxo'}</span>
       </div>
 
-      <div className="absolute top-4 right-4 z-10 flex space-x-2">
-        <button className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium shadow-sm">
-          Salvar
-        </button>
-      </div>
+
 
       <FlowCanvas flowId={id} />
     </div>

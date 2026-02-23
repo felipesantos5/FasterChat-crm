@@ -15,9 +15,12 @@ export class FlowWebhookController {
     }
 
     try {
-      const flow = await prisma.flow.findUnique({
+      const flow = await prisma.flow.update({
         where: { webhookSlug: slug, status: 'ACTIVE' },
-        include: { nodes: true, edges: true } // We might not need to include here if the engine loads it
+        data: {
+          lastWebhookPayload: variables
+        },
+        include: { nodes: true, edges: true } 
       });
 
       if (!flow) {

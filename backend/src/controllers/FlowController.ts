@@ -173,4 +173,31 @@ export class FlowController {
 
     return res.status(204).send();
   }
+
+  public async getFlowVariables(req: Request, res: Response): Promise<Response> {
+    const { id } = req.params;
+    const { companyId } = req.user!;
+
+    const flow = await prisma.flow.findUnique({
+      where: { id, companyId },
+      select: { lastWebhookPayload: true }
+    });
+
+    if (!flow) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR' as any,
+        message: 'Flow not found',
+        userMessage: 'Fluxo não encontrado',
+        statusCode: 404
+      });
+    }
+
+    let variables: string[] = [];
+    if (flow.lastWebhookPayload && typeof flow.lastWebhookPayload === 'object') {
+      // Extract top-level keys as variables
+      variables = Object.keys(flow.lastWebhookPayload as Record<string, any>);
+    }
+
+    return res.json({ variables });
+  }
 }

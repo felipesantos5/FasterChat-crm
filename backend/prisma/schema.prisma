@@ -915,10 +915,11 @@ model Flow {
   companyId   String     @map("company_id")
   name        String
   description String?    @db.Text
-  triggerType String     @default("webhook") @map("trigger_type") // webhook, keyword, etc
-  webhookSlug String?    @unique @map("webhook_slug") // URL path para acionar
-  status      FlowStatus @default(DRAFT)
-  createdAt   DateTime   @default(now()) @map("created_at")
+  triggerType        String     @default("webhook") @map("trigger_type") // webhook, keyword, etc
+  webhookSlug        String?    @unique @map("webhook_slug") // URL path para acionar
+  lastWebhookPayload Json?      @map("last_webhook_payload") // Guarda o último payload pra extrair variáveis
+  status             FlowStatus @default(DRAFT)
+  createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 
   company    Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
