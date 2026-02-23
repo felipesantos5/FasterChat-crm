@@ -13,6 +13,7 @@ flowRouter.post('/', asyncHandler(flowController.createFlow));
 flowRouter.get('/:id', asyncHandler(flowController.getFlowById));
 flowRouter.put('/:id', asyncHandler(flowController.updateFlow));
 flowRouter.get('/:id/variables', asyncHandler(flowController.getFlowVariables));
+flowRouter.get('/:id/executions', asyncHandler(flowController.getFlowExecutions));
 flowRouter.post('/:id/nodes', asyncHandler(flowController.saveFlowNodes));
 flowRouter.delete('/:id', asyncHandler(flowController.deleteFlow));
 

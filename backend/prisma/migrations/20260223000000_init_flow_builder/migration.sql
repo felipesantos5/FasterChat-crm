@@ -53,6 +53,7 @@ CREATE TABLE "flow_executions" (
     "flow_id" TEXT NOT NULL,
     "contact_phone" TEXT NOT NULL,
     "current_node_id" TEXT,
+    "history" JSONB DEFAULT '[]',
     "variables" JSONB DEFAULT '{}',
     "status" "FlowExecutionStatus" NOT NULL DEFAULT 'RUNNING',
     "error" TEXT,

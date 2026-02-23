@@ -985,6 +985,7 @@ model FlowExecution {
   flowId        String              @map("flow_id")
   contactPhone  String              @map("contact_phone") // Telefone do lead
   currentNodeId String?             @map("current_node_id") // Nó onde o fluxo parou/está
+  history       Json?               @default("[]") // Histórico de IDs de nós visitados
   variables     Json?               @default("{}") // Variáveis coletadas pelo webhook (nome, etc)
   status        FlowExecutionStatus @default(RUNNING)
   error         String?             @db.Text

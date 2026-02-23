@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { toast } from 'sonner';
-import { Pencil, ArrowLeft } from 'lucide-react';
+import { Pencil, ArrowLeft, History } from 'lucide-react';
+import { ExecutionDrawer } from './ExecutionDrawer';
 import {
   ReactFlow,
   Controls,
@@ -61,6 +62,9 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   const [variables, setVariables] = useState<string[]>([]);
   const [flowName, setFlowName] = useState('Novo Fluxo');
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [executions, setExecutions] = useState<any[]>([]);
+  const [selectedExecution, setSelectedExecution] = useState<any | null>(null);
   const { updateNodeData, getNodes } = useReactFlow();
 
   // Load or Create Flow
@@ -134,6 +138,60 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
     initFlow();
     fetchVariables();
   }, [flowId, router, setNodes, setEdges]);
+
+  const fetchExecutions = useCallback(async () => {
+    try {
+      const res = await api.get(`/flows/${flowId}/executions`);
+      setExecutions(res.data);
+    } catch (error) {
+      console.error('Error fetching executions', error);
+    }
+  }, [flowId]);
+
+  useEffect(() => {
+    if (!isHistoryOpen) return;
+
+    fetchExecutions();
+    const interval = setInterval(fetchExecutions, 5000);
+    return () => clearInterval(interval);
+  }, [isHistoryOpen, fetchExecutions]);
+
+  useEffect(() => {
+    if (!selectedExecution) {
+      setNodes((nds) => nds.map(n => ({ ...n, style: { ...n.style, opacity: 1, border: undefined, boxShadow: undefined } })));
+      setEdges((eds) => eds.map(e => ({ ...e, style: { ...e.style, stroke: undefined, strokeWidth: undefined, opacity: 1 }, animated: false })));
+      return;
+    }
+
+    const history = selectedExecution.history || [];
+
+    setNodes((nds) => nds.map(n => {
+      const isVisited = history.includes(n.id);
+      return {
+        ...n,
+        style: {
+          ...n.style,
+          opacity: isVisited ? 1 : 0.4,
+          border: isVisited ? '2px solid #22c55e' : undefined,
+          boxShadow: isVisited ? '0 0 15px rgba(34, 197, 94, 0.4)' : undefined
+        }
+      };
+    }));
+
+    setEdges((eds) => eds.map(e => {
+      const isVisited = history.includes(e.source) && history.includes(e.target);
+      return {
+        ...e,
+        animated: isVisited,
+        style: {
+          ...e.style,
+          stroke: isVisited ? '#22c55e' : undefined,
+          strokeWidth: isVisited ? 3 : undefined,
+          opacity: isVisited ? 1 : 0.3
+        }
+      };
+    }));
+  }, [selectedExecution, setNodes, setEdges]);
 
   const saveFlow = async () => {
     try {
@@ -250,9 +308,22 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
           </div>
         </div>
 
-        <button onClick={saveFlow} className="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary/90 text-sm font-semibold shadow-md transition-colors">
-          Salvar
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all text-sm font-medium border ${isHistoryOpen
+              ? 'bg-primary text-white border-primary shadow-inner'
+              : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 shadow-sm'
+              }`}
+          >
+            <History size={16} />
+            {isHistoryOpen ? 'Fechar Histórico' : 'Ver Execuções'}
+          </button>
+
+          <button onClick={saveFlow} className="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary/90 text-sm font-semibold shadow-md transition-colors">
+            Salvar
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 w-full h-full flex flex-row relative z-10">
@@ -307,6 +378,17 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
           </div>
         </div>
       </div>
+
+      <ExecutionDrawer
+        isOpen={isHistoryOpen}
+        onClose={() => {
+          setIsHistoryOpen(false);
+          setSelectedExecution(null);
+        }}
+        executions={executions}
+        onSelectExecution={setSelectedExecution}
+        selectedExecutionId={selectedExecution?.id}
+      />
     </div>
   );
 }

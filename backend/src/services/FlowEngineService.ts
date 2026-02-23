@@ -10,6 +10,11 @@ export class FlowEngineService {
    * Starts a flow execution for a given contact
    */
   public async startFlow(flowId: string, contactPhone: string, variables: any) {
+    // Limpa o número de telefone (remove formatações)
+    const cleanPhone = contactPhone.replace(/\D/g, '');
+    console.log(`[FlowEngine] 🚀 startFlow - flowId: ${flowId}, phone: "${contactPhone}" -> "${cleanPhone}"`);
+    console.log(`[FlowEngine] Variables recebidas:`, JSON.stringify(variables));
+
     // Find the flow and its nodes/edges
     const flow = await prisma.flow.findUnique({
       where: { id: flowId },
@@ -20,15 +25,19 @@ export class FlowEngineService {
       throw new Error(`Flow ${flowId} not found`);
     }
 
+    console.log(`[FlowEngine] Flow encontrado: "${flow.name}" - ${flow.nodes.length} nó(s) e ${flow.edges.length} aresta(s)`);
+
     // Find the trigger node (type = 'webhook' or similar)
     const triggerNode = flow.nodes.find(n => n.type === 'trigger' || n.type === 'webhook');
     if (!triggerNode) {
       throw new Error(`Flow ${flowId} has no trigger node`);
     }
 
+    console.log(`[FlowEngine] Nó trigger encontrado: ${triggerNode.id} (tipo: ${triggerNode.type})`);
+
     // Add "automação" tag to customer if not present
     const customer = await prisma.customer.findFirst({
-      where: { phone: contactPhone, companyId: flow.companyId }
+      where: { phone: cleanPhone, companyId: flow.companyId }
     });
 
     if (customer && !customer.tags.includes('automação')) {
@@ -38,16 +47,19 @@ export class FlowEngineService {
       });
     }
 
-    // Create execution
+    // Create execution (usa o phone limpo)
     const execution = await prisma.flowExecution.create({
       data: {
         flowId,
-        contactPhone,
+        contactPhone: cleanPhone,
         variables,
         currentNodeId: triggerNode.id,
         status: FlowExecutionStatus.RUNNING,
+        history: [triggerNode.id],
       }
     });
+
+    console.log(`[FlowEngine] Execução criada: ${execution.id}`);
 
     // Start processing from the next node
     await this.processNextNodes(execution.id, triggerNode.id);
@@ -65,6 +77,7 @@ export class FlowEngineService {
     });
 
     if (!execution || execution.status !== FlowExecutionStatus.RUNNING) {
+      console.log(`[FlowEngine] processNextNodes abortado - status: ${execution?.status}`);
       return;
     }
 
@@ -78,12 +91,15 @@ export class FlowEngineService {
       edges = edges.filter(e => e.sourceHandle === sourceHandle);
     }
 
+    console.log(`[FlowEngine] processNextNodes - nó atual: ${currentNodeId}, arestas encontradas: ${edges.length}`);
+
     if (edges.length === 0) {
       // Flow ended
       await prisma.flowExecution.update({
         where: { id: executionId },
         data: { status: FlowExecutionStatus.COMPLETED, completedAt: new Date() }
       });
+      console.log(`[FlowEngine] ✅ Fluxo concluído (sem próximos nós)`);
       return;
     }
 
@@ -91,6 +107,7 @@ export class FlowEngineService {
     for (const edge of edges) {
       const targetNode = flow.nodes.find(n => n.id === edge.targetNodeId);
       if (targetNode) {
+        console.log(`[FlowEngine] ➡️ Executando nó: ${targetNode.id} (tipo: ${targetNode.type})`);
         await this.executeNode(execution, targetNode);
       }
     }
@@ -100,11 +117,20 @@ export class FlowEngineService {
    * Executes a specific node's action
    */
   private async executeNode(execution: any, node: any) {
-    // Update current node
+    // Update current node and history
+    const currentHistory = Array.isArray(execution.history) ? execution.history : [];
+    const newHistory = [...currentHistory, node.id];
+
     await prisma.flowExecution.update({
       where: { id: execution.id },
-      data: { currentNodeId: node.id }
+      data: { 
+        currentNodeId: node.id,
+        history: newHistory
+      }
     });
+    
+    // Update local object for this cycle
+    execution.history = newHistory;
 
     try {
       const data = node.data as any;
@@ -146,33 +172,62 @@ export class FlowEngineService {
   }
 
   private async executeMessageNode(execution: any, data: any, variables: any) {
-    let text = data.text || '';
+    let text = data.text || data.message || data.content || '';
     
-    // Replace variables (e.g., {{nome}})
+    console.log(`[FlowEngine] executeMessageNode - texto base: "${text}"`);
+    console.log(`[FlowEngine] executeMessageNode - variáveis disponíveis:`, JSON.stringify(variables));
+    console.log(`[FlowEngine] executeMessageNode - data do nó:`, JSON.stringify(data));
+
+    // Replace variables (e.g., {{nome}}, {{phone}}, etc.)
     for (const [key, value] of Object.entries(variables)) {
       const regex = new RegExp(`{{${key}}}`, 'gi');
       text = text.replace(regex, String(value));
     }
+    
+    console.log(`[FlowEngine] executeMessageNode - texto final após substituição: "${text}"`);
 
-    // We need to find an active WhatsApp instance for this company
+    if (!text || text.trim() === '') {
+      console.warn(`[FlowEngine] ⚠️ Texto da mensagem está vazio! Verifique o nó de mensagem no fluxo.`);
+    }
+
+    // Busca instância CONNECTED ou CONNECTING para a empresa
     const instance = await prisma.whatsAppInstance.findFirst({
-      where: { companyId: execution.flow.companyId, status: 'CONNECTED' }
+      where: { 
+        companyId: execution.flow.companyId, 
+        status: { in: ['CONNECTED', 'CONNECTING'] }
+      }
     });
 
-    if (instance) {
-      // Typing presence for 3 seconds before sending message
-      const delayMs = 3000;
-      await whatsappService.sendPresence(instance.id, execution.contactPhone, delayMs, "composing");
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+    console.log(`[FlowEngine] companyId: ${execution.flow.companyId}, instância encontrada: ${instance?.instanceName || 'NENHUMA'}`);
 
-      await whatsappService.sendMessage({
-        instanceId: instance.id,
-        to: execution.contactPhone,
-        text
+    if (!instance) {
+      // Loga todas as instâncias disponíveis para diagnóstico
+      const allInstances = await prisma.whatsAppInstance.findMany({
+        where: { companyId: execution.flow.companyId },
+        select: { id: true, instanceName: true, status: true }
       });
-    } else {
-      throw new Error('No connected WhatsApp instance found to send message');
+      console.error(`[FlowEngine] ❌ Instâncias para companyId ${execution.flow.companyId}:`, JSON.stringify(allInstances));
+      throw new Error(`Nenhuma instância WhatsApp conectada encontrada para enviar mensagem (companyId: ${execution.flow.companyId})`);
     }
+
+    // Typing presence for 2 seconds before sending message
+    const delayMs = 2000;
+    try {
+      await whatsappService.sendPresence(instance.id, execution.contactPhone, delayMs, "composing");
+    } catch (presenceErr: any) {
+      console.warn(`[FlowEngine] ⚠️ Falha ao enviar presença (não crítico):`, presenceErr.message);
+    }
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+
+    console.log(`[FlowEngine] 📤 Enviando mensagem para ${execution.contactPhone} via instância ${instance.instanceName}...`);
+    
+    await whatsappService.sendMessage({
+      instanceId: instance.id,
+      to: execution.contactPhone,
+      text
+    });
+
+    console.log(`[FlowEngine] ✅ Mensagem enviada com sucesso para ${execution.contactPhone}`);
   }
 
   private async executeMediaNode(execution: any, node: any, data: any, variables: any) {

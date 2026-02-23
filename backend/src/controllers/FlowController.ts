@@ -210,4 +210,17 @@ export class FlowController {
 
     return res.json({ variables });
   }
+
+  public async getFlowExecutions(req: Request, res: Response): Promise<Response> {
+    const { id } = req.params;
+    const { companyId } = req.user!;
+
+    const executions = await prisma.flowExecution.findMany({
+      where: { flowId: id, flow: { companyId } },
+      orderBy: { startedAt: 'desc' },
+      take: 20
+    });
+
+    return res.json(executions);
+  }
 }

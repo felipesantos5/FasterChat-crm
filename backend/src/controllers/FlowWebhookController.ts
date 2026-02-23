@@ -10,6 +10,10 @@ export class FlowWebhookController {
     const variables = { ...req.query, ...req.body };
     const contactPhone = variables.phone || variables.telefone || variables.contact;
 
+    console.log(`[FlowWebhook] 📥 Trigger recebido - slug: "${slug}"`);
+    console.log(`[FlowWebhook] Payload:`, JSON.stringify(variables));
+    console.log(`[FlowWebhook] Phone extraído: "${contactPhone}"`);
+
     try {
       // Find the flow first - allow DRAFT or ACTIVE for variable mapping
       const flow = await prisma.flow.findFirst({
@@ -21,8 +25,11 @@ export class FlowWebhookController {
       });
 
       if (!flow) {
+        console.error(`[FlowWebhook] ❌ Flow não encontrado para slug: "${slug}"`);
         return res.status(404).json({ error: 'Flow not found or not active' });
       }
+
+      console.log(`[FlowWebhook] Flow encontrado: "${flow.name}" (${flow.id}) - status: ${flow.status}`);
 
       // Automatically update the last webhook payload even if no phone is mapped (useful for admin panel variable extraction)
       await prisma.flow.update({
@@ -33,9 +40,11 @@ export class FlowWebhookController {
       });
 
       if (!contactPhone) {
+        console.warn(`[FlowWebhook] ⚠️ Nenhum "phone" encontrado no payload. Variáveis mapeadas, fluxo NÃO será disparado.`);
         return res.status(200).json({ 
           message: 'Webhook received and variables mapped. No contact phone provided to execute flow automatically.',
-          variablesMapped: true
+          variablesMapped: true,
+          tip: 'Send a "phone" field in the body or query string to trigger the flow execution.'
         });
       }
 
@@ -48,9 +57,12 @@ export class FlowWebhookController {
         message: 'Flow triggered successfully',
         executionId: execution.id 
       });
-    } catch (error) {
-      console.error('[FlowWebhook] Error triggering flow:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+    } catch (error: any) {
+      console.error('[FlowWebhook] ❌ Erro ao disparar o flow:', error);
+      return res.status(500).json({ 
+        error: 'Internal server error',
+        details: error?.message || 'Unknown error'
+      });
     }
   }
 }
