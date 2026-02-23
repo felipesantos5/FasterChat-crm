@@ -90,7 +90,8 @@ export const AudioNode = memo(({ id, data }: any) => {
             <audio
               src={localPreview}
               controls
-              className="w-full h-8 nodrag nopan"
+              preload="metadata"
+              className="w-full min-w-full h-10 nodrag nopan"
               onPointerDown={(e) => e.stopPropagation()}
               onPointerUp={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
