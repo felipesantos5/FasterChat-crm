@@ -64,6 +64,7 @@ export class FlowController {
         description,
         triggerType,
         webhookSlug,
+        status: 'ACTIVE', // Inicia Ativo para facilitar teste imediato
       },
     });
 

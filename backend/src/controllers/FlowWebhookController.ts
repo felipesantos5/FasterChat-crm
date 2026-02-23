@@ -11,9 +11,12 @@ export class FlowWebhookController {
     const contactPhone = variables.phone || variables.telefone || variables.contact;
 
     try {
-      // Find the flow first
+      // Find the flow first - allow DRAFT or ACTIVE for variable mapping
       const flow = await prisma.flow.findFirst({
-        where: { webhookSlug: slug, status: 'ACTIVE' },
+        where: { 
+          webhookSlug: slug,
+          status: { in: ['ACTIVE', 'DRAFT'] }
+        },
         include: { nodes: true, edges: true } 
       });
 
