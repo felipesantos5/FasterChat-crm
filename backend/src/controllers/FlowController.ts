@@ -43,7 +43,7 @@ export class FlowController {
 
   public async createFlow(req: Request, res: Response): Promise<Response> {
     const { companyId } = req.user!;
-    const { name, description, triggerType = 'webhook' } = req.body;
+    const { name, description, triggerType = 'webhook', autoTags = [] } = req.body;
 
     if (!name) {
       throw new AppError({
@@ -65,6 +65,7 @@ export class FlowController {
         triggerType,
         webhookSlug,
         status: 'ACTIVE', // Inicia Ativo para facilitar teste imediato
+        ...({ autoTags: autoTags } as any),
       },
     });
 
@@ -74,7 +75,7 @@ export class FlowController {
   public async updateFlow(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
     const { companyId } = req.user!;
-    const { name, description, status, webhookSlug } = req.body;
+    const { name, description, status, webhookSlug, autoTags } = req.body;
 
     const flowExists = await prisma.flow.findUnique({
       where: { id, companyId },
@@ -96,6 +97,7 @@ export class FlowController {
         description,
         status,
         webhookSlug,
+        ...((autoTags !== undefined ? { autoTags } : {}) as any)
       },
     });
 
@@ -184,27 +186,24 @@ export class FlowController {
     return res.status(204).send();
   }
 
-  private static flattenObject(obj: any, prefix = ''): string[] {
-    let paths: string[] = [];
-    if (!obj || typeof obj !== 'object') return paths;
+  private static flattenObjectWithValues(obj: any, prefix = ''): { key: string, value: any }[] {
+    let result: { key: string, value: any }[] = [];
+    if (!obj || typeof obj !== 'object') return result;
 
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
         const path = prefix ? `${prefix}.${key}` : key;
         
-        // Se for um objeto (não null e não array), recursão
         if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
-          paths = paths.concat(FlowController.flattenObject(obj[key], path));
+          result = result.concat(FlowController.flattenObjectWithValues(obj[key], path));
         } else if (Array.isArray(obj[key])) {
-          // Para arrays, podemos pegar o primeiro item se existir ou apenas marcar como array
-          // Por enquanto, vamos apenas adicionar o path do array
-          paths.push(path);
+          result.push({ key: path, value: `Array(${obj[key].length})` });
         } else {
-          paths.push(path);
+          result.push({ key: path, value: obj[key] });
         }
       }
     }
-    return paths;
+    return result;
   }
 
   public getFlowVariables = async (req: Request, res: Response): Promise<Response> => {
@@ -225,9 +224,9 @@ export class FlowController {
       });
     }
 
-    let variables: string[] = [];
+    let variables: { key: string, value: any }[] = [];
     if (flow.lastWebhookPayload && typeof flow.lastWebhookPayload === 'object') {
-      variables = FlowController.flattenObject(flow.lastWebhookPayload);
+      variables = FlowController.flattenObjectWithValues(flow.lastWebhookPayload);
     }
 
     return res.json({ variables });

@@ -919,8 +919,9 @@ model Flow {
   webhookSlug        String?    @unique @map("webhook_slug") // URL path para acionar
   lastWebhookPayload Json?      @map("last_webhook_payload") // Guarda o último payload pra extrair variáveis
   status             FlowStatus @default(DRAFT)
+  autoTags           String[]   @default([]) @map("auto_tags") // tags automáticas no webhook
   createdAt          DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
 
   company    Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   nodes      FlowNode[]

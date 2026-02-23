@@ -18,7 +18,7 @@ interface VariablePickerModalProps {
 }
 
 export function VariablePickerModal({ isOpen, onClose, onSelect, flowId }: VariablePickerModalProps) {
-  const [variables, setVariables] = useState<string[]>([]);
+  const [variables, setVariables] = useState<{ key: string, value: any }[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -42,7 +42,7 @@ export function VariablePickerModal({ isOpen, onClose, onSelect, flowId }: Varia
   }, [isOpen, fetchVariables]);
 
   const filteredVariables = variables.filter(v =>
-    v.toLowerCase().includes(searchTerm.toLowerCase())
+    v.key.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -86,9 +86,9 @@ export function VariablePickerModal({ isOpen, onClose, onSelect, flowId }: Varia
               <div className="grid grid-cols-1 gap-2">
                 {filteredVariables.map((v) => (
                   <button
-                    key={v}
+                    key={v.key}
                     onClick={() => {
-                      onSelect(v);
+                      onSelect(v.key);
                       onClose();
                     }}
                     className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl hover:border-primary hover:bg-primary/5 transition-all group text-left"
@@ -96,10 +96,18 @@ export function VariablePickerModal({ isOpen, onClose, onSelect, flowId }: Varia
                     <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                       <Tag size={16} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <code className="text-[11px] font-bold text-gray-800 block truncate font-mono">
-                        {`{{${v}}}`}
+                    <div className="flex-1 min-w-0 flex flex-row items-center gap-2">
+                      <code className="text-[11px] font-bold text-gray-800 truncate font-mono">
+                        {`{{${v.key}}}`}
                       </code>
+                      {v.value !== undefined && v.value !== null && (
+                        <>
+                          <span className="text-gray-400 font-bold">=</span>
+                          <span className="text-[11px] text-gray-500 truncate bg-gray-50/80 px-2 py-0.5 rounded-md border border-gray-100 max-w-[200px]" title={String(v.value)}>
+                            {String(v.value)}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </button>
                 ))}

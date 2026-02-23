@@ -31,16 +31,23 @@ export class FlowEngineService {
     }
 
 
-    // Add "automação" tag to customer if not present
+    // Add "automação" tag and flow autoTags to customer if not present
     const customer = await prisma.customer.findFirst({
       where: { phone: cleanPhone, companyId: flow.companyId }
     });
 
-    if (customer && !customer.tags.includes('automação')) {
-      await prisma.customer.update({
-        where: { id: customer.id },
-        data: { tags: { push: 'automação' } }
-      });
+    if (customer) {
+      const existingTags = customer.tags || [];
+      const tagsToAdd = ['automação', ...((flow as any).autoTags || [])];
+      
+      const newTags = tagsToAdd.filter(tag => !existingTags.includes(tag));
+      
+      if (newTags.length > 0) {
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { tags: { push: newTags } }
+        });
+      }
     }
 
     // Create execution (usa o phone limpo)

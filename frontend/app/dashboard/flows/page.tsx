@@ -12,15 +12,18 @@ import {
   ChevronRight,
   Play,
   Clock,
+  Settings,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { FlowConfigModal } from '@/components/flows/flow-config-modal';
 
 interface Flow {
   id: string;
   name: string;
   triggerType: string;
   status: string;
+  autoTags?: string[];
   createdAt: string;
   _count?: {
     executions: number;
@@ -30,6 +33,10 @@ interface Flow {
 export default function FlowsPage() {
   const [flows, setFlows] = useState<Flow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // For Config Modal
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [selectedFlow, setSelectedFlow] = useState<Flow | null>(null);
 
   const fetchFlows = async () => {
     try {
@@ -60,6 +67,18 @@ export default function FlowsPage() {
     } catch (error) {
       toast.error('Erro ao excluir fluxo');
     }
+  };
+
+  const openConfigModal = (flow: Flow, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedFlow(flow);
+    setConfigModalOpen(true);
+  };
+
+  const handleSaveConfig = (tags: string[], status: string) => {
+    if (!selectedFlow) return;
+    setFlows(flows.map(f => f.id === selectedFlow.id ? { ...f, autoTags: tags, status: status } : f));
   };
 
   return (
@@ -99,6 +118,13 @@ export default function FlowsPage() {
                     }`}>
                     {flow.status === 'ACTIVE' ? 'Ativo' : 'Rascunho'}
                   </span>
+                  <button
+                    onClick={(e) => openConfigModal(flow, e)}
+                    className="text-gray-400 hover:text-primary transition-colors p-1"
+                    title="Configurar Fluxo"
+                  >
+                    <Settings size={16} />
+                  </button>
                   <button
                     onClick={(e) => deleteFlow(flow.id, e)}
                     className="text-gray-400 hover:text-red-500 transition-colors p-1"
@@ -153,6 +179,17 @@ export default function FlowsPage() {
             Começar Agora
           </Link>
         </div>
+      )}
+
+      {selectedFlow && (
+        <FlowConfigModal
+          open={configModalOpen}
+          onClose={() => setConfigModalOpen(false)}
+          flowId={selectedFlow.id}
+          initialTags={selectedFlow.autoTags || []}
+          initialStatus={selectedFlow.status}
+          onSave={handleSaveConfig}
+        />
       )}
     </div>
   );
