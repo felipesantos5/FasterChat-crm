@@ -8,7 +8,20 @@ export class FlowWebhookController {
     
     // As variáveis podem vir do body ou da query
     const variables = { ...req.query, ...req.body };
-    const contactPhone = variables.phone || variables.telefone || variables.contact;
+    
+    // Busca exaustiva pelo telefone no payload (suporte a Cakto, Hotmart, Kiwify, etc)
+    let contactPhone = 
+      variables.phone || 
+      variables.telefone || 
+      variables.contact || 
+      variables.data?.phone || 
+      variables.data?.telefone ||
+      variables.data?.customer?.phone || 
+      variables.data?.customer?.telefone ||
+      variables.customer?.phone ||
+      variables.customer?.telefone ||
+      variables.lead?.phone ||
+      variables.lead?.telefone;
 
     console.log(`[FlowWebhook] 📥 Trigger recebido - slug: "${slug}"`);
     console.log(`[FlowWebhook] Payload:`, JSON.stringify(variables));

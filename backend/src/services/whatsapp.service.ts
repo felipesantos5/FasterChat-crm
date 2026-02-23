@@ -687,19 +687,20 @@ class WhatsAppService {
       if (mediaType === "audio") {
         console.log(`[WhatsApp Service] 🎤 Sending audio to ${to} (${remoteJid})...`);
 
-        // ✅ CORREÇÃO: Endpoint correto na Evolution API é 'sendAudio'
+        // ✅ PADRÃO EVOLUTION V2: 'sendAudio' com PTT e Encoding
         const response = await this.axiosInstance.post(`/message/sendAudio/${instance.instanceName}`, {
           number: remoteJid,
           audio: base64Data,
-          encoding: true,
-          ptt: true, // Voice Note
+          delay: 1000, // Simula um pequeno delay de gravação
+          encoding: true, // Converte para ogg/opus compatível (Essencial na V2)
+          ptt: true, // Envia como 'Mensagem de Voz' (ondas sonoras)
         });
 
         console.log(`[WhatsApp Service] ✅ Audio sent successfully to ${to}`);
 
         return {
           success: true,
-          messageId: response.data.key?.id,
+          messageId: response.data.key?.id || response.data.key,
           timestamp: response.data.messageTimestamp,
         };
       }

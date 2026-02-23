@@ -59,10 +59,13 @@ export const MessageNode = memo(({ id, data }: any) => {
       </div>
 
       <div className="p-3">
-        <div className="relative min-h-[120px] font-sans">
-          {/* Mirroring Highlighted Layer */}
+        <label htmlFor={`msg-text-${id}`} className="block text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1 ml-1">
+          Conteúdo da Mensagem
+        </label>
+        <div className="relative font-sans group">
+          {/* Mirroring Highlighted Layer - This determines the height */}
           <div
-            className="absolute inset-0 p-3 text-sm whitespace-pre-wrap break-words pointer-events-none overflow-hidden text-gray-800 border border-transparent"
+            className="w-full text-sm p-3 whitespace-pre-wrap break-words pointer-events-none text-gray-800 border border-transparent min-h-[120px]"
             aria-hidden="true"
           >
             {renderHighlightedText(text)}
@@ -70,15 +73,19 @@ export const MessageNode = memo(({ id, data }: any) => {
             {text.endsWith('\n') ? '\n ' : ''}
           </div>
 
-          {/* Actual Input Layer */}
+          {/* Actual Input Layer - Absolute position to overlap the mirror */}
           <textarea
             id={`msg-text-${id}`}
             value={text}
             onChange={onChange}
-            className="w-full h-full min-h-[120px] text-sm p-3 border rounded resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 nodrag bg-transparent relative text-transparent caret-gray-800 selection:bg-blue-100 selection:text-transparent"
-            rows={4}
+            className="absolute inset-0 w-full h-full text-sm p-3 border border-gray-200 rounded resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 nodrag bg-transparent text-transparent caret-gray-800 selection:bg-blue-200/50 transition-all hover:border-gray-300"
             placeholder="Digite a mensagem..."
+            spellCheck={false}
           />
+        </div>
+        <div className="mt-2 flex justify-between items-center text-[10px] text-gray-400 px-1 font-medium">
+          <span>{text.length} caracteres</span>
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity italic">Auto-ajustável</span>
         </div>
       </div>
 

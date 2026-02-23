@@ -178,11 +178,17 @@ export class FlowEngineService {
     console.log(`[FlowEngine] executeMessageNode - variáveis disponíveis:`, JSON.stringify(variables));
     console.log(`[FlowEngine] executeMessageNode - data do nó:`, JSON.stringify(data));
 
-    // Replace variables (e.g., {{nome}}, {{phone}}, etc.)
-    for (const [key, value] of Object.entries(variables)) {
-      const regex = new RegExp(`{{${key}}}`, 'gi');
-      text = text.replace(regex, String(value));
-    }
+    // Recursive helper to resolve nested paths (e.g., "data.customer.name")
+    const getNestedValue = (obj: any, path: string) => {
+      return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    };
+
+    // Replace variables using regex to find all {{path.to.var}} patterns
+    const variableRegex = /{{(.*?)}}/g;
+    text = text.replace(variableRegex, (match, path) => {
+      const val = getNestedValue(variables, path.trim());
+      return val !== undefined ? String(val) : match;
+    });
     
     console.log(`[FlowEngine] executeMessageNode - texto final após substituição: "${text}"`);
 
