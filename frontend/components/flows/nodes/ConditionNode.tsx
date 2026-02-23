@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
-import { Trash2, HelpCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Trash2, HelpCircle, Clock, MessageSquare, Key } from 'lucide-react';
 
 export const ConditionNode = memo(({ id, data }: any) => {
   const { deleteElements, updateNodeData } = useReactFlow();
@@ -13,8 +13,13 @@ export const ConditionNode = memo(({ id, data }: any) => {
     updateNodeData(id, { waitUnit: e.target.value });
   };
 
+  const handleKeywordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateNodeData(id, { keyword: e.target.value });
+  };
+
   const waitValue = data?.waitValue || data?.waitHours || 24;
   const waitUnit = data?.waitUnit || (data?.waitHours ? 'hours' : 'hours');
+  const keyword = data?.keyword || '';
 
   return (
     <div className="bg-white border-2 border-purple-400 rounded-xl shadow-lg min-w-[300px] overflow-hidden transition-all hover:shadow-purple-100 hover:border-purple-500/50">
@@ -60,17 +65,34 @@ export const ConditionNode = memo(({ id, data }: any) => {
           </div>
         </div>
 
-        <div className="space-y-2 pt-2">
+        <div className="space-y-4 pt-2">
           <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
             Caminhos de Saída
           </label>
 
-          <div className="flex items-center justify-between bg-green-50/40 p-2.5 rounded-lg border border-green-100 relative group hover:bg-green-50 transition-colors">
+          <div className="flex items-center justify-between bg-blue-50/40 p-2.5 rounded-lg border border-blue-100 relative group hover:bg-blue-50 transition-colors">
             <div className="flex items-center gap-2">
-              <CheckCircle2 size={14} className="text-green-500" />
-              <span className="text-[11px] font-bold text-green-700 uppercase">Respondeu "SIM"</span>
+              <MessageSquare size={14} className="text-blue-500" />
+              <span className="text-[11px] font-bold text-blue-700 uppercase">Respondeu (Qualquer)</span>
             </div>
-            <Handle type="source" position={Position.Right} id="sim" className="w-3 h-3 bg-green-500 border-2 border-white -mr-1" />
+            <Handle type="source" position={Position.Right} id="respondeu" className="w-3 h-3 bg-blue-500 border-2 border-white -mr-1" />
+          </div>
+
+          <div className="flex flex-col gap-2 bg-green-50/40 p-2.5 rounded-lg border border-green-100 relative group hover:bg-green-50 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Key size={14} className="text-green-500" />
+                <span className="text-[11px] font-bold text-green-700 uppercase">Respondeu Palavra-chave</span>
+              </div>
+              <Handle type="source" position={Position.Right} id="palavra_chave" className="w-3 h-3 bg-green-500 border-2 border-white -mr-1" />
+            </div>
+            <input
+              type="text"
+              placeholder="Ex: sim, quero, comprar"
+              value={keyword}
+              onChange={handleKeywordChange}
+              className="w-full mt-1 p-2 bg-white border border-green-200 rounded-md text-xs font-medium text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500/20 nodrag"
+            />
           </div>
 
           <div className="flex items-center justify-between bg-gray-50/40 p-2.5 rounded-lg border border-gray-100 relative group hover:bg-gray-100 transition-colors">

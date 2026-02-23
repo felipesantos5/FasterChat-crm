@@ -344,13 +344,20 @@ export class FlowEngineService {
         const text = messageText.toLowerCase().trim();
         let handle = 'respondeu'; // Default: any response
 
-        const simVariations = ['sim', 's', 'yes', 'y', 'com certeza', 'claro', 'quero', 'pode ser', 'ok'];
-        const naoVariations = ['não', 'nao', 'n', 'no', 'nem pensar', 'jamais', 'obrigado', 'agora não'];
+        // Verifica se o nó tem uma palavra-chave configurada
+        const nodeData = typeof execution.currentNode.data === 'string' 
+          ? JSON.parse(execution.currentNode.data) 
+          : (execution.currentNode.data || {});
+          
+        const keyword = nodeData?.keyword as string | undefined;
 
-        if (simVariations.some(v => text === v || text.startsWith(v + ' '))) {
-          handle = 'sim';
-        } else if (naoVariations.some(v => text === v || text.startsWith(v + ' '))) {
-          handle = 'nao';
+        if (keyword) {
+          // Permite múltiplas palavras-chave separadas por vírgula (Ex: "sim, claro, quero")
+          const keywords = keyword.toLowerCase().split(',').map(k => k.trim()).filter(k => k.length > 0);
+          
+          if (keywords.some(k => text.includes(k) || text === k)) {
+            handle = 'palavra_chave';
+          }
         }
 
         // Continue flow through the identified handle
