@@ -184,7 +184,7 @@ export class FlowController {
     return res.status(204).send();
   }
 
-  private flattenObject(obj: any, prefix = ''): string[] {
+  private static flattenObject(obj: any, prefix = ''): string[] {
     let paths: string[] = [];
     if (!obj || typeof obj !== 'object') return paths;
 
@@ -194,7 +194,7 @@ export class FlowController {
         
         // Se for um objeto (não null e não array), recursão
         if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
-          paths = paths.concat(this.flattenObject(obj[key], path));
+          paths = paths.concat(FlowController.flattenObject(obj[key], path));
         } else if (Array.isArray(obj[key])) {
           // Para arrays, podemos pegar o primeiro item se existir ou apenas marcar como array
           // Por enquanto, vamos apenas adicionar o path do array
@@ -207,7 +207,7 @@ export class FlowController {
     return paths;
   }
 
-  public async getFlowVariables(req: Request, res: Response): Promise<Response> {
+  public getFlowVariables = async (req: Request, res: Response): Promise<Response> => {
     const { id } = req.params;
     const { companyId } = req.user!;
 
@@ -227,7 +227,7 @@ export class FlowController {
 
     let variables: string[] = [];
     if (flow.lastWebhookPayload && typeof flow.lastWebhookPayload === 'object') {
-      variables = this.flattenObject(flow.lastWebhookPayload);
+      variables = FlowController.flattenObject(flow.lastWebhookPayload);
     }
 
     return res.json({ variables });

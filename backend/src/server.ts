@@ -112,8 +112,11 @@ flowSchedulerService.start();
 // SECURITY MIDDLEWARES
 // ===========================================
 
-// Helmet - Headers de segurança
-app.use(helmet());
+// Helmet - Headers de segurança (Ajustado para permitir carregamento de mídia cross-origin)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false, // Desabilitado para simplificar carregamento de blobs/URLs externas em dev
+}));
 
 // CORS - Lista de origens permitidas
 const allowedOrigins = [

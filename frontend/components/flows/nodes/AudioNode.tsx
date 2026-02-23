@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react';
+import { memo, useRef, useState, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { Trash2, Mic, Upload, Music } from 'lucide-react';
 import api from '@/lib/api';
@@ -7,6 +7,17 @@ import { toast } from 'sonner';
 export const AudioNode = memo(({ id, data }: any) => {
   const { updateNodeData, deleteElements } = useReactFlow();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [localPreview, setLocalPreview] = useState<string | null>(data?.mediaUrl || null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Sync local preview with data changes (e.g. on load)
+  useEffect(() => {
+    if (data?.mediaUrl) {
+      setLocalPreview(data.mediaUrl);
+    } else {
+      setLocalPreview(null);
+    }
+  }, [data?.mediaUrl]);
 
   const onFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -18,12 +29,15 @@ export const AudioNode = memo(({ id, data }: any) => {
       return;
     }
 
+    // Set local preview immediately
+    const objectUrl = URL.createObjectURL(file);
+    setLocalPreview(objectUrl);
+    setIsUploading(true);
+
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      toast.loading('Enviando áudio...', { id: 'upload-audio' });
-      // We use a generic upload endpoint if exists, or a specific one
       const response = await api.post('/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -32,10 +46,14 @@ export const AudioNode = memo(({ id, data }: any) => {
 
       const url = response.data.url;
       updateNodeData(id, { mediaUrl: url, fileName: file.name });
-      toast.success('Áudio enviado com sucesso!', { id: 'upload-audio' });
+      setLocalPreview(url); // Update with final URL
+      toast.success('Áudio enviado com sucesso!');
     } catch (error) {
       console.error('Error uploading audio', error);
-      toast.error('Erro ao enviar áudio', { id: 'upload-audio' });
+      toast.error('Erro ao enviar áudio');
+      setLocalPreview(data?.mediaUrl || null); // Revert on error
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -57,14 +75,20 @@ export const AudioNode = memo(({ id, data }: any) => {
       </div>
 
       <div className="p-4 flex flex-col items-center gap-3">
-        {data?.mediaUrl ? (
+        {localPreview ? (
           <div className="w-full space-y-3">
-            <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded border border-emerald-100 text-xs text-emerald-700">
+            <div className="relative flex items-center gap-2 p-2 bg-emerald-50 rounded border border-emerald-100 text-xs text-emerald-700">
               <Music size={14} />
               <span className="truncate flex-1 font-medium">{data.fileName || 'áudio-selecionado.mp3'}</span>
+
+              {isUploading && (
+                <div className="absolute inset-0 bg-emerald-50/80 flex items-center justify-center rounded">
+                  <div className="w-3 h-3 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                </div>
+              )}
             </div>
             <audio
-              src={data.mediaUrl}
+              src={localPreview}
               controls
               className="w-full h-8 nodrag nopan"
               onPointerDown={(e) => e.stopPropagation()}

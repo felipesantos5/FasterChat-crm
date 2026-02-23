@@ -138,7 +138,6 @@ export const MediaNode = memo(({ id, data, type }: any) => {
                   src={localPreview}
                   alt="Preview"
                   className="w-full h-full object-cover"
-                  crossOrigin="anonymous"
                 />
               )}
 
