@@ -80,11 +80,6 @@ export const MessageNode = memo(({ id, data }: any) => {
             placeholder="Digite a mensagem..."
           />
         </div>
-
-        <div className="mt-2 flex items-center justify-between text-[10px] text-gray-500">
-          <span>Variáveis: {'{{nome}}, {{linkDoc}}'}...</span>
-          <span className={text.length > 800 ? 'text-red-500' : ''}>{text.length}/1000</span>
-        </div>
       </div>
 
       <Handle type="source" position={Position.Right} className="w-3 h-3 bg-blue-500" />

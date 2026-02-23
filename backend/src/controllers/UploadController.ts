@@ -14,10 +14,17 @@ export class UploadController {
       // For now, we'll serve from a public uploads folder
       const filename = req.file.filename;
       
-      // Use as variáveis de ambiente para definir a URL base, evitando problemas com Proxy/SSL
-      const baseUrl = process.env.SERVICE_URL_API || process.env.API_URL || `${req.protocol}://${req.get('host')}`;
+      // Determina a URL base dinamicamente
+      let baseUrl = `${req.protocol}://${req.get('host')}`;
       
-      // Remove barra final se houver para evitar // na URL
+      // Em produção, usa a URL do serviço. Em dev, usa o dinâmico ou o localhost
+      if (process.env.NODE_ENV === 'production') {
+        baseUrl = process.env.SERVICE_URL_API || baseUrl;
+      } else {
+        baseUrl = process.env.API_URL || baseUrl;
+      }
+      
+      // Remove barra final se houver
       const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
       const fileUrl = `${cleanBaseUrl}/uploads/${filename}`;
 

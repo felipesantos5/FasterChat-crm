@@ -3,7 +3,12 @@ import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { Trash2 } from 'lucide-react';
 
 export const ConditionNode = memo(({ id, data }: any) => {
-  const { deleteElements } = useReactFlow();
+  const { deleteElements, updateNodeData } = useReactFlow();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateNodeData(id, { waitHours: Number(e.target.value) });
+  };
+
   return (
     <div className="bg-white border border-purple-400 rounded-md shadow-md min-w-[280px] overflow-hidden">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-purple-500" />
@@ -26,8 +31,10 @@ export const ConditionNode = memo(({ id, data }: any) => {
           <span className="text-gray-600 font-medium">Aguardar:</span>
           <input
             type="number"
-            className="w-16 p-1 border rounded text-center focus:outline-none focus:ring-1 focus:ring-purple-500"
-            defaultValue={data?.waitHours || 24}
+            className="w-16 p-1 border rounded text-center focus:outline-none focus:ring-1 focus:ring-purple-500 nodrag"
+            value={data?.waitHours || ''}
+            placeholder="24"
+            onChange={handleChange}
           />
           <span className="text-gray-500">horas</span>
         </div>
