@@ -79,7 +79,14 @@ class WebhookController {
         try {
           const { FlowEngineService } = await import("../services/FlowEngineService");
           const flowEngine = new FlowEngineService();
-          await flowEngine.handleIncomingMessage(result.customer.phone, result.customer.companyId, result.message.content);
+          const flowResumed = await flowEngine.handleIncomingMessage(result.customer.phone, result.customer.companyId, result.message.content);
+          
+          if (flowResumed) {
+            return res.status(200).json({
+              success: true,
+              message: "Flow resumed, skipping other processing"
+            });
+          }
         } catch (flowError) {
           console.error("[Webhook] Error processing flow engine reply:", flowError);
         }

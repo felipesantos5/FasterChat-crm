@@ -17,14 +17,14 @@ class FlowSchedulerService {
       return;
     }
 
-    console.log('[Flow Scheduler] 🕐 Starting flow scheduler (checks every minute)');
-
+    console.log('[Flow Scheduler] 🕐 Starting flow scheduler (checks every 5 seconds)');
+    
     this.checkPendingFlows();
 
-    // Checks every 1 minute
+    // Checks every 5 seconds
     this.intervalId = setInterval(() => {
       this.checkPendingFlows();
-    }, 60000);
+    }, 5000);
   }
 
   stop() {
