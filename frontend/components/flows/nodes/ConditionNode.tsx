@@ -1,66 +1,101 @@
 import { memo } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, HelpCircle, CheckCircle2, XCircle, MessageCircle, Clock } from 'lucide-react';
 
 export const ConditionNode = memo(({ id, data }: any) => {
   const { deleteElements, updateNodeData } = useReactFlow();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    updateNodeData(id, { waitHours: Number(e.target.value) });
+  const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateNodeData(id, { waitValue: Number(e.target.value) });
   };
 
-  return (
-    <div className="bg-white border border-purple-400 rounded-md shadow-md min-w-[280px] overflow-hidden">
-      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-purple-500" />
+  const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateNodeData(id, { waitUnit: e.target.value });
+  };
 
-      <div className="bg-purple-50 px-3 py-2 border-b border-purple-100 flex items-center justify-between gap-2">
+  const waitValue = data?.waitValue || data?.waitHours || 24;
+  const waitUnit = data?.waitUnit || (data?.waitHours ? 'hours' : 'hours');
+
+  return (
+    <div className="bg-white border-2 border-purple-400 rounded-xl shadow-lg min-w-[300px] overflow-hidden transition-all hover:shadow-purple-100 hover:border-purple-500/50">
+      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-purple-500 border-2 border-white" />
+
+      <div className="bg-purple-50 px-3 py-3 border-b border-purple-100 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-xl">🔀</span>
-          <span className="text-sm font-semibold text-purple-800">Verificar Resposta</span>
+          <div className="bg-purple-500 p-1.5 rounded-lg shadow-sm">
+            <HelpCircle size={16} className="text-white" />
+          </div>
+          <span className="text-sm font-bold text-purple-900 tracking-tight">Verificar Resposta</span>
         </div>
         <button
           onClick={() => { if (confirm('Excluir este bloco?')) deleteElements({ nodes: [{ id }] }) }}
-          className="text-purple-300 hover:text-red-500 transition-colors nodrag"
+          className="text-purple-300 hover:text-red-500 transition-colors nodrag p-1 hover:bg-red-50 rounded-md"
         >
           <Trash2 size={14} />
         </button>
       </div>
 
-      <div className="p-3 text-sm">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-gray-600 font-medium">Aguardar:</span>
-          <input
-            type="number"
-            className="w-16 p-1 border rounded text-center focus:outline-none focus:ring-1 focus:ring-purple-500 nodrag"
-            value={data?.waitHours || ''}
-            placeholder="24"
-            onChange={handleChange}
-          />
-          <span className="text-gray-500">horas</span>
+      <div className="p-4 bg-white space-y-4">
+        <div className="flex flex-col gap-2">
+          <label className="text-[10px] font-bold text-purple-600 uppercase tracking-widest ml-1">
+            Tempo Limite de Espera
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="1"
+              className="flex-1 min-w-0 p-2 bg-purple-50/30 border border-purple-100 rounded-lg text-sm text-center font-bold text-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 nodrag transition-all"
+              value={waitValue}
+              onChange={handleValueChange}
+            />
+            <select
+              className="flex-[1.5] p-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 nodrag cursor-pointer transition-all hover:bg-gray-100"
+              value={waitUnit}
+              onChange={handleUnitChange}
+            >
+              <option value="minutes">Minutos</option>
+              <option value="hours">Horas</option>
+              <option value="days">Dias</option>
+            </select>
+          </div>
         </div>
-      </div>
 
-      <div className="relative pt-4 pb-1">
-        <div className="flex items-center justify-end pr-2 text-xs font-semibold text-green-600 mb-6">
-          Se respondeu &rarr;
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="respondeu"
-            className="w-3 h-3 bg-green-500"
-            style={{ top: '65%' }}
-          />
-        </div>
+        <div className="space-y-2 pt-2">
+          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+            Caminhos de Saída
+          </label>
 
-        <div className="flex items-center justify-end pr-2 text-xs font-semibold text-red-500 mt-2 mb-1">
-          Se não respondeu &rarr;
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="nao_respondeu"
-            className="w-3 h-3 bg-red-500"
-            style={{ top: '85%' }}
-          />
+          <div className="flex items-center justify-between bg-green-50/40 p-2.5 rounded-lg border border-green-100 relative group hover:bg-green-50 transition-colors">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className="text-green-500" />
+              <span className="text-[11px] font-bold text-green-700 uppercase">Respondeu "SIM"</span>
+            </div>
+            <Handle type="source" position={Position.Right} id="sim" className="w-3 h-3 bg-green-500 border-2 border-white -mr-1" />
+          </div>
+
+          <div className="flex items-center justify-between bg-red-50/40 p-2.5 rounded-lg border border-red-100 relative group hover:bg-red-50 transition-colors">
+            <div className="flex items-center gap-2">
+              <XCircle size={14} className="text-red-500" />
+              <span className="text-[11px] font-bold text-red-700 uppercase">Respondeu "NÃO"</span>
+            </div>
+            <Handle type="source" position={Position.Right} id="nao" className="w-3 h-3 bg-red-500 border-2 border-white -mr-1" />
+          </div>
+
+          <div className="flex items-center justify-between bg-blue-50/40 p-2.5 rounded-lg border border-blue-100 relative group hover:bg-blue-50 transition-colors">
+            <div className="flex items-center gap-2">
+              <MessageCircle size={14} className="text-blue-500" />
+              <span className="text-[11px] font-bold text-blue-700 uppercase">Qualquer outra</span>
+            </div>
+            <Handle type="source" position={Position.Right} id="respondeu" className="w-3 h-3 bg-blue-500 border-2 border-white -mr-1" />
+          </div>
+
+          <div className="flex items-center justify-between bg-gray-50/40 p-2.5 rounded-lg border border-gray-100 relative group hover:bg-gray-100 transition-colors">
+            <div className="flex items-center gap-2">
+              <Clock size={14} className="text-gray-400" />
+              <span className="text-[11px] font-bold text-gray-500 uppercase">Se não responder</span>
+            </div>
+            <Handle type="source" position={Position.Right} id="nao_respondeu" className="w-3 h-3 bg-gray-400 border-2 border-white -mr-1" />
+          </div>
         </div>
       </div>
     </div>

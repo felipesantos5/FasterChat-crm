@@ -24,6 +24,7 @@ import { MessageNode } from './nodes/MessageNode';
 import { ConditionNode } from './nodes/ConditionNode';
 import { DelayNode } from './nodes/DelayNode';
 import { AudioNode } from './nodes/AudioNode';
+import { MediaNode } from './nodes/MediaNode';
 import { NodeSidebar } from './NodeSidebar';
 import ButtonEdge from './edges/ButtonEdge';
 
@@ -33,6 +34,8 @@ const nodeTypes = {
   condition: ConditionNode,
   delay: DelayNode,
   audio: AudioNode,
+  image: MediaNode,
+  video: MediaNode,
 };
 
 const edgeTypes = {
@@ -260,18 +263,19 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   );
 
   const handleVariableClick = (variable: string) => {
-    // Find selected message nodes where we can insert the variable
-    const selectedNodes = getNodes().filter(n => n.selected && n.type === 'message');
+    // Find selected nodes where we can insert the variable
+    const selectedNodes = getNodes().filter(n => n.selected && ['message', 'image', 'video'].includes(n.type as string));
 
     if (selectedNodes.length === 0) {
-      toast.info('Selecione um bloco de Mensagem para inserir a variável');
+      toast.info('Selecione um bloco de Mensagem ou Mídia para inserir a variável');
       return;
     }
 
     selectedNodes.forEach(node => {
-      const currentText = node.data?.text as string || '';
+      const field = node.type === 'message' ? 'text' : 'caption';
+      const currentValue = node.data?.[field] as string || '';
       const textToAppend = ` {{${variable}}}`;
-      updateNodeData(node.id, { text: currentText + textToAppend });
+      updateNodeData(node.id, { [field]: currentValue + textToAppend });
     });
 
     toast.success(`Variável {{${variable}}} adicionada!`);
@@ -355,26 +359,70 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
           </div>
 
           {/* Painel de Variáveis */}
-          <div className="border-t bg-white p-4 max-h-[40%] overflow-y-auto">
-            <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-2">Variáveis do Webhook</h3>
-            {variables.length > 0 ? (
-              <div className="flex flex-wrap gap-2 text-xs">
-                {variables.map(v => (
-                  <button
-                    key={v}
-                    onClick={() => handleVariableClick(v)}
-                    className="bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded hover:bg-primary/20 transition cursor-pointer"
-                    title="Clique para adicionar no bloco selecionado"
-                  >
-                    {`{{${v}}}`}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded text-center">
-                Nenhuma variável detectada ainda. Seu webhook precisa receber dados primeiro.
-              </div>
-            )}
+          <div className="border-t bg-white flex flex-col h-[45%]">
+            <div className="p-4 pb-2 border-b bg-gray-50/50">
+              <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center justify-between">
+                <span>Variáveis do Webhook</span>
+                {variables.length > 0 && (
+                  <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px]">
+                    {variables.length} detectadas
+                  </span>
+                )}
+              </h3>
+
+              {variables.length > 0 && (
+                <div className="relative mb-2">
+                  <input
+                    type="text"
+                    placeholder="Filtrar variáveis..."
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    onChange={(e) => {
+                      const term = e.target.value.toLowerCase();
+                      const items = document.querySelectorAll('.variable-btn');
+                      items.forEach((item: any) => {
+                        const text = item.innerText.toLowerCase();
+                        item.style.display = text.includes(term) ? 'flex' : 'none';
+                      });
+                    }}
+                  />
+                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 pt-2 custom-scrollbar">
+              {variables.length > 0 ? (
+                <div className="grid grid-cols-1 gap-1.5">
+                  {variables.map(v => (
+                    <button
+                      key={v}
+                      onClick={() => handleVariableClick(v)}
+                      className="variable-btn flex items-center group text-left transition-all"
+                      title="Clique para adicionar no bloco selecionado"
+                    >
+                      <div className="flex items-center w-full bg-blue-50/40 hover:bg-blue-50 border border-blue-100/50 hover:border-blue-200 p-2 rounded-lg transition-all">
+                        <span className="text-blue-400 mr-2 group-hover:scale-110 transition-transform">🏷️</span>
+                        <code className="text-[10px] font-bold text-gray-700 font-mono break-all leading-tight">
+                          {`{{${v}}}`}
+                        </code>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center px-4">
+                  <div className="bg-gray-100 p-3 rounded-full mb-3 text-gray-400">
+                    <History size={24} />
+                  </div>
+                  <p className="text-xs font-semibold text-gray-500">Aguardando Webhook</p>
+                  <p className="text-[10px] text-gray-400 mt-1 max-w-[150px]">
+                    Envie dados para o URL de gatilho para capturar variáveis.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

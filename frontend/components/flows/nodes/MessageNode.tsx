@@ -31,7 +31,7 @@ export const MessageNode = memo(({ id, data }: any) => {
         return (
           <span
             key={i}
-            className="bg-zinc-800 text-orange-400 px-1 rounded font-mono text-[0.95em] border border-zinc-700 shadow-sm"
+            className="bg-orange-100 text-orange-700 font-semibold"
           >
             {part}
           </span>

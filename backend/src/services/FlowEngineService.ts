@@ -107,6 +107,22 @@ export class FlowEngineService {
   /**
    * Executes a specific node's action
    */
+  private replaceVariables(text: string, variables: any): string {
+    if (!text) return '';
+    
+    // Recursive helper to resolve nested paths (e.g., "data.customer.name")
+    const getNestedValue = (obj: any, path: string) => {
+      return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    };
+
+    // Replace variables using regex to find all {{path.to.var}} patterns
+    const variableRegex = /{{(.*?)}}/g;
+    return text.replace(variableRegex, (match: string, path: string) => {
+      const val = getNestedValue(variables, path.trim());
+      return val !== undefined ? String(val) : match;
+    });
+  }
+
   private async executeNode(execution: any, node: any) {
     // Update current node and history
     const currentHistory = Array.isArray(execution.history) ? execution.history : [];
@@ -144,6 +160,7 @@ export class FlowEngineService {
           
         case 'audio':
         case 'image':
+        case 'video':
           await this.executeMediaNode(execution, node, data, variables);
           await this.processNextNodes(execution.id, node.id);
           break;
@@ -165,19 +182,7 @@ export class FlowEngineService {
   private async executeMessageNode(execution: any, data: any, variables: any) {
     let text = data.text || data.message || data.content || '';
     
-
-    // Recursive helper to resolve nested paths (e.g., "data.customer.name")
-    const getNestedValue = (obj: any, path: string) => {
-      return path.split('.').reduce((acc, part) => acc && acc[part], obj);
-    };
-
-    // Replace variables using regex to find all {{path.to.var}} patterns
-    const variableRegex = /{{(.*?)}}/g;
-    text = text.replace(variableRegex, (match: string, path: string) => {
-      const val = getNestedValue(variables, path.trim());
-      return val !== undefined ? String(val) : match;
-    });
-    
+    text = this.replaceVariables(text, variables);
 
     if (!text || text.trim() === '') {
       console.warn(`[FlowEngine] ⚠️ Texto da mensagem está vazio! Verifique o nó de mensagem no fluxo.`);
@@ -238,12 +243,17 @@ export class FlowEngineService {
       const mediaSource = data.mediaUrl || data.mediaBase64;
 
       if (mediaSource) {
+        let caption = data.caption || undefined;
+        if (caption) {
+          caption = this.replaceVariables(caption, variables);
+        }
+
         await whatsappService.sendMedia({
           instanceId: instance.id,
           to: execution.contactPhone,
           mediaBase64: mediaSource,
-          mediaType: isAudio ? "audio" : "image",
-          caption: data.caption || undefined
+          mediaType: node.type, // 'audio', 'image' or 'video'
+          caption: caption
         });
       } else {
         console.warn(`[FlowEngine] Sem mídia informada no nó ${node.id} do fluxo.`);
@@ -256,8 +266,16 @@ export class FlowEngineService {
   private async executeConditionNode(execution: any, node: any, data: any) {
     // For a "wait for reply" condition, we pause the execution
     
-    // Let's calculate the timeout date based on data
-    const delayMinutes = data.waitHours ? Number(data.waitHours) * 60 : (data.waitMinutes || 60 * 24); // Default 24h
+    // Calculate the timeout date based on data
+    let delayMinutes = 60 * 24; // Default 24h
+    
+    const value = data.waitValue || data.waitHours || 24;
+    const unit = data.waitUnit || (data.waitHours ? 'hours' : 'hours');
+
+    if (unit === 'minutes') delayMinutes = Number(value);
+    else if (unit === 'hours') delayMinutes = Number(value) * 60;
+    else if (unit === 'days') delayMinutes = Number(value) * 60 * 24;
+
     const resumesAt = new Date();
     resumesAt.setMinutes(resumesAt.getMinutes() + delayMinutes);
 
@@ -272,7 +290,15 @@ export class FlowEngineService {
   }
 
   private async executeDelayNode(execution: any, node: any, data: any) {
-    const delayMinutes = data.minutes || 60;
+    let delayMinutes = 60; // Default 1h
+    
+    const value = data.delayValue || data.minutes || 60;
+    const unit = data.delayUnit || 'minutes';
+
+    if (unit === 'minutes') delayMinutes = Number(value);
+    else if (unit === 'hours') delayMinutes = Number(value) * 60;
+    else if (unit === 'days') delayMinutes = Number(value) * 60 * 24;
+
     const resumesAt = new Date();
     resumesAt.setMinutes(resumesAt.getMinutes() + delayMinutes);
 
@@ -290,7 +316,7 @@ export class FlowEngineService {
   /**
    * Called by the Webhook (Evolution API) when a message is received
    */
-  public async handleIncomingMessage(contactPhone: string, companyId: string) {
+  public async handleIncomingMessage(contactPhone: string, companyId: string, messageText: string = '') {
     const cleanPhone = contactPhone.replace(/\D/g, '');
 
     // Find if there's any active execution waiting for a reply for this contact
@@ -314,11 +340,23 @@ export class FlowEngineService {
           data: { status: FlowExecutionStatus.RUNNING, resumesAt: null }
         });
 
-        // Continue flow through the 'respondeu' handle
-        await this.processNextNodes(execution.id, execution.currentNode.id, 'respondeu');
+        // Determine which handle to follow based on message content
+        const text = messageText.toLowerCase().trim();
+        let handle = 'respondeu'; // Default: any response
+
+        const simVariations = ['sim', 's', 'yes', 'y', 'com certeza', 'claro', 'quero', 'pode ser', 'ok'];
+        const naoVariations = ['não', 'nao', 'n', 'no', 'nem pensar', 'jamais', 'obrigado', 'agora não'];
+
+        if (simVariations.some(v => text === v || text.startsWith(v + ' '))) {
+          handle = 'sim';
+        } else if (naoVariations.some(v => text === v || text.startsWith(v + ' '))) {
+          handle = 'nao';
+        }
+
+        // Continue flow through the identified handle
+        await this.processNextNodes(execution.id, execution.currentNode.id, handle);
         
         // Note: The BullMQ timeout job should be cancelled here if possible
-      } else {
       }
     }
   }

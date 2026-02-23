@@ -706,24 +706,31 @@ class WhatsAppService {
       }
 
       // ========================================
-      // ENVIO DE IMAGEM (Endpoint sendMedia)
+      // ENVIO DE IMAGEM OU VÍDEO (Endpoint sendMedia)
       // ========================================
-      let mimetype = "image/jpeg";
-      if (mediaBase64.includes("data:image/png")) mimetype = "image/png";
-      else if (mediaBase64.includes("data:image/gif")) mimetype = "image/gif";
-      else if (mediaBase64.includes("data:image/webp")) mimetype = "image/webp";
+      const isVideo = mediaType === "video";
+      let mimetype = isVideo ? "video/mp4" : "image/jpeg";
+      
+      if (!isVideo) {
+        if (mediaBase64.includes("data:image/png")) mimetype = "image/png";
+        else if (mediaBase64.includes("data:image/gif")) mimetype = "image/gif";
+        else if (mediaBase64.includes("data:image/webp")) mimetype = "image/webp";
+      } else {
+        if (mediaBase64.includes("data:video/quicktime")) mimetype = "video/quicktime";
+        else if (mediaBase64.includes("data:video/webm")) mimetype = "video/webm";
+      }
 
-      console.log(`[WhatsApp Service] 📷 Sending image to ${to} (${remoteJid})...`);
+      console.log(`[WhatsApp Service] ${isVideo ? '🎥' : '📷'} Sending ${mediaType} to ${to} (${remoteJid})...`);
 
       const response = await this.axiosInstance.post(`/message/sendMedia/${instance.instanceName}`, {
         number: remoteJid,
-        mediatype: "image",
+        mediatype: isVideo ? "video" : "image",
         mimetype,
         caption: caption || "",
         media: base64Data,
       });
 
-      console.log(`[WhatsApp Service] ✅ Image sent successfully to ${to}`);
+      console.log(`[WhatsApp Service] ✅ ${mediaType} sent successfully to ${to}`);
 
       return {
         success: true,

@@ -184,6 +184,29 @@ export class FlowController {
     return res.status(204).send();
   }
 
+  private flattenObject(obj: any, prefix = ''): string[] {
+    let paths: string[] = [];
+    if (!obj || typeof obj !== 'object') return paths;
+
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const path = prefix ? `${prefix}.${key}` : key;
+        
+        // Se for um objeto (não null e não array), recursão
+        if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+          paths = paths.concat(this.flattenObject(obj[key], path));
+        } else if (Array.isArray(obj[key])) {
+          // Para arrays, podemos pegar o primeiro item se existir ou apenas marcar como array
+          // Por enquanto, vamos apenas adicionar o path do array
+          paths.push(path);
+        } else {
+          paths.push(path);
+        }
+      }
+    }
+    return paths;
+  }
+
   public async getFlowVariables(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
     const { companyId } = req.user!;
@@ -204,8 +227,7 @@ export class FlowController {
 
     let variables: string[] = [];
     if (flow.lastWebhookPayload && typeof flow.lastWebhookPayload === 'object') {
-      // Extract top-level keys as variables
-      variables = Object.keys(flow.lastWebhookPayload as Record<string, any>);
+      variables = this.flattenObject(flow.lastWebhookPayload);
     }
 
     return res.json({ variables });

@@ -56,7 +56,29 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
             <div className="bg-green-100 p-2 rounded-md text-green-600">🎙️</div>
             <div>
               <p className="font-medium text-sm text-gray-900">Áudio</p>
-              <p className="text-xs text-gray-500">Enviar MP3/OGG</p>
+              <p className="text-xs text-gray-500">Enviar voz/música</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => addNode('image', 'Enviar Imagem')}
+            className="flex items-center gap-3 p-3 bg-white border rounded-md shadow-sm hover:border-pink-400 hover:shadow-md transition-all text-left group"
+          >
+            <div className="bg-pink-100 p-2 rounded-md text-pink-600 group-hover:bg-pink-500 group-hover:text-white transition-colors">🖼️</div>
+            <div>
+              <p className="font-medium text-sm text-gray-900 font-sans">Imagem</p>
+              <p className="text-xs text-gray-500">Enviar foto ou arte</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => addNode('video', 'Enviar Vídeo')}
+            className="flex items-center gap-3 p-3 bg-white border rounded-md shadow-sm hover:border-indigo-400 hover:shadow-md transition-all text-left group"
+          >
+            <div className="bg-indigo-100 p-2 rounded-md text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors">🎥</div>
+            <div>
+              <p className="font-medium text-sm text-gray-900 font-sans">Vídeo</p>
+              <p className="text-xs text-gray-500">Enviar MP4/Vídeo</p>
             </div>
           </button>
 
