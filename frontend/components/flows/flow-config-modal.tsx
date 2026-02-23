@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { TagSelector } from "@/components/forms/tag-selector";
-import { Tag } from "@/lib/tag";
+import { Tag, tagApi } from "@/lib/tag";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
@@ -47,8 +47,8 @@ export function FlowConfigModal({
 
   const fetchTags = async () => {
     try {
-      const res = await api.get("/tags");
-      setAvailableTags(res.data);
+      const resTags = await tagApi.getAll();
+      setAvailableTags(resTags);
     } catch (error) {
       console.error("Error fetching tags", error);
       toast.error("Erro ao carregar tags disponíveis.");
