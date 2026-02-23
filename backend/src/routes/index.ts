@@ -2,6 +2,7 @@ import { Router } from "express";
 import { flowRouter } from "./flow.routes";
 import { flowWebhookRouter } from "./flow-webhook.routes";
 import authRoutes from "./auth.routes";
+import { uploadRouter } from "./upload.routes";
 import customerRoutes from "./customer.routes";
 import whatsappRoutes from "./whatsapp.routes";
 import messageRoutes from "./message.routes";
@@ -28,6 +29,7 @@ import { asyncHandler } from "../middlewares/errorHandler";
 const router = Router();
 
 router.use("/auth", authRoutes);
+router.use("/upload", uploadRouter);
 router.use("/customers", customerRoutes);
 router.use("/whatsapp", whatsappRoutes);
 router.use("/messages", messageRoutes);

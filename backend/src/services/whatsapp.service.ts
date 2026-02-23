@@ -670,7 +670,11 @@ class WhatsAppService {
       // ✅ CORREÇÃO: Usa o helper formatJid
       const remoteJid = this.formatJid(to);
 
-      const base64Data = mediaBase64.includes("base64,") ? mediaBase64.split("base64,")[1] : mediaBase64;
+      // Se for URL (começa com http), não trata como base64
+      const isUrl = mediaBase64.startsWith("http");
+      const base64Data = (!isUrl && mediaBase64.includes("base64,")) 
+        ? mediaBase64.split("base64,")[1] 
+        : mediaBase64;
 
       // ========================================
       // ENVIO DE ÁUDIO (Endpoint específico)

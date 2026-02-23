@@ -22,13 +22,20 @@ import { TriggerNode } from './nodes/TriggerNode';
 import { MessageNode } from './nodes/MessageNode';
 import { ConditionNode } from './nodes/ConditionNode';
 import { DelayNode } from './nodes/DelayNode';
+import { AudioNode } from './nodes/AudioNode';
 import { NodeSidebar } from './NodeSidebar';
+import ButtonEdge from './edges/ButtonEdge';
 
 const nodeTypes = {
   trigger: TriggerNode,
   message: MessageNode,
   condition: ConditionNode,
   delay: DelayNode,
+  audio: AudioNode,
+};
+
+const edgeTypes = {
+  'button-edge': ButtonEdge,
 };
 
 const initialNodes: Node[] = [
@@ -71,13 +78,17 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         const flow = res.data;
         if (flow.name) setFlowName(flow.name);
 
-        let loadedNodes = initialNodes;
-
-        // Ensure trigger node webhook slug is updated
-        loadedNodes[0].data = {
-          ...loadedNodes[0].data,
-          description: flow.webhookSlug ? `/api/webhooks/flow/${flow.webhookSlug}` : '/api/webhooks/flow/meu-fluxo'
-        };
+        let loadedNodes: Node[] = [
+          {
+            id: `trigger-${flowId}`,
+            type: 'trigger',
+            position: { x: 250, y: 100 },
+            data: {
+              name: 'Gatilho Principal',
+              description: flow.webhookSlug ? `/api/webhooks/flow/${flow.webhookSlug}` : '/api/webhooks/flow/meu-fluxo'
+            },
+          },
+        ];
 
         if (flow.nodes && flow.nodes.length > 0) {
           loadedNodes = flow.nodes.map((n: any) => ({
@@ -97,6 +108,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
             sourceHandle: e.sourceHandle,
             target: e.targetNodeId,
             targetHandle: e.targetHandle,
+            type: 'button-edge',
           })));
         }
       } catch (error) {
@@ -157,13 +169,17 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
 
   const handleAddNode = useCallback((type: string, name: string) => {
     setNodes((nds) => {
-      const newNodeId = `${type}-${Date.now()}`;
+      const newNodeId = `${type}-${Math.random().toString(36).substr(2, 9)}`;
       const lastNode = nds[nds.length - 1];
       const newNode: Node = {
         id: newNodeId,
         type,
         position: lastNode ? { x: lastNode.position.x, y: lastNode.position.y + 150 } : { x: 400, y: 300 },
-        data: { name, label: name },
+        data: {
+          name,
+          label: name,
+          ...(type === 'audio' ? { mediaUrl: '', fileName: '' } : {})
+        },
       };
 
       if (lastNode) {
@@ -172,6 +188,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
           source: lastNode.id,
           sourceHandle: lastNode.type === 'trigger' ? 'a' : undefined,
           target: newNodeId,
+          type: 'button-edge',
         }));
       }
 
@@ -180,7 +197,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   }, [setNodes, setEdges]);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    (params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'button-edge' }, eds)),
     [setEdges],
   );
 
@@ -250,6 +267,8 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              defaultEdgeOptions={{ type: 'button-edge' }}
               fitView
               proOptions={{ hideAttribution: true }}
             >

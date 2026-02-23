@@ -1,14 +1,24 @@
 import { memo } from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useReactFlow } from '@xyflow/react';
+import { Trash2 } from 'lucide-react';
 
-export const ConditionNode = memo(({ data }: any) => {
+export const ConditionNode = memo(({ id, data }: any) => {
+  const { deleteElements } = useReactFlow();
   return (
     <div className="bg-white border border-purple-400 rounded-md shadow-md min-w-[280px] overflow-hidden">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-purple-500" />
 
-      <div className="bg-purple-50 px-3 py-2 border-b border-purple-100 flex items-center gap-2">
-        <span className="text-xl">🔀</span>
-        <span className="text-sm font-semibold text-purple-800">Verificar Resposta</span>
+      <div className="bg-purple-50 px-3 py-2 border-b border-purple-100 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🔀</span>
+          <span className="text-sm font-semibold text-purple-800">Verificar Resposta</span>
+        </div>
+        <button
+          onClick={() => { if (confirm('Excluir este bloco?')) deleteElements({ nodes: [{ id }] }) }}
+          className="text-purple-300 hover:text-red-500 transition-colors nodrag"
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
 
       <div className="p-3 text-sm">

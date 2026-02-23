@@ -43,7 +43,7 @@ export const TriggerNode = memo(({ data }: any) => {
             <Copy size={14} />
           </button>
         </div>
-        <p className="text-[10px] text-gray-400 mt-2">Dispara quando receber POST do seu Hub/Checkout.</p>
+        {/* <p className="text-[10px] text-gray-400 mt-2">Dispara quando receber POST do seu Hub/Checkout.</p> */}
       </div>
       <Handle type="source" position={Position.Right} id="a" className="w-3 h-3 bg-primary" />
     </div>

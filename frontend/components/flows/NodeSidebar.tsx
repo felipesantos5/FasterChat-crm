@@ -50,7 +50,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
-            onClick={() => addNode('message', 'Enviar Áudio')}
+            onClick={() => addNode('audio', 'Enviar Áudio')}
             className="flex items-center gap-3 p-3 bg-white border rounded-md shadow-sm hover:border-primary hover:shadow-md transition-all text-left"
           >
             <div className="bg-green-100 p-2 rounded-md text-green-600">🎙️</div>
