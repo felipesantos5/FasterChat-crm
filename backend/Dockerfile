@@ -3,12 +3,12 @@
 # ============================================
 # STAGE 1: Builder - Build da aplicação
 # ============================================
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
 # Instala dependências necessárias para Prisma
-RUN apk add --no-cache openssl libc6-compat
+RUN apt-get update -y && apt-get install -y openssl
 
 # Copia arquivos de dependências
 COPY package*.json ./
@@ -29,12 +29,12 @@ RUN npm run build
 # ============================================
 # STAGE 2: Production - Imagem final
 # ============================================
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
 # Instala dependências de runtime
-RUN apk add --no-cache openssl libc6-compat
+RUN apt-get update -y && apt-get install -y openssl
 
 # Copia package.json
 COPY package*.json ./
