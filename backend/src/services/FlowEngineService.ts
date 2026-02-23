@@ -185,7 +185,7 @@ export class FlowEngineService {
 
     // Replace variables using regex to find all {{path.to.var}} patterns
     const variableRegex = /{{(.*?)}}/g;
-    text = text.replace(variableRegex, (match, path) => {
+    text = text.replace(variableRegex, (match: string, path: string) => {
       const val = getNestedValue(variables, path.trim());
       return val !== undefined ? String(val) : match;
     });

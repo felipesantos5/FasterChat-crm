@@ -64,7 +64,7 @@ export class FlowWebhookController {
       const flowEngine = new FlowEngineService();
       
       // Start the flow execution
-      const execution = await flowEngine.startFlow(flow.id, contactPhone.toString(), variables);
+      const execution = await flowEngine.startFlow(flow.id, String(contactPhone), variables);
 
       return res.status(200).json({ 
         message: 'Flow triggered successfully',

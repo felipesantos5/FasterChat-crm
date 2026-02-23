@@ -700,7 +700,7 @@ class WhatsAppService {
 
         return {
           success: true,
-          messageId: response.data.key?.id || response.data.key,
+          messageId: (response.data.key?.id || response.data.key || "").toString(),
           timestamp: response.data.messageTimestamp,
         };
       }
