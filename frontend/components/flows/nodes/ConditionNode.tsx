@@ -58,6 +58,7 @@ export const ConditionNode = memo(({ id, data }: any) => {
               value={waitUnit}
               onChange={handleUnitChange}
             >
+              <option value="seconds">Segundos</option>
               <option value="minutes">Minutos</option>
               <option value="hours">Horas</option>
               <option value="days">Dias</option>

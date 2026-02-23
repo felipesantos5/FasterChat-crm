@@ -584,8 +584,6 @@ class MessageService {
       let mediaUrl: string | null = null;
       const msgData = data.message;
 
-      console.log(`[MessageService] 📦 Processing inbound message from ${phone}. Type: ${msgData?.audioMessage ? 'audio' : msgData?.imageMessage ? 'image' : 'text/other'}`);
-
       // 1. MENSAGEM DE TEXTO
       if (msgData?.conversation || msgData?.extendedTextMessage?.text) {
         content = msgData.conversation || msgData.extendedTextMessage.text;

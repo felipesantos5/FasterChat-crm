@@ -274,17 +274,19 @@ export class FlowEngineService {
     // For a "wait for reply" condition, we pause the execution
     
     // Calculate the timeout date based on data
-    let delayMinutes = 60 * 24; // Default 24h
     
     const value = data.waitValue || data.waitHours || 24;
     const unit = data.waitUnit || (data.waitHours ? 'hours' : 'hours');
 
-    if (unit === 'minutes') delayMinutes = Number(value);
-    else if (unit === 'hours') delayMinutes = Number(value) * 60;
-    else if (unit === 'days') delayMinutes = Number(value) * 60 * 24;
+    let delaySeconds = 0;
+    if (unit === 'seconds') delaySeconds = Number(value);
+    else if (unit === 'minutes') delaySeconds = Number(value) * 60;
+    else if (unit === 'hours') delaySeconds = Number(value) * 3600;
+    else if (unit === 'days') delaySeconds = Number(value) * 86400;
+    else delaySeconds = Number(value) * 3600; // Default hours
 
     const resumesAt = new Date();
-    resumesAt.setMinutes(resumesAt.getMinutes() + delayMinutes);
+    resumesAt.setSeconds(resumesAt.getSeconds() + delaySeconds);
 
     await prisma.flowExecution.update({
       where: { id: execution.id },
@@ -297,17 +299,19 @@ export class FlowEngineService {
   }
 
   private async executeDelayNode(execution: any, node: any, data: any) {
-    let delayMinutes = 60; // Default 1h
     
     const value = data.delayValue || data.minutes || 60;
     const unit = data.delayUnit || 'minutes';
 
-    if (unit === 'minutes') delayMinutes = Number(value);
-    else if (unit === 'hours') delayMinutes = Number(value) * 60;
-    else if (unit === 'days') delayMinutes = Number(value) * 60 * 24;
+    let delaySeconds = 0;
+    if (unit === 'seconds') delaySeconds = Number(value);
+    else if (unit === 'minutes') delaySeconds = Number(value) * 60;
+    else if (unit === 'hours') delaySeconds = Number(value) * 3600;
+    else if (unit === 'days') delaySeconds = Number(value) * 86400;
+    else delaySeconds = Number(value) * 60; // Default minutes
 
     const resumesAt = new Date();
-    resumesAt.setMinutes(resumesAt.getMinutes() + delayMinutes);
+    resumesAt.setSeconds(resumesAt.getSeconds() + delaySeconds);
 
     await prisma.flowExecution.update({
       where: { id: execution.id },
@@ -323,7 +327,7 @@ export class FlowEngineService {
   /**
    * Called by the Webhook (Evolution API) when a message is received
    */
-  public async handleIncomingMessage(contactPhone: string, companyId: string, messageText: string = '') {
+  public async handleIncomingMessage(contactPhone: string, companyId: string, messageText: string = ''): Promise<boolean> {
     const cleanPhone = contactPhone.replace(/\D/g, '');
 
     // Find if there's any active execution waiting for a reply for this contact
@@ -338,6 +342,7 @@ export class FlowEngineService {
       }
     });
 
+    if (executions.length === 0) return false;
 
     for (const execution of executions) {
       if (execution.currentNode?.type === 'condition') {
@@ -373,5 +378,7 @@ export class FlowEngineService {
         // Note: The BullMQ timeout job should be cancelled here if possible
       }
     }
+
+    return true;
   }
 }
