@@ -63,7 +63,16 @@ export const AudioNode = memo(({ id, data }: any) => {
               <Music size={14} />
               <span className="truncate flex-1 font-medium">{data.fileName || 'áudio-selecionado.mp3'}</span>
             </div>
-            <audio src={data.mediaUrl} controls className="w-full h-8 nodrag nopan" />
+            <audio
+              src={data.mediaUrl}
+              controls
+              className="w-full h-8 nodrag nopan"
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onMouseUp={(e) => e.stopPropagation()}
+            />
             <button
               onClick={() => fileInputRef.current?.click()}
               className="w-full py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 border border-emerald-200 border-dashed rounded transition-colors flex items-center justify-center gap-2"

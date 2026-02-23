@@ -12,8 +12,6 @@ export class FlowEngineService {
   public async startFlow(flowId: string, contactPhone: string, variables: any) {
     // Limpa o número de telefone (remove formatações)
     const cleanPhone = contactPhone.replace(/\D/g, '');
-    console.log(`[FlowEngine] 🚀 startFlow - flowId: ${flowId}, phone: "${contactPhone}" -> "${cleanPhone}"`);
-    console.log(`[FlowEngine] Variables recebidas:`, JSON.stringify(variables));
 
     // Find the flow and its nodes/edges
     const flow = await prisma.flow.findUnique({
@@ -25,7 +23,6 @@ export class FlowEngineService {
       throw new Error(`Flow ${flowId} not found`);
     }
 
-    console.log(`[FlowEngine] Flow encontrado: "${flow.name}" - ${flow.nodes.length} nó(s) e ${flow.edges.length} aresta(s)`);
 
     // Find the trigger node (type = 'webhook' or similar)
     const triggerNode = flow.nodes.find(n => n.type === 'trigger' || n.type === 'webhook');
@@ -33,7 +30,6 @@ export class FlowEngineService {
       throw new Error(`Flow ${flowId} has no trigger node`);
     }
 
-    console.log(`[FlowEngine] Nó trigger encontrado: ${triggerNode.id} (tipo: ${triggerNode.type})`);
 
     // Add "automação" tag to customer if not present
     const customer = await prisma.customer.findFirst({
@@ -59,7 +55,6 @@ export class FlowEngineService {
       }
     });
 
-    console.log(`[FlowEngine] Execução criada: ${execution.id}`);
 
     // Start processing from the next node
     await this.processNextNodes(execution.id, triggerNode.id);
@@ -77,7 +72,6 @@ export class FlowEngineService {
     });
 
     if (!execution || execution.status !== FlowExecutionStatus.RUNNING) {
-      console.log(`[FlowEngine] processNextNodes abortado - status: ${execution?.status}`);
       return;
     }
 
@@ -91,7 +85,6 @@ export class FlowEngineService {
       edges = edges.filter(e => e.sourceHandle === sourceHandle);
     }
 
-    console.log(`[FlowEngine] processNextNodes - nó atual: ${currentNodeId}, arestas encontradas: ${edges.length}`);
 
     if (edges.length === 0) {
       // Flow ended
@@ -99,7 +92,6 @@ export class FlowEngineService {
         where: { id: executionId },
         data: { status: FlowExecutionStatus.COMPLETED, completedAt: new Date() }
       });
-      console.log(`[FlowEngine] ✅ Fluxo concluído (sem próximos nós)`);
       return;
     }
 
@@ -107,7 +99,6 @@ export class FlowEngineService {
     for (const edge of edges) {
       const targetNode = flow.nodes.find(n => n.id === edge.targetNodeId);
       if (targetNode) {
-        console.log(`[FlowEngine] ➡️ Executando nó: ${targetNode.id} (tipo: ${targetNode.type})`);
         await this.executeNode(execution, targetNode);
       }
     }
@@ -174,9 +165,6 @@ export class FlowEngineService {
   private async executeMessageNode(execution: any, data: any, variables: any) {
     let text = data.text || data.message || data.content || '';
     
-    console.log(`[FlowEngine] executeMessageNode - texto base: "${text}"`);
-    console.log(`[FlowEngine] executeMessageNode - variáveis disponíveis:`, JSON.stringify(variables));
-    console.log(`[FlowEngine] executeMessageNode - data do nó:`, JSON.stringify(data));
 
     // Recursive helper to resolve nested paths (e.g., "data.customer.name")
     const getNestedValue = (obj: any, path: string) => {
@@ -190,7 +178,6 @@ export class FlowEngineService {
       return val !== undefined ? String(val) : match;
     });
     
-    console.log(`[FlowEngine] executeMessageNode - texto final após substituição: "${text}"`);
 
     if (!text || text.trim() === '') {
       console.warn(`[FlowEngine] ⚠️ Texto da mensagem está vazio! Verifique o nó de mensagem no fluxo.`);
@@ -204,7 +191,6 @@ export class FlowEngineService {
       }
     });
 
-    console.log(`[FlowEngine] companyId: ${execution.flow.companyId}, instância encontrada: ${instance?.instanceName || 'NENHUMA'}`);
 
     if (!instance) {
       // Loga todas as instâncias disponíveis para diagnóstico
@@ -225,7 +211,6 @@ export class FlowEngineService {
     }
     await new Promise(resolve => setTimeout(resolve, delayMs));
 
-    console.log(`[FlowEngine] 📤 Enviando mensagem para ${execution.contactPhone} via instância ${instance.instanceName}...`);
     
     await whatsappService.sendMessage({
       instanceId: instance.id,
@@ -233,7 +218,6 @@ export class FlowEngineService {
       text
     });
 
-    console.log(`[FlowEngine] ✅ Mensagem enviada com sucesso para ${execution.contactPhone}`);
   }
 
   private async executeMediaNode(execution: any, node: any, data: any, variables: any) {
@@ -285,7 +269,6 @@ export class FlowEngineService {
       }
     });
 
-    console.log(`[FlowEngine] Flow paused at condition node, waiting for reply until ${resumesAt} (limit: ${delayMinutes} mins)`);
   }
 
   private async executeDelayNode(execution: any, node: any, data: any) {
@@ -302,17 +285,18 @@ export class FlowEngineService {
     });
 
     // Here we would enqueue a job in BullMQ to wake up after `delayMinutes`
-    console.log(`[FlowEngine] Flow delayed at delay node, will resume at ${resumesAt}`);
   }
 
   /**
    * Called by the Webhook (Evolution API) when a message is received
    */
   public async handleIncomingMessage(contactPhone: string, companyId: string) {
+    const cleanPhone = contactPhone.replace(/\D/g, '');
+
     // Find if there's any active execution waiting for a reply for this contact
     const executions = await prisma.flowExecution.findMany({
       where: {
-        contactPhone,
+        contactPhone: cleanPhone,
         status: FlowExecutionStatus.WAITING_REPLY,
         flow: { companyId }
       },
@@ -320,6 +304,7 @@ export class FlowEngineService {
         currentNode: true
       }
     });
+
 
     for (const execution of executions) {
       if (execution.currentNode?.type === 'condition') {
@@ -333,6 +318,7 @@ export class FlowEngineService {
         await this.processNextNodes(execution.id, execution.currentNode.id, 'respondeu');
         
         // Note: The BullMQ timeout job should be cancelled here if possible
+      } else {
       }
     }
   }

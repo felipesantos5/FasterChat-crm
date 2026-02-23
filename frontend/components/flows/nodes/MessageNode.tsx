@@ -42,7 +42,7 @@ export const MessageNode = memo(({ id, data }: any) => {
   };
 
   return (
-    <div className="bg-white border border-blue-400 rounded-md shadow-md min-w-[300px] overflow-hidden transition-all hover:shadow-lg">
+    <div className="bg-white border border-blue-400 rounded-md shadow-md min-w-[300px] max-w-[400px] overflow-hidden transition-all hover:shadow-lg">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-blue-500" />
 
       <div className="bg-blue-50 px-3 py-2 border-b border-blue-100 flex items-center justify-between gap-2">
@@ -65,7 +65,7 @@ export const MessageNode = memo(({ id, data }: any) => {
         <div className="relative font-sans group">
           {/* Mirroring Highlighted Layer - This determines the height */}
           <div
-            className="w-full text-sm p-3 whitespace-pre-wrap break-words pointer-events-none text-gray-800 border border-transparent min-h-[120px]"
+            className="w-full text-sm p-3 whitespace-pre-wrap break-words break-all pointer-events-none text-gray-800 border border-transparent min-h-[120px]"
             aria-hidden="true"
           >
             {renderHighlightedText(text)}
@@ -78,7 +78,7 @@ export const MessageNode = memo(({ id, data }: any) => {
             id={`msg-text-${id}`}
             value={text}
             onChange={onChange}
-            className="absolute inset-0 w-full h-full text-sm p-3 border border-gray-200 rounded resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 nodrag bg-transparent text-transparent caret-gray-800 selection:bg-blue-200/50 transition-all hover:border-gray-300"
+            className="absolute inset-0 w-full h-full text-sm p-3 border border-gray-200 rounded resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 nodrag bg-transparent text-transparent caret-gray-800 selection:bg-blue-200/50 transition-all hover:border-gray-300 break-words break-all"
             placeholder="Digite a mensagem..."
             spellCheck={false}
           />

@@ -223,7 +223,6 @@ class WebhookController {
             return res.status(200).json({ success: true, message: "Invalid status update data" });
           }
 
-          console.log("📨 [Webhook] messages.update received:", JSON.stringify(payload.data, null, 2));
 
           // Busca a instância
           const instance = await prisma.whatsAppInstance.findFirst({
@@ -241,7 +240,6 @@ class WebhookController {
             const messageId = update.key?.id;
             const statusValue = update.status;
 
-            console.log(`📨 [Webhook] Processing message ${messageId} with status: ${statusValue} (type: ${typeof statusValue})`);
 
             if (!messageId || statusValue === undefined) continue;
 
@@ -264,7 +262,6 @@ class WebhookController {
               newStatus = "READ";
             }
 
-            console.log(`📨 [Webhook] Mapped status: ${statusValue} -> ${newStatus}`);
 
             if (newStatus) {
               const result = await messageService.updateMessageStatusByWhatsAppId(
@@ -272,7 +269,6 @@ class WebhookController {
                 messageId,
                 newStatus as any
               );
-              console.log(`📨 [Webhook] Status update result:`, result ? "Updated" : "Message not found");
             }
           }
 
@@ -314,7 +310,6 @@ class WebhookController {
                            payload.data?.statusReason || 
                            payload.data?.reason;
               
-              console.log(`⚠️ Evolution API Closed. Reason: ${reason}`);
 
               // Se for 401/403 ou loggedOut, desconecta totalmente
               if (reason === 401 || reason === 403 || reason === "loggedOut") {

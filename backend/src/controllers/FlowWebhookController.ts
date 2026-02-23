@@ -23,9 +23,6 @@ export class FlowWebhookController {
       variables.lead?.phone ||
       variables.lead?.telefone;
 
-    console.log(`[FlowWebhook] 📥 Trigger recebido - slug: "${slug}"`);
-    console.log(`[FlowWebhook] Payload:`, JSON.stringify(variables));
-    console.log(`[FlowWebhook] Phone extraído: "${contactPhone}"`);
 
     try {
       // Find the flow first - allow DRAFT or ACTIVE for variable mapping
@@ -42,7 +39,6 @@ export class FlowWebhookController {
         return res.status(404).json({ error: 'Flow not found or not active' });
       }
 
-      console.log(`[FlowWebhook] Flow encontrado: "${flow.name}" (${flow.id}) - status: ${flow.status}`);
 
       // Automatically update the last webhook payload even if no phone is mapped (useful for admin panel variable extraction)
       await prisma.flow.update({

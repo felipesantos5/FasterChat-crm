@@ -202,7 +202,6 @@ class ConversationController {
   async getHandoffsCount(req: Request, res: Response) {
     try {
       if (!req.user) {
-        console.log('[getHandoffsCount] User not authenticated');
         return res.status(401).json({
           success: false,
           message: 'Not authenticated',
@@ -210,10 +209,8 @@ class ConversationController {
       }
 
       const companyId = req.user.companyId;
-      console.log('[getHandoffsCount] Fetching for company:', companyId);
 
       const count = await conversationService.getHandoffsCount(companyId);
-      console.log('[getHandoffsCount] Count result:', count);
 
       return res.status(200).json({
         success: true,
