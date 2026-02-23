@@ -24,6 +24,7 @@ import { ConditionNode } from './nodes/ConditionNode';
 import { DelayNode } from './nodes/DelayNode';
 import { AudioNode } from './nodes/AudioNode';
 import { MediaNode } from './nodes/MediaNode';
+import { AiActionNode } from './nodes/AiActionNode';
 import { NodeSidebar } from './NodeSidebar';
 import ButtonEdge from './edges/ButtonEdge';
 
@@ -35,6 +36,7 @@ const nodeTypes = {
   audio: AudioNode,
   image: MediaNode,
   video: MediaNode,
+  ai_action: AiActionNode,
 };
 
 const edgeTypes = {
@@ -232,7 +234,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         setEdges((eds) => eds.concat({
           id: `e-${lastNode.id}-${newNodeId}`,
           source: lastNode.id,
-          sourceHandle: lastNode.type === 'trigger' ? 'a' : undefined,
+          sourceHandle: lastNode.type === 'trigger' ? 'a' : (lastNode.type === 'condition' ? 'respondeu' : undefined),
           target: newNodeId,
           type: 'button-edge',
         }));

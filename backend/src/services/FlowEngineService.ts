@@ -48,6 +48,22 @@ export class FlowEngineService {
           data: { tags: { push: newTags } }
         });
       }
+
+      // Desativar a IA quando entra em um fluxo vindo de webhook
+      try {
+        const { default: conversationService } = await import('./conversation.service');
+        await conversationService.getOrCreateConversation(customer.id, flow.companyId);
+        await conversationService.toggleAI(customer.id, false);
+        
+        const { websocketService } = await import('./websocket.service');
+        if (websocketService.isInitialized()) {
+          websocketService.emitConversationUpdate(flow.companyId, customer.id, {
+            aiEnabled: false,
+          });
+        }
+      } catch (err: any) {
+        console.warn(`[FlowEngine] ⚠️ Error disabling AI for customer ${customer.id}:`, err.message);
+      }
     }
 
     // Create execution (usa o phone limpo)
@@ -86,12 +102,15 @@ export class FlowEngineService {
     
     // Find edges coming from the current node
     let edges = flow.edges.filter(e => e.sourceNodeId === currentNodeId);
+    console.log(`[FlowEngine] 🔎 processNextNodes: node ${currentNodeId}, handle passed: ${sourceHandle}`);
+    console.log(`[FlowEngine] 🔄 All outgoing edges from ${currentNodeId}:`, edges.map(e => ({ target: e.targetNodeId, handle: e.sourceHandle })));
     
     // If a specific handle was provided (e.g., 'respondeu' or 'nao_respondeu'), filter by it
     if (sourceHandle) {
-      edges = edges.filter(e => e.sourceHandle === sourceHandle);
+      edges = edges.filter(e => e.sourceHandle === sourceHandle || (sourceHandle === 'respondeu' && !e.sourceHandle));
     }
 
+    console.log(`[FlowEngine] 🎯 Filtered edges matching handle:`, edges.map(e => ({ target: e.targetNodeId, handle: e.sourceHandle })));
 
     if (edges.length === 0) {
       // Flow ended
@@ -99,6 +118,7 @@ export class FlowEngineService {
         where: { id: executionId },
         data: { status: FlowExecutionStatus.COMPLETED, completedAt: new Date() }
       });
+      console.log(`[FlowEngine] 🛑 Flow ${executionId} completed (no edges)`);
       return;
     }
 
@@ -169,6 +189,11 @@ export class FlowEngineService {
         case 'image':
         case 'video':
           await this.executeMediaNode(execution, node, data, variables);
+          await this.processNextNodes(execution.id, node.id);
+          break;
+
+        case 'ai_action':
+          await this.executeAiActionNode(execution, node, data);
           await this.processNextNodes(execution.id, node.id);
           break;
 
@@ -322,6 +347,32 @@ export class FlowEngineService {
     });
 
     // Here we would enqueue a job in BullMQ to wake up after `delayMinutes`
+  }
+
+  private async executeAiActionNode(execution: any, node: any, data: any) {
+    const turnOn = data.aiAction === 'enable'; // 'enable' or 'disable'
+    
+    const customer = await prisma.customer.findFirst({
+      where: { phone: execution.contactPhone, companyId: execution.flow.companyId }
+    });
+
+    if (customer) {
+      try {
+        const { default: conversationService } = await import('./conversation.service');
+        await conversationService.getOrCreateConversation(customer.id, execution.flow.companyId);
+        await conversationService.toggleAI(customer.id, turnOn);
+        
+        const { websocketService } = await import('./websocket.service');
+        if (websocketService.isInitialized()) {
+          websocketService.emitConversationUpdate(execution.flow.companyId, customer.id, {
+            aiEnabled: turnOn,
+          });
+        }
+        console.log(`[FlowEngine] 🤖 AI for customer ${customer.id} set to ${turnOn ? 'ON' : 'OFF'}`);
+      } catch (err: any) {
+        console.warn(`[FlowEngine] ⚠️ Error toggling AI for customer ${customer.id}:`, err.message);
+      }
+    }
   }
 
   /**
