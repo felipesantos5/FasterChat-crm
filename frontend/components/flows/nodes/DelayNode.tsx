@@ -3,7 +3,12 @@ import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { Trash2 } from 'lucide-react';
 
 export const DelayNode = memo(({ id, data }: any) => {
-  const { deleteElements } = useReactFlow();
+  const { deleteElements, updateNodeData } = useReactFlow();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateNodeData(id, { minutes: Number(e.target.value) });
+  };
+
   return (
     <div className="bg-white border border-orange-400 rounded-md shadow-md min-w-[200px] overflow-hidden">
       <Handle type="target" position={Position.Left} className="w-3 h-3 bg-orange-500" />
@@ -24,8 +29,10 @@ export const DelayNode = memo(({ id, data }: any) => {
       <div className="p-3 flex items-center gap-2 text-sm justify-center">
         <input
           type="number"
-          className="w-16 p-1 border rounded text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
-          defaultValue={data?.minutes || 60}
+          className="w-16 p-1 border rounded text-center focus:outline-none focus:ring-1 focus:ring-orange-500 nodrag"
+          value={data?.minutes || ''}
+          placeholder="60"
+          onChange={handleChange}
         />
         <span className="text-gray-600 font-medium">minutos</span>
       </div>
