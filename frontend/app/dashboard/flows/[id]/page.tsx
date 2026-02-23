@@ -3,6 +3,7 @@
 import { use } from 'react';
 import { FlowCanvas } from '@/components/flows/FlowCanvas';
 import { useRouter } from 'next/navigation';
+import { ReactFlowProvider } from '@xyflow/react';
 
 export default function FlowBuilderPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -21,9 +22,9 @@ export default function FlowBuilderPage({ params }: { params: Promise<{ id: stri
         <span className="font-semibold">{isNew ? 'Novo Fluxo' : 'Editando Fluxo'}</span>
       </div>
 
-
-
-      <FlowCanvas flowId={id} />
+      <ReactFlowProvider>
+        <FlowCanvas flowId={id} />
+      </ReactFlowProvider>
     </div>
   );
 }

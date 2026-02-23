@@ -37,7 +37,7 @@ export const TriggerNode = memo(({ data }: any) => {
           </div>
           <button
             onClick={handleCopy}
-            className="p-2 border rounded bg-white hover:bg-gray-50 text-gray-500 hover:text-primary transition-colors cursor-pointer"
+            className="p-2 border rounded bg-white hover:bg-gray-50 text-gray-500 hover:text-primary transition-colors cursor-pointer nodrag"
             title="Copiar Link"
           >
             <Copy size={14} />
