@@ -50,6 +50,7 @@
     "fuse.js": "^7.1.0",
     "googleapis": "^166.0.0",
     "helmet": "^8.0.0",
+    "imagekit": "^6.0.0",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",

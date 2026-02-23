@@ -1,41 +1,67 @@
 import { Request, Response } from 'express';
-import path from 'path';
-import fs from 'fs';
+import ImageKit from 'imagekit';
+import { AppError } from '../utils/errors';
 
 export class UploadController {
-  public async uploadFile(req: Request, res: Response) {
+  private imagekit: ImageKit | null = null;
+
+  constructor() {
+    if (process.env.IMAGEKIT_PUBLIC_KEY && process.env.IMAGEKIT_PRIVATE_KEY && process.env.IMAGEKIT_URL_ENDPOINT) {
+      this.imagekit = new ImageKit({
+        publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+        privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+        urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+      });
+    } else {
+      console.warn('[UploadController] ⚠️ ImageKit keys not found in .env. Uploads will fail.');
+    }
+  }
+
+  public uploadFile = async (req: Request, res: Response) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+        throw new AppError({
+          code: 'VALIDATION_ERROR' as any,
+          message: 'No file uploaded',
+          userMessage: 'Nenhum arquivo enviado',
+          statusCode: 400
+        });
       }
 
-      // Construct the public URL
-      // In a real production app, you'd use S3 or similar
-      // For now, we'll serve from a public uploads folder
-      const filename = req.file.filename;
-      
-      // Determina a URL base dinamicamente
-      let baseUrl = `${req.protocol}://${req.get('host')}`;
-      
-      // Em produção, usa a URL do serviço. Em dev, usa o dinâmico ou o localhost
-      if (process.env.NODE_ENV === 'production') {
-        baseUrl = process.env.SERVICE_URL_API || baseUrl;
-      } else {
-        baseUrl = process.env.API_URL || baseUrl;
+      if (!this.imagekit) {
+        throw new AppError({
+          code: 'INTERNAL_ERROR' as any,
+          message: 'ImageKit not configured',
+          userMessage: 'Serviço de upload não configurado (ImageKit)',
+          statusCode: 500
+        });
       }
-      
-      // Remove barra final se houver
-      const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-      const fileUrl = `${cleanBaseUrl}/uploads/${filename}`;
+
+      const { buffer, originalname, mimetype } = req.file;
+      const folder = mimetype.startsWith('image/') ? '/images' : 
+                     mimetype.startsWith('video/') ? '/videos' : 
+                     mimetype.startsWith('audio/') ? '/audios' : '/others';
+
+      const response = await this.imagekit.upload({
+        file: buffer, // required
+        fileName: `${Date.now()}-${originalname}`, // required
+        folder: `crm-ai${folder}`,
+      });
+
+      console.log(`[UploadController] ✅ File uploaded to ImageKit: ${response.url}`);
 
       return res.status(200).json({
         message: 'Arquivo enviado com sucesso',
-        url: fileUrl,
-        filename: filename
+        url: response.url,
+        filename: response.name,
+        fileId: response.fileId
       });
-    } catch (error) {
-      console.error('[UploadController] Error uploading file:', error);
-      return res.status(500).json({ error: 'Erro interno ao processar upload' });
+    } catch (error: any) {
+      console.error('[UploadController] ❌ Error uploading to ImageKit:', error);
+      return res.status(error.statusCode || 500).json({ 
+        error: error.message || 'Internal server error',
+        userMessage: error.userMessage || 'Erro ao processar upload'
+      });
     }
   }
 }

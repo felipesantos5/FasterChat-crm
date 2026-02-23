@@ -8,20 +8,8 @@ import { asyncHandler } from '../middlewares/errorHandler';
 const uploadRouter = Router();
 const uploadController = new UploadController();
 
-// Multer configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    if (!require('fs').existsSync(uploadDir)) {
-      require('fs').mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Multer configuration using memory storage for ImageKit
+const storage = multer.memoryStorage();
 
 const upload = multer({ 
   storage: storage,
