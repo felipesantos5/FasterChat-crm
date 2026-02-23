@@ -329,11 +329,14 @@ export class FlowEngineService {
    */
   public async handleIncomingMessage(contactPhone: string, companyId: string, messageText: string = ''): Promise<boolean> {
     const cleanPhone = contactPhone.replace(/\D/g, '');
+    const rightDigits = cleanPhone.length > 8 ? cleanPhone.slice(-8) : cleanPhone;
+
+    console.log(`[FlowEngine] 📥 Incoming message for flow check. Phone: ${cleanPhone}, looking for endsWith: ${rightDigits}`);
 
     // Find if there's any active execution waiting for a reply for this contact
     const executions = await prisma.flowExecution.findMany({
       where: {
-        contactPhone: cleanPhone,
+        contactPhone: { endsWith: rightDigits },
         status: FlowExecutionStatus.WAITING_REPLY,
         flow: { companyId }
       },
@@ -342,7 +345,12 @@ export class FlowEngineService {
       }
     });
 
-    if (executions.length === 0) return false;
+    if (executions.length === 0) {
+      console.log(`[FlowEngine] ⚪ No active WAITING_REPLY executions found for ${cleanPhone}`);
+      return false;
+    }
+
+    console.log(`[FlowEngine] 🟢 Found ${executions.length} active execution(s) waiting reply for ${cleanPhone}`);
 
     for (const execution of executions) {
       if (execution.currentNode?.type === 'condition') {
