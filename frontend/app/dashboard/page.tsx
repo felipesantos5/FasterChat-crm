@@ -6,6 +6,7 @@ import { ModernStatCard } from "@/components/dashboard/modern-stat-card";
 import {
   ModernMessagesChart,
   ModernFunnelDonut,
+  ModernPeakHoursChart,
 } from "@/components/dashboard/charts";
 import { MessageSquare, Bot, UserPlus, MessageCircle } from "lucide-react";
 import { spacing } from "@/lib/design-system";
@@ -181,8 +182,9 @@ function DashboardPageContent() {
 
             {/* Funil de Vendas */}
             {chartsData && (
-              <div className="mb-6">
+              <div className="grid grid-cols-1 gap-6">
                 <ModernMessagesChart data={chartsData.messagesOverTime} />
+                <ModernPeakHoursChart data={chartsData.messagesByHour} />
               </div>
             )}
           </div>

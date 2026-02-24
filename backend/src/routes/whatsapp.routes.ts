@@ -42,4 +42,10 @@ router.get('/presence/:instanceId/:phone', asyncHandler(whatsappController.getCo
 // POST /api/whatsapp/reconfigure-webhook/:instanceId - Reconfigura webhook de uma instância
 router.post('/reconfigure-webhook/:instanceId', checkPermission('WHATSAPP_CONFIG', true), asyncHandler(whatsappController.reconfigureWebhook));
 
+// PATCH /api/whatsapp/strategy - Atualiza a estratégia de envio da empresa
+router.patch('/strategy', checkPermission('WHATSAPP_CONFIG', true), asyncHandler(whatsappController.updateCompanyStrategy));
+
+// GET /api/whatsapp/strategy - Obtem as configuracoes da estrategia de envio da empresa
+router.get('/strategy', checkPermission('WHATSAPP_CONFIG', false), asyncHandler(whatsappController.getCompanyStrategy));
+
 export default router;

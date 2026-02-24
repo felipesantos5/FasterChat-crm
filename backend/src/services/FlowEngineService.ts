@@ -31,22 +31,39 @@ export class FlowEngineService {
     }
 
 
-    // Add "automação" tag and flow autoTags to customer if not present
-    const customer = await prisma.customer.findFirst({
+    // Add "automação" tag and flow autoTags to customer (creates customer if not present)
+    let customer = await prisma.customer.findFirst({
       where: { phone: cleanPhone, companyId: flow.companyId }
     });
+
+    if (!customer) {
+      // Try to extract name from variables if it's a new lead
+      const custName = variables.name || variables.nome || variables.customer?.name || variables.customer?.nome || variables.data?.customer?.name || variables.data?.nome || variables.lead?.name || cleanPhone;
+      
+      customer = await prisma.customer.create({
+        data: {
+          companyId: flow.companyId,
+          phone: cleanPhone,
+          name: String(custName),
+          tags: []
+        }
+      });
+      console.log(`[FlowEngine] 👤 New customer created automatically: ${cleanPhone}`);
+    }
 
     if (customer) {
       const existingTags = customer.tags || [];
       const tagsToAdd = ['automação', ...((flow as any).autoTags || [])];
       
-      const newTags = tagsToAdd.filter(tag => !existingTags.includes(tag));
+      // Usa Set para unificar as tags e remover duplicatas
+      const combinedTags = Array.from(new Set([...existingTags, ...tagsToAdd]));
       
-      if (newTags.length > 0) {
+      if (combinedTags.length > existingTags.length) {
         await prisma.customer.update({
           where: { id: customer.id },
-          data: { tags: { push: newTags } }
+          data: { tags: combinedTags } // Mais seguro do que { push: xxx }
         });
+        console.log(`[FlowEngine] 🏷️ Tags updated for ${cleanPhone}:`, combinedTags);
       }
 
       // Desativar a IA quando entra em um fluxo vindo de webhook

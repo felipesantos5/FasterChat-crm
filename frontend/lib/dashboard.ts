@@ -63,12 +63,18 @@ export interface CustomerActivityData {
   total: number;
 }
 
+export interface HourlyMessageData {
+  hour: string;
+  count: number;
+}
+
 export interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
   appointmentsOverTime: AppointmentsOverTimeData[];
   appointmentsByStatus: AppointmentsByStatusData[];
   customerActivity: CustomerActivityData;
+  messagesByHour: HourlyMessageData[];
 }
 
 export const dashboardApi = {

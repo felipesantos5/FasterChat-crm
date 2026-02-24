@@ -100,4 +100,23 @@ export const whatsappApi = {
     const response = await api.get(`/whatsapp/presence/${instanceId}/${phone}`);
     return response.data;
   },
+
+  /**
+   * Atualiza a estratégia de instâncias
+   */
+  async updateStrategy(whatsappStrategy: "RANDOM" | "SPECIFIC", defaultWhatsappInstanceId: string | null): Promise<{ success: boolean; message: string }> {
+    const response = await api.patch(`/whatsapp/strategy`, {
+      whatsappStrategy,
+      defaultWhatsappInstanceId,
+    });
+    return response.data;
+  },
+
+  /**
+   * Obtem a configuração da estratégia atual
+   */
+  async getStrategy(): Promise<{ data: { whatsappStrategy: "RANDOM" | "SPECIFIC"; defaultWhatsappInstanceId: string | null } }> {
+    const response = await api.get(`/whatsapp/strategy`);
+    return response.data;
+  },
 };

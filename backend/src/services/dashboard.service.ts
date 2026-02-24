@@ -55,12 +55,18 @@ interface CustomerActivityData {
   total: number;
 }
 
+interface HourlyMessageData {
+  hour: string;
+  count: number;
+}
+
 interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
   appointmentsOverTime: AppointmentsOverTimeData[];
   appointmentsByStatus: AppointmentsByStatusData[];
   customerActivity: CustomerActivityData;
+  messagesByHour: HourlyMessageData[];
 }
 
 const APPOINTMENT_TYPE_LABELS: Record<AppointmentType, string> = {
@@ -438,12 +444,14 @@ class DashboardService {
       appointmentsOverTime,
       appointmentsByStatus,
       customerActivity,
+      messagesByHour,
     ] = await Promise.all([
       this.getPipelineFunnelData(companyId),
       this.getMessagesOverTimeData(companyId, currentStart, daysCount),
       this.getAppointmentsOverTimeData(companyId, currentStart, daysCount),
       this.getAppointmentsByStatusData(companyId),
       this.getCustomerActivityData(companyId),
+      this.getMessagesByHourData(companyId, currentStart, currentEnd),
     ]);
 
     return {
@@ -452,6 +460,7 @@ class DashboardService {
       appointmentsOverTime,
       appointmentsByStatus,
       customerActivity,
+      messagesByHour,
     };
   }
 
@@ -682,6 +691,46 @@ class DashboardService {
       inactive: totalCustomers - activeCount,
       total: totalCustomers,
     };
+  }
+
+  private async getMessagesByHourData(
+    companyId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<HourlyMessageData[]> {
+    // Busca mensagens INBOUND no período
+    const messages = await prisma.message.findMany({
+      where: {
+        customer: { companyId },
+        direction: MessageDirection.INBOUND,
+        timestamp: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        timestamp: true,
+      },
+    });
+
+    // Inicializa o mapa de horas (00 a 23)
+    const hourMap = new Map<number, number>();
+    for (let i = 0; i < 24; i++) {
+      hourMap.set(i, 0);
+    }
+
+    // Conta mensagens por hora (ajustando para o timezone se necessário, 
+    // mas aqui usaremos a hora local do servidor/banco)
+    messages.forEach((msg) => {
+      const hour = msg.timestamp.getHours();
+      hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
+    });
+
+    // Converte para o formato do gráfico
+    return Array.from(hourMap.entries()).map(([hour, count]) => ({
+      hour: `${hour.toString().padStart(2, "0")}:00`,
+      count,
+    }));
   }
 }
 

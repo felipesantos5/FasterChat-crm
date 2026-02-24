@@ -366,6 +366,75 @@ class WhatsAppController {
       });
     }
   }
+
+  /**
+   * GET /api/whatsapp/strategy
+   * Obtem a configuração da estratégia atual da empresa
+   */
+  async getCompanyStrategy(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      if (!user || !user.companyId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const { PrismaClient } = require('@prisma/client');
+      const prisma = new PrismaClient();
+
+      const company = await prisma.company.findUnique({
+        where: { id: user.companyId },
+        select: { whatsappStrategy: true, defaultWhatsappInstanceId: true }
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: company || { whatsappStrategy: 'RANDOM', defaultWhatsappInstanceId: null }
+      });
+    } catch (error: any) {
+      console.error('Error fetching company strategy:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error fetching strategy'
+      });
+    }
+  }
+
+  /**
+   * PATCH /api/whatsapp/strategy
+   * Atualiza a estratégia de uso de instâncias de WhatsApp
+   */
+  async updateCompanyStrategy(req: Request, res: Response) {
+    try {
+      // O req.user já deve estar populado pelo middleware de autenticação
+      const user = (req as any).user;
+      if (!user || !user.companyId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const { whatsappStrategy, defaultWhatsappInstanceId } = req.body;
+      const { PrismaClient } = require('@prisma/client');
+      const prisma = new PrismaClient();
+
+      await prisma.company.update({
+        where: { id: user.companyId },
+        data: {
+          whatsappStrategy,
+          defaultWhatsappInstanceId: defaultWhatsappInstanceId || null,
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Strategy updated successfully',
+      });
+    } catch (error: any) {
+      console.error('Error updating company strategy:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error updating strategy',
+      });
+    }
+  }
 }
 
 export default new WhatsAppController();

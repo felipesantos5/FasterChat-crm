@@ -58,6 +58,9 @@ model Company {
   serviceZoneExceptions ServiceZoneException[]
   Flow                  Flow[]
 
+  whatsappStrategy          String? @default("RANDOM") @map("whatsapp_strategy")
+  defaultWhatsappInstanceId String? @map("default_whatsapp_instance_id")
+
   @@map("companies")
 }
 

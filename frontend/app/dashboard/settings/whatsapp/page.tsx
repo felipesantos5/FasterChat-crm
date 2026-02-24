@@ -9,6 +9,7 @@ import { DisconnectConfirmDialog } from "@/components/whatsapp/disconnect-confir
 import { whatsappApi } from "@/lib/whatsapp";
 import { WhatsAppInstance, WhatsAppStatus } from "@/types/whatsapp";
 import { Loader2, Smartphone, CheckCircle2, XCircle, AlertCircle, Trash2, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
 import { useErrorHandler } from "@/hooks/use-error-handler";
@@ -36,6 +37,11 @@ function WhatsAppSettingsPageContent() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [instanceToAction, setInstanceToAction] = useState<WhatsAppInstance | null>(null);
 
+  // Estados de estratégia de envio
+  const [strategy, setStrategy] = useState<"RANDOM" | "SPECIFIC">("RANDOM");
+  const [defaultInstanceId, setDefaultInstanceId] = useState<string | null>(null);
+  const [savingStrategy, setSavingStrategy] = useState(false);
+
   // Obtém o companyId do usuário logado (você pode ajustar conforme sua implementação)
   const getCompanyId = () => {
     const user = localStorage.getItem("user");
@@ -58,6 +64,16 @@ function WhatsAppSettingsPageContent() {
 
       const response = await whatsappApi.getInstances(companyId);
       setInstances(response.data);
+
+      try {
+        const strategyResponse = await whatsappApi.getStrategy();
+        if (strategyResponse.data) {
+          setStrategy(strategyResponse.data.whatsappStrategy || "RANDOM");
+          setDefaultInstanceId(strategyResponse.data.defaultWhatsappInstanceId || null);
+        }
+      } catch (err) {
+        console.error("Error loading strategy:", err);
+      }
     } catch (err: any) {
       console.error("Error loading instances:", err);
       handleError(err);
@@ -244,6 +260,65 @@ function WhatsAppSettingsPageContent() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Select Strategy Card */}
+      {instances.length > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Estratégia de Envio de Mensagens</CardTitle>
+            <CardDescription>
+              Quando uma mensagem for disparada para um contato novo (por IA, Fluxos Automáticos, ou manualmente), como o sistema deve escolher a instância de envio?
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Modo de Distribuição</label>
+              <select
+                className="w-full p-2 border rounded-md"
+                value={strategy}
+                onChange={(e) => setStrategy(e.target.value as "RANDOM" | "SPECIFIC")}
+              >
+                <option value="RANDOM">Distribuir Aleatoriamente (Balancear entre as conectadas)</option>
+                <option value="SPECIFIC">Sempre enviar através de uma Instância Específica</option>
+              </select>
+            </div>
+
+            {strategy === "SPECIFIC" && (
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Instância Padrão</label>
+                <select
+                  className="w-full p-2 border rounded-md"
+                  value={defaultInstanceId || ""}
+                  onChange={(e) => setDefaultInstanceId(e.target.value)}
+                >
+                  <option value="" disabled>Selecione uma instância...</option>
+                  {instances.filter(i => i.status === WhatsAppStatus.CONNECTED).map(i => (
+                    <option key={i.id} value={i.id}>{i.displayName || i.instanceName} ({i.phoneNumber || 'Sem número'})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <Button
+              onClick={async () => {
+                try {
+                  setSavingStrategy(true);
+                  await whatsappApi.updateStrategy(strategy, strategy === "SPECIFIC" ? defaultInstanceId : null);
+                  toast.success("Estratégia salva com sucesso!");
+                } catch (err: any) {
+                  toast.error(err.response?.data?.message || "Erro ao salvar estratégia");
+                } finally {
+                  setSavingStrategy(false);
+                }
+              }}
+              disabled={savingStrategy || (strategy === "SPECIFIC" && !defaultInstanceId)}
+            >
+              {savingStrategy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar Estratégia
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Instances List */}
       {instances.length > 0 ? (

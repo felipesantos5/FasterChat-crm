@@ -789,14 +789,14 @@ class MessageService {
 
       let whatsappInstance;
 
-      // Se foi especificada uma instância, usa ela
+      // Se foi especificada uma instância explícita na chamada (ex: flow configurado para X), usa ela
       if (whatsappInstanceId) {
         whatsappInstance = customer.company.whatsappInstances.find((i) => i.id === whatsappInstanceId);
         if (!whatsappInstance) {
           throw Errors.whatsappInstanceNotFound();
         }
       } else {
-        // Busca a última mensagem do cliente para descobrir qual instância usar
+        // Busca a última mensagem INBOUND do cliente para manter a mesma linha em respostas de chat humano
         const lastMessage = await prisma.message.findFirst({
           where: {
             customerId: customer.id,
@@ -806,22 +806,27 @@ class MessageService {
             { timestamp: "desc" },
             { createdAt: "desc" },
           ],
-          include: {
-            whatsappInstance: true,
-          },
         });
 
-        // Se encontrou mensagem anterior, usa a mesma instância
         if (lastMessage) {
           whatsappInstance = customer.company.whatsappInstances.find((i) => i.id === lastMessage.whatsappInstanceId);
         }
 
-        // Se ainda não tem instância, tenta encontrar uma CONECTADA
+        // Se o contato nunca nos mandou mensagem, usa a ESTRATÉGIA DE ENVIO DA EMPRESA (Random ou Específico)
         if (!whatsappInstance) {
-          whatsappInstance = customer.company.whatsappInstances.find((i) => i.status === "CONNECTED");
+          const { whatsappStrategy, defaultWhatsappInstanceId } = customer.company as any;
+          const connectedInstances = customer.company.whatsappInstances.filter((i) => i.status === "CONNECTED");
+
+          if (whatsappStrategy === "SPECIFIC" && defaultWhatsappInstanceId) {
+            whatsappInstance = customer.company.whatsappInstances.find((i) => i.id === defaultWhatsappInstanceId);
+          } else if (connectedInstances.length > 0) {
+            // RANDOM (aleatório entre as conectadas)
+            const randomIndex = Math.floor(Math.random() * connectedInstances.length);
+            whatsappInstance = connectedInstances[randomIndex];
+          }
         }
 
-        // FALLBACK: Se não achar conectada, pega a primeira (vai dar erro mais claro no whatsappService)
+        // FALLBACK: Se não achar nenhuma conectada pela estratégia, pega a primeira (pode falhar no whatsappService mas evita quebrar a lógica aqui)
         if (!whatsappInstance && customer.company.whatsappInstances.length > 0) {
           whatsappInstance = customer.company.whatsappInstances[0];
         }
