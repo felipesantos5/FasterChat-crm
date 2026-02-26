@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import whatsappService from '../services/whatsapp.service';
 import { CreateInstanceRequest, SendMessageRequest } from '../types/whatsapp';
+import { prisma } from '../utils/prisma';
 
 class WhatsAppController {
   /**
@@ -378,9 +379,6 @@ class WhatsAppController {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
 
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
-
       const company = await prisma.company.findUnique({
         where: { id: user.companyId },
         select: { whatsappStrategy: true, defaultWhatsappInstanceId: true }
@@ -412,8 +410,6 @@ class WhatsAppController {
       }
 
       const { whatsappStrategy, defaultWhatsappInstanceId } = req.body;
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
 
       await prisma.company.update({
         where: { id: user.companyId },
