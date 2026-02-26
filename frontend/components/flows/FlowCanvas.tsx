@@ -342,7 +342,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
 
         <div className="w-80 border-l bg-gray-50 h-full flex flex-col z-10">
           <div className="flex-1 overflow-y-auto">
-            <NodeSidebar handleAddNode={handleAddNode} flowId={flowId} onOpenBatchModal={() => setIsBatchModalOpen(true)} />
+            <NodeSidebar handleAddNode={handleAddNode} />
           </div>
 
         </div>

@@ -1,6 +1,5 @@
 type NodeSidebarProps = {
   handleAddNode: (type: string, name: string) => void;
-  flowId: string;
 };
 
 export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
