@@ -23,6 +23,8 @@ export interface CreateMessageRequest {
   messageId?: string;
   mediaUrl?: any;
   mediaType?: string;
+  quotedMessageId?: string;
+  quotedContent?: string;
 }
 
 export interface GetMessagesRequest {

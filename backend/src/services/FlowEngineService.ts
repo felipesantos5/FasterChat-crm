@@ -33,6 +33,14 @@ export class FlowEngineService {
     }
 
 
+    // Seleciona a instância WhatsApp UMA VEZ no início do fluxo (respeita estratégia RANDOM/SPECIFIC)
+    // Trazido para cima para usar a instância para buscar a foto de perfil do contato (se aplicável)
+    const selectedInstance = await this.getInstanceForCompany(flow.companyId);
+    if (!selectedInstance) {
+      console.error(`[FlowEngine] ❌ Nenhuma instância WhatsApp conectada para companyId ${flow.companyId}`);
+      throw new Error(`Nenhuma instância WhatsApp conectada para iniciar o fluxo`);
+    }
+
     // Add "automação" tag and flow autoTags to customer (creates customer if not present)
     let customer = await prisma.customer.findFirst({
       where: { phone: cleanPhone, companyId: flow.companyId }
@@ -40,7 +48,19 @@ export class FlowEngineService {
 
     if (!customer) {
       // Try to extract name from variables if it's a new lead
-      const custName = variables.name || variables.nome || variables.customer?.name || variables.customer?.nome || variables.data?.customer?.name || variables.data?.nome || variables.lead?.name || cleanPhone;
+      let custName = variables.name || variables.nome || variables.customer?.name || variables.customer?.nome || variables.data?.customer?.name || variables.data?.nome || variables.lead?.name;
+      let profilePicUrl: string | null = null;
+
+      // Buscar foto e nome na Evolution API via instância selecionada para disparo
+      try {
+        const profileInfo = await whatsappService.getContactProfileInfo(selectedInstance.instanceName, cleanPhone);
+        if (profileInfo.profilePicUrl) profilePicUrl = profileInfo.profilePicUrl;
+        if (!custName && profileInfo.name) custName = profileInfo.name;
+      } catch (err: any) {
+        console.warn(`[FlowEngine] ⚠️ Falha ao buscar perfil do contato na API:`, err.message);
+      }
+
+      if (!custName) custName = cleanPhone;
       
       // Busca o primeiro estágio do pipeline para atribuir ao novo lead
       const firstStage = await prisma.pipelineStage.findFirst({
@@ -53,6 +73,7 @@ export class FlowEngineService {
           companyId: flow.companyId,
           phone: cleanPhone,
           name: String(custName),
+          profilePicUrl: profilePicUrl,
           tags: [],
           pipelineStageId: firstStage?.id || null,
         }
@@ -90,13 +111,6 @@ export class FlowEngineService {
       } catch (err: any) {
         console.warn(`[FlowEngine] ⚠️ Error disabling AI for customer ${customer.id}:`, err.message);
       }
-    }
-
-    // Seleciona a instância WhatsApp UMA VEZ no início do fluxo (respeita estratégia RANDOM/SPECIFIC)
-    const selectedInstance = await this.getInstanceForCompany(flow.companyId);
-    if (!selectedInstance) {
-      console.error(`[FlowEngine] ❌ Nenhuma instância WhatsApp conectada para companyId ${flow.companyId}`);
-      throw new Error(`Nenhuma instância WhatsApp conectada para iniciar o fluxo`);
     }
 
     // Create execution (usa o phone limpo + instância selecionada)

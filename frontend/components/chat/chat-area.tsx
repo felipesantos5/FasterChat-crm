@@ -805,7 +805,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
             const showDateSeparator = shouldShowDateSeparator(message, previousMessage);
 
             return (
-              <div key={message.id}>
+              <div key={message.id} id={`msg-${message.messageId || message.id}`}>
                 {/* Separador de Data */}
                 {showDateSeparator && (
                   <div className="flex justify-center my-3">
@@ -841,6 +841,29 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                       </div>
                     )}
                     <div className="flex flex-col gap-2">
+                      {/* Mensagem Respondida (Quoted Message) */}
+                      {message.quotedContent && (
+                        <div
+                          className={cn(
+                            "mb-1 p-2 rounded text-xs border-l-4 bg-black/5 dark:bg-white/5 cursor-pointer hover:bg-black/10 transition-colors",
+                            isInbound ? "border-primary" : "border-white/50"
+                          )}
+                          onClick={() => {
+                            if (message.quotedMessageId) {
+                              const quotedElement = document.getElementById(`msg-${message.quotedMessageId}`);
+                              if (quotedElement) {
+                                quotedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                quotedElement.classList.add('animate-pulse');
+                                setTimeout(() => quotedElement.classList.remove('animate-pulse'), 2000);
+                              }
+                            }
+                          }}
+                        >
+                          <p className="font-bold mb-0.5">{isInbound ? customerName : "Você"}</p>
+                          <p className="line-clamp-2 truncate">{message.quotedContent}</p>
+                        </div>
+                      )}
+
                       {/* Imagem */}
                       {message.mediaType === "image" && message.mediaUrl && (
                         <div className="space-y-2">

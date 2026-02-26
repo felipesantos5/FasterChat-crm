@@ -1,6 +1,6 @@
 import { memo, useRef, useState, useEffect } from 'react';
 import { Handle, Position, useReactFlow } from '@xyflow/react';
-import { Trash2, Mic, Upload, Music } from 'lucide-react';
+import { Trash2, Mic, Upload, Music, StopCircle } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -9,6 +9,11 @@ export const AudioNode = memo(({ id, data }: any) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(data?.mediaUrl || null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync local preview with data changes (e.g. on load)
   useEffect(() => {
@@ -19,13 +24,20 @@ export const AudioNode = memo(({ id, data }: any) => {
     }
   }, [data?.mediaUrl]);
 
-  const onFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Limpar timer de gravação caso seja desmontado
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, []);
 
+  const uploadFile = async (file: File) => {
     // Check if it's audio
-    if (!file.type.startsWith('audio/')) {
-      toast.error('Por favor, selecione um arquivo de áudio');
+    if (!file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
+      toast.error('Por favor, selecione um arquivo de áudio válido');
       return;
     }
 
@@ -55,6 +67,61 @@ export const AudioNode = memo(({ id, data }: any) => {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const onFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const file = new File([audioBlob], `gravacao-${Date.now()}.webm`, { type: 'audio/webm' });
+        await uploadFile(file);
+
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error('Erro ao acessar microfone:', error);
+      toast.error('Não foi possível acessar o microfone. Verifique as permissões.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
   };
 
   return (
@@ -100,25 +167,59 @@ export const AudioNode = memo(({ id, data }: any) => {
               onMouseDown={(e) => e.stopPropagation()}
               onMouseUp={(e) => e.stopPropagation()}
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 border border-emerald-200 border-dashed rounded transition-colors flex items-center justify-center gap-2"
-            >
-              <Upload size={12} /> Alterar Áudio
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 border border-emerald-200 border-dashed rounded transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Upload size={14} /> Arquivo
+              </button>
+              {isRecording ? (
+                <button
+                  onClick={stopRecording}
+                  className="flex-1 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition-colors flex items-center justify-center gap-1.5 animate-pulse"
+                >
+                  <StopCircle size={14} /> {formatTime(recordingTime)}
+                </button>
+              ) : (
+                <button
+                  onClick={startRecording}
+                  className="flex-1 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 border border-emerald-200 border-dashed rounded transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Mic size={14} /> Gravar
+                </button>
+              )}
+            </div>
           </div>
         ) : (
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full aspect-video border-2 border-dashed border-emerald-200 rounded-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-emerald-50/50 hover:border-emerald-400 transition-all group p-4 text-center"
-          >
-            <div className="bg-emerald-100 p-3 rounded-full text-emerald-600 group-hover:scale-110 transition-transform">
-              <Upload size={24} />
+          <div className="w-full flex-col gap-2 flex">
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full h-[80px] border-2 border-dashed border-emerald-200 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-emerald-50/50 hover:border-emerald-400 transition-all group"
+            >
+              <div className="bg-emerald-100 p-2 rounded-full text-emerald-600 group-hover:scale-110 transition-transform">
+                <Upload size={20} />
+              </div>
+              <p className="text-xs font-bold text-emerald-700">Subir Áudio</p>
             </div>
-            <div>
-              <p className="text-sm font-bold text-emerald-700">Subir Áudio</p>
-              <p className="text-[10px] text-emerald-500">MP3, WAV ou OGG</p>
-            </div>
+
+            {isRecording ? (
+              <div
+                onClick={stopRecording}
+                className="w-full h-[50px] border-2 border-red-400 bg-red-50 rounded-lg flex items-center justify-center gap-2 cursor-pointer hover:bg-red-100 transition-all group text-red-600 font-bold text-sm animate-pulse"
+              >
+                <StopCircle size={20} className="text-red-600" />
+                Gravando: {formatTime(recordingTime)}
+              </div>
+            ) : (
+              <div
+                onClick={startRecording}
+                className="w-full h-[50px] border-2 border-dashed border-emerald-200 bg-emerald-50/30 rounded-lg flex items-center justify-center gap-2 cursor-pointer hover:bg-emerald-50 hover:border-emerald-400 transition-all group text-emerald-700 font-bold text-sm"
+              >
+                <Mic size={20} className="text-emerald-600" />
+                Gravar Áudio
+              </div>
+            )}
           </div>
         )}
 

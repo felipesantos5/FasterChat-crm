@@ -72,7 +72,7 @@ export function ModernStatCard({
         </div>
       </div>
 
-      <div className="relative z-10 flex flex-col h-full justify-between gap-4">
+      <div className="relative z-10 flex flex-col h-full justify-between gap-1">
         {/* Title */}
         <p className="text-[15px] font-medium text-gray-600 dark:text-gray-400 max-w-[70%]">
           {title}

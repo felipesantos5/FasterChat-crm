@@ -668,6 +668,46 @@ class WhatsAppService {
   }
 
   /**
+   * Busca as informações de perfil (foto e nome) de um contato
+   */
+  async getContactProfileInfo(instanceName: string, phone: string): Promise<{ profilePicUrl: string | null; name: string | null }> {
+    try {
+      const remoteJid = this.formatJid(phone);
+      let profilePicUrl: string | null = null;
+      let name: string | null = null;
+
+      // 1. Tenta buscar a foto de perfil
+      try {
+        const picResponse = await this.axiosInstance.post(`/chat/fetchProfilePictureUrl/${instanceName}`, {
+          number: remoteJid,
+        });
+        profilePicUrl = picResponse.data?.profilePictureUrl || picResponse.data?.picture || picResponse.data?.url || null;
+      } catch (e: any) {
+        // Ignora erro e segue a vida
+      }
+
+      // 2. Tenta buscar o nome do contato via webhook simulate ou informacoes de contato
+      try {
+        const infoResponse = await this.axiosInstance.post(`/chat/findContacts/${instanceName}`, {
+          where: { id: remoteJid }
+        });
+        
+        if (Array.isArray(infoResponse.data) && infoResponse.data.length > 0) {
+          const contact = infoResponse.data[0];
+          name = contact.pushName || contact.notify || contact.name || null;
+        }
+      } catch (e: any) {
+        // Ignora erro e segue a vida
+      }
+
+      return { profilePicUrl, name };
+    } catch (error: any) {
+      console.log(`[WhatsApp Service] 📷/👤 Could not fetch profile info for ${phone}: ${error.message}`);
+      return { profilePicUrl: null, name: null };
+    }
+  }
+
+  /**
    * Envia uma mídia (imagem ou áudio) via WhatsApp
    */
   async sendMedia(data: { instanceId: string; to: string; mediaBase64: string; caption?: string; mediaType?: string }) {
