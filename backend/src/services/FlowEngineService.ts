@@ -128,9 +128,21 @@ export class FlowEngineService {
     // Find edges coming from the current node
     let edges = flow.edges.filter(e => e.sourceNodeId === currentNodeId);
     
-    // If a specific handle was provided (e.g., 'respondeu' or 'nao_respondeu'), filter by it
+    // If a specific handle was provided (e.g., 'respondeu', 'true', 'false'), filter by it
     if (sourceHandle) {
-      edges = edges.filter(e => e.sourceHandle === sourceHandle || (sourceHandle === 'respondeu' && !e.sourceHandle));
+      const exactMatch = edges.filter(e => e.sourceHandle === sourceHandle);
+      if (exactMatch.length > 0) {
+        edges = exactMatch;
+      } else {
+        // Fallback: se não encontrou edge com o handle exato, tenta edges sem handle definido
+        // Isso cobre o caso de edges criadas antes do nó ter handles específicos
+        const noHandleEdges = edges.filter(e => !e.sourceHandle);
+        if (noHandleEdges.length > 0) {
+          console.warn(`[FlowEngine] ⚠️ Nenhuma edge com handle "${sourceHandle}" encontrada. Usando ${noHandleEdges.length} edge(s) sem handle definido como fallback.`);
+          edges = noHandleEdges;
+        }
+        // Se nem edges sem handle existem, edges fica vazio → flow completed
+      }
     }
 
     if (edges.length === 0) {

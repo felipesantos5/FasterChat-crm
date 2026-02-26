@@ -239,7 +239,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         setEdges((eds) => eds.concat({
           id: `e-${lastNode.id}-${newNodeId}`,
           source: lastNode.id,
-          sourceHandle: lastNode.type === 'trigger' ? 'a' : (lastNode.type === 'condition' ? 'respondeu' : undefined),
+          sourceHandle: lastNode.type === 'trigger' ? 'a' : (lastNode.type === 'condition' ? 'respondeu' : (lastNode.type === 'validation' ? 'true' : undefined)),
           target: newNodeId,
           type: 'button-edge',
         }));
