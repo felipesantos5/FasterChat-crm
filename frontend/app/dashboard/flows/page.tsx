@@ -6,7 +6,6 @@ import api from '@/lib/api';
 import { toast } from 'sonner';
 import {
   Plus,
-  MessageSquare,
   Zap,
   Trash2,
   ChevronRight,
@@ -172,10 +171,10 @@ export default function FlowsPage() {
               </div>
 
               <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-between text-xs font-semibold text-gray-400">
-                <span className="flex items-center gap-1 uppercase tracking-tighter">
+                {/* <span className="flex items-center gap-1 uppercase tracking-tighter">
                   <MessageSquare size={12} />
                   Trigger: {flow.triggerType}
-                </span>
+                </span> */}
                 <span className="text-primary flex items-center group-hover:translate-x-1 transition-transform">
                   Editar <ChevronRight size={14} />
                 </span>

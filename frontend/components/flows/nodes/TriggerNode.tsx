@@ -1,47 +1,170 @@
-import { memo } from 'react';
+import { memo, useState, useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Copy } from 'lucide-react';
+import { Copy, FileSpreadsheet, Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '@/lib/api';
 
 export const TriggerNode = memo(({ data }: any) => {
+  const [loadingCsv, setLoadingCsv] = useState(false);
+  const [csvLoaded, setCsvLoaded] = useState(false);
+  const [totalRows, setTotalRows] = useState(0);
+  const [variableColumns, setVariableColumns] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const getFullUrl = (path: string) => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3051";
-    // path is something like "/api/webhooks/flow/meu-fluxo"
-    // Since baseUrl might have "/api", we need to be careful if NEXT_PUBLIC_API_URL already ends with /api. If path already has /api, we should combine nicely.
-    // Generally, NEXT_PUBLIC_API_URL is "https://domain.com/api" or "https://domain.com"
-    // Let's assume the path passed in is the exact path after the base domain like `/api/webhooks/flow/...`
-    // And NEXT_PUBLIC_API_URL is the base server URL like "http://localhost:3051"
-
-    // Actually, in `api.ts`, baseURL is `${API_URL}/api`, meaning API_URL is the server domain, e.g. "http://localhost:3051".
     return `${baseUrl}${path}`;
   };
 
   const currentPath = data?.description || '/api/webhooks/flow/meu-fluxo';
   const fullUrl = getFullUrl(currentPath);
+  const flowId = data?.flowId;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(fullUrl);
     toast.success('Link do webhook copiado!');
   };
 
-  return (
-    <div className="bg-white border-2 border-primary rounded-md shadow-md min-w-[280px] max-w-[430px] overflow-hidden">
-      <div className="bg-primary/10 px-3 py-2 border-b border-primary/20 flex items-center justify-between">
-        <span className="text-sm font-semibold text-primary">⚡ Gatilho</span>
-      </div>
-      <div className="p-3 flex flex-col gap-2">
-        <button
-          onClick={handleCopy}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-900 border border-gray-800 text-white rounded-md text-sm hover:bg-black transition-colors cursor-pointer nodrag font-medium"
-        >
-          <Copy size={16} />
-          Copiar link do webhook
-        </button>
+  const handleImportCsv = async (file: File) => {
+    if (!flowId) return;
+    setLoadingCsv(true);
+    setCsvLoaded(false);
 
-        <p className="text-xs text-center text-gray-500 mt-1 leading-relaxed">
-          Para ativar, faça um <strong>POST</strong> enviando suas propriedades e coloque o <strong>phone</strong> para ativar o fluxo e enviar a mensagem.
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await api.post(`/flows/${flowId}/batch/preview`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setVariableColumns(res.data.variableColumns || []);
+      setTotalRows(res.data.totalRows || 0);
+      setCsvLoaded(true);
+      toast.success(`${res.data.totalRows} contatos carregados!`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Erro ao ler planilha.');
+    } finally {
+      setLoadingCsv(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+
+
+  return (
+    <div className="bg-white border-2 border-primary rounded-xl shadow-lg min-w-[300px] max-w-[440px] overflow-hidden">
+      <div className="bg-primary/10 px-3 py-2.5 border-b border-primary/20 flex items-center justify-between">
+        <span className="text-sm font-bold text-primary">⚡ Gatilho</span>
+      </div>
+
+      <div className="p-3 flex flex-col gap-3">
+        {/* Webhook Section */}
+        <div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-0.5">Via Webhook</p>
+          <button
+            onClick={handleCopy}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-900 text-white rounded-lg text-xs hover:bg-black transition-colors cursor-pointer nodrag font-semibold"
+          >
+            <Copy size={14} />
+            Copiar link do webhook
+          </button>
+        </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-[10px] font-bold text-gray-300 uppercase">ou</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+
+        {/* CSV Section */}
+        <div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-0.5">Via Planilha</p>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleImportCsv(f);
+            }}
+          />
+
+          {!csvLoaded ? (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loadingCsv}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-violet-600 text-white rounded-lg text-xs hover:bg-violet-700 transition-colors cursor-pointer nodrag font-semibold disabled:opacity-60"
+            >
+              {loadingCsv ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Lendo planilha...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet size={14} />
+                  Importar planilha (CSV/XLSX)
+                </>
+              )}
+            </button>
+          ) : (
+            <div className="space-y-2">
+              {/* Loaded state */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 size={13} className="text-green-600" />
+                    <span className="text-[11px] font-bold text-green-700">
+                      {totalRows} contatos · {variableColumns.length} variáveis
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCsvLoaded(false);
+                      setVariableColumns([]);
+                      setTotalRows(0);
+                    }}
+                    className="text-green-500 hover:text-green-700 transition-colors nodrag p-0.5"
+                    title="Trocar planilha"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                </div>
+
+                {variableColumns.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {variableColumns.slice(0, 5).map((col) => (
+                      <span
+                        key={col}
+                        className="text-[9px] font-mono font-bold px-1 py-0.5 rounded bg-violet-100 text-violet-700"
+                      >
+                        {`{{${col}}}`}
+                      </span>
+                    ))}
+                    {variableColumns.length > 5 && (
+                      <span className="text-[9px] text-gray-400 px-1 py-0.5">
+                        +{variableColumns.length - 5}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Helper text */}
+        <p className="text-[10px] text-center text-gray-400 leading-relaxed">
+          {csvLoaded
+            ? 'Planilha carregada. Configure os textos com as variáveis e dispare pela sidebar.'
+            : 'Envie um POST no webhook ou importe uma planilha para iniciar o fluxo.'}
         </p>
       </div>
+
       <Handle type="source" position={Position.Right} id="a" className="w-3 h-3 bg-primary" />
     </div>
   );

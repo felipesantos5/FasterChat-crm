@@ -63,10 +63,12 @@ export function MonthFilter({ value, onChange }: MonthFilterProps) {
   return (
     <div className="flex items-center gap-2">
       <Select value={currentSelectedMonth} onValueChange={handleMonthChange}>
-        <SelectTrigger className="w-[160px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <CalendarDays className="h-4 w-4 text-gray-500" />
-            <SelectValue placeholder="Selecione o mês" />
+        <SelectTrigger
+          className="w-[200px] h-10 bg-white border-gray-200 text-slate-900 data-[placeholder]:text-slate-900 hover:bg-gray-50 transition-colors shadow-sm rounded-lg flex items-center gap-2 px-4 font-semibold text-sm whitespace-nowrap"
+        >
+          <div className="flex items-center gap-2 truncate">
+            <CalendarDays className="h-4 w-4 text-gray-500 shrink-0" />
+            <SelectValue placeholder="Selecionar mês" />
           </div>
         </SelectTrigger>
         <SelectContent>

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Pencil, ArrowLeft, History } from 'lucide-react';
 import { ExecutionDrawer } from './ExecutionDrawer';
 import { FlowBatchUploadModal } from './flow-batch-upload-modal';
+import { BatchStatusButton } from './BatchStatusButton';
 import {
   ReactFlow,
   Controls,
@@ -72,6 +73,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   const [executions, setExecutions] = useState<any[]>([]);
   const [selectedExecution, setSelectedExecution] = useState<any | null>(null);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
 
   // Load or Create Flow
   useEffect(() => {
@@ -95,7 +97,8 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
             position: { x: 250, y: 100 },
             data: {
               name: 'Gatilho Principal',
-              description: flow.webhookSlug ? `/api/webhooks/flow/${flow.webhookSlug}` : '/api/webhooks/flow/meu-fluxo'
+              description: flow.webhookSlug ? `/api/webhooks/flow/${flow.webhookSlug}` : '/api/webhooks/flow/meu-fluxo',
+              flowId,
             },
           },
         ];
@@ -287,6 +290,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          <BatchStatusButton flowId={flowId} activeBatchId={activeBatchId} />
           <button
             onClick={() => setIsHistoryOpen(!isHistoryOpen)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all text-sm font-medium border ${isHistoryOpen
@@ -351,6 +355,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         onClose={() => setIsBatchModalOpen(false)}
         flowId={flowId}
         flowName={flowName}
+        onBatchStarted={(batchId) => setActiveBatchId(batchId)}
       />
     </div>
   );

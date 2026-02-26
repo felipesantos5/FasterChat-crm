@@ -13,6 +13,7 @@ export function NodeSidebar({ handleAddNode, flowId, onOpenBatchModal }: NodeSid
   const [loadingCsv, setLoadingCsv] = useState(false);
   const [csvLoaded, setCsvLoaded] = useState(false);
   const [variableColumns, setVariableColumns] = useState<string[]>([]);
+  const [totalRows, setTotalRows] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addNode = (type: string, name: string) => {
@@ -33,8 +34,9 @@ export function NodeSidebar({ handleAddNode, flowId, onOpenBatchModal }: NodeSid
 
       const vars = res.data.variableColumns || [];
       setVariableColumns(vars);
+      setTotalRows(res.data.totalRows || 0);
       setCsvLoaded(true);
-      toast.success(`${vars.length} variáveis carregadas da planilha!`);
+      toast.success(`${res.data.totalRows} contatos e ${vars.length} variáveis carregadas!`);
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Erro ao ler planilha.';
       toast.error(msg);
@@ -150,7 +152,7 @@ export function NodeSidebar({ handleAddNode, flowId, onOpenBatchModal }: NodeSid
           Disparo em Massa
         </h3>
 
-        {/* CSV Upload para carregar variáveis */}
+        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -162,74 +164,81 @@ export function NodeSidebar({ handleAddNode, flowId, onOpenBatchModal }: NodeSid
           }}
         />
 
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={loadingCsv}
-          className={`w-full flex items-center gap-2.5 p-3 border-2 border-dashed rounded-lg transition-all text-left ${csvLoaded
-            ? 'border-green-300 bg-green-50 hover:border-green-400'
-            : 'border-gray-200 bg-white hover:border-primary/50 hover:bg-primary/5'
-            }`}
-        >
-          {loadingCsv ? (
-            <>
-              <Loader2 size={18} className="animate-spin text-primary" />
-              <div>
-                <p className="text-xs font-semibold text-gray-700">Lendo planilha...</p>
-              </div>
-            </>
-          ) : csvLoaded ? (
-            <>
-              <CheckCircle2 size={18} className="text-green-600" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-green-700">
-                  {variableColumns.length} variáveis carregadas
-                </p>
-                <p className="text-[10px] text-green-600 truncate">
-                  {variableColumns.map(v => `{{${v}}}`).join(', ')}
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <Upload size={18} className="text-gray-400" />
-              <div>
-                <p className="text-xs font-semibold text-gray-700">Importar Planilha</p>
-                <p className="text-[10px] text-gray-400">Carrega variáveis (CSV/XLSX)</p>
-              </div>
-            </>
-          )}
-        </button>
-
-        {/* Loaded variables pills */}
-        {csvLoaded && variableColumns.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {variableColumns.slice(0, 6).map((col) => (
-              <span
-                key={col}
-                className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700"
-              >
-                {`{{${col}}}`}
-              </span>
-            ))}
-            {variableColumns.length > 6 && (
-              <span className="text-[10px] text-gray-400 px-1 py-0.5">
-                +{variableColumns.length - 6} mais
-              </span>
+        {!csvLoaded ? (
+          /* Estado 1: Importar planilha */
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loadingCsv}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm disabled:opacity-60"
+          >
+            {loadingCsv ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Lendo planilha...
+              </>
+            ) : (
+              <>
+                <Upload size={16} />
+                Importar Planilha
+              </>
             )}
+          </button>
+        ) : (
+          /* Estado 2: Planilha carregada → mostrar variáveis + disparar */
+          <div className="space-y-3">
+            {/* Variáveis carregadas */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 size={14} className="text-green-600" />
+                  <span className="text-xs font-bold text-green-700">
+                    {totalRows} contatos · {variableColumns.length} variáveis
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    setCsvLoaded(false);
+                    setVariableColumns([]);
+                    setTotalRows(0);
+                  }}
+                  className="text-[10px] font-semibold text-green-600 hover:text-green-800 underline underline-offset-2 transition-colors"
+                >
+                  Trocar
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1">
+                {variableColumns.slice(0, 8).map((col) => (
+                  <span
+                    key={col}
+                    className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700"
+                  >
+                    {`{{${col}}}`}
+                  </span>
+                ))}
+                {variableColumns.length > 8 && (
+                  <span className="text-[10px] text-gray-400 px-1 py-0.5">
+                    +{variableColumns.length - 8}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Botão de disparo */}
+            <button
+              onClick={onOpenBatchModal}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm"
+            >
+              <Rocket size={16} />
+              Disparar para {totalRows} Contatos
+            </button>
           </div>
         )}
 
-        {/* Disparar Button */}
-        <button
-          onClick={onOpenBatchModal}
-          className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm"
-        >
-          <Rocket size={16} />
-          Disparar para Contatos
-        </button>
-
         <p className="text-[10px] text-gray-400 mt-2 text-center leading-tight">
-          Importe a planilha primeiro para carregar as variáveis, configure os textos e depois dispare.
+          {csvLoaded
+            ? 'Configure os textos com as variáveis e dispare quando estiver pronto.'
+            : 'Importe um CSV/XLSX com os contatos e variáveis do fluxo.'}
         </p>
       </div>
     </div>

@@ -30,6 +30,7 @@ interface FlowBatchUploadModalProps {
   onClose: () => void;
   flowId: string;
   flowName: string;
+  onBatchStarted?: (batchId: string) => void;
 }
 
 interface PreviewData {
@@ -57,6 +58,7 @@ export function FlowBatchUploadModal({
   onClose,
   flowId,
   flowName,
+  onBatchStarted,
 }: FlowBatchUploadModalProps) {
   const [step, setStep] = useState<Step>("upload");
   const [file, setFile] = useState<File | null>(null);
@@ -142,6 +144,7 @@ export function FlowBatchUploadModal({
       });
 
       const { batchId: newBatchId, total } = res.data;
+      onBatchStarted?.(newBatchId);
       setBatchStatus({
         batchId: newBatchId,
         status: "PROCESSING",

@@ -294,6 +294,7 @@ function PipelinePageContent() {
       <div className="p-3 sm:p-4">
         {/* Header Compacto com Stats */}
         <div className="flex items-center justify-between gap-4 mb-4 bg-white p-2.5 px-4 rounded-xl shadow-sm border border-gray-100">
+
           <div className="flex items-center gap-4 sm:gap-8">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 bg-blue-50 rounded-lg">
@@ -332,90 +333,7 @@ function PipelinePageContent() {
 
         {/* Kanban Board */}
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {/* Coluna de clientes sem estágio - Agora como a primeira coluna */}
-          {board && (
-            <div
-              className={cn(
-                "flex-shrink-0 w-72 flex flex-col rounded-xl bg-white border-2 border-dashed transition-all",
-                dragOverStageId === null && draggedCustomer ? "border-gray-400 ring-2 ring-gray-100" : "border-gray-300"
-              )}
-              onDragOver={(e) => handleDragOver(e, null)}
-              onDragLeave={handleDragLeave}
-              onDrop={() => handleDrop(null)}
-            >
-              {/* Stage Header */}
-              <div className="px-4 py-3 border-b border-gray-100">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-500">Sem Estágio</span>
-                  <Badge variant="secondary" className="bg-gray-100 text-gray-500">
-                    {board.customersWithoutStage.length}
-                  </Badge>
-                </div>
-              </div>
 
-              {/* Cards Container */}
-              <div className="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-300px)] min-h-[200px]">
-                {board.customersWithoutStage.map((customer) => (
-                  <div
-                    key={customer.id}
-                    draggable
-                    onDragStart={() => handleDragStart(customer, null)}
-                    onClick={() => handleCustomerClick(customer)}
-                    className={cn(
-                      "bg-gray-50 rounded-lg p-2.5 cursor-pointer border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all group",
-                      draggedCustomer?.id === customer.id && "opacity-50 scale-95"
-                    )}
-                  >
-                    <div className="flex items-start justify-between mb-1">
-                      <p className="font-bold text-xs text-gray-900 truncate flex-1">{customer.name}</p>
-                      <GripVertical className="h-3.5 w-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab flex-shrink-0" />
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
-                      <Phone className="h-3 w-3" />
-                      <span className="truncate">{formatPhone(customer.phone)}</span>
-                    </div>
-
-                    {/* Tags */}
-                    {customer.tags && customer.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {customer.tags.slice(0, 2).map((tag) => {
-                          const tagColor = getTagColor(tag);
-                          return (
-                            <Badge
-                              key={tag}
-                              variant="outline"
-                              className="text-[9px] px-1 py-0 leading-tight h-4"
-                              style={tagColor ? {
-                                backgroundColor: `${tagColor}20`,
-                                borderColor: tagColor,
-                                color: tagColor,
-                              } : {
-                                backgroundColor: 'white',
-                                borderColor: '#e5e7eb',
-                                color: '#4b5563',
-                              }}
-                            >
-                              {tag}
-                            </Badge>
-                          );
-                        })}
-                        {customer.tags.length > 2 && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 leading-tight h-4 bg-white border-gray-200 text-gray-600">
-                            +{customer.tags.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {board.customersWithoutStage.length === 0 && (
-                  <div className="text-center py-8 text-gray-400 text-xs italic">Sem leads</div>
-                )}
-              </div>
-            </div>
-          )}
 
           {board?.stages.map((stageData) => (
             <div

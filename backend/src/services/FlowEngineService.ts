@@ -1,6 +1,8 @@
 import { prisma } from '../utils/prisma';
 import whatsappService from './whatsapp.service';
-import { FlowExecutionStatus } from '@prisma/client';
+import { FlowExecutionStatus, MessageDirection, MessageStatus } from '@prisma/client';
+import messageService from './message.service';
+import { websocketService } from './websocket.service';
 
 export class FlowEngineService {
   constructor() {
@@ -40,15 +42,22 @@ export class FlowEngineService {
       // Try to extract name from variables if it's a new lead
       const custName = variables.name || variables.nome || variables.customer?.name || variables.customer?.nome || variables.data?.customer?.name || variables.data?.nome || variables.lead?.name || cleanPhone;
       
+      // Busca o primeiro estágio do pipeline para atribuir ao novo lead
+      const firstStage = await prisma.pipelineStage.findFirst({
+        where: { companyId: flow.companyId },
+        orderBy: { order: 'asc' },
+      });
+
       customer = await prisma.customer.create({
         data: {
           companyId: flow.companyId,
           phone: cleanPhone,
           name: String(custName),
-          tags: []
+          tags: [],
+          pipelineStageId: firstStage?.id || null,
         }
       });
-      console.log(`[FlowEngine] 👤 New customer created automatically: ${cleanPhone}`);
+      console.log(`[FlowEngine] 👤 New customer created automatically: ${cleanPhone} in stage ${firstStage?.name || 'Default'}`);
     }
 
     if (customer) {
@@ -310,12 +319,14 @@ export class FlowEngineService {
     await new Promise(resolve => setTimeout(resolve, delayMs));
 
     
-    await whatsappService.sendMessage({
+    const result = await whatsappService.sendMessage({
       instanceId: instance.id,
       to: execution.contactPhone,
       text
     });
 
+    // 💾 Salvar a mensagem no banco para aparecer na aba de conversas
+    await this.saveFlowMessageToConversation(execution, instance, text, result?.messageId, 'text');
   }
 
   private async executeMediaNode(execution: any, node: any, data: any, variables: any) {
@@ -340,13 +351,22 @@ export class FlowEngineService {
           caption = this.replaceVariables(caption, variables);
         }
 
-        await whatsappService.sendMedia({
+        const result = await whatsappService.sendMedia({
           instanceId: instance.id,
           to: execution.contactPhone,
           mediaBase64: mediaSource,
           mediaType: node.type, // 'audio', 'image' or 'video'
           caption: caption
         });
+
+        // 💾 Salvar mídia na conversa
+        await this.saveFlowMessageToConversation(
+          execution, instance,
+          caption || `[${node.type}]`,
+          result?.messageId,
+          node.type, // 'audio', 'image', 'video'
+          mediaSource
+        );
       } else {
         console.warn(`[FlowEngine] Sem mídia informada no nó ${node.id} do fluxo.`);
       }
@@ -558,5 +578,59 @@ export class FlowEngineService {
     console.log(`[FlowEngine] 🛡️ Validation: ${variableTemplate} ("${actualValue}") ${operator} "${compareValue}" → ${result ? '✅ TRUE' : '❌ FALSE'}`);
 
     await this.processNextNodes(execution.id, node.id, handle);
+  }
+
+  /**
+   * 💾 Salva a mensagem enviada pelo fluxo na conversa do CRM
+   * Isso faz com que a mensagem apareça na aba de conversas/chat
+   */
+  private async saveFlowMessageToConversation(
+    execution: any,
+    instance: any,
+    content: string,
+    externalMessageId?: string,
+    mediaType: string = 'text',
+    mediaUrl?: string
+  ) {
+    try {
+      // Busca o companyId do fluxo
+      const flow = await prisma.flow.findUnique({
+        where: { id: execution.flowId },
+        select: { companyId: true }
+      });
+
+      if (!flow) return;
+
+      // Busca o customer pelo telefone + companyId
+      const customer = await prisma.customer.findFirst({
+        where: {
+          phone: execution.contactPhone,
+          companyId: flow.companyId
+        }
+      });
+
+      if (!customer) {
+        console.warn(`[FlowEngine] ⚠️ Customer não encontrado para salvar mensagem na conversa: ${execution.contactPhone}`);
+        return;
+      }
+
+      // Salva a mensagem na tabela de mensagens
+      const message = await messageService.createMessage({
+        customerId: customer.id,
+        whatsappInstanceId: instance.id,
+        direction: MessageDirection.OUTBOUND,
+        content: content,
+        timestamp: new Date(),
+        status: MessageStatus.SENT,
+        messageId: externalMessageId || undefined,
+        mediaType: mediaType,
+        mediaUrl: mediaUrl || null,
+      });
+
+      console.log(`[FlowEngine] 💾 Mensagem salva na conversa do customer ${customer.id} (messageId: ${message.id})`);
+    } catch (err: any) {
+      // Não falha o fluxo se não conseguir salvar na conversa
+      console.warn(`[FlowEngine] ⚠️ Falha ao salvar mensagem na conversa (não crítico):`, err.message);
+    }
   }
 }
