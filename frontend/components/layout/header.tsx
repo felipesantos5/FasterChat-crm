@@ -34,6 +34,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useMemo } from "react";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
+import { MonthFilter } from "@/components/dashboard/month-filter";
 import { useDashboardFilter } from "@/contexts/DashboardFilterContext";
 
 interface PageInfo {
@@ -190,7 +191,11 @@ export function Header() {
 
           {/* Dashboard Date Filter - ao lado do título */}
           {isDashboardPage && dashboardFilterHook && (
-            <div className="hidden lg:block flex-shrink-0 ml-2">
+            <div className="hidden lg:flex items-center gap-2 flex-shrink-0 ml-2">
+              <MonthFilter
+                value={dashboardFilterHook.dateFilter}
+                onChange={dashboardFilterHook.setDateFilter}
+              />
               <DateRangeFilter
                 value={dashboardFilterHook.dateFilter}
                 onChange={dashboardFilterHook.setDateFilter}

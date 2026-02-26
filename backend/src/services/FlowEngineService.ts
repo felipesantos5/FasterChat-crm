@@ -83,13 +83,21 @@ export class FlowEngineService {
       }
     }
 
-    // Create execution (usa o phone limpo)
+    // Seleciona a instância WhatsApp UMA VEZ no início do fluxo (respeita estratégia RANDOM/SPECIFIC)
+    const selectedInstance = await this.getInstanceForCompany(flow.companyId);
+    if (!selectedInstance) {
+      console.error(`[FlowEngine] ❌ Nenhuma instância WhatsApp conectada para companyId ${flow.companyId}`);
+      throw new Error(`Nenhuma instância WhatsApp conectada para iniciar o fluxo`);
+    }
+
+    // Create execution (usa o phone limpo + instância selecionada)
     const execution = await prisma.flowExecution.create({
       data: {
         flowId,
         contactPhone: cleanPhone,
         variables,
         currentNodeId: triggerNode.id,
+        whatsappInstanceId: selectedInstance.id,
         status: FlowExecutionStatus.RUNNING,
         history: [triggerNode.id],
       }
@@ -108,7 +116,7 @@ export class FlowEngineService {
   public async processNextNodes(executionId: string, currentNodeId: string, sourceHandle?: string) {
     const execution = await prisma.flowExecution.findUnique({
       where: { id: executionId },
-      include: { flow: { include: { nodes: true, edges: true } } }
+      include: { flow: { include: { nodes: true, edges: true } }, whatsappInstance: true }
     });
 
     if (!execution || execution.status !== FlowExecutionStatus.RUNNING) {
@@ -224,6 +232,42 @@ export class FlowEngineService {
     }
   }
 
+  /**
+   * Seleciona a instância WhatsApp respeitando a estratégia da empresa (RANDOM ou SPECIFIC)
+   */
+  private async getInstanceForCompany(companyId: string) {
+    // Busca a empresa para verificar a estratégia configurada
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { whatsappStrategy: true, defaultWhatsappInstanceId: true }
+    });
+
+    // Busca TODAS as instâncias conectadas da empresa
+    const connectedInstances = await prisma.whatsAppInstance.findMany({
+      where: { companyId, status: { in: ['CONNECTED', 'CONNECTING'] } }
+    });
+
+    if (connectedInstances.length === 0) {
+      return null;
+    }
+
+    // SPECIFIC: Usa a instância padrão configurada
+    if (company?.whatsappStrategy === 'SPECIFIC' && company.defaultWhatsappInstanceId) {
+      const specificInstance = connectedInstances.find(i => i.id === company.defaultWhatsappInstanceId);
+      if (specificInstance) {
+        return specificInstance;
+      }
+      // Se a instância específica não está conectada, faz fallback para random
+      console.warn(`[FlowEngine] ⚠️ Instância padrão ${company.defaultWhatsappInstanceId} não está conectada, usando random`);
+    }
+
+    // RANDOM (padrão): Seleciona aleatoriamente entre as instâncias conectadas
+    const randomIndex = Math.floor(Math.random() * connectedInstances.length);
+    const selectedInstance = connectedInstances[randomIndex];
+    console.log(`[FlowEngine] 🎲 Instância selecionada aleatoriamente: ${selectedInstance.instanceName} (${randomIndex + 1}/${connectedInstances.length})`);
+    return selectedInstance;
+  }
+
   private async executeMessageNode(execution: any, data: any, variables: any) {
     let text = data.text || data.message || data.content || '';
     
@@ -233,23 +277,11 @@ export class FlowEngineService {
       console.warn(`[FlowEngine] ⚠️ Texto da mensagem está vazio! Verifique o nó de mensagem no fluxo.`);
     }
 
-    // Busca instância CONNECTED ou CONNECTING para a empresa
-    const instance = await prisma.whatsAppInstance.findFirst({
-      where: { 
-        companyId: execution.flow.companyId, 
-        status: { in: ['CONNECTED', 'CONNECTING'] }
-      }
-    });
-
+    // Usa a instância que foi selecionada no início do fluxo (persistida na execução)
+    const instance = execution.whatsappInstance;
 
     if (!instance) {
-      // Loga todas as instâncias disponíveis para diagnóstico
-      const allInstances = await prisma.whatsAppInstance.findMany({
-        where: { companyId: execution.flow.companyId },
-        select: { id: true, instanceName: true, status: true }
-      });
-      console.error(`[FlowEngine] ❌ Instâncias para companyId ${execution.flow.companyId}:`, JSON.stringify(allInstances));
-      throw new Error(`Nenhuma instância WhatsApp conectada encontrada para enviar mensagem (companyId: ${execution.flow.companyId})`);
+      throw new Error(`Nenhuma instância WhatsApp associada à execução do fluxo (executionId: ${execution.id})`);
     }
 
     // Typing presence for 2 seconds before sending message
@@ -271,9 +303,8 @@ export class FlowEngineService {
   }
 
   private async executeMediaNode(execution: any, node: any, data: any, variables: any) {
-    const instance = await prisma.whatsAppInstance.findFirst({
-      where: { companyId: execution.flow.companyId, status: 'CONNECTED' }
-    });
+    // Usa a instância que foi selecionada no início do fluxo (persistida na execução)
+    const instance = execution.whatsappInstance;
 
     if (instance) {
       const isAudio = node.type === 'audio';

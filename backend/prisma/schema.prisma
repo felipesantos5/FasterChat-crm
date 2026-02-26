@@ -175,8 +175,9 @@ model WhatsAppInstance {
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
 
-  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  messages Message[]
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  messages       Message[]
+  flowExecutions FlowExecution[]
 
   @@unique([companyId, instanceName])
   @@index([companyId])
@@ -985,21 +986,23 @@ enum FlowExecutionStatus {
 }
 
 model FlowExecution {
-  id            String              @id @default(uuid())
-  flowId        String              @map("flow_id")
-  contactPhone  String              @map("contact_phone") // Telefone do lead
-  currentNodeId String?             @map("current_node_id") // Nó onde o fluxo parou/está
-  history       Json?               @default("[]") // Histórico de IDs de nós visitados
-  variables     Json?               @default("{}") // Variáveis coletadas pelo webhook (nome, etc)
-  status        FlowExecutionStatus @default(RUNNING)
-  error         String?             @db.Text
-  resumesAt     DateTime?           @map("resumes_at") // Preenchido se status for WAITING_REPLY ou DELAYED
-  startedAt     DateTime            @default(now()) @map("started_at")
-  completedAt   DateTime?           @map("completed_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
+  id                 String              @id @default(uuid())
+  flowId             String              @map("flow_id")
+  contactPhone       String              @map("contact_phone") // Telefone do lead
+  currentNodeId      String?             @map("current_node_id") // Nó onde o fluxo parou/está
+  whatsappInstanceId String?             @map("whatsapp_instance_id") // Instância WhatsApp selecionada no início do fluxo
+  history            Json?               @default("[]") // Histórico de IDs de nós visitados
+  variables          Json?               @default("{}") // Variáveis coletadas pelo webhook (nome, etc)
+  status             FlowExecutionStatus @default(RUNNING)
+  error              String?             @db.Text
+  resumesAt          DateTime?           @map("resumes_at") // Preenchido se status for WAITING_REPLY ou DELAYED
+  startedAt          DateTime            @default(now()) @map("started_at")
+  completedAt        DateTime?           @map("completed_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
 
-  flow        Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  currentNode FlowNode? @relation("CurrentNode", fields: [currentNodeId], references: [id], onDelete: SetNull)
+  flow              Flow              @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  currentNode       FlowNode?         @relation("CurrentNode", fields: [currentNodeId], references: [id], onDelete: SetNull)
+  whatsappInstance  WhatsAppInstance?  @relation(fields: [whatsappInstanceId], references: [id], onDelete: SetNull)
 
   @@index([flowId])
   @@index([contactPhone])
