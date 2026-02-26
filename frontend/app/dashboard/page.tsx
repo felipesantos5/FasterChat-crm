@@ -70,7 +70,8 @@ function DashboardPageContent() {
         percentageChange: stats.totalCustomers?.percentageChange || 0,
         icon: UserPlus,
         gradient: "bg-gradient-to-br from-blue-500 to-blue-600",
-        description: "Total de novos cadastros",
+        colorName: "blue" as const,
+        description: "",
       },
       {
         title: "Conversas Ativas",
@@ -78,7 +79,8 @@ function DashboardPageContent() {
         percentageChange: stats.activeConversations?.percentageChange || 0,
         icon: MessageCircle,
         gradient: "bg-gradient-to-br from-green-500 to-green-600",
-        description: "Conversas com interação",
+        colorName: "green" as const,
+        description: "",
       },
       {
         title: "Mensagens Recebidas",
@@ -86,7 +88,8 @@ function DashboardPageContent() {
         percentageChange: stats.messagesReceived?.percentageChange || 0,
         icon: MessageSquare,
         gradient: "bg-gradient-to-br from-orange-500 to-orange-600",
-        description: "Volume total de mensagens",
+        colorName: "orange" as const,
+        description: "",
       },
       {
         title: "Respostas da IA",
@@ -94,7 +97,8 @@ function DashboardPageContent() {
         percentageChange: stats.messagesWithAI?.percentageChange || 0,
         icon: Bot,
         gradient: "bg-gradient-to-br from-purple-500 to-purple-600",
-        description: "Automação de respostas",
+        colorName: "purple" as const,
+        description: "",
       },
     ]
     : [];
@@ -162,7 +166,7 @@ function DashboardPageContent() {
   return (
     <div className="p-4 sm:p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className={spacing.section}>
-        <section className="flex gap-6 w-full">
+        <section className="flex flex-col md:flex-row gap-6 w-full">
           {/* Primeira linha: Cards (2x2) à esquerda + Funil à direita */}
           <div className="flex flex-col gap-6 w-full">
             {/* Cards em grid 2x2 */}
@@ -176,6 +180,7 @@ function DashboardPageContent() {
                   icon={stat.icon}
                   gradient={stat.gradient}
                   description={stat.description}
+                  colorName={stat.colorName}
                 />
               ))}
             </div>

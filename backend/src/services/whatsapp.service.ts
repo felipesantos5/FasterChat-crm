@@ -615,6 +615,30 @@ class WhatsAppService {
   }
 
   /**
+   * Busca as informações detalhadas de um grupo
+   */
+  async getGroupInfo(instanceName: string, groupJid: string): Promise<any> {
+    try {
+      // ✅ CORREÇÃO: Usa o helper formatJid para garantir o domínio @g.us
+      const remoteJid = this.formatJid(groupJid);
+
+      console.log(`[WhatsApp Service] 👥 Fetching group info for ${remoteJid}...`);
+
+      const response = await this.axiosInstance.get(`/group/findGroupInfos/${instanceName}?groupJid=${remoteJid}`);
+
+      if (response.data) {
+        console.log(`[WhatsApp Service] ✅ Group info found for ${remoteJid}`);
+        return response.data;
+      }
+
+      return null;
+    } catch (error: any) {
+      console.log(`[WhatsApp Service] 👥 Could not fetch group info for ${groupJid}: ${error.response?.data?.message || error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Busca a foto de perfil de um contato via Evolution API
    */
   async getProfilePicture(instanceName: string, phone: string): Promise<string | null> {

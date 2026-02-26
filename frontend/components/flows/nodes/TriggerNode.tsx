@@ -3,13 +3,20 @@ import { Handle, Position } from '@xyflow/react';
 import { Copy, FileSpreadsheet, Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/api';
+import { useBatchStore } from '../batchStore';
 
 export const TriggerNode = memo(({ data }: any) => {
   const [loadingCsv, setLoadingCsv] = useState(false);
-  const [csvLoaded, setCsvLoaded] = useState(false);
-  const [totalRows, setTotalRows] = useState(0);
-  const [variableColumns, setVariableColumns] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const preview = useBatchStore((s) => s.preview);
+  const setFile = useBatchStore((s) => s.setFile);
+  const setPreview = useBatchStore((s) => s.setPreview);
+  const resetBatch = useBatchStore((s) => s.reset);
+
+  const csvLoaded = !!preview;
+  const totalRows = preview?.totalRows || 0;
+  const variableColumns = preview?.variableColumns || [];
 
   const getFullUrl = (path: string) => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3051";
@@ -28,8 +35,6 @@ export const TriggerNode = memo(({ data }: any) => {
   const handleImportCsv = async (file: File) => {
     if (!flowId) return;
     setLoadingCsv(true);
-    setCsvLoaded(false);
-
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -38,9 +43,8 @@ export const TriggerNode = memo(({ data }: any) => {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      setVariableColumns(res.data.variableColumns || []);
-      setTotalRows(res.data.totalRows || 0);
-      setCsvLoaded(true);
+      setPreview(res.data);
+      setFile(file);
       toast.success(`${res.data.totalRows} contatos carregados!`);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao ler planilha.');
@@ -124,9 +128,8 @@ export const TriggerNode = memo(({ data }: any) => {
                   </div>
                   <button
                     onClick={() => {
-                      setCsvLoaded(false);
-                      setVariableColumns([]);
-                      setTotalRows(0);
+                      resetBatch();
+                      if (fileInputRef.current) fileInputRef.current.value = '';
                     }}
                     className="text-green-500 hover:text-green-700 transition-colors nodrag p-0.5"
                     title="Trocar planilha"
@@ -160,7 +163,7 @@ export const TriggerNode = memo(({ data }: any) => {
         {/* Helper text */}
         <p className="text-[10px] text-center text-gray-400 leading-relaxed">
           {csvLoaded
-            ? 'Planilha carregada. Configure os textos com as variáveis e dispare pela sidebar.'
+            ? 'Planilha cadastrada. Clique em "Disparar em Massa" no topo para enviar ou alterar o arquivo.'
             : 'Envie um POST no webhook ou importe uma planilha para iniciar o fluxo.'}
         </p>
       </div>

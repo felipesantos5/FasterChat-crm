@@ -50,7 +50,7 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
               <MessageSquare className="h-5 w-5 text-white" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Evolução de Mensagens
+              Gráfico de Mensagens
             </h3>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -137,7 +137,7 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
             stroke="#8B5CF6"
             strokeWidth={2}
             fill="url(#colorAI)"
-            name="IA"
+            name="Atendimento Automático"
           />
         </AreaChart>
       </ResponsiveContainer>

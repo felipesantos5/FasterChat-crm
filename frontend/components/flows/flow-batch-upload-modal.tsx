@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { useBatchStore } from "./batchStore";
 
 interface FlowBatchUploadModalProps {
   open: boolean;
@@ -33,13 +34,7 @@ interface FlowBatchUploadModalProps {
   onBatchStarted?: (batchId: string) => void;
 }
 
-interface PreviewData {
-  columns: string[];
-  totalRows: number;
-  detectedPhoneColumn: string | null;
-  variableColumns: string[];
-  preview: Record<string, any>[];
-}
+
 
 interface BatchStatus {
   batchId: string;
@@ -60,21 +55,28 @@ export function FlowBatchUploadModal({
   flowName,
   onBatchStarted,
 }: FlowBatchUploadModalProps) {
-  const [step, setStep] = useState<Step>("upload");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<PreviewData | null>(null);
+  const storeFile = useBatchStore((s) => s.file);
+  const storePreview = useBatchStore((s) => s.preview);
+  const setStoreFile = useBatchStore((s) => s.setFile);
+  const setStorePreview = useBatchStore((s) => s.setPreview);
+
+  const [step, setStep] = useState<Step>(storeFile && storePreview ? "preview" : "upload");
   const [loading, setLoading] = useState(false);
   const [batchStatus, setBatchStatus] = useState<BatchStatus | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Reset state when modal opens/closes
+  // Reset specific modal state when opens/closes, but KEEP file in store
   useEffect(() => {
-    if (!open) {
-      const t = setTimeout(() => {
+    if (open) {
+      if (storeFile && storePreview) {
+        setStep("preview");
+      } else {
         setStep("upload");
-        setFile(null);
-        setPreview(null);
+      }
+    } else {
+      const t = setTimeout(() => {
+        setStep(storeFile && storePreview ? "preview" : "upload");
         setBatchStatus(null);
         setLoading(false);
         if (pollRef.current) clearInterval(pollRef.current);
@@ -82,7 +84,7 @@ export function FlowBatchUploadModal({
       return () => { clearTimeout(t); };
     }
     return undefined;
-  }, [open]);
+  }, [open, storeFile, storePreview]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -93,7 +95,7 @@ export function FlowBatchUploadModal({
 
   const handleFileSelect = useCallback(
     async (selectedFile: File) => {
-      setFile(selectedFile);
+      setStoreFile(selectedFile);
       setLoading(true);
 
       try {
@@ -108,13 +110,15 @@ export function FlowBatchUploadModal({
           }
         );
 
-        setPreview(res.data);
+        setStorePreview(res.data);
+        setStoreFile(selectedFile);
         setStep("preview");
       } catch (err: any) {
         const msg =
           err.response?.data?.error || "Erro ao ler planilha.";
         toast.error(msg);
-        setFile(null);
+        setStoreFile(null);
+        setStorePreview(null);
       } finally {
         setLoading(false);
       }
@@ -132,12 +136,12 @@ export function FlowBatchUploadModal({
   );
 
   const handleStartBatch = async () => {
-    if (!file) return;
+    if (!storeFile) return;
     setLoading(true);
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", storeFile);
 
       const res = await api.post(`/flows/${flowId}/batch`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -251,21 +255,21 @@ export function FlowBatchUploadModal({
         )}
 
         {/* Step 2: Preview */}
-        {step === "preview" && preview && (
+        {step === "preview" && storePreview && (
           <div className="py-4 space-y-4">
             {/* File info */}
             <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet size={18} className="text-primary" />
                 <span className="text-sm font-medium text-gray-700 truncate max-w-[250px]">
-                  {file?.name}
+                  {storeFile?.name}
                 </span>
               </div>
               <button
                 onClick={() => {
                   setStep("upload");
-                  setFile(null);
-                  setPreview(null);
+                  setStoreFile(null);
+                  setStorePreview(null);
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -279,7 +283,7 @@ export function FlowBatchUploadModal({
                 <Users size={18} className="text-blue-600" />
                 <div>
                   <p className="text-lg font-bold text-blue-800">
-                    {preview.totalRows}
+                    {storePreview.totalRows}
                   </p>
                   <p className="text-xs text-blue-600">Contatos</p>
                 </div>
@@ -288,14 +292,14 @@ export function FlowBatchUploadModal({
                 <Phone size={18} className="text-green-600" />
                 <div>
                   <p className="text-sm font-bold text-green-800 truncate">
-                    {preview.detectedPhoneColumn || "Não detectado"}
+                    {storePreview.detectedPhoneColumn || "Não detectado"}
                   </p>
                   <p className="text-xs text-green-600">Coluna de telefone</p>
                 </div>
               </div>
             </div>
 
-            {!preview.detectedPhoneColumn && (
+            {!storePreview.detectedPhoneColumn && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-xs text-red-700">
                   <strong>❌ Erro:</strong> Nenhuma coluna de telefone detectada. Renomeie uma coluna para: phone, telefone, celular, whatsapp ou numero.
@@ -309,46 +313,20 @@ export function FlowBatchUploadModal({
                 Colunas detectadas
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {preview.columns.map((col) => (
+                {storePreview.columns.map((col: string) => (
                   <span
                     key={col}
-                    className={`text-xs px-2 py-1 rounded-full font-medium ${col === preview.detectedPhoneColumn
+                    className={`text-xs px-2 py-1 rounded-full font-medium ${col === storePreview.detectedPhoneColumn
                       ? "bg-green-100 text-green-700"
                       : "bg-gray-100 text-gray-600"
                       }`}
                   >
-                    {col === preview.detectedPhoneColumn && "📱 "}
+                    {col === storePreview.detectedPhoneColumn && "📱 "}
                     {col}
                   </span>
                 ))}
               </div>
             </div>
-
-            {/* Variables mapping */}
-            {preview.variableColumns && preview.variableColumns.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Tag size={12} />
-                  Variáveis do Fluxo
-                </p>
-                <div className="bg-violet-50/50 border border-violet-100 rounded-lg p-3 space-y-1.5">
-                  {preview.variableColumns.map((col) => (
-                    <div key={col} className="flex items-center gap-2 text-xs">
-                      <code className="font-mono font-bold text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded">
-                        {`{{${col}}}`}
-                      </code>
-                      <span className="text-gray-400">=</span>
-                      <span className="text-gray-500 truncate max-w-[200px]" title={String(preview.preview[0]?.[col] ?? '')}>
-                        {String(preview.preview[0]?.[col] ?? '—')}
-                      </span>
-                    </div>
-                  ))}
-                  <p className="text-[10px] text-violet-500 mt-2 pt-2 border-t border-violet-100">
-                    💡 Use estas variáveis nos nós de mensagem do fluxo. Cada contato receberá os valores da sua linha na planilha.
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* Preview table */}
             <div>
@@ -359,7 +337,7 @@ export function FlowBatchUploadModal({
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-gray-50">
-                      {preview.columns.map((col) => (
+                      {storePreview.columns.map((col: string) => (
                         <th
                           key={col}
                           className="px-3 py-2 text-left font-semibold text-gray-600 border-b whitespace-nowrap"
@@ -370,9 +348,9 @@ export function FlowBatchUploadModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {preview.preview.map((row, i) => (
+                    {storePreview.preview.map((row: any, i: number) => (
                       <tr key={i} className="border-b last:border-0">
-                        {preview.columns.map((col) => (
+                        {storePreview.columns.map((col: string) => (
                           <td
                             key={col}
                             className="px-3 py-2 text-gray-700 whitespace-nowrap max-w-[150px] truncate"
@@ -393,7 +371,7 @@ export function FlowBatchUploadModal({
               <p className="text-xs text-gray-600">
                 Tempo estimado:{" "}
                 <strong>
-                  {Math.ceil((preview.totalRows * 10) / 60)} minutos
+                  {Math.ceil((storePreview.totalRows * 10) / 60)} minutos
                 </strong>{" "}
                 (delay de 5-15s entre cada disparo para segurança)
               </p>
@@ -513,15 +491,15 @@ export function FlowBatchUploadModal({
                 variant="outline"
                 onClick={() => {
                   setStep("upload");
-                  setFile(null);
-                  setPreview(null);
+                  setStoreFile(null);
+                  setStorePreview(null);
                 }}
               >
                 Voltar
               </Button>
               <Button
                 onClick={handleStartBatch}
-                disabled={loading || !preview?.detectedPhoneColumn}
+                disabled={loading || !storePreview?.detectedPhoneColumn}
               >
                 {loading ? (
                   <>
@@ -531,7 +509,7 @@ export function FlowBatchUploadModal({
                 ) : (
                   <>
                     <Upload size={16} className="mr-2" />
-                    Disparar para {preview?.totalRows} contatos
+                    Disparar para {storePreview?.totalRows} contatos
                   </>
                 )}
               </Button>

@@ -38,9 +38,9 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 h-full w-full">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-2">
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2">
             {/* <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
               <Filter className="h-5 w-5 text-white" />
             </div> */}
@@ -48,9 +48,9 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
               Funil de Vendas
             </h3>
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          {/* <p className="text-sm text-gray-500 dark:text-gray-400">
             Distribuição por estágio
-          </p>
+          </p> */}
         </div>
       </div>
 

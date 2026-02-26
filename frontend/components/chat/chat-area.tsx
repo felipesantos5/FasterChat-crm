@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { messageApi } from "@/lib/message";
 import { conversationApi } from "@/lib/conversation";
 import { whatsappApi } from "@/lib/whatsapp";
@@ -32,11 +33,12 @@ interface ChatAreaProps {
   customerId: string;
   customerName: string;
   customerPhone: string;
+  customerProfilePic?: string | null;
   onToggleDetails?: () => void;
   showDetailsButton?: boolean;
 }
 
-export function ChatArea({ customerId, customerName, customerPhone, onToggleDetails, showDetailsButton }: ChatAreaProps) {
+export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, onToggleDetails, showDetailsButton }: ChatAreaProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -705,6 +707,14 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
       {/* Header Compacto */}
       <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b bg-muted/30">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <Avatar className="h-10 w-10 border border-muted">
+            {customerProfilePic && (
+              <AvatarImage src={customerProfilePic} alt={customerName} className="object-cover" />
+            )}
+            <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
+              {customerName ? customerName.substring(0, 2).toUpperCase() : "??"}
+            </AvatarFallback>
+          </Avatar>
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-sm truncate">{customerName}</h2>

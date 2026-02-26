@@ -513,6 +513,7 @@ function ConversationsPageContent() {
               customerId={selectedConversation.customerId}
               customerName={selectedConversation.customerName}
               customerPhone={selectedConversation.customerPhone}
+              customerProfilePic={selectedConversation.customerProfilePic}
               onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
               showDetailsButton={true}
             />

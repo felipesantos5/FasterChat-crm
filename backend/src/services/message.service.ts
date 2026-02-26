@@ -428,13 +428,18 @@ class MessageService {
       let isLid = false;
       let resolvedFromLid = false;
 
+      // Detecta se é grupo no JID original, ANTES da verificação de LID
+      // Isso é crítico para não processar grupos como LIDs (já que grupos têm muitos dígitos)
+      const isGroup = remoteJid.includes("@g.us");
+
       // Extrai o número bruto do JID para análise
       const rawNumber = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace("@g.us", "").replace(/\D/g, "");
 
       // 🔍 DETECÇÃO EXPANDIDA DE LID:
       // 1. Deve conter @lid no sufixo (detecção óbvia)
       // 2. OU ser um número com 14+ dígitos (LIDs que vieram com @s.whatsapp.net por engano)
-      if (remoteJid.includes("@lid") || this.looksLikeLid(rawNumber)) {
+      // 🚨 IMPORTANTE: GRUPOS NUNCA SÃO LIDs (mesmo tendo 18 dígitos)
+      if (!isGroup && (remoteJid.includes("@lid") || this.looksLikeLid(rawNumber))) {
         isLid = true;
         const lidId = rawNumber;
 
@@ -551,8 +556,7 @@ class MessageService {
 
       // ==================================================================================
 
-      // Detecta se é grupo (agora checando o JID real, pois @lid nunca é grupo de user)
-      const isGroup = realJid.includes("@g.us");
+      // A detecção de isGroup já foi feita no início do método com sucesso
 
       // ==================================================================================
       // 🔍 BUSCA INTELIGENTE DE CLIENTE (Previne duplicatas LID/Phone)
@@ -609,8 +613,25 @@ class MessageService {
       }
 
       if (!customer) {
-        // 🔧 SANITIZA O NOME: Previne usar WABA IDs como nome
-        const sanitizedName = this.sanitizePushName(data.pushName, phone);
+        // 🔧 PREPARA O NOME
+        let sanitizedName: string;
+
+        if (isGroup) {
+          // Para novos grupos, usamos o subject que vier no evento ou buscamos da API
+          if (data.messageStubParameters && data.messageStubParameters[0]) {
+            sanitizedName = data.messageStubParameters[0];
+          } else {
+            try {
+              const groupInfo = await whatsappService.getGroupInfo(instanceName, phone);
+              sanitizedName = groupInfo?.subject || `Grupo ${phone}`;
+            } catch {
+              sanitizedName = `Grupo ${phone}`;
+            }
+          }
+        } else {
+          // Para WABA IDs ou usuários normais
+          sanitizedName = this.sanitizePushName(data.pushName, phone);
+        }
 
         // Busca foto de perfil
         let profilePicUrl: string | null = null;
@@ -662,12 +683,21 @@ class MessageService {
         const updates: any = {};
         if (customer.isGroup !== isGroup) updates.isGroup = isGroup;
 
-        // 🔧 ATUALIZA NOME: Apenas se o nome atual for o phone E o pushName for válido
-        if (data.pushName && customer.name === customer.phone) {
+        // 🔧 ATUALIZA NOME: Apenas se for uma pessoa (não atualizar grupo com o nome do participante) 
+        // e se o nome atual for o phone e o pushName for válido
+        if (!isGroup && data.pushName && customer.name === customer.phone) {
           const sanitizedName = this.sanitizePushName(data.pushName, phone);
           if (sanitizedName !== customer.phone && sanitizedName !== customer.name) {
             updates.name = sanitizedName;
           }
+        } else if (isGroup && customer.name.startsWith("Grupo ")) {
+          // Se for um grupo salvo erroneamente no passado ou com nome genérico, tenta buscar o nome atualizado
+          try {
+             const groupInfo = await whatsappService.getGroupInfo(instanceName, phone);
+             if (groupInfo && groupInfo.subject) {
+                updates.name = groupInfo.subject;
+             }
+          } catch {}
         }
 
         // Tenta buscar foto se não tiver e agora temos o número real
