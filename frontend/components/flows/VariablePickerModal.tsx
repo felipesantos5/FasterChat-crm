@@ -51,7 +51,7 @@ export function VariablePickerModal({ isOpen, onClose, onSelect, flowId }: Varia
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle className="flex items-center gap-2">
             <Tag className="w-5 h-5 text-primary" />
-            Variáveis do Webhook
+            Variáveis Disponíveis
           </DialogTitle>
         </DialogHeader>
 
@@ -121,7 +121,7 @@ export function VariablePickerModal({ isOpen, onClose, onSelect, flowId }: Varia
                 <p className="text-xs text-gray-500 mt-1 max-w-[200px]">
                   {searchTerm
                     ? `Nenhum resultado para "${searchTerm}"`
-                    : "Envie dados para o URL de gatilho primeiro para capturar as variáveis automaticamente."}
+                    : "Envie dados para o webhook ou faça upload de uma planilha no disparo em massa para capturar as variáveis automaticamente."}
                 </p>
               </div>
             )}

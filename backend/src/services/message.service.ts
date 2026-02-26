@@ -409,20 +409,64 @@ class MessageService {
 
       // ==================================================================================
       // 🕵️ CORREÇÃO DE NÚMERO REAL (LID vs PHONE)
+      // A Evolution API pode enviar o remoteJid como um LID (Linked Identifier) ao invés
+      // do número real. LIDs são IDs internos do WhatsApp Business (ex: 42903166537767@lid).
+      // Precisamos resolver o número real usando campos alternativos do payload.
       // ==================================================================================
       let realJid = remoteJid;
       let isLid = false;
-      let extractedFromParticipant = false;
+      let resolvedFromLid = false;
 
       // Verifica se é uma mensagem vinda de um ID de Business (@lid)
       if (remoteJid.includes("@lid")) {
         isLid = true;
+        const lidId = remoteJid.replace("@lid", "");
 
-        // Tenta extrair o número real do campo participant (comum na Evolution API para LIDs)
-        // O participant geralmente contém o JID real do usuário (ex: 5511999999999@s.whatsapp.net)
-        if (data.key?.participant && data.key.participant.includes("@s.whatsapp.net")) {
+        // 🔑 PRIORIDADE 1: Campo 'senderPn' (sender Phone Number)
+        // Este é o campo OFICIAL que a Evolution API fornece para resolver LIDs → telefone real
+        // Formato: "5548999999999" (número limpo) ou "5548999999999@s.whatsapp.net"
+        if (data.senderPn) {
+          const senderPhone = String(data.senderPn).replace("@s.whatsapp.net", "").replace(/\D/g, "");
+          if (senderPhone && senderPhone.length >= 8 && senderPhone.length <= 15) {
+            realJid = `${senderPhone}@s.whatsapp.net`;
+            resolvedFromLid = true;
+            console.log(`[MessageService] ✅ LID ${lidId} resolvido via senderPn → ${senderPhone}`);
+          }
+        }
+
+        // 🔑 PRIORIDADE 2: Campo 'key.participant' (comum em grupos ou conversas @lid)
+        if (!resolvedFromLid && data.key?.participant && data.key.participant.includes("@s.whatsapp.net")) {
           realJid = data.key.participant;
-          extractedFromParticipant = true;
+          resolvedFromLid = true;
+          console.log(`[MessageService] ✅ LID ${lidId} resolvido via participant → ${realJid.replace("@s.whatsapp.net", "")}`);
+        }
+
+        // 🔑 PRIORIDADE 3: Campo 'owner' (pode conter o JID real em algumas versões)
+        if (!resolvedFromLid && data.owner && String(data.owner).includes("@s.whatsapp.net")) {
+          // O owner pode ser o remetente em alguns payload formats
+          const ownerPhone = String(data.owner).replace("@s.whatsapp.net", "").replace(/\D/g, "");
+          if (ownerPhone && ownerPhone.length >= 8 && ownerPhone.length <= 15) {
+            realJid = `${ownerPhone}@s.whatsapp.net`;
+            resolvedFromLid = true;
+            console.log(`[MessageService] ✅ LID ${lidId} resolvido via owner → ${ownerPhone}`);
+          }
+        }
+
+        // ⚠️ Se não conseguiu resolver, loga detalhes do payload para diagnóstico
+        if (!resolvedFromLid) {
+          console.warn(`[MessageService] ⚠️ LID NÃO RESOLVIDO: ${lidId}`);
+          console.warn(`[MessageService] 📦 Payload keys disponíveis:`, {
+            hasSenderPn: !!data.senderPn,
+            senderPn: data.senderPn,
+            hasParticipant: !!data.key?.participant,
+            participant: data.key?.participant,
+            hasOwner: !!data.owner,
+            owner: data.owner,
+            pushName: data.pushName,
+            verifiedBizName: data.verifiedBizName,
+            // Log das top-level keys para debug futuro
+            topLevelKeys: Object.keys(data).join(", "),
+          });
         }
       }
 
@@ -458,7 +502,7 @@ class MessageService {
         const trimmedPushName = data.pushName?.trim();
         // pushName válido = não vazio e não é um ID numérico longo (WABA ID)
         const isValidPushName = !!trimmedPushName && !/^\d{11,}$/.test(trimmedPushName);
-        const incomingIsLid = isLid && !extractedFromParticipant;
+        const incomingIsLid = isLid && !resolvedFromLid;
 
         if (isValidPushName) {
           // Busca cliente existente com o mesmo nome na empresa

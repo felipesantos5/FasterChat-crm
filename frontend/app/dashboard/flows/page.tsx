@@ -13,10 +13,12 @@ import {
   Play,
   Clock,
   Settings,
+  Upload,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FlowConfigModal } from '@/components/flows/flow-config-modal';
+import { FlowBatchUploadModal } from '@/components/flows/flow-batch-upload-modal';
 
 interface Flow {
   id: string;
@@ -37,6 +39,10 @@ export default function FlowsPage() {
   // For Config Modal
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedFlow, setSelectedFlow] = useState<Flow | null>(null);
+
+  // For Batch Upload Modal
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchFlow, setBatchFlow] = useState<Flow | null>(null);
 
   const fetchFlows = async () => {
     try {
@@ -81,6 +87,13 @@ export default function FlowsPage() {
     setFlows(flows.map(f => f.id === selectedFlow.id ? { ...f, autoTags: tags, status: status } : f));
   };
 
+  const openBatchModal = (flow: Flow, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setBatchFlow(flow);
+    setBatchModalOpen(true);
+  };
+
   return (
     <div className="flex-1 space-y-6 p-4 pt-6 md:p-8 bg-gray-50/30 min-h-screen font-sans">
       <div className="flex items-center justify-between">
@@ -118,6 +131,13 @@ export default function FlowsPage() {
                     }`}>
                     {flow.status === 'ACTIVE' ? 'Ativo' : 'Rascunho'}
                   </span>
+                  <button
+                    onClick={(e) => openBatchModal(flow, e)}
+                    className="text-gray-400 hover:text-blue-500 transition-colors p-1"
+                    title="Disparo em Massa"
+                  >
+                    <Upload size={16} />
+                  </button>
                   <button
                     onClick={(e) => openConfigModal(flow, e)}
                     className="text-gray-400 hover:text-primary transition-colors p-1"
@@ -189,6 +209,15 @@ export default function FlowsPage() {
           initialTags={selectedFlow.autoTags || []}
           initialStatus={selectedFlow.status}
           onSave={handleSaveConfig}
+        />
+      )}
+
+      {batchFlow && (
+        <FlowBatchUploadModal
+          open={batchModalOpen}
+          onClose={() => setBatchModalOpen(false)}
+          flowId={batchFlow.id}
+          flowName={batchFlow.name}
         />
       )}
     </div>

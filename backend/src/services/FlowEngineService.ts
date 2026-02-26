@@ -218,6 +218,10 @@ export class FlowEngineService {
           await this.processNextNodes(execution.id, node.id);
           break;
 
+        case 'validation':
+          await this.executeValidationNode(execution, node, data, variables);
+          break;
+
         default:
           console.warn(`[FlowEngine] Unknown node type: ${node.type}`);
           await this.processNextNodes(execution.id, node.id);
@@ -483,5 +487,64 @@ export class FlowEngineService {
     }
 
     return true;
+  }
+
+  private async executeValidationNode(execution: any, node: any, data: any, variables: any) {
+    const variableTemplate = data.variable || ''; // e.g. "{{name}}"
+    const operator = data.operator || 'equals';
+    const compareValue = data.compareValue || '';
+
+    // Resolve the variable value from the execution variables
+    const resolvedValue = this.replaceVariables(variableTemplate, variables);
+
+    // If the template didn't resolve (still has {{}}), treat as empty
+    const actualValue = resolvedValue === variableTemplate && variableTemplate.includes('{{')
+      ? ''
+      : resolvedValue;
+
+    let result = false;
+
+    const valLower = String(actualValue).toLowerCase().trim();
+    const compareLower = String(compareValue).toLowerCase().trim();
+
+    switch (operator) {
+      case 'equals':
+        result = valLower === compareLower;
+        break;
+      case 'not_equals':
+        result = valLower !== compareLower;
+        break;
+      case 'contains':
+        result = valLower.includes(compareLower);
+        break;
+      case 'not_contains':
+        result = !valLower.includes(compareLower);
+        break;
+      case 'starts_with':
+        result = valLower.startsWith(compareLower);
+        break;
+      case 'ends_with':
+        result = valLower.endsWith(compareLower);
+        break;
+      case 'greater_than':
+        result = parseFloat(actualValue) > parseFloat(compareValue);
+        break;
+      case 'less_than':
+        result = parseFloat(actualValue) < parseFloat(compareValue);
+        break;
+      case 'is_empty':
+        result = !actualValue || actualValue.trim() === '';
+        break;
+      case 'is_not_empty':
+        result = !!actualValue && actualValue.trim() !== '';
+        break;
+      default:
+        result = valLower === compareLower;
+    }
+
+    const handle = result ? 'true' : 'false';
+    console.log(`[FlowEngine] 🛡️ Validation: ${variableTemplate} ("${actualValue}") ${operator} "${compareValue}" → ${result ? '✅ TRUE' : '❌ FALSE'}`);
+
+    await this.processNextNodes(execution.id, node.id, handle);
   }
 }

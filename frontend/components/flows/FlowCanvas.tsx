@@ -4,6 +4,7 @@ import api from '@/lib/api';
 import { toast } from 'sonner';
 import { Pencil, ArrowLeft, History } from 'lucide-react';
 import { ExecutionDrawer } from './ExecutionDrawer';
+import { FlowBatchUploadModal } from './flow-batch-upload-modal';
 import {
   ReactFlow,
   Controls,
@@ -25,6 +26,7 @@ import { DelayNode } from './nodes/DelayNode';
 import { AudioNode } from './nodes/AudioNode';
 import { MediaNode } from './nodes/MediaNode';
 import { AiActionNode } from './nodes/AiActionNode';
+import { ValidationNode } from './nodes/ValidationNode';
 import { NodeSidebar } from './NodeSidebar';
 import ButtonEdge from './edges/ButtonEdge';
 
@@ -37,6 +39,7 @@ const nodeTypes = {
   image: MediaNode,
   video: MediaNode,
   ai_action: AiActionNode,
+  validation: ValidationNode,
 };
 
 const edgeTypes = {
@@ -68,6 +71,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [executions, setExecutions] = useState<any[]>([]);
   const [selectedExecution, setSelectedExecution] = useState<any | null>(null);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
   // Load or Create Flow
   useEffect(() => {
@@ -325,7 +329,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
 
         <div className="w-80 border-l bg-gray-50 h-full flex flex-col z-10">
           <div className="flex-1 overflow-y-auto">
-            <NodeSidebar handleAddNode={handleAddNode} />
+            <NodeSidebar handleAddNode={handleAddNode} flowId={flowId} onOpenBatchModal={() => setIsBatchModalOpen(true)} />
           </div>
 
         </div>
@@ -340,6 +344,13 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         executions={executions}
         onSelectExecution={setSelectedExecution}
         selectedExecutionId={selectedExecution?.id}
+      />
+
+      <FlowBatchUploadModal
+        open={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        flowId={flowId}
+        flowName={flowName}
       />
     </div>
   );
