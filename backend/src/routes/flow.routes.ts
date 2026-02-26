@@ -39,9 +39,9 @@ flowRouter.get('/:id/executions', asyncHandler(flowController.getFlowExecutions)
 flowRouter.post('/:id/nodes', asyncHandler(flowController.saveFlowNodes));
 flowRouter.delete('/:id', asyncHandler(flowController.deleteFlow));
 
-// Batch upload routes
-flowRouter.post('/:id/batch/preview', upload.single('file'), asyncHandler(flowBatchController.previewUpload));
-flowRouter.post('/:id/batch', upload.single('file'), asyncHandler(flowBatchController.uploadAndExecute));
-flowRouter.get('/:id/batch/:batchId', asyncHandler(flowBatchController.getBatchStatus));
+// Batch upload routes (bind() necessário para manter o contexto 'this' da classe)
+flowRouter.post('/:id/batch/preview', upload.single('file'), asyncHandler(flowBatchController.previewUpload.bind(flowBatchController)));
+flowRouter.post('/:id/batch', upload.single('file'), asyncHandler(flowBatchController.uploadAndExecute.bind(flowBatchController)));
+flowRouter.get('/:id/batch/:batchId', asyncHandler(flowBatchController.getBatchStatus.bind(flowBatchController)));
 
 export { flowRouter };
