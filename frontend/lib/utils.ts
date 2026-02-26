@@ -27,6 +27,13 @@ export function formatPhoneNumber(phone: string | null | undefined): string {
   // Se não tiver dígitos, retorna o original
   if (!cleaned) return phone;
   
+  // 🚨 Detecção de LID (Linked Identifier) 🚨
+  // LIDs são gerados pelo WhatsApp para leads de Anúncios (CTWA) para ocultar o número real
+  // Normalmente têm 14+ dígitos. Mostrar de forma clara.
+  if (cleaned.length >= 14) {
+    return `Anúncio ID: ${cleaned}`;
+  }
+  
   // Remove o código do país (55) se presente para formatação brasileira
   if (cleaned.startsWith('55') && cleaned.length >= 12) {
     cleaned = cleaned.substring(2);

@@ -851,6 +851,63 @@ class WhatsAppService {
       console.error("[WhatsApp Service] Error sending presence:", error.message);
     }
   }
+
+  /**
+   * 🔍 Tenta resolver um LID (Linked Identifier) para um número de telefone real
+   * usando o endpoint chat/findContacts da Evolution API.
+   *
+   * LIDs são IDs internos do WhatsApp Business que não são telefones reais.
+   * Exemplos: 217986837266644@lid, 42903166537767@lid
+   *
+   * @param instanceName - Nome da instância Evolution
+   * @param lidJid - JID no formato LID (ex: "42903166537767@lid")
+   * @returns Número de telefone real (ex: "5548999999999") ou null se não conseguir resolver
+   */
+  async resolveContactFromLid(instanceName: string, lidJid: string): Promise<string | null> {
+    try {
+      console.log(`[WhatsApp Service] 🔍 Tentando resolver LID via API: ${lidJid}`);
+
+      // Tenta usar o endpoint chat/findContacts para buscar o contato pelo LID
+      const response = await this.axiosInstance.post(`/chat/findContacts/${instanceName}`, {
+        where: {
+          id: lidJid,
+        },
+      }, { timeout: 5000 });
+
+      const contacts = response.data;
+
+      if (Array.isArray(contacts) && contacts.length > 0) {
+        const contact = contacts[0];
+
+        // O contato pode ter o número real em campos diferentes dependendo da versão
+        const possiblePhone = contact.id?.replace("@s.whatsapp.net", "").replace("@lid", "")
+          || contact.jid?.replace("@s.whatsapp.net", "").replace("@lid", "")
+          || contact.number
+          || contact.phone;
+
+        if (possiblePhone) {
+          const cleanPhone = String(possiblePhone).replace(/\D/g, "");
+          // Verifica se é um telefone real (não outro LID)
+          if (cleanPhone.length >= 8 && cleanPhone.length <= 13) {
+            console.log(`[WhatsApp Service] ✅ LID resolvido via findContacts: ${lidJid} → ${cleanPhone}`);
+            return cleanPhone;
+          }
+        }
+
+        // Tenta o campo pushName/notify para ao menos ter o nome
+        console.log(`[WhatsApp Service] ⚠️ findContacts retornou contato mas sem telefone real`, {
+          id: contact.id,
+          name: contact.pushName || contact.notify || contact.name,
+        });
+      }
+
+      return null;
+    } catch (error: any) {
+      // Silenciosamente retorna null - este é um fallback, não deve quebrar o fluxo
+      console.log(`[WhatsApp Service] 📱 Não foi possível resolver LID via API: ${error.response?.status || error.message}`);
+      return null;
+    }
+  }
 }
 
 export default new WhatsAppService();

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { toast } from 'sonner';
-import { Pencil, ArrowLeft, History } from 'lucide-react';
+import { Pencil, ArrowLeft, History, FileSpreadsheet, Check } from 'lucide-react';
 import { ExecutionDrawer } from './ExecutionDrawer';
 import { FlowBatchUploadModal } from './flow-batch-upload-modal';
 import { BatchStatusButton } from './BatchStatusButton';
@@ -292,6 +292,14 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         <div className="flex items-center gap-3">
           <BatchStatusButton flowId={flowId} activeBatchId={activeBatchId} />
           <button
+            onClick={() => setIsBatchModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-md hover:bg-gray-50 transition-all text-sm font-medium shadow-sm"
+          >
+            <FileSpreadsheet size={16} className="text-primary" />
+            Disparar em Massa
+          </button>
+
+          <button
             onClick={() => setIsHistoryOpen(!isHistoryOpen)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all text-sm font-medium border ${isHistoryOpen
               ? 'bg-primary text-white border-primary shadow-inner'
@@ -302,7 +310,8 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
             {isHistoryOpen ? 'Fechar Histórico' : 'Ver Execuções'}
           </button>
 
-          <button onClick={saveFlow} className="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary/90 text-sm font-semibold shadow-md transition-colors">
+          <button onClick={saveFlow} className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 text-sm font-semibold shadow-md transition-colors flex items-center gap-2">
+            <Check size={16} />
             Salvar
           </button>
         </div>

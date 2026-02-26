@@ -322,38 +322,45 @@ class MessageService {
 
   /**
    * Valida se um número extraído do remoteJid é um número de telefone válido
-   * Detecta e rejeita WABA IDs (WhatsApp Business Account IDs)
+   * Detecta e rejeita WABA IDs / LIDs (WhatsApp Business Account IDs)
    *
-   * WABA IDs são IDs internos do WhatsApp Business API que não são números de telefone reais
-   * Exemplo de WABA ID: 248103282159807 (muito longo, não segue padrão de telefone)
+   * LIDs (Linked Identifiers) são IDs internos do WhatsApp que NÃO são telefones reais.
+   * Exemplos: 217986837266644, 210831606300673, 188180284313837
    *
    * Números válidos:
    * - Brasil: 55 + DDD (2) + número (8-9) = 12-13 dígitos
    * - Internacional: código país (1-3) + número (7-12) = geralmente 8-15 dígitos
+   * - Máximo real: 15 dígitos (E.164), mas na prática telefones reais têm no máximo 13
    */
-  private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string } {
+  private isValidPhoneNumber(phone: string): { valid: boolean; reason?: string; isLid?: boolean } {
     const cleanPhone = phone.replace(/\D/g, '');
 
     if (!cleanPhone) return { valid: false, reason: 'Número vazio' };
 
-    // Aceita números normais (8 a 15 dígitos)
-    // IDs de Business (LID) costumam ter 15 dígitos e começar com 2
     if (cleanPhone.length < 8) {
       return { valid: false, reason: `Número muito curto (${cleanPhone.length} dígitos)` };
     }
 
-    // Aumentamos a tolerância para aceitar LIDs de Business que o usuário mencionou
-    if (cleanPhone.length > 16) {
-      return { valid: false, reason: `Número muito longo (${cleanPhone.length} dígitos)` };
+    // 🚨 DETECÇÃO DE LID: Números com 14+ dígitos são quase certamente LIDs, não telefones reais.
+    if (cleanPhone.length >= 14) {
+      return {
+        valid: true, // ✅ Permite salvar para não perder a conversa
+        reason: `Provável LID/WABA ID (${cleanPhone.length} dígitos): ${cleanPhone}`,
+        isLid: true,
+      };
     }
 
-    // Se parece um LID (15 dígitos começando com 2), aceitamos
-    if (cleanPhone.length === 15 && cleanPhone.startsWith('2')) {
-      return { valid: true };
-    }
-
-    // ... (resto da lógica de códigos de país mantida, mas menos restritiva para não bloquear Business)
     return { valid: true };
+  }
+
+  /**
+   * Detecta se um número parece ser um LID (Linked Identifier) do WhatsApp
+   * mesmo sem o sufixo @lid. LIDs são IDs internos com 14+ dígitos.
+   */
+  private looksLikeLid(phone: string): boolean {
+    const cleanPhone = phone.replace(/\D/g, '');
+    // LIDs têm 14+ dígitos, telefones reais têm no máximo 13
+    return cleanPhone.length >= 14;
   }
 
   /**
@@ -408,74 +415,137 @@ class MessageService {
       if (!instance) throw new Error(`Instance not found: ${instanceName}`);
 
       // ==================================================================================
-      // 🕵️ CORREÇÃO DE NÚMERO REAL (LID vs PHONE)
+      // 🕵️ RESOLUÇÃO DE NÚMERO REAL (LID vs PHONE)
       // A Evolution API pode enviar o remoteJid como um LID (Linked Identifier) ao invés
-      // do número real. LIDs são IDs internos do WhatsApp Business (ex: 42903166537767@lid).
-      // Precisamos resolver o número real usando campos alternativos do payload.
+      // do número real. LIDs são IDs internos do WhatsApp Business.
+      // Exemplos de LIDs: 42903166537767@lid, 217986837266644@s.whatsapp.net (SEM @lid!)
+      //
+      // ⚠️ IMPORTANTE: Algumas versões da Evolution API enviam LIDs COM @s.whatsapp.net
+      // ao invés de @lid, fazendo o número parecer um telefone válido mas com 14+ dígitos.
+      // Precisamos detectar isso e resolver o número real.
       // ==================================================================================
       let realJid = remoteJid;
       let isLid = false;
       let resolvedFromLid = false;
 
-      // Verifica se é uma mensagem vinda de um ID de Business (@lid)
-      if (remoteJid.includes("@lid")) {
+      // Extrai o número bruto do JID para análise
+      const rawNumber = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace("@g.us", "").replace(/\D/g, "");
+
+      // 🔍 DETECÇÃO EXPANDIDA DE LID:
+      // 1. Deve conter @lid no sufixo (detecção óbvia)
+      // 2. OU ser um número com 14+ dígitos (LIDs que vieram com @s.whatsapp.net por engano)
+      if (remoteJid.includes("@lid") || this.looksLikeLid(rawNumber)) {
         isLid = true;
-        const lidId = remoteJid.replace("@lid", "");
+        const lidId = rawNumber;
+
+        console.log(`[MessageService] 🔍 LID detectado: ${lidId} (original: ${remoteJid})`);
+
+        // =====================================================
+        // TENTATIVAS DE RESOLUÇÃO (em ordem de prioridade)
+        // =====================================================
 
         // 🔑 PRIORIDADE 1: Campo 'senderPn' (sender Phone Number)
         // Este é o campo OFICIAL que a Evolution API fornece para resolver LIDs → telefone real
-        // Formato: "5548999999999" (número limpo) ou "5548999999999@s.whatsapp.net"
+        // Formato: "5548999999999" ou "5548999999999@s.whatsapp.net"
         if (data.senderPn) {
           const senderPhone = String(data.senderPn).replace("@s.whatsapp.net", "").replace(/\D/g, "");
-          if (senderPhone && senderPhone.length >= 8 && senderPhone.length <= 15) {
+          if (senderPhone && senderPhone.length >= 8 && senderPhone.length <= 13) {
             realJid = `${senderPhone}@s.whatsapp.net`;
             resolvedFromLid = true;
             console.log(`[MessageService] ✅ LID ${lidId} resolvido via senderPn → ${senderPhone}`);
           }
         }
 
-        // 🔑 PRIORIDADE 2: Campo 'key.participant' (comum em grupos ou conversas @lid)
-        if (!resolvedFromLid && data.key?.participant && data.key.participant.includes("@s.whatsapp.net")) {
-          realJid = data.key.participant;
-          resolvedFromLid = true;
-          console.log(`[MessageService] ✅ LID ${lidId} resolvido via participant → ${realJid.replace("@s.whatsapp.net", "")}`);
-        }
-
-        // 🔑 PRIORIDADE 3: Campo 'owner' (pode conter o JID real em algumas versões)
-        if (!resolvedFromLid && data.owner && String(data.owner).includes("@s.whatsapp.net")) {
-          // O owner pode ser o remetente em alguns payload formats
-          const ownerPhone = String(data.owner).replace("@s.whatsapp.net", "").replace(/\D/g, "");
-          if (ownerPhone && ownerPhone.length >= 8 && ownerPhone.length <= 15) {
-            realJid = `${ownerPhone}@s.whatsapp.net`;
-            resolvedFromLid = true;
-            console.log(`[MessageService] ✅ LID ${lidId} resolvido via owner → ${ownerPhone}`);
+        // 🔑 PRIORIDADE 2: Campo 'remoteJidAlt' (JID alternativo fornecido pela Evolution v2.3+)
+        if (!resolvedFromLid && data.remoteJidAlt) {
+          const altJid = String(data.remoteJidAlt);
+          if (altJid.includes("@s.whatsapp.net")) {
+            const altPhone = altJid.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+            if (altPhone && altPhone.length >= 8 && altPhone.length <= 13) {
+              realJid = `${altPhone}@s.whatsapp.net`;
+              resolvedFromLid = true;
+              console.log(`[MessageService] ✅ LID ${lidId} resolvido via remoteJidAlt → ${altPhone}`);
+            }
           }
         }
 
-        // ⚠️ Se não conseguiu resolver, loga detalhes do payload para diagnóstico
+        // 🔑 PRIORIDADE 3: Campo 'key.participant' (comum em grupos ou conversas @lid)
+        if (!resolvedFromLid && data.key?.participant) {
+          const participant = String(data.key.participant);
+          if (participant.includes("@s.whatsapp.net")) {
+            const participantPhone = participant.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+            if (participantPhone && participantPhone.length >= 8 && participantPhone.length <= 13) {
+              realJid = participant;
+              resolvedFromLid = true;
+              console.log(`[MessageService] ✅ LID ${lidId} resolvido via participant → ${participantPhone}`);
+            }
+          }
+        }
+
+        // 🔑 PRIORIDADE 4: Campo 'messageStubParameters' (pode conter o JID real em alguns eventos)
+        if (!resolvedFromLid && Array.isArray(data.messageStubParameters)) {
+          for (const param of data.messageStubParameters) {
+            const paramStr = String(param);
+            if (paramStr.includes("@s.whatsapp.net")) {
+              const paramPhone = paramStr.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+              if (paramPhone && paramPhone.length >= 8 && paramPhone.length <= 13) {
+                realJid = `${paramPhone}@s.whatsapp.net`;
+                resolvedFromLid = true;
+                console.log(`[MessageService] ✅ LID ${lidId} resolvido via messageStubParameters → ${paramPhone}`);
+                break;
+              }
+            }
+          }
+        }
+
+        // 🔑 PRIORIDADE 5: Campo 'owner' (pode conter JID real em formatos antigos)
+        if (!resolvedFromLid && data.owner) {
+          const ownerStr = String(data.owner);
+          // Ignora se owner for igual ao nosso próprio número de instância
+          if (ownerStr.includes("@s.whatsapp.net")) {
+            const ownerPhone = ownerStr.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+            // Só usa owner se não for o número da instância (owner geralmente é "nós mesmos")
+            if (ownerPhone && ownerPhone.length >= 8 && ownerPhone.length <= 13
+              && ownerPhone !== instance.phoneNumber?.replace(/\D/g, "")) {
+              realJid = `${ownerPhone}@s.whatsapp.net`;
+              resolvedFromLid = true;
+              console.log(`[MessageService] ✅ LID ${lidId} resolvido via owner → ${ownerPhone}`);
+            }
+          }
+        }
+
+        // 🔑 PRIORIDADE 6: Tenta resolver via Evolution API (chat/findContacts)
         if (!resolvedFromLid) {
-          console.warn(`[MessageService] ⚠️ LID NÃO RESOLVIDO: ${lidId}`);
-          console.warn(`[MessageService] 📦 Payload keys disponíveis:`, {
-            hasSenderPn: !!data.senderPn,
-            senderPn: data.senderPn,
-            hasParticipant: !!data.key?.participant,
-            participant: data.key?.participant,
-            hasOwner: !!data.owner,
-            owner: data.owner,
-            pushName: data.pushName,
-            verifiedBizName: data.verifiedBizName,
-            // Log das top-level keys para debug futuro
-            topLevelKeys: Object.keys(data).join(", "),
-          });
+          try {
+            const resolvedPhone = await whatsappService.resolveContactFromLid(instanceName, `${lidId}@lid`);
+            if (resolvedPhone) {
+              realJid = `${resolvedPhone}@s.whatsapp.net`;
+              resolvedFromLid = true;
+              console.log(`[MessageService] ✅ LID ${lidId} resolvido via Evolution API → ${resolvedPhone}`);
+            }
+          } catch (resolveError: any) {
+            console.warn(`[MessageService] ⚠️ Falha ao resolver LID via API: ${resolveError.message}`);
+          }
+        }
+
+        // ⚠️ Se NÃO CONSEGUIU resolver, VAMOS SALVAR com o LID mesmo
+        // Isso é necessário porque o cliente vem de anúncios (Click-to-WhatsApp) e
+        // a Meta oculta o telefone real para privacidade. Se bloquearmos, perdemos o Lead.
+        if (!resolvedFromLid) {
+          console.warn(`[MessageService] ⚠️ LID NÃO RESOLVIDO - Salvaremos como LID para não perder o lead`);
+          console.warn(`[MessageService] 📦 LID: ${lidId}`);
         }
       }
 
       // Remove os domínios para ficar apenas o número/ID limpo
       const phone = realJid.replace("@s.whatsapp.net", "").replace("@lid", "");
 
-      // Validação
+      // Validação final — segurança extra caso algo tenha passado
       const phoneValidation = this.isValidPhoneNumber(phone);
       if (!phoneValidation.valid) {
+        if (phoneValidation.isLid) {
+          console.error(`[MessageService] ❌ Número rejeitado na validação final (LID): ${phone}`);
+        }
         return null;
       }
 

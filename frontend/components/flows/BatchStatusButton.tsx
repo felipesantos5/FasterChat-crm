@@ -136,9 +136,9 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
     ? Math.round((status.processed / status.total) * 100)
     : 0;
 
-  // Estimate remaining time: avg 12.5s per contact
+  // Estimate remaining time: avg 10s per contact
   const remaining = status ? status.total - status.processed : 0;
-  const estimatedSecsLeft = remaining * 12.5;
+  const estimatedSecsLeft = remaining * 10;
 
   const formatTime = (totalSecs: number) => {
     if (totalSecs <= 0) return "0s";
@@ -158,10 +158,10 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
       <button
         onClick={() => setIsModalOpen(true)}
         className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm ${isProcessing
-            ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-            : isCompleted && status?.failed === 0
-              ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-              : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+          ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+          : isCompleted && status?.failed === 0
+            ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+            : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
           }`}
       >
         {isProcessing ? (
@@ -215,12 +215,12 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                 <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                   <div
                     className={`h-3 rounded-full transition-all duration-500 ${isCompleted
-                        ? status.failed > 0
-                          ? "bg-amber-500"
-                          : "bg-green-500"
-                        : isFailed
-                          ? "bg-red-500"
-                          : "bg-primary animate-pulse"
+                      ? status.failed > 0
+                        ? "bg-amber-500"
+                        : "bg-green-500"
+                      : isFailed
+                        ? "bg-red-500"
+                        : "bg-primary animate-pulse"
                       }`}
                     style={{ width: `${progressPercent}%` }}
                   />

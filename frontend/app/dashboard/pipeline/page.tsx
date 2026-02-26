@@ -290,8 +290,8 @@ function PipelinePageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-3 sm:p-4">
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 overflow-hidden">
+      <div className="flex-1 flex flex-col p-3 sm:p-4 overflow-hidden">
         {/* Header Compacto com Stats */}
         <div className="flex items-center justify-between gap-4 mb-4 bg-white p-2.5 px-4 rounded-xl shadow-sm border border-gray-100">
 
@@ -331,15 +331,13 @@ function PipelinePageContent() {
           </Button>
         </div>
 
-        {/* Kanban Board */}
-        <div className="flex gap-4 overflow-x-auto pb-4">
-
-
+        {/* Kanban Board - Scroll Horizontal */}
+        <div className="flex-1 flex gap-4 overflow-x-auto pb-4 overflow-y-hidden min-h-0">
           {board?.stages.map((stageData) => (
             <div
               key={stageData.stage.id}
               className={cn(
-                "flex-shrink-0 w-72 flex flex-col rounded-xl bg-white border shadow-sm transition-all",
+                "flex-shrink-0 w-72 h-full flex flex-col rounded-xl bg-white border shadow-sm transition-all overflow-hidden",
                 dragOverStageId === stageData.stage.id ? "border-green-400 ring-2 ring-green-100" : "border-gray-200"
               )}
               onDragOver={(e) => handleDragOver(e, stageData.stage.id)}
@@ -359,8 +357,8 @@ function PipelinePageContent() {
                 </div>
               </div>
 
-              {/* Cards Container */}
-              <div className="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-300px)] min-h-[200px]">
+              {/* Cards Container - Scroll Vertical Interno */}
+              <div className="flex-1 p-3 space-y-3 overflow-y-auto min-h-0">
                 {stageData.customers.map((customer) => (
                   <div
                     key={customer.id}

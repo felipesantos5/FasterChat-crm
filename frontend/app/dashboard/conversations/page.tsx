@@ -12,7 +12,7 @@ import { customerApi } from "@/lib/customer";
 import { whatsappApi } from "@/lib/whatsapp";
 import { Customer } from "@/types/customer";
 import { WhatsAppInstance } from "@/types/whatsapp";
-import { MessageSquare, Search, X, Bot, User, ChevronRight, Smartphone, ArrowLeft, Clock } from "lucide-react";
+import { MessageSquare, Search, X, Bot, User, ChevronRight, ArrowLeft, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +47,6 @@ function ConversationsPageContent() {
   const [pendingConversation, setPendingConversation] = useState<PendingConversation | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
-  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
 
   // Filtros e busca - carrega do localStorage se disponível
   const [searchTerm, setSearchTerm] = useState(() => {
@@ -84,6 +83,7 @@ function ConversationsPageContent() {
       selectedTags: [],
       onlyNeedsHelp: false,
       onlyAiEnabled: false,
+      selectedInstanceId: null,
     };
   });
 
@@ -253,8 +253,8 @@ function ConversationsPageContent() {
         })
         .filter((conv) => {
           // Filtro por instância do WhatsApp
-          if (selectedInstanceId) {
-            return conv.whatsappInstanceId === selectedInstanceId;
+          if (advancedFilters.selectedInstanceId) {
+            return conv.whatsappInstanceId === advancedFilters.selectedInstanceId;
           }
           return true;
         })
@@ -271,7 +271,7 @@ function ConversationsPageContent() {
           }
           return 0;
         }),
-    [conversations, searchTerm, filterType, sortType, advancedFilters, customers, selectedInstanceId]
+    [conversations, searchTerm, filterType, sortType, advancedFilters, customers]
   );
 
   // Encontra a conversa selecionada
@@ -364,25 +364,11 @@ function ConversationsPageContent() {
               <div className="flex items-center justify-between">
                 {/* Filtros e Instância em linha */}
                 <div className="flex items-center gap-2">
-                  <AdvancedFilters filters={advancedFilters} onFiltersChange={setAdvancedFilters} />
-                  {instances.length > 1 && (
-                    <Select value={selectedInstanceId || "all"} onValueChange={(value) => setSelectedInstanceId(value === "all" ? null : value)}>
-                      <SelectTrigger className="h-8 text-xs flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <Smartphone className="h-3 w-3" />
-                          <SelectValue placeholder="Todas" />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas as instâncias</SelectItem>
-                        {instances.map((instance) => (
-                          <SelectItem key={instance.id} value={instance.id}>
-                            {instance.displayName || instance.instanceName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <AdvancedFilters
+                    filters={advancedFilters}
+                    onFiltersChange={setAdvancedFilters}
+                    instances={instances}
+                  />
                 </div>
                 {/* <Badge variant="secondary" className="text-xs">
                   {filteredConversations.length} de {conversations.length}

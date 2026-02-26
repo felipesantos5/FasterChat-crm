@@ -9,20 +9,25 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Filter, X } from "lucide-react";
 import { tagApi, Tag } from "@/lib/tag";
 import { cn } from "@/lib/utils";
+import { WhatsAppInstance } from "@/types/whatsapp";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Smartphone } from "lucide-react";
 
 export interface AdvancedFilters {
   excludeGroups: boolean;
   selectedTags: string[];
   onlyNeedsHelp: boolean; // Mostra apenas conversas que precisam de ajuda
   onlyAiEnabled: boolean; // Mostra apenas conversas com IA ativa
+  selectedInstanceId: string | null; // Filtro por instância do WhatsApp
 }
 
 interface AdvancedFiltersProps {
   filters: AdvancedFilters;
   onFiltersChange: (filters: AdvancedFilters) => void;
+  instances: WhatsAppInstance[];
 }
 
-export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersProps) {
+export function AdvancedFilters({ filters, onFiltersChange, instances }: AdvancedFiltersProps) {
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
@@ -47,7 +52,7 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
   }, [open]);
 
   // Verifica se há filtros ativos
-  const hasActiveFilters = filters.excludeGroups || filters.selectedTags.length > 0 || filters.onlyNeedsHelp || filters.onlyAiEnabled;
+  const hasActiveFilters = filters.excludeGroups || filters.selectedTags.length > 0 || filters.onlyNeedsHelp || filters.onlyAiEnabled || filters.selectedInstanceId !== null;
 
   const handleToggleGroup = () => {
     onFiltersChange({
@@ -70,6 +75,13 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
     });
   };
 
+  const handleInstanceChange = (instanceId: string) => {
+    onFiltersChange({
+      ...filters,
+      selectedInstanceId: instanceId === "all" ? null : instanceId,
+    });
+  };
+
   const handleToggleTag = (tagName: string) => {
     const isSelected = filters.selectedTags.includes(tagName);
     const newTags = isSelected
@@ -88,6 +100,7 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
       selectedTags: [],
       onlyNeedsHelp: false,
       onlyAiEnabled: false,
+      selectedInstanceId: null,
     });
   };
 
@@ -109,7 +122,7 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
               variant="secondary"
               className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full bg-white text-primary"
             >
-              {(filters.excludeGroups ? 1 : 0) + filters.selectedTags.length}
+              {(filters.excludeGroups ? 1 : 0) + filters.selectedTags.length + (filters.selectedInstanceId ? 1 : 0)}
             </Badge>
           )}
         </Button>
@@ -130,6 +143,34 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
               </Button>
             )}
           </div>
+
+          {/* Filtro de Instância */}
+          {instances.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground">
+                INSTÂNCIA DO WHATSAPP
+              </Label>
+              <Select
+                value={filters.selectedInstanceId || "all"}
+                onValueChange={handleInstanceChange}
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Todas as instâncias" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as instâncias</SelectItem>
+                  {instances.map((instance) => (
+                    <SelectItem key={instance.id} value={instance.id}>
+                      {instance.displayName || instance.instanceName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Filtros de Status */}
           <div className="space-y-2">
@@ -212,17 +253,26 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
                 <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto p-1">
                   {tags.map((tag) => {
                     const isSelected = filters.selectedTags.includes(tag.name);
+                    const tagColor = tag.color || "#e5e7eb";
+
                     return (
                       <button
                         key={tag.id}
                         onClick={() => handleToggleTag(tag.name)}
                         className={cn(
                           "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
-                          "border hover:scale-105",
-                          isSelected
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-background hover:bg-accent"
+                          "border hover:scale-105"
                         )}
+                        style={isSelected ? {
+                          backgroundColor: tagColor,
+                          borderColor: tagColor,
+                          color: "#fff", // Sempre branco quando selecionado para contraste
+                          boxShadow: `0 0 0 1px ${tagColor}40`
+                        } : {
+                          backgroundColor: `${tagColor}10`,
+                          borderColor: `${tagColor}40` || "#e5e7eb",
+                          color: tagColor || "inherit"
+                        }}
                       >
                         {tag.name}
                         {isSelected && <X className="h-3 w-3" />}
@@ -254,11 +304,29 @@ export function AdvancedFilters({ filters, onFiltersChange }: AdvancedFiltersPro
                     Sem grupos
                   </Badge>
                 )}
-                {filters.selectedTags.map((tagName) => (
-                  <Badge key={tagName} variant="secondary" className="text-xs">
-                    {tagName}
+                {filters.selectedInstanceId && (
+                  <Badge variant="secondary" className="text-xs">
+                    📱 {instances.find(i => i.id === filters.selectedInstanceId)?.displayName || instances.find(i => i.id === filters.selectedInstanceId)?.instanceName || "Instância"}
                   </Badge>
-                ))}
+                )}
+                {filters.selectedTags.map((tagName) => {
+                  const tag = tags.find(t => t.name === tagName);
+                  const tagColor = tag?.color || "#e5e7eb";
+                  return (
+                    <Badge
+                      key={tagName}
+                      variant="outline"
+                      className="text-xs"
+                      style={{
+                        backgroundColor: `${tagColor}20`,
+                        borderColor: tagColor,
+                        color: tagColor,
+                      }}
+                    >
+                      {tagName}
+                    </Badge>
+                  );
+                })}
               </div>
             </div>
           )}

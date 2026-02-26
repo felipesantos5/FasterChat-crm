@@ -393,9 +393,9 @@ export function FlowBatchUploadModal({
               <p className="text-xs text-gray-600">
                 Tempo estimado:{" "}
                 <strong>
-                  {Math.ceil((preview.totalRows * 12.5) / 60)} minutos
+                  {Math.ceil((preview.totalRows * 10) / 60)} minutos
                 </strong>{" "}
-                (delay de 10-15s entre cada disparo para segurança)
+                (delay de 5-15s entre cada disparo para segurança)
               </p>
             </div>
           </div>

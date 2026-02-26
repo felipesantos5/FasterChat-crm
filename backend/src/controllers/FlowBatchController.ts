@@ -174,9 +174,9 @@ export class FlowBatchController {
 
       batch.processed++;
 
-      // Delay aleatório de 10-15 segundos entre cada disparo (evita ban)
+      // Delay aleatório de 5-15 segundos entre cada disparo (equilíbrio entre velocidade e segurança)
       if (i < rows.length - 1) {
-        const delayMs = Math.floor(Math.random() * 5000) + 10000; // 10000-15000ms
+        const delayMs = Math.floor(Math.random() * 10000) + 5000; // 5000-15000ms
         console.log(`[FlowBatch] ⏳ Aguardando ${(delayMs / 1000).toFixed(1)}s antes do próximo disparo...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }

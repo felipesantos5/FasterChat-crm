@@ -442,7 +442,8 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
   // 50 emojis mais usados organizados por categoria
   const emojis = {
     faces: ["😊", "😂", "🤣", "😅", "😁", "😉", "😍", "🥰", "😘", "😋", "😎", "🤔", "😐", "😑", "😶", "🙄", "😬", "😮", "😯", "😴", "😔", "😕", "🙁", "😞", "😢", "😭"],
-    hands: ["👍", "👎", "👏", "🙌", "👋", "🤝", "🙏", "✌️", "🤞", "🤙", "👌", "🤌", "✊", "👊", "🤛", "🤜"],
+    business: ["🚀", "✅", "✔️", "❌", "⚠️", "🔥", "💰", "💸", "🤝", "💎", "🎯", "📈", "⭐", "🔔", "📍", "📅", "⏰", "📧"],
+    hands: ["👍", "👎", "👏", "🙌", "👋", "🤝", "🙏", "✌️", "🤞", "🤙", "👌", "🤌", "✊", "👊"],
     hearts: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎"],
   };
 
@@ -1056,13 +1057,28 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                     <Smile className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-2" align="start">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground px-2">Emojis mais usados</p>
+                <PopoverContent className="w-80 p-2 max-h-[400px] overflow-y-auto" align="start">
+                  <div className="space-y-3">
+                    {/* Objetivos / Business */}
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground px-2 tracking-wider">🚀 Objetivo / Business</p>
+                      <div className="grid grid-cols-9 gap-1">
+                        {emojis.business.map((emoji, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleEmojiSelect(emoji)}
+                            className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
                     {/* Rostos */}
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground px-2">Rostos</p>
+                    <div className="space-y-1 pt-2 border-t border-border/50">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground px-2 tracking-wider">😊 Reações</p>
                       <div className="grid grid-cols-9 gap-1">
                         {emojis.faces.map((emoji, index) => (
                           <button
@@ -1078,8 +1094,8 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                     </div>
 
                     {/* Mãos */}
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground px-2">Mãos</p>
+                    <div className="space-y-1 pt-2 border-t border-border/50">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground px-2 tracking-wider">👍 Gestos</p>
                       <div className="grid grid-cols-9 gap-1">
                         {emojis.hands.map((emoji, index) => (
                           <button
@@ -1095,8 +1111,8 @@ export function ChatArea({ customerId, customerName, customerPhone, onToggleDeta
                     </div>
 
                     {/* Corações */}
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground px-2">Corações</p>
+                    <div className="space-y-1 pt-2 border-t border-border/50">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground px-2 tracking-wider">❤️ Corações</p>
                       <div className="grid grid-cols-9 gap-1">
                         {emojis.hearts.map((emoji, index) => (
                           <button
