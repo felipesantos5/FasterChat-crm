@@ -41,7 +41,6 @@ class CampaignService {
       if (data.type === CampaignType.SCHEDULED && data.scheduledAt) {
         try {
           await campaignExecutionService.scheduleCampaign(campaign.id, data.scheduledAt);
-          console.log(`[Campaign] Campanha ${campaign.id} agendada para ${data.scheduledAt.toISOString()}`);
         } catch (scheduleError: any) {
           console.error(`[Campaign] Erro ao agendar campanha ${campaign.id}:`, scheduleError.message);
           // Não lança erro aqui para não falhar a criação da campanha
@@ -221,7 +220,6 @@ class CampaignService {
         },
       });
 
-      console.log(`[Campaign ${campaignId}] Processing ${customers.length} customers...`);
 
       // Itera sobre os clientes e envia as mensagens
       for (const customer of customers) {
@@ -234,7 +232,6 @@ class CampaignService {
           );
 
           sentCount++;
-          console.log(
             `[Campaign ${campaignId}] Message sent to ${customer.name} (${sentCount}/${customers.length})`
           );
 
@@ -266,7 +263,6 @@ class CampaignService {
 
       const duration = Date.now() - startTime;
 
-      console.log(
         `[Campaign ${campaignId}] Completed! Sent: ${sentCount}, Failed: ${failedCount}, Duration: ${Math.round(duration / 1000)}s`
       );
 

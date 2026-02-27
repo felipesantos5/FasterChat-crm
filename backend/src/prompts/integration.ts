@@ -100,7 +100,6 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
     // Detecção automática usando configs da empresa do banco
     intentScriptId = detectIntentScriptFromConfig(currentMessage, companyScripts);
     if (intentScriptId) {
-      console.log(`[PromptBuilder] Intent script detected: ${intentScriptId}`);
     }
   }
 

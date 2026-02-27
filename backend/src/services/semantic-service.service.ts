@@ -140,7 +140,6 @@ class SemanticServiceService {
    */
   async generateServiceEmbedding(serviceId: string): Promise<void> {
     try {
-      console.log(`[SemanticService] Generating embedding for service ${serviceId}`);
 
       // Busca o serviço com todas as informações
       const service = await prisma.service.findUnique({
@@ -172,7 +171,6 @@ class SemanticServiceService {
         })),
       });
 
-      console.log(`[SemanticService] Content for embedding: "${content.substring(0, 100)}..."`);
 
       // Gera embedding
       const embeddingService = this.getEmbeddingService();
@@ -200,7 +198,6 @@ class SemanticServiceService {
         )
       `;
 
-      console.log(`[SemanticService] Embedding stored for service ${service.name}`);
     } catch (error: any) {
       console.error(`[SemanticService] Error generating embedding:`, error);
       throw error;
@@ -253,7 +250,6 @@ class SemanticServiceService {
     }
 
     const result = Array.from(expandedTerms);
-    console.log(`[SemanticService] Query expansion: "${query}" -> [${result.join(", ")}]`);
 
     return result;
   }
@@ -277,7 +273,6 @@ class SemanticServiceService {
       includeRelated = false,
     } = options;
 
-    console.log(`[SemanticService] Searching services for: "${query}" (company: ${companyId})`);
 
     try {
       // 1. Expande query com sinônimos
@@ -308,12 +303,10 @@ class SemanticServiceService {
         LIMIT ${limit}
       `;
 
-      console.log(`[SemanticService] Vector search found ${vectorResults.length} results`);
 
       // 4. Se poucos resultados, tenta fallback lexical
       let lexicalResults: string[] = [];
       if (vectorResults.length < 2) {
-        console.log(`[SemanticService] Few vector results, trying lexical fallback`);
 
         const lexicalQuery = `%${query}%`;
         const lexicalServices = await prisma.service.findMany({
@@ -331,7 +324,6 @@ class SemanticServiceService {
         });
 
         lexicalResults = lexicalServices.map((s) => s.id);
-        console.log(`[SemanticService] Lexical fallback found ${lexicalResults.length} results`);
       }
 
       // 5. Combina IDs únicos
@@ -351,7 +343,6 @@ class SemanticServiceService {
       }
 
       if (allServiceIds.size === 0) {
-        console.log(`[SemanticService] No results found for query: "${query}"`);
         return [];
       }
 
@@ -408,7 +399,6 @@ class SemanticServiceService {
         }
       }
 
-      console.log(`[SemanticService] Returning ${results.length} results`);
       return results;
     } catch (error: any) {
       console.error(`[SemanticService] Error in searchServices:`, error);
@@ -425,7 +415,6 @@ class SemanticServiceService {
     query: string,
     limit: number
   ): Promise<ServiceSearchResult[]> {
-    console.log(`[SemanticService] Using fallback search for: "${query}"`);
 
     const services = await prisma.service.findMany({
       where: {
@@ -525,7 +514,6 @@ class SemanticServiceService {
    * Baseado em equipmentType, categoria e ações similares
    */
   async detectRelationships(companyId: string): Promise<{ created: number }> {
-    console.log(`[SemanticService] Detecting relationships for company ${companyId}`);
 
     const services = await prisma.service.findMany({
       where: { companyId, isActive: true },
@@ -596,7 +584,6 @@ class SemanticServiceService {
       }
     }
 
-    console.log(`[SemanticService] Created/updated ${created} relationships`);
     return { created };
   }
 
@@ -604,7 +591,6 @@ class SemanticServiceService {
    * Reindexa todos os serviços de uma empresa
    */
   async reindexCompanyServices(companyId: string): Promise<{ indexed: number }> {
-    console.log(`[SemanticService] Reindexing services for company ${companyId}`);
 
     const services = await prisma.service.findMany({
       where: { companyId, isActive: true },
@@ -624,7 +610,6 @@ class SemanticServiceService {
     // Também detecta relacionamentos
     await this.detectRelationships(companyId);
 
-    console.log(`[SemanticService] Indexed ${indexed} of ${services.length} services`);
     return { indexed };
   }
 
@@ -632,7 +617,6 @@ class SemanticServiceService {
    * Inicializa sinônimos padrão no banco de dados
    */
   async initializeDefaultSynonyms(): Promise<void> {
-    console.log(`[SemanticService] Initializing default synonyms`);
 
     for (const synonym of DEFAULT_SYNONYMS) {
       try {
@@ -654,7 +638,6 @@ class SemanticServiceService {
               isActive: true,
             },
           });
-          console.log(`[SemanticService] Created synonym: ${synonym.canonicalTerm}`);
         }
       } catch (error) {
         console.error(`[SemanticService] Error creating synonym ${synonym.canonicalTerm}:`, error);

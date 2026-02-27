@@ -56,13 +56,11 @@ class OpenAIService {
 
       const modelToUse = model || this.model;
 
-      console.log(`[OpenAI] Generating response with ${modelToUse}${tools ? ` + ${tools.length} tools` : ""}`);
 
       // Se há imagem, usa GPT-4o (Vision) ao invés do Mini
       const visionModel = imageUrl ? "gpt-4o" : modelToUse;
 
       if (imageUrl) {
-        console.log("[OpenAI] Image detected, using GPT-4o Vision capabilities");
       }
 
       // Prepara o conteúdo da mensagem do usuário
@@ -119,7 +117,6 @@ class OpenAIService {
 
       // Se a IA decidiu chamar tools
       if (toolCalls && toolCalls.length > 0 && context) {
-        console.log(`[OpenAI] AI decided to call ${toolCalls.length} tool(s)`);
 
         // Importa handlers dinamicamente para evitar dependência circular
         const { executeToolCall } = await import("../ai-tools/handlers");
@@ -132,7 +129,6 @@ class OpenAIService {
           const functionName = (toolCall as any).function.name;
           const functionArgs = JSON.parse((toolCall as any).function.arguments);
 
-          console.log(`[OpenAI] Executing tool: ${functionName}`);
 
           // Executa a função
           const toolResult = await executeToolCall(functionName, functionArgs, context);
@@ -146,7 +142,6 @@ class OpenAIService {
         }
 
         // Segunda chamada à API com os resultados das tools
-        console.log("[OpenAI] Generating final response with tool results...");
         response = await this.client.chat.completions.create({
           model: visionModel,
           messages,
@@ -161,14 +156,12 @@ class OpenAIService {
         throw new Error("No content in OpenAI response");
       }
 
-      console.log(`[OpenAI] Response generated successfully. Tokens used: ${response.usage?.total_tokens || "unknown"}`);
 
       // Log de custo aproximado (GPT-4o Mini é ~$0.15/1M input tokens, ~$0.60/1M output tokens)
       if (response.usage) {
         const inputCost = (response.usage.prompt_tokens / 1_000_000) * 0.15;
         const outputCost = (response.usage.completion_tokens / 1_000_000) * 0.6;
         const totalCost = inputCost + outputCost;
-        console.log(`[OpenAI] Estimated cost: $${totalCost.toFixed(6)}`);
       }
 
       return finalContent;
@@ -195,7 +188,6 @@ class OpenAIService {
    */
   private async downloadAudioFromUrl(url: string): Promise<Buffer> {
     try {
-      console.log("[OpenAI] 🌐 Downloading audio from URL...");
 
       const response = await axios.get(url, {
         responseType: "arraybuffer",
@@ -203,7 +195,6 @@ class OpenAIService {
       });
 
       const audioBuffer = Buffer.from(response.data);
-      console.log(`[OpenAI] ✅ Audio downloaded: ${(audioBuffer.length / 1024).toFixed(2)} KB`);
 
       return audioBuffer;
     } catch (error: any) {
@@ -219,23 +210,19 @@ class OpenAIService {
    */
   async transcribeAudio(audioInput: string): Promise<string> {
     try {
-      console.log("[OpenAI] 🎤 Starting audio transcription with Whisper API");
 
       let audioBuffer: Buffer;
 
       // Detecta se é URL ou base64
       if (audioInput.startsWith("http://") || audioInput.startsWith("https://")) {
         // É uma URL - faz download
-        console.log("[OpenAI] 🔗 Audio input is URL");
         audioBuffer = await this.downloadAudioFromUrl(audioInput);
       } else {
         // É base64 - decodifica
-        console.log("[OpenAI] 📦 Audio input is base64");
         const base64Data = audioInput.replace(/^data:audio\/[^;]+;base64,/, "");
         audioBuffer = Buffer.from(base64Data, "base64");
       }
 
-      console.log(`[OpenAI] 📦 Audio buffer size: ${(audioBuffer.length / 1024).toFixed(2)} KB`);
 
       // Valida o tamanho do buffer
       if (audioBuffer.length === 0) {
@@ -249,7 +236,6 @@ class OpenAIService {
         type: "audio/ogg; codecs=opus",
       });
 
-      console.log("[OpenAI] 📄 Audio file object created successfully");
 
       // Chama a Whisper API para transcrição
       const transcription = await this.client.audio.transcriptions.create({
@@ -268,8 +254,6 @@ class OpenAIService {
         .replace(/\s+/g, " ") // Remove espaços múltiplos
         .replace(/\n+/g, " "); // Remove quebras de linha
 
-      console.log("[OpenAI] ✅ Audio transcription completed successfully");
-      console.log(`[OpenAI] 📝 Transcription (${cleanedTranscription.length} chars): "${cleanedTranscription}"`);
 
       // Se a transcrição estiver vazia ou muito curta, pode ser ruído
       if (cleanedTranscription.length < 3) {
@@ -365,7 +349,6 @@ class OpenAIService {
     }
 
     try {
-      console.log("[OpenAI] Generating embedding...");
 
       const response = await this.client.embeddings.create({
         model: "text-embedding-3-small",
@@ -379,12 +362,10 @@ class OpenAIService {
         throw new Error("Empty embedding returned from OpenAI");
       }
 
-      console.log(`[OpenAI] Embedding generated: ${embedding.length} dimensions`);
 
       // Log de custo aproximado (text-embedding-3-small: ~$0.02/1M tokens)
       if (response.usage) {
         const cost = (response.usage.total_tokens / 1_000_000) * 0.02;
-        console.log(`[OpenAI] Embedding cost: $${cost.toFixed(6)} (${response.usage.total_tokens} tokens)`);
       }
 
       return embedding;
@@ -416,7 +397,6 @@ class OpenAIService {
     }
 
     try {
-      console.log(`[OpenAI] Generating embeddings for ${texts.length} texts (batch)...`);
 
       // OpenAI suporta batch de até 2048 textos por chamada
       const BATCH_SIZE = 100;
@@ -437,10 +417,8 @@ class OpenAIService {
         results.push(...batchEmbeddings);
 
         // Log de progresso
-        console.log(`[OpenAI] Processed ${Math.min(i + BATCH_SIZE, texts.length)}/${texts.length} texts`);
       }
 
-      console.log(`[OpenAI] Generated ${results.length} embeddings successfully`);
       return results;
     } catch (error: any) {
       console.error("[OpenAI] Error generating batch embeddings:", error);

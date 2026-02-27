@@ -246,11 +246,9 @@ class WhatsAppController {
         return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
 
-      console.log('🔄 Manual sync requested for instance:', instanceId);
 
       const result = await whatsappService.getStatus(instanceId);
 
-      console.log('✓ Status synced:', result.status);
 
       return res.status(200).json({
         success: true,

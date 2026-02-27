@@ -568,7 +568,6 @@ Total: R$ 505,00"
         // Verifica se o cliente quer sair do script atual
         const scriptLabel = companyScripts[activeScriptId]?.label || '';
         if (detectScriptExit(message, scriptLabel)) {
-          console.log(`[AIService] Script exit detected — clearing script ${activeScriptId}`);
           activeScriptId = null;
           collectedData = {};
           // Atualiza conversa: limpa script ativo
@@ -582,7 +581,6 @@ Total: R$ 505,00"
           // Script continua ativo — verifica se um NOVO script foi detectado (override)
           const newScriptId = detectIntentScriptFromConfig(message, companyScripts);
           if (newScriptId && newScriptId !== activeScriptId) {
-            console.log(`[AIService] New script detected (${newScriptId}), switching from ${activeScriptId}`);
             activeScriptId = newScriptId;
             collectedData = {};
           }
@@ -591,7 +589,6 @@ Total: R$ 505,00"
         // Sem script ativo — tenta detectar um novo
         const detectedScriptId = detectIntentScriptFromConfig(message, companyScripts);
         if (detectedScriptId) {
-          console.log(`[AIService] Intent script activated: ${detectedScriptId}`);
           activeScriptId = detectedScriptId;
           collectedData = {};
           // Cria/atualiza conversa com o novo script

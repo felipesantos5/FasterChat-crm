@@ -13,11 +13,9 @@ class FlowSchedulerService {
 
   start() {
     if (this.intervalId) {
-      console.log('[Flow Scheduler] Already running');
       return;
     }
 
-    console.log('[Flow Scheduler] 🕐 Starting flow scheduler (checks every 5 seconds)');
     
     this.checkPendingFlows();
 
@@ -31,7 +29,6 @@ class FlowSchedulerService {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('[Flow Scheduler] Stopped');
     }
   }
 
@@ -52,11 +49,9 @@ class FlowSchedulerService {
       });
 
       if (pendingExecutions.length > 0) {
-        console.log(`[Flow Scheduler] 📋 Found ${pendingExecutions.length} flow(s) to resume`);
 
         for (const execution of pendingExecutions) {
           try {
-            console.log(`[Flow Scheduler] 🚀 Resuming flow execution: ${execution.id} (Status: ${execution.status})`);
 
             if (execution.status === FlowExecutionStatus.WAITING_REPLY) {
               // Timeout reached without reply -> follow "nao_respondeu"

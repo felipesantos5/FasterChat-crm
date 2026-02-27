@@ -67,9 +67,6 @@ class AIKnowledgeService {
 
       if (!knowledge) return null;
 
-      console.log(`[AI Knowledge] Get knowledge - Products type:`, typeof knowledge.products);
-      console.log(`[AI Knowledge] Get knowledge - Products is array:`, Array.isArray(knowledge.products));
-      console.log(`[AI Knowledge] Get knowledge - Products:`, JSON.stringify(knowledge.products, null, 2));
 
       // O Prisma já retorna campos Json como objetos/arrays
       return {
@@ -88,8 +85,6 @@ class AIKnowledgeService {
    */
   async upsertKnowledge(companyId: string, data: UpdateAIKnowledgeRequest) {
     try {
-      console.log(`[AI Knowledge] Upserting for company ${companyId}`);
-      console.log(`[AI Knowledge] Products data:`, JSON.stringify(data.products, null, 2));
 
       // O Prisma já faz JSON.stringify automaticamente para campos do tipo Json
       // Passamos o array/objeto diretamente sem fazer stringify manualmente
@@ -172,10 +167,6 @@ class AIKnowledgeService {
         },
       });
 
-      console.log(`✓ AI knowledge updated for company ${companyId}`);
-      console.log(`✓ Products saved:`, JSON.stringify(knowledge.products, null, 2));
-      console.log(`✓ Products type:`, typeof knowledge.products);
-      console.log(`✓ Products is array:`, Array.isArray(knowledge.products));
 
       // Se tivermos descrição, tentamos gerar o contexto enriquecido automaticamente
       if (data.companyDescription && data.companyDescription.length > 20) {
@@ -215,7 +206,6 @@ class AIKnowledgeService {
         faq: knowledge.faq || [],
       };
 
-      console.log(`✓ Returning products:`, JSON.stringify(result.products, null, 2));
 
       return result;
     } catch (error: any) {
@@ -346,7 +336,6 @@ class AIKnowledgeService {
     }
   ): Promise<void> {
     try {
-      console.log(`[AI Knowledge] Starting RAG embedding sync for company ${companyId}`);
 
       // Processa cada campo que foi fornecido
       const tasks: Promise<any>[] = [];
@@ -437,8 +426,6 @@ class AIKnowledgeService {
 
       // Log das estatísticas
       const stats = await ragService.getStats(companyId);
-      console.log(`[AI Knowledge] RAG sync completed. Total vectors: ${stats.totalVectors}`);
-      console.log(`[AI Knowledge] Vectors by type:`, stats.byType);
     } catch (error: any) {
       console.error('[AI Knowledge] Error syncing RAG embeddings:', error);
       // Não propaga o erro para não quebrar o fluxo principal
@@ -453,13 +440,11 @@ class AIKnowledgeService {
    */
   async reprocessAllEmbeddings(companyId: string): Promise<{ totalChunks: number }> {
     try {
-      console.log(`[AI Knowledge] Reprocessing all embeddings for company ${companyId}`);
 
       // Busca os dados atuais
       const knowledge = await this.getKnowledge(companyId);
 
       if (!knowledge) {
-        console.log(`[AI Knowledge] No knowledge found for company ${companyId}`);
         return { totalChunks: 0 };
       }
 
@@ -474,7 +459,6 @@ class AIKnowledgeService {
         faq: knowledge.faq as Array<{ question: string; answer: string }>,
       });
 
-      console.log(`[AI Knowledge] Reprocessed ${result.totalChunks} chunks`);
       return result;
     } catch (error: any) {
       console.error('[AI Knowledge] Error reprocessing embeddings:', error);

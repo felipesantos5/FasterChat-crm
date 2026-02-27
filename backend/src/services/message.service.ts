@@ -448,7 +448,6 @@ class MessageService {
         isLid = true;
         const lidId = rawNumber;
 
-        console.log(`[MessageService] 🔍 LID detectado: ${lidId} (original: ${remoteJid})`);
 
         // =====================================================
         // TENTATIVAS DE RESOLUÇÃO (em ordem de prioridade)
@@ -462,7 +461,6 @@ class MessageService {
           if (senderPhone && senderPhone.length >= 8 && senderPhone.length <= 13) {
             realJid = `${senderPhone}@s.whatsapp.net`;
             resolvedFromLid = true;
-            console.log(`[MessageService] ✅ LID ${lidId} resolvido via senderPn → ${senderPhone}`);
           }
         }
 
@@ -474,7 +472,6 @@ class MessageService {
             if (altPhone && altPhone.length >= 8 && altPhone.length <= 13) {
               realJid = `${altPhone}@s.whatsapp.net`;
               resolvedFromLid = true;
-              console.log(`[MessageService] ✅ LID ${lidId} resolvido via remoteJidAlt → ${altPhone}`);
             }
           }
         }
@@ -487,7 +484,6 @@ class MessageService {
             if (participantPhone && participantPhone.length >= 8 && participantPhone.length <= 13) {
               realJid = participant;
               resolvedFromLid = true;
-              console.log(`[MessageService] ✅ LID ${lidId} resolvido via participant → ${participantPhone}`);
             }
           }
         }
@@ -501,7 +497,6 @@ class MessageService {
               if (paramPhone && paramPhone.length >= 8 && paramPhone.length <= 13) {
                 realJid = `${paramPhone}@s.whatsapp.net`;
                 resolvedFromLid = true;
-                console.log(`[MessageService] ✅ LID ${lidId} resolvido via messageStubParameters → ${paramPhone}`);
                 break;
               }
             }
@@ -519,7 +514,6 @@ class MessageService {
               && ownerPhone !== instance.phoneNumber?.replace(/\D/g, "")) {
               realJid = `${ownerPhone}@s.whatsapp.net`;
               resolvedFromLid = true;
-              console.log(`[MessageService] ✅ LID ${lidId} resolvido via owner → ${ownerPhone}`);
             }
           }
         }
@@ -531,19 +525,10 @@ class MessageService {
             if (resolvedPhone) {
               realJid = `${resolvedPhone}@s.whatsapp.net`;
               resolvedFromLid = true;
-              console.log(`[MessageService] ✅ LID ${lidId} resolvido via Evolution API → ${resolvedPhone}`);
             }
           } catch (resolveError: any) {
             console.warn(`[MessageService] ⚠️ Falha ao resolver LID via API: ${resolveError.message}`);
           }
-        }
-
-        // ⚠️ Se NÃO CONSEGUIU resolver, VAMOS SALVAR com o LID mesmo
-        // Isso é necessário porque o cliente vem de anúncios (Click-to-WhatsApp) e
-        // a Meta oculta o telefone real para privacidade. Se bloquearmos, perdemos o Lead.
-        if (!resolvedFromLid) {
-          console.warn(`[MessageService] ⚠️ LID NÃO RESOLVIDO - Salvaremos como LID para não perder o lead`);
-          console.warn(`[MessageService] 📦 LID: ${lidId}`);
         }
       }
 
@@ -740,20 +725,16 @@ class MessageService {
       // 2. MENSAGEM DE ÁUDIO
       else if (msgData?.audioMessage) {
         mediaType = "audio";
-        console.log(`[MessageService] 🎤 Audio message detected. Checking for base64...`);
 
         try {
           const mimetype = msgData.audioMessage.mimetype || "audio/ogg";
           let base64Audio = msgData.audioMessage.base64;
 
           if (base64Audio) {
-            console.log(`[MessageService] ✅ Audio found in base64 format in payload.`);
           } else {
-            console.log(`[MessageService] ⬇️ Audio base64 not found in payload. Attempting download...`);
             // Baixa o áudio da Evolution API
             const audioBuffer = await whatsappService.downloadMedia(instanceName, data.key);
             base64Audio = audioBuffer.toString("base64");
-            console.log(`[MessageService] ✅ Audio downloaded and converted to base64.`);
           }
 
           // Define a URL do áudio em base64
@@ -763,14 +744,12 @@ class MessageService {
           const aiProvider: AIProvider = (process.env.AI_PROVIDER as AIProvider) || "gemini";
 
           // Transcreve o áudio com o provedor configurado (Gemini é o padrão)
-          console.log(`[MessageService] 📝 Starting transcription with ${aiProvider}...`);
           try {
             if (aiProvider === "openai" && openaiService.isConfigured()) {
               content = await openaiService.transcribeAudio(base64Audio);
             } else {
               content = await geminiService.transcribeAudio(base64Audio, mimetype);
             }
-            console.log(`[MessageService] ✅ Transcription successful: "${content.substring(0, 50)}..."`);
           } catch (transcribeError: any) {
             console.error(`[MessageService] ❌ Erro ao transcrever áudio:`, transcribeError.message);
             content = "[Áudio recebido - transcrição indisponível]";
@@ -783,20 +762,16 @@ class MessageService {
       // 3. MENSAGEM DE IMAGEM
       else if (msgData?.imageMessage) {
         mediaType = "image";
-        console.log(`[MessageService] 📷 Image message detected. Checking for base64...`);
 
         try {
           const mimetype = msgData.imageMessage.mimetype || "image/jpeg";
           let base64Image = msgData.imageMessage.base64;
 
           if (base64Image) {
-            console.log(`[MessageService] ✅ Image found in base64 format in payload.`);
           } else {
-            console.log(`[MessageService] ⬇️ Image base64 not found in payload. Attempting download...`);
             // Baixa a imagem da Evolution API
             const imageBuffer = await whatsappService.downloadMedia(instanceName, data.key);
             base64Image = imageBuffer.toString("base64");
-            console.log(`[MessageService] ✅ Image downloaded and converted to base64.`);
           }
 
           // Define a URL da imagem em base64

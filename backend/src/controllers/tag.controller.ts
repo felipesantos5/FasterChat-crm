@@ -24,7 +24,6 @@ class TagController {
         });
       }
 
-      console.log('[Tag Controller] Creating tag:', { name, color, companyId: req.user.companyId });
 
       const tag = await tagService.createOrGet(req.user.companyId, name, color);
 

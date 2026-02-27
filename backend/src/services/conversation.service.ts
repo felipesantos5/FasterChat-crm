@@ -43,7 +43,6 @@ class ConversationService {
           },
         });
 
-        console.log(`✨ New conversation created for customer ${customerId}`);
 
         // 🔥 EMITE EVENTO VIA WEBSOCKET PARA ATUALIZAR LISTA DE CONVERSAS
         websocketService.emitNewConversation(companyId, conversation);
@@ -79,7 +78,6 @@ class ConversationService {
         },
       });
 
-      console.log(`Conversation ${conversation.id} assigned to user ${userId}`);
 
       return conversation;
     } catch (error: any) {
@@ -111,7 +109,6 @@ class ConversationService {
         },
       });
 
-      console.log(`Conversation ${conversation.id} unassigned, AI enabled`);
 
       return conversation;
     } catch (error: any) {
@@ -173,7 +170,6 @@ class ConversationService {
         },
       });
 
-      console.log(`Conversation ${conversation.id} AI ${aiEnabled ? 'enabled' : 'disabled'}${aiEnabled ? ' (needsHelp reset)' : ''}`);
 
       return conversation;
     } catch (error: any) {

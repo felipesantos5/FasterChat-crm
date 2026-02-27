@@ -350,7 +350,7 @@ export function FlowBatchUploadModal({
                 Tempo estimado:{" "}
                 <strong>
                   {Math.ceil((storePreview.totalRows * 10) / 60)} minutos
-                </strong>
+                </strong>{" "}
               </p>
             </div>
           </div>
@@ -491,11 +491,6 @@ export function FlowBatchUploadModal({
                 )}
               </Button>
             </>
-          )}
-          {step === "executing" && (
-            <p className="text-xs text-gray-400 w-full text-center">
-              Não feche esta janela. O disparo continua em background no servidor.
-            </p>
           )}
           {step === "done" && (
             <Button onClick={onClose}>Fechar</Button>

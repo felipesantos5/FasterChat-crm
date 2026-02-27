@@ -109,7 +109,6 @@ class CampaignExecutionService {
 
     // Event listeners
     this.campaignWorker.on('completed', (job) => {
-      console.log(`✅ Campaign ${job.data.campaignId} processed successfully`);
     });
 
     this.campaignWorker.on('failed', (job, err) => {
@@ -117,14 +116,12 @@ class CampaignExecutionService {
     });
 
     this.messageWorker.on('completed', (job) => {
-      console.log(`📤 Message sent to ${job.data.customerName}`);
     });
 
     this.messageWorker.on('failed', (job, err) => {
       console.error(`❌ Failed to send to ${job?.data.customerName}:`, err.message);
     });
 
-    console.log('✅ Campaign workers started');
   }
 
   /**
@@ -137,7 +134,6 @@ class CampaignExecutionService {
     if (this.messageWorker) {
       await this.messageWorker.close();
     }
-    console.log('Workers stopped');
   }
 
   /**
@@ -180,7 +176,6 @@ class CampaignExecutionService {
       }
     );
 
-    console.log(`📋 Campaign ${campaignId} queued for execution`);
   }
 
   /**
@@ -189,7 +184,6 @@ class CampaignExecutionService {
   private async processCampaign(job: Job<CampaignJobData>): Promise<void> {
     const { campaignId, companyId } = job.data;
 
-    console.log(`📋 Processing campaign ${campaignId}`);
 
     // Atualiza status para PROCESSING
     await prisma.campaign.update({
@@ -247,7 +241,6 @@ class CampaignExecutionService {
         });
       }
 
-      console.log(`👥 Found ${customers.length} recipients for campaign ${campaignId}`);
 
       // Atualiza total de destinatários
       await prisma.campaign.update({
@@ -297,7 +290,6 @@ class CampaignExecutionService {
         );
       }
 
-      console.log(`✅ Campaign ${campaignId}: ${customers.length} messages queued`);
     } catch (error: any) {
       console.error(`❌ Error processing campaign ${campaignId}:`, error);
 
@@ -321,7 +313,6 @@ class CampaignExecutionService {
     const { campaignId, companyId, customerId, customerName, customerPhone, message } = job.data;
 
     try {
-      console.log(`📤 Sending campaign message to ${customerName} (${customerPhone})`);
 
       // Busca instância WhatsApp da empresa
       const whatsappInstance = await prisma.whatsAppInstance.findFirst({
@@ -407,7 +398,6 @@ class CampaignExecutionService {
     const totalProcessed = campaign.sentCount + campaign.failedCount;
 
     if (totalProcessed >= campaign.totalTarget) {
-      console.log(`✅ Campaign ${campaignId} completed: ${campaign.sentCount} sent, ${campaign.failedCount} failed`);
 
       await prisma.campaign.update({
         where: { id: campaignId },
@@ -480,7 +470,6 @@ class CampaignExecutionService {
       }
     );
 
-    console.log(`📅 Campaign ${campaignId} scheduled for ${scheduledAt.toISOString()}`);
   }
 
   /**
@@ -516,7 +505,6 @@ class CampaignExecutionService {
       },
     });
 
-    console.log(`🚫 Campaign ${campaignId} canceled`);
   }
 
   /**
@@ -614,7 +602,6 @@ class CampaignExecutionService {
       },
     });
 
-    console.log(`🔄 Campaign ${campaignId} reset for reexecution`);
 
     // Executa a campanha novamente
     await this.executeCampaign(campaignId);

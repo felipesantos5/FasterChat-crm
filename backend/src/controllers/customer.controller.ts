@@ -15,16 +15,13 @@ export class CustomerController {
         return;
       }
 
-      console.log("[Customer Controller] Create request:", {
         companyId: req.user.companyId,
         body: req.body,
       });
 
       const validatedData = validateCreateCustomer(req.body);
-      console.log("[Customer Controller] Validated data:", validatedData);
 
       const customer = await customerService.create(req.user.companyId, validatedData);
-      console.log("[Customer Controller] Customer created:", customer.id);
 
       res.status(201).json({
         success: true,
@@ -244,12 +241,10 @@ export class CustomerController {
         return;
       }
 
-      console.log("[Customer Controller] getAllTags: Getting tags for company", req.user.companyId);
 
       // Usa o tag service que retorna as tags cadastradas no sistema
       const tags = await tagService.findAllNames(req.user.companyId);
 
-      console.log("[Customer Controller] getAllTags: Found tags", tags);
 
       res.status(200).json({
         success: true,

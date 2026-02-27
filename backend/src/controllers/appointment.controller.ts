@@ -257,11 +257,6 @@ class AppointmentController {
       const dateStr = req.query.date as string;
       const duration = parseInt(req.query.duration as string) || 60;
 
-      console.log('[AppointmentController] GET /api/appointments/available-slots');
-      console.log('[AppointmentController] Query params:', req.query);
-      console.log('[AppointmentController] Company ID:', companyId);
-      console.log('[AppointmentController] Date string:', dateStr);
-      console.log('[AppointmentController] Duration:', duration);
 
       if (!companyId) {
         return res.status(400).json({
@@ -290,13 +285,9 @@ class AppointmentController {
         });
       }
 
-      console.log('[AppointmentController] Data parseada:', date);
-      console.log('[AppointmentController] Data ISO:', date.toISOString());
-      console.log('[AppointmentController] Data local:', date.toLocaleString('pt-BR'));
 
       const slots = await appointmentService.getAvailableSlots(companyId, date, duration);
 
-      console.log(`[AppointmentController] Retornando ${slots.length} slots disponíveis`);
 
       return res.status(200).json({
         success: true,

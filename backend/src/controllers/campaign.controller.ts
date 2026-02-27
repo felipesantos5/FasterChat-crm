@@ -9,13 +9,11 @@ class CampaignController {
    */
   async create(req: Request, res: Response) {
     try {
-      console.log('[Campaign Controller] Create request body:', JSON.stringify(req.body, null, 2));
 
       const { companyId, name, messageTemplate, targetTags, type, scheduledAt } = req.body;
 
       // Validações
       if (!companyId || !name || !messageTemplate || !targetTags || !type) {
-        console.log('[Campaign Controller] Missing fields:', { companyId, name, messageTemplate, targetTags, type });
         return res.status(400).json({
           success: false,
           message: 'Missing required fields',
@@ -220,7 +218,6 @@ class CampaignController {
       campaignService
         .processCampaign(id)
         .then((result) => {
-          console.log(`Campaign ${id} completed:`, result);
         })
         .catch((error) => {
           console.error(`Campaign ${id} failed:`, error);

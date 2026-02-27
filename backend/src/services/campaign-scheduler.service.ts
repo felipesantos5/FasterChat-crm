@@ -25,11 +25,9 @@ class CampaignSchedulerService {
    */
   start() {
     if (this.intervalId) {
-      console.log('[Campaign Scheduler] Already running');
       return;
     }
 
-    console.log('[Campaign Scheduler] 🕐 Starting scheduler (checks every minute)');
 
     // Executa imediatamente na inicialização
     this.checkPendingCampaigns();
@@ -47,7 +45,6 @@ class CampaignSchedulerService {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('[Campaign Scheduler] Stopped');
     }
   }
 
@@ -80,24 +77,18 @@ class CampaignSchedulerService {
       });
 
       if (pendingCampaigns.length > 0) {
-        console.log(`[Campaign Scheduler] 📋 Found ${pendingCampaigns.length} campaign(s) to execute`);
 
         for (const campaign of pendingCampaigns) {
           try {
-            console.log(`[Campaign Scheduler] 🚀 Executing campaign: ${campaign.name} (${campaign.id})`);
-            console.log(`[Campaign Scheduler]    Scheduled for: ${campaign.scheduledAt?.toISOString()}`);
-            console.log(`[Campaign Scheduler]    Current time: ${now.toISOString()}`);
 
             // Executa a campanha via BullMQ
             await campaignExecutionService.executeCampaign(campaign.id);
 
-            console.log(`[Campaign Scheduler] ✅ Campaign ${campaign.id} queued for execution`);
           } catch (error: any) {
             console.error(`[Campaign Scheduler] ❌ Failed to execute campaign ${campaign.id}:`, error.message);
 
             // Se a campanha já está processando ou foi completada, não é um erro real
             if (error.message.includes('already processing') || error.message.includes('already completed')) {
-              console.log(`[Campaign Scheduler]    Campaign already handled by BullMQ`);
             }
           }
         }

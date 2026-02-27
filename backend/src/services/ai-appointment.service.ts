@@ -539,18 +539,15 @@ export class AIAppointmentService {
 
     // Se tem palavra explícita de agendamento, É intenção clara
     if (explicitAppointmentKeywords.some(keyword => lowerMessage.includes(keyword))) {
-      console.log('[AIAppointment] ✅ Explicit appointment keyword detected:', message);
       return true;
     }
 
     // Se é só pergunta sem intenção de agendamento, retorna false
     if (hasQuestionIndicator) {
-      console.log('[AIAppointment] ❌ Question/doubt detected - NOT appointment intent:', message);
       return false;
     }
 
     // Mais nada! Se não tem palavra EXPLÍCITA de agendamento, retorna false
-    console.log('[AIAppointment] ❌ No explicit appointment intent detected');
     return false;
   }
 
@@ -600,14 +597,12 @@ export class AIAppointmentService {
       const tomorrow = new Date(nowInBrazil);
       tomorrow.setDate(tomorrow.getDate() + 1);
       const result = format(tomorrow, 'yyyy-MM-dd');
-      console.log(`[AIAppointment] Detectado: amanhã = ${result}`);
       return result;
     }
 
     // Hoje
     if (lowerMessage.includes('hoje')) {
       const result = format(nowInBrazil, 'yyyy-MM-dd');
-      console.log(`[AIAppointment] Detectado: hoje = ${result}`);
       return result;
     }
 
@@ -623,7 +618,6 @@ export class AIAppointmentService {
       const date = new Date(year, month, day);
       if (!isNaN(date.getTime())) {
         const result = format(date, 'yyyy-MM-dd');
-        console.log(`[AIAppointment] Detectado: data formatada ${day}/${month + 1}/${year} = ${result}`);
         return result;
       }
     }
@@ -654,9 +648,6 @@ export class AIAppointmentService {
         }
 
         const result = format(targetDate, 'yyyy-MM-dd');
-        console.log(`[AIAppointment] Detectado: "dia ${dayNumber}"`);
-        console.log(`[AIAppointment]   - Mês alvo: ${format(targetDate, 'MMMM/yyyy', { locale: ptBR })}`);
-        console.log(`[AIAppointment]   - Data final: ${result} (${format(targetDate, 'EEEE, dd/MM/yyyy', { locale: ptBR })})`);
 
         return result;
       }
@@ -690,11 +681,6 @@ export class AIAppointmentService {
 
         const result = format(targetDate, 'yyyy-MM-dd');
 
-        console.log(`[AIAppointment] Detectado: ${weekdayName}`);
-        console.log(`[AIAppointment]   - Índice do dia: ${weekdayIndex}`);
-        console.log(`[AIAppointment]   - Hoje é: ${todayWeekday} (${format(nowInBrazil, 'EEEE', { locale: ptBR })})`);
-        console.log(`[AIAppointment]   - Dias até: ${daysUntil}`);
-        console.log(`[AIAppointment]   - Data final: ${result} (${format(targetDate, 'EEEE, dd/MM/yyyy', { locale: ptBR })})`);
 
         return result;
       }
@@ -710,7 +696,6 @@ export class AIAppointmentService {
       targetDate.setDate(targetDate.getDate() + daysUntilMonday);
 
       const result = format(targetDate, 'yyyy-MM-dd');
-      console.log(`[AIAppointment] Detectado: próxima semana (segunda-feira) = ${result}`);
       return result;
     }
 
@@ -838,7 +823,6 @@ export class AIAppointmentService {
    * - "123" (número isolado)
    */
   detectAddressNumber(message: string): string | null {
-    console.log('[AIAppointment] 🔢 Detectando número da mensagem:', message);
 
     const patterns = [
       // "número 123", "numero 123"
@@ -867,7 +851,6 @@ export class AIAppointmentService {
     );
 
     if (hasOnlyNonAddressWords) {
-      console.log('[AIAppointment]   ❌ Mensagem contém palavra de exclusão (não é endereço)');
       return null;
     }
 
@@ -877,20 +860,16 @@ export class AIAppointmentService {
       if (match && match[1]) {
         const num = parseInt(match[1]);
 
-        console.log('[AIAppointment]   🔍 Pattern', i + 1, 'matched:', match[1]);
 
         // Ignora números muito grandes (provavelmente CEP ou telefone)
         // e números inválidos (0 ou muito grandes)
         if (num > 0 && num < 100000) {
-          console.log('[AIAppointment]   ✅ Número válido detectado:', match[1]);
           return match[1];
         } else {
-          console.log('[AIAppointment]   ❌ Número fora do range válido:', num);
         }
       }
     }
 
-    console.log('[AIAppointment]   ⚠️ Nenhum número detectado');
     return null;
   }
 
@@ -975,9 +954,6 @@ export class AIAppointmentService {
     const stateAge = Date.now() - new Date(stateCreatedAt).getTime();
 
     if (stateAge > this.STATE_EXPIRATION_MS) {
-      console.log(`[AIAppointment] ⏰ Estado expirado após 24h para customer ${customerId}`);
-      console.log(`[AIAppointment]   - Criado em: ${stateCreatedAt}`);
-      console.log(`[AIAppointment]   - Idade: ${Math.round(stateAge / (60 * 60 * 1000))} horas`);
 
       // Limpa o estado expirado
       await this.clearAppointmentState(customerId);
@@ -1081,7 +1057,6 @@ export class AIAppointmentService {
     // Verifica frases seguras
     for (const phrase of safeCancelPhrases) {
       if (lowerMessage.includes(phrase)) {
-        console.log(`[AIAppointment] 🚪 Intenção de cancelamento detectada: "${phrase}"`);
         return true;
       }
     }
@@ -1090,14 +1065,12 @@ export class AIAppointmentService {
     const exactCancelWords = ['para', 'parar', 'pare', 'sair', 'sai', 'volta', 'voltar', 'cancelar', 'cancela', 'desistir', 'desisto', 'tchau', 'stop'];
     const trimmedMessage = lowerMessage.trim();
     if (exactCancelWords.includes(trimmedMessage)) {
-      console.log(`[AIAppointment] 🚪 Palavra exata de cancelamento: "${trimmedMessage}"`);
       return true;
     }
 
     // Verifica padrões específicos
     // "não" ou "nao" no início seguido de verbos de ação
     if (/^n[aã]o\s+(quero|vou|preciso|posso|consigo)/i.test(trimmedMessage)) {
-      console.log('[AIAppointment] 🚪 Padrão de negação detectado');
       return true;
     }
 
@@ -1153,17 +1126,14 @@ export class AIAppointmentService {
         state.serviceType = detected.serviceType;
         state.duration = this.getDefaultDuration(detected.serviceType);
         dataUpdated = true;
-        console.log('[AIAppointment] 🆕 Tipo de serviço detectado durante fluxo:', detected.serviceType);
       }
 
       if (detected.date && !state.date) {
         state.date = detected.date;
         dataUpdated = true;
         dateWasJustSet = true;
-        console.log('[AIAppointment] 🆕 Data detectada durante fluxo:', detected.date);
       }
     } else {
-      console.log('[AIAppointment] ⏸️ Auto-detecção desativada no step:', state.step);
       // Cria objeto vazio compatível com DetectedAppointmentData
       detected = {
         serviceType: null,
@@ -1176,7 +1146,6 @@ export class AIAppointmentService {
     // 🚨 IMPORTANTE: Quando detectar data, SEMPRE buscar horários disponíveis PRIMEIRO
     // NÃO aceitar horário automático - cliente DEVE escolher
     if (dateWasJustSet && state.serviceType && state.date) {
-      console.log('[AIAppointment] 📅 Data detectada - buscando horários disponíveis...');
 
       try {
         const selectedDate = new Date(state.date);
@@ -1238,7 +1207,6 @@ export class AIAppointmentService {
     if (detected.address && !state.address?.number) {
       state.address = { ...state.address, ...detected.address };
       dataUpdated = true;
-      console.log('[AIAppointment] 🆕 Endereço detectado durante fluxo:', detected.address);
     }
 
     // Se detectou apenas endereço (não data), verifica se pode ir para confirmação
@@ -1247,7 +1215,6 @@ export class AIAppointmentService {
 
       // Se o próximo step pulou etapas, atualiza o state
       if (nextStep !== state.step) {
-        console.log(`[AIAppointment] ⏭️ Pulando de ${state.step} para ${nextStep}`);
         state.step = nextStep;
 
         // Se pulou direto para confirmação
@@ -1263,7 +1230,6 @@ export class AIAppointmentService {
     if (changeDetected) {
       const { field, value } = changeDetected;
 
-      console.log(`[AIAppointment] Mudança detectada: ${field} = ${value}`);
 
       // Aplica a mudança
       if (field === 'date' && value) {
@@ -1417,7 +1383,6 @@ export class AIAppointmentService {
 
     if (selectedService) {
       // Serviço identificado!
-      console.log(`[AIAppointment] ✅ Serviço selecionado: ${selectedService.name} - ${selectedService.price}`);
       state.serviceId = selectedService.id;
       state.serviceName = selectedService.name;
       state.servicePrice = selectedService.price;
@@ -1872,19 +1837,15 @@ export class AIAppointmentService {
       // Aplica os dados detectados (não sobrescreve dados já existentes)
       if (detectedAddress.cep && !state.address.cep) {
         state.address.cep = detectedAddress.cep;
-        console.log('[AIAppointment] CEP detected:', detectedAddress.cep);
       }
       if (detectedAddress.street && !state.address.street) {
         state.address.street = detectedAddress.street;
-        console.log('[AIAppointment] Street detected:', detectedAddress.street);
       }
       if (detectedAddress.number && !state.address.number) {
         state.address.number = detectedAddress.number;
-        console.log('[AIAppointment] Number detected:', detectedAddress.number);
       }
       if (detectedAddress.complement && !state.address.complement) {
         state.address.complement = detectedAddress.complement;
-        console.log('[AIAppointment] Complement detected:', detectedAddress.complement);
       }
     }
 
@@ -1909,9 +1870,7 @@ export class AIAppointmentService {
 
         if (isValidNumber) {
           state.address.number = number;
-          console.log('[AIAppointment] Number detected (fallback):', number);
         } else {
-          console.log('[AIAppointment] Rejecting suspicious number "1" without clear address context');
         }
       }
     }
@@ -1920,7 +1879,6 @@ export class AIAppointmentService {
       const cep = this.detectCEP(message);
       if (cep) {
         state.address.cep = cep;
-        console.log('[AIAppointment] CEP detected (fallback):', cep);
       }
     }
 
@@ -1928,7 +1886,6 @@ export class AIAppointmentService {
       const complement = this.detectComplement(message);
       if (complement) {
         state.address.complement = complement;
-        console.log('[AIAppointment] Complement detected (fallback):', complement);
       }
     }
 
@@ -1946,7 +1903,6 @@ export class AIAppointmentService {
 
       if (street.length > 3) {
         state.address.street = street;
-        console.log('[AIAppointment] Street detected (fallback):', street);
       }
     }
 
@@ -2100,9 +2056,6 @@ export class AIAppointmentService {
         const endTime = new Date(startTime);
         endTime.setMinutes(endTime.getMinutes() + (state.duration || 60));
 
-        console.log('[AIAppointment] Agendamento sendo criado:');
-        console.log('[AIAppointment]   Início:', startTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-        console.log('[AIAppointment]   Fim:', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
         const serviceLabel = state.serviceName || this.getServiceTypeLabel(state.serviceType!);
         const description = `Agendamento via WhatsApp - ${serviceLabel}`;
@@ -2155,18 +2108,11 @@ export class AIAppointmentService {
         await this.clearAppointmentState(customerId);
 
         // Log detalhado do resultado
-        console.log('[AIAppointment] ============================================');
-        console.log('[AIAppointment] 📋 RESULTADO DO AGENDAMENTO');
-        console.log('[AIAppointment] ============================================');
-        console.log('[AIAppointment] Appointment ID:', appointmentResult.id);
-        console.log('[AIAppointment] Google Calendar sincronizado:', appointmentResult.googleCalendarSynced ? 'SIM ✅' : 'NÃO ❌');
 
         if (appointmentResult.googleCalendarSynced) {
-          console.log('[AIAppointment] ✅ Evento criado no Google Calendar com sucesso!');
         } else if (appointmentResult.googleCalendarError) {
           console.warn('[AIAppointment] ⚠️ Erro Google Calendar:', appointmentResult.googleCalendarError);
         }
-        console.log('[AIAppointment] ============================================');
 
         // Formata a data para a mensagem
         const dateFormatted = startTime.toLocaleDateString('pt-BR', {
@@ -2266,7 +2212,6 @@ export class AIAppointmentService {
       });
 
       if (services.length > 0) {
-        console.log(`[AIAppointment] Encontrados ${services.length} serviços cadastrados na tabela Service`);
         return services.map(s => ({
           id: s.id,
           name: s.name,
@@ -2300,7 +2245,6 @@ export class AIAppointmentService {
         });
 
         if (serviceProducts.length > 0) {
-          console.log(`[AIAppointment] Encontrados ${serviceProducts.length} serviços no AIKnowledge.products`);
           return serviceProducts.slice(0, 10).map((p: any, index: number) => ({
             id: `legacy-${index}`,
             name: p.name,
@@ -2311,7 +2255,6 @@ export class AIAppointmentService {
         }
       }
 
-      console.log('[AIAppointment] Nenhum serviço cadastrado encontrado');
       return [];
 
     } catch (error) {
@@ -2338,15 +2281,12 @@ export class AIAppointmentService {
    */
   private matchServiceFromMessage(message: string, services: AvailableService[]): AvailableService | null {
     const lowerMessage = message.toLowerCase().trim();
-    console.log('[AIAppointment] 🔍 Tentando match:', lowerMessage);
-    console.log('[AIAppointment] 📋 Serviços disponíveis:', services.map(s => s.name).join(', '));
 
     // 1. Verifica se mandou número (ex: "1", "2", "3")
     const numberMatch = lowerMessage.match(/^(\d+)$/);
     if (numberMatch) {
       const index = parseInt(numberMatch[1]) - 1;
       if (index >= 0 && index < services.length) {
-        console.log('[AIAppointment] ✅ Match por número:', services[index].name);
         return services[index];
       }
     }
@@ -2361,7 +2301,6 @@ export class AIAppointmentService {
     const btuMatch = lowerMessage.match(/(\d+)\s*k(?:btus?)?|\b(\d{4,5})\s*btus?\b/i);
     const btu = btuMatch ? (btuMatch[1] || btuMatch[2]) : null;
     if (btu) {
-      console.log('[AIAppointment] 🔍 BTU detectado:', btu);
     }
 
     // Identifica palavras-chave CRÍTICAS (tipo de serviço)
@@ -2377,7 +2316,6 @@ export class AIAppointmentService {
 
     const detectedKeywords = criticalKeywords.filter(kw => normalizedMessage.includes(kw));
     if (detectedKeywords.length > 0) {
-      console.log('[AIAppointment] 🔑 Palavras-chave críticas detectadas:', detectedKeywords.join(', '));
     }
 
     // 3. SCORE-BASED MATCHING: Calcula score para cada serviço
@@ -2451,9 +2389,7 @@ export class AIAppointmentService {
     scoredServices.sort((a, b) => b.score - a.score);
 
     // Log dos top 3 scores
-    console.log('[AIAppointment] 📊 Top 3 matches por score:');
     scoredServices.slice(0, 3).forEach((item, i) => {
-      console.log(`[AIAppointment]   ${i + 1}. "${item.service.name}" - Score: ${item.score} (${item.reasons.join(', ')})`);
     });
 
     // Retorna o melhor match se tiver score mínimo
@@ -2464,15 +2400,12 @@ export class AIAppointmentService {
       // Verifica se há empate nos top matches
       const secondBest = scoredServices[1];
       if (secondBest && secondBest.score === bestMatch.score) {
-        console.log('[AIAppointment] ⚠️ Empate detectado entre múltiplos serviços - não selecionando automaticamente');
         return null;
       }
 
-      console.log('[AIAppointment] ✅ MATCH SELECIONADO:', bestMatch.service.name, '| Score:', bestMatch.score);
       return bestMatch.service;
     }
 
-    console.log('[AIAppointment] ❌ Nenhum match com score suficiente (mínimo:', MIN_SCORE, ')');
     return null;
   }
 
@@ -2564,7 +2497,6 @@ export class AIAppointmentService {
         }
       }
 
-      console.log(`[AIAppointment] Encontradas ${variations.length} variações de ${serviceType} no catálogo`);
       return variations;
 
     } catch (error) {
@@ -2622,7 +2554,6 @@ export class AIAppointmentService {
         );
 
         if (matches) {
-          console.log('[AIAppointment] Serviço encontrado no catálogo:', product.name);
           return {
             name: product.name,
             price: product.price ? `R$ ${product.price}`.replace('R$ R$', 'R$') : undefined,
@@ -2655,7 +2586,6 @@ export class AIAppointmentService {
       if (catalogInfo.price) state.servicePrice = catalogInfo.price;
       if (catalogInfo.duration) state.duration = catalogInfo.duration;
 
-      console.log('[AIAppointment] Estado enriquecido com dados do catálogo:', {
         serviceName: state.serviceName,
         servicePrice: state.servicePrice,
         duration: state.duration

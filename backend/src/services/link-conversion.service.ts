@@ -66,7 +66,6 @@ class LinkConversionService {
             await this.applyTagToCustomer(customerId, link.autoTag, companyId);
           }
 
-          console.log(`✅ Link conversion tracked: ${link.name} -> Customer ${customerId}`);
 
           return {
             converted: true,
@@ -209,7 +208,6 @@ class LinkConversionService {
         },
       });
 
-      console.log(`🏷️ Tag "${tagName}" applied to customer ${customerId}`);
     } catch (error) {
       console.error("[LinkConversion] Error applying tag:", error);
     }

@@ -144,7 +144,6 @@ export class FlowBatchController {
   ) {
     const flowEngine = new FlowEngineService();
 
-    console.log(`[FlowBatch] 🚀 Iniciando batch ${batch.batchId}: ${rows.length} contatos para fluxo "${flow.name}"`);
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -159,12 +158,10 @@ export class FlowBatchController {
       variables.phone = phone;
 
       try {
-        console.log(`[FlowBatch] 📤 [${i + 1}/${rows.length}] Disparando para ${phone}...`);
         
         await flowEngine.startFlow(flow.id, phone, variables);
         
         batch.succeeded++;
-        console.log(`[FlowBatch] ✅ [${i + 1}/${rows.length}] Fluxo disparado com sucesso para ${phone}`);
       } catch (err: any) {
         batch.failed++;
         batch.errors.push({
@@ -180,7 +177,6 @@ export class FlowBatchController {
       // Delay aleatório de 5-15 segundos entre cada disparo (equilíbrio entre velocidade e segurança)
       if (i < rows.length - 1) {
         const delayMs = Math.floor(Math.random() * 10000) + 5000; // 5000-15000ms
-        console.log(`[FlowBatch] ⏳ Aguardando ${(delayMs / 1000).toFixed(1)}s antes do próximo disparo...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
@@ -188,7 +184,6 @@ export class FlowBatchController {
     batch.status = 'COMPLETED';
     batch.completedAt = new Date();
 
-    console.log(`[FlowBatch] 🏁 Batch ${batch.batchId} finalizado: ${batch.succeeded} OK, ${batch.failed} falhas de ${batch.total} total`);
 
     // Remove o batch da memória após 1 hora
     setTimeout(() => {
@@ -266,7 +261,6 @@ export class FlowBatchController {
             data: { lastWebhookPayload: payloadForVariables }
           });
 
-          console.log(`[FlowBatch] 📋 Variáveis da planilha salvas para o fluxo ${flowId}:`, variableColumns);
         } catch (updateErr: any) {
           // Não falha se não conseguir atualizar (ex: fluxo não pertence à empresa)
           console.warn(`[FlowBatch] ⚠️ Não foi possível salvar variáveis da planilha:`, updateErr.message);

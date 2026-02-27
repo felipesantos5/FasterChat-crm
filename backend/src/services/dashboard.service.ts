@@ -523,7 +523,6 @@ class DashboardService {
   ): Promise<MessagesOverTimeData[]> {
     const endDate = new Date(startDate.getTime() + daysCount * 24 * 60 * 60 * 1000);
 
-    console.log('[Dashboard] Fetching messages:', {
       companyId,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
@@ -545,7 +544,6 @@ class DashboardService {
       },
     });
 
-    console.log(`[Dashboard] Found ${messages.length} messages`);
 
     const dataMap = new Map<string, MessagesOverTimeData>();
 
@@ -576,7 +574,6 @@ class DashboardService {
     });
 
     const result = Array.from(dataMap.values());
-    console.log('[Dashboard] Messages over time result:', result);
 
     return result;
   }

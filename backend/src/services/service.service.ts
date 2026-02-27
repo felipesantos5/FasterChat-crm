@@ -156,7 +156,6 @@ async function syncServicesToRAG(companyId: string): Promise<void> {
 
     if (!text || text.trim().length < 20) {
       await ragService.clearBySource(companyId, "services_structured");
-      console.log(`[ServiceRAG] No services to index for company ${companyId}`);
       return;
     }
 
@@ -165,7 +164,6 @@ async function syncServicesToRAG(companyId: string): Promise<void> {
       type: "products_services",
     });
 
-    console.log(`[ServiceRAG] Synced services to RAG for company ${companyId}`);
   } catch (error: any) {
     console.error(`[ServiceRAG] Error syncing services to RAG:`, error.message);
   }

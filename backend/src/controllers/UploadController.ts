@@ -48,7 +48,6 @@ export class UploadController {
         folder: `crm-ai${folder}`,
       });
 
-      console.log(`[UploadController] ✅ File uploaded to ImageKit: ${response.url}`);
 
       return res.status(200).json({
         message: 'Arquivo enviado com sucesso',

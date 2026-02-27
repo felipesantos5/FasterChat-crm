@@ -71,13 +71,10 @@ class RAGService {
   private getEmbeddingService() {
     switch (EMBEDDING_PROVIDER) {
       case "openai":
-        console.log("[RAG] Using OpenAI for embeddings");
         return openaiService;
       case "gemini":
-        console.log("[RAG] Using Gemini for embeddings");
         return geminiService;
       default:
-        console.log("[RAG] Defaulting to OpenAI for embeddings");
         return openaiService;
     }
   }
@@ -167,17 +164,13 @@ class RAGService {
     metadata: Partial<ChunkMetadata>
   ): Promise<{ chunksProcessed: number; success: boolean }> {
     if (!text || text.trim().length === 0) {
-      console.log("[RAG] Empty text provided, skipping processing");
       return { chunksProcessed: 0, success: true };
     }
 
     try {
-      console.log(`[RAG] Processing text for company ${companyId}`);
-      console.log(`[RAG] Text length: ${text.length} characters`);
 
       // Divide em chunks
       const chunks = this.splitIntoChunks(text);
-      console.log(`[RAG] Created ${chunks.length} chunks`);
 
       if (chunks.length === 0) {
         return { chunksProcessed: 0, success: true };
@@ -185,7 +178,6 @@ class RAGService {
 
       // Gera embeddings em paralelo
       const embeddingService = this.getEmbeddingService();
-      console.log(`[RAG] Generating embeddings for ${chunks.length} chunks...`);
 
       const embeddings = await this.withTimeout(
         embeddingService.generateEmbeddings(chunks),
@@ -205,7 +197,6 @@ class RAGService {
             WHERE company_id = ${companyId}
             AND metadata->>'source' = ${metadata.source}
           `;
-          console.log(`[RAG] Removed old chunks for source: ${metadata.source}`);
         }
 
         // Insere novos chunks
@@ -237,7 +228,6 @@ class RAGService {
         }
       });
 
-      console.log(`[RAG] Successfully stored ${chunks.length} chunks`);
 
       return { chunksProcessed: chunks.length, success: true };
     } catch (error: any) {
@@ -264,7 +254,6 @@ class RAGService {
     }
 
     try {
-      console.log(`[RAG] Searching for company ${companyId}: "${query.substring(0, 50)}..."`);
 
       // Gera embedding da query
       const embeddingService = this.getEmbeddingService();
@@ -299,7 +288,6 @@ class RAGService {
         LIMIT ${limit}
       `;
 
-      console.log(`[RAG] Found ${results.length} relevant results`);
 
       // Formata os resultados
       return results.map((row) => ({
@@ -326,7 +314,6 @@ class RAGService {
       const result = await prisma.$executeRaw`
         DELETE FROM knowledge_vectors WHERE company_id = ${companyId}
       `;
-      console.log(`[RAG] Cleared vectors for company ${companyId}: ${result} rows deleted`);
     } catch (error: any) {
       console.error("[RAG] Error clearing company vectors:", error);
       throw new Error(`Failed to clear vectors: ${error.message}`);
@@ -347,7 +334,6 @@ class RAGService {
         WHERE company_id = ${companyId}
         AND metadata->>'source' = ${source}
       `;
-      console.log(`[RAG] Cleared vectors for source ${source}: ${result} rows deleted`);
     } catch (error: any) {
       console.error("[RAG] Error clearing vectors by source:", error);
     }
@@ -449,7 +435,6 @@ class RAGService {
       totalChunks += result.chunksProcessed;
     }
 
-    console.log(`[RAG] Processed knowledge for company ${companyId}: ${totalChunks} total chunks`);
 
     return { totalChunks };
   }

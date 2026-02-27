@@ -47,7 +47,6 @@ class AIKnowledgeController {
 
       const knowledge = await aiKnowledgeService.getKnowledge(companyId as string);
 
-      console.log(`[AI Knowledge Controller] Get knowledge - Products:`, JSON.stringify(knowledge?.products, null, 2));
 
       // O service já retorna os dados no formato correto
       return res.status(200).json({
@@ -120,7 +119,6 @@ class AIKnowledgeController {
         });
       }
 
-      console.log('[AI Knowledge Controller] Updating knowledge:', {
         companyId,
         companyName,
         companySegment,
@@ -188,7 +186,6 @@ class AIKnowledgeController {
         });
       }
 
-      console.log('[AI Knowledge Controller] Generating context for company:', companyId);
 
       const result = await aiKnowledgeService.generateContext(companyId);
 

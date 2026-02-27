@@ -83,17 +83,9 @@ export const adminController = {
         });
       }
 
-      console.log(`🚀 Iniciando seed HVAC para empresa ${companyId}...`);
 
       const result = await adminService.seedHvacData(companyId);
 
-      console.log(`✅ Seed HVAC concluído para ${result.companyName}`);
-      console.log(`   - Serviços: ${result.results.services}`);
-      console.log(`   - Faixas de preço: ${result.results.pricingTiers}`);
-      console.log(`   - Zonas: ${result.results.zones}`);
-      console.log(`   - Combos: ${result.results.combos}`);
-      console.log(`   - Adicionais: ${result.results.additionals}`);
-      console.log(`   - Exceções: ${result.results.exceptions}`);
 
       return res.json(result);
     } catch (error: any) {

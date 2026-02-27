@@ -32,19 +32,6 @@ export class AppointmentService {
    * @returns Appointment com metadata sobre sucesso da sincronização
    */
   async create(companyId: string, data: CreateAppointmentDTO): Promise<Appointment & { googleCalendarSynced?: boolean; googleCalendarError?: string }> {
-    console.log('[Appointment] ============================================');
-    console.log('[Appointment] 🆕 CRIANDO NOVO AGENDAMENTO');
-    console.log('[Appointment] ============================================');
-    console.log('[Appointment] Company ID:', companyId);
-    console.log('[Appointment] Customer ID:', data.customerId);
-    console.log('[Appointment] Title:', data.title);
-    console.log('[Appointment] Type:', data.type);
-    console.log('[Appointment] Start (ISO):', data.startTime.toISOString());
-    console.log('[Appointment] Start (BR):', data.startTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-    console.log('[Appointment] End (ISO):', data.endTime.toISOString());
-    console.log('[Appointment] End (BR):', data.endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-    console.log('[Appointment] Duration:', data.duration, 'minutos');
-    console.log('[Appointment] Location:', data.location || 'Não informado');
 
     // Busca informações do cliente
     const customer = await prisma.customer.findFirst({
@@ -55,7 +42,6 @@ export class AppointmentService {
       throw new Error('Cliente não encontrado');
     }
 
-    console.log('[Appointment] Cliente:', customer.name, '- Email:', customer.email || 'Não informado');
 
     // Verifica se horário está disponível
     const isAvailable = await this.checkAvailability(
@@ -68,7 +54,6 @@ export class AppointmentService {
       throw new Error('Horário não disponível');
     }
 
-    console.log('[Appointment] ✅ Horário disponível confirmado');
 
     // 🔥 CRÍTICO: Cria evento no Google Calendar com validação rigorosa
     let googleEventId: string | undefined;
@@ -77,17 +62,9 @@ export class AppointmentService {
 
     // Primeiro, verifica se o Google Calendar está configurado
     const isGoogleCalendarConfigured = await googleCalendarService.isConfigured(companyId);
-    console.log('[Appointment] Google Calendar configurado:', isGoogleCalendarConfigured ? 'SIM ✅' : 'NÃO ❌');
 
     if (isGoogleCalendarConfigured) {
       try {
-        console.log('[Appointment] 🔄 Tentando criar evento no Google Calendar...');
-        console.log('[Appointment] Dados do evento:');
-        console.log('[Appointment]   - Summary:', data.title);
-        console.log('[Appointment]   - Start:', data.startTime.toISOString());
-        console.log('[Appointment]   - End:', data.endTime.toISOString());
-        console.log('[Appointment]   - Location:', data.location || 'N/A');
-        console.log('[Appointment]   - Attendees:', customer.email || 'Nenhum');
 
         const googleEvent = await googleCalendarService.createEvent(companyId, {
           summary: data.title,
@@ -101,10 +78,6 @@ export class AppointmentService {
         if (googleEvent && googleEvent.id) {
           googleEventId = googleEvent.id;
           googleCalendarSynced = true;
-          console.log('[Appointment] ✅ SUCESSO! Evento criado no Google Calendar');
-          console.log('[Appointment]   - Event ID:', googleEventId);
-          console.log('[Appointment]   - Event Link:', googleEvent.htmlLink);
-          console.log('[Appointment]   - Status:', googleEvent.status);
         } else {
           throw new Error('Google Calendar retornou resposta sem ID de evento');
         }
@@ -134,7 +107,6 @@ export class AppointmentService {
     }
 
     // Cria appointment no banco
-    console.log('[Appointment] 💾 Salvando agendamento no banco de dados...');
     const appointment = await prisma.appointment.create({
       data: {
         companyId,
@@ -155,18 +127,10 @@ export class AppointmentService {
       },
     });
 
-    console.log('[Appointment] ============================================');
-    console.log('[Appointment] 📋 RESUMO DA CRIAÇÃO');
-    console.log('[Appointment] ============================================');
-    console.log('[Appointment] ✅ Agendamento criado no banco: ID', appointment.id);
-    console.log('[Appointment] 📅 Google Calendar sincronizado:', googleCalendarSynced ? 'SIM ✅' : 'NÃO ❌');
     if (googleEventId) {
-      console.log('[Appointment] 📎 Google Event ID:', googleEventId);
     }
     if (googleCalendarError) {
-      console.log('[Appointment] ⚠️ Erro Google Calendar:', googleCalendarError);
     }
-    console.log('[Appointment] ============================================');
 
     // Retorna appointment com metadata de sincronização
     return {
@@ -269,7 +233,6 @@ export class AppointmentService {
           }
         );
       } catch (error: any) {
-        console.log('[Appointment] Erro ao atualizar Google Calendar:', error.message);
       }
     }
 
@@ -297,7 +260,6 @@ export class AppointmentService {
       try {
         await googleCalendarService.cancelEvent(companyId, appointment.googleEventId);
       } catch (error: any) {
-        console.log('[Appointment] Erro ao cancelar no Google Calendar:', error.message);
       }
     }
 
@@ -325,7 +287,6 @@ export class AppointmentService {
       try {
         await googleCalendarService.cancelEvent(companyId, appointment.googleEventId);
       } catch (error: any) {
-        console.log('[Appointment] Erro ao deletar do Google Calendar:', error.message);
       }
     }
 
@@ -344,9 +305,6 @@ export class AppointmentService {
     endTime: Date,
     excludeAppointmentId?: string
   ): Promise<boolean> {
-    console.log('[Appointment] 🔍 Verificando disponibilidade...');
-    console.log('[Appointment]   - Início:', startTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-    console.log('[Appointment]   - Fim:', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
     // 1. Verifica no banco de dados local
     const where: any = {
@@ -383,47 +341,33 @@ export class AppointmentService {
     const conflictingAppointments = await prisma.appointment.findMany({ where });
 
     if (conflictingAppointments.length > 0) {
-      console.log('[Appointment] ❌ Conflito encontrado no banco local:', conflictingAppointments.length, 'agendamentos');
       return false;
     }
 
-    console.log('[Appointment] ✅ Banco local: sem conflitos');
 
     // 2. Verifica no Google Calendar (se configurado)
     try {
       const isGoogleConfigured = await googleCalendarService.isConfigured(companyId);
 
       if (!isGoogleConfigured) {
-        console.log('[Appointment] ⚠️ Google Calendar não configurado, usando apenas banco local');
         return true;
       }
 
       // Busca eventos no período no Google Calendar
-      console.log('[Appointment] 📅 Buscando eventos no Google Calendar...');
-      console.log('[Appointment]   - Período: ', startTime.toISOString(), 'até', endTime.toISOString());
 
       const events = await googleCalendarService.listEventsInRange(companyId, startTime, endTime);
 
-      console.log(`[Appointment] 📋 Eventos retornados: ${events.length}`);
 
       // Verifica se algum evento conflita com o horário desejado
       const hasConflict = events.some((event) => {
-        console.log('[Appointment] 🔍 Analisando evento:', event.summary);
-        console.log('[Appointment]   - ID:', event.id);
-        console.log('[Appointment]   - Status:', event.status);
-        console.log('[Appointment]   - Transparency:', event.transparency || 'opaque');
-        console.log('[Appointment]   - Start raw:', event.start?.dateTime || event.start?.date);
-        console.log('[Appointment]   - End raw:', event.end?.dateTime || event.end?.date);
 
         // Pula eventos cancelados
         if (event.status === 'cancelled') {
-          console.log('[Appointment]   ⏭️ Ignorando: evento cancelado');
           return false;
         }
 
         // Pula eventos marcados como "Livre" (Transparency)
         if (event.transparency === 'transparent') {
-          console.log('[Appointment]   ⏭️ Ignorando: evento marcado como "Livre"');
           return false;
         }
 
@@ -439,44 +383,32 @@ export class AppointmentService {
           // Verifica se o evento é muito longo (provavelmente marcador de expediente)
           const durationHours = (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60);
           if (durationHours >= 6) {
-            console.log('[Appointment]   ⏭️ Ignorando: evento muito longo (', durationHours.toFixed(1), 'h) - provavelmente marcador de expediente');
             return false;
           }
         } else if (event.start?.date) {
           // Evento de Dia Inteiro - NÃO deve bloquear agendamentos específicos
-          console.log('[Appointment]   ⏭️ Ignorando: evento de dia inteiro (não bloqueia horários específicos)');
           return false;
         } else {
-          console.log('[Appointment]   ⏭️ Ignorando: evento sem data válida');
           return false;
         }
 
-        console.log('[Appointment]   - Evento início (BR):', eventStart.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-        console.log('[Appointment]   - Evento fim (BR):', eventEnd.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-        console.log('[Appointment]   - Agendamento início (BR):', startTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-        console.log('[Appointment]   - Agendamento fim (BR):', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
         // Verifica sobreposição: (StartA < EndB) and (EndA > StartB)
         const hasOverlap = (startTime < eventEnd && endTime > eventStart);
 
         if (hasOverlap) {
-          console.log('[Appointment]   ❌ CONFLITO DETECTADO!');
         } else {
-          console.log('[Appointment]   ✅ Sem sobreposição');
         }
 
         return hasOverlap;
       });
 
       if (hasConflict) {
-        console.log('[Appointment] ❌ Google Calendar: conflito encontrado');
         return false;
       }
 
-      console.log('[Appointment] ✅ Google Calendar: sem conflitos');
       return true;
     } catch (error: any) {
-      console.log('[Appointment] ⚠️ Erro ao verificar Google Calendar:', error.message);
       // Se erro no Google Calendar, considera apenas banco local
       return true;
     }
@@ -511,12 +443,6 @@ export class AppointmentService {
     date: Date,
     slotDuration: number = 60
   ): Promise<Array<{ start: Date; end: Date }>> {
-    console.log('[Appointment] ============================================');
-    console.log('[Appointment] Buscando BRECHAS DE TEMPO (slots livres)');
-    console.log('[Appointment] Data recebida:', date.toISOString());
-    console.log('[Appointment] Data formatada:', date.toLocaleDateString('pt-BR'));
-    console.log('[Appointment] Duração do slot:', slotDuration, 'minutos');
-    console.log('[Appointment] ============================================');
 
     // Busca horário de funcionamento configurado no sistema
     const aiKnowledge = await prisma.aIKnowledge.findUnique({
@@ -528,10 +454,6 @@ export class AppointmentService {
       },
     });
 
-    console.log('[Appointment] Horário de funcionamento:');
-    console.log('[Appointment]   - Texto (legado):', aiKnowledge?.workingHours || 'NÃO CONFIGURADO');
-    console.log('[Appointment]   - Início (estruturado):', aiKnowledge?.businessHoursStart ?? 'NÃO CONFIGURADO');
-    console.log('[Appointment]   - Fim (estruturado):', aiKnowledge?.businessHoursEnd ?? 'NÃO CONFIGURADO');
 
     // Prioriza campos estruturados, faz fallback para texto legado
     let businessHours: { start: number; end: number } | null = null;
@@ -542,34 +464,26 @@ export class AppointmentService {
         start: aiKnowledge.businessHoursStart,
         end: aiKnowledge.businessHoursEnd,
       };
-      console.log('[Appointment] ✅ Usando horário estruturado:', businessHours.start, 'h às', businessHours.end, 'h');
     } else {
       // Fallback: tenta parsear do texto legado
       businessHours = this.parseWorkingHoursConfig(aiKnowledge?.workingHours || null);
       if (businessHours) {
-        console.log('[Appointment] ✅ Usando horário parseado do texto:', businessHours.start, 'h às', businessHours.end, 'h');
       }
     }
 
     if (!businessHours) {
       // Último fallback: usa horário padrão comercial (9h às 18h)
       businessHours = { start: 9, end: 18 };
-      console.log('[Appointment] ⚠️ Horário não configurado, usando padrão:', businessHours.start, 'h às', businessHours.end, 'h');
     }
 
     // Tenta buscar do Google Calendar primeiro
     try {
-      console.log('[Appointment] 🔍 Verificando se Google Calendar está configurado...');
       const isGoogleConfigured = await googleCalendarService.isConfigured(companyId);
 
       if (!isGoogleConfigured) {
-        console.log('[Appointment] ⚠️ Google Calendar NÃO está configurado');
-        console.log('[Appointment] Usando fallback: geração local baseada no banco de dados');
         throw new Error('Google Calendar não configurado - usando fallback');
       }
 
-      console.log('[Appointment] ✅ Google Calendar está configurado');
-      console.log('[Appointment] 📅 Buscando slots REAIS do Google Calendar...');
 
       const slots = await googleCalendarService.getAvailableSlots(
         companyId,
@@ -578,12 +492,9 @@ export class AppointmentService {
         slotDuration
       );
 
-      console.log(`[Appointment] ✅ Google Calendar retornou ${slots.length} BRECHAS DE TEMPO (slots livres)`);
 
       if (slots.length > 0) {
-        console.log('[Appointment] Primeiros slots encontrados:');
         slots.slice(0, 3).forEach((slot, i) => {
-          console.log(`[Appointment]   ${i + 1}. ${slot.start.toLocaleString('pt-BR')} - ${slot.end.toLocaleString('pt-BR')}`);
         });
       }
 
@@ -592,8 +503,6 @@ export class AppointmentService {
         end: slot.end,
       }));
     } catch (error: any) {
-      console.log('[Appointment] ⚠️ Erro ao buscar do Google Calendar:', error.message);
-      console.log('[Appointment] 🔄 Usando fallback: geração local com banco de dados');
 
       // Fallback: gera slots baseado apenas no banco local
       // Extrai ano, mês e dia da data recebida (UTC)
@@ -605,10 +514,6 @@ export class AppointmentService {
       const dayStart = new Date(year, month, day, businessHours.start, 0, 0, 0);
       const dayEnd = new Date(year, month, day, businessHours.end, 0, 0, 0);
 
-      console.log('[Appointment] Data original:', date.toISOString());
-      console.log('[Appointment] Ano:', year, 'Mês:', month, 'Dia:', day);
-      console.log('[Appointment] Horário comercial:', dayStart.toISOString(), 'até', dayEnd.toISOString());
-      console.log('[Appointment] Horário local:', dayStart.toLocaleString('pt-BR'), 'até', dayEnd.toLocaleString('pt-BR'));
 
       const slots: Array<{ start: Date; end: Date }> = [];
       let current = this.roundToNext15Minutes(dayStart);
@@ -634,7 +539,6 @@ export class AppointmentService {
         current = new Date(current.getTime() + 15 * 60000);
       }
 
-      console.log(`[Appointment] ${slots.length} slots disponíveis (fallback)`);
 
       return slots;
     }

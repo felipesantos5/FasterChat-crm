@@ -17,7 +17,6 @@ export const redisConnection = new Redis(redisConfig);
 
 // Log de status
 redisConnection.on('connect', () => {
-  console.log('✅ Redis connected for BullMQ');
 });
 
 redisConnection.on('error', (err) => {

@@ -57,7 +57,6 @@ export class FlowEngineService {
           pipelineStageId: firstStage?.id || null,
         }
       });
-      console.log(`[FlowEngine] 👤 New customer created automatically: ${cleanPhone} in stage ${firstStage?.name || 'Default'}`);
     }
 
     if (customer) {
@@ -72,7 +71,6 @@ export class FlowEngineService {
           where: { id: customer.id },
           data: { tags: combinedTags } // Mais seguro do que { push: xxx }
         });
-        console.log(`[FlowEngine] 🏷️ Tags updated for ${cleanPhone}:`, combinedTags);
       }
 
       // Desativar a IA quando entra em um fluxo vindo de webhook
@@ -160,7 +158,6 @@ export class FlowEngineService {
         where: { id: executionId },
         data: { status: FlowExecutionStatus.COMPLETED, completedAt: new Date() }
       });
-      console.log(`[FlowEngine] 🛑 Flow ${executionId} completed (no edges)`);
       return;
     }
 
@@ -293,7 +290,6 @@ export class FlowEngineService {
     // RANDOM (padrão): Seleciona aleatoriamente entre as instâncias conectadas
     const randomIndex = Math.floor(Math.random() * connectedInstances.length);
     const selectedInstance = connectedInstances[randomIndex];
-    console.log(`[FlowEngine] 🎲 Instância selecionada aleatoriamente: ${selectedInstance.instanceName} (${randomIndex + 1}/${connectedInstances.length})`);
     return selectedInstance;
   }
 
@@ -454,7 +450,6 @@ export class FlowEngineService {
             ...(turnOn ? { needsHelp: false } : {})
           });
         }
-        console.log(`[FlowEngine] 🤖 AI for customer ${customer.id} set to ${turnOn ? 'ON' : 'OFF'}`);
       } catch (err: any) {
         console.warn(`[FlowEngine] ⚠️ Error toggling AI for customer ${customer.id}:`, err.message);
       }
@@ -481,11 +476,9 @@ export class FlowEngineService {
     });
 
     if (executions.length === 0) {
-      console.log(`[FlowEngine] ⚪ No active WAITING_REPLY executions found for ${cleanPhone}`);
       return false;
     }
 
-    console.log(`[FlowEngine] 🟢 Found ${executions.length} active execution(s) waiting reply for ${cleanPhone}`);
 
     for (const execution of executions) {
       if (execution.currentNode?.type === 'condition') {
@@ -545,7 +538,6 @@ export class FlowEngineService {
       }
     }
 
-    console.log(`[FlowEngine] 🎲 Random node ${node.id}: rand=${rand.toFixed(2)} → ${selectedHandle}`);
     await this.processNextNodes(execution.id, node.id, selectedHandle);
   }
 
@@ -603,7 +595,6 @@ export class FlowEngineService {
     }
 
     const handle = result ? 'true' : 'false';
-    console.log(`[FlowEngine] 🛡️ Validation: ${variableTemplate} ("${actualValue}") ${operator} "${compareValue}" → ${result ? '✅ TRUE' : '❌ FALSE'}`);
 
     await this.processNextNodes(execution.id, node.id, handle);
   }
@@ -655,7 +646,6 @@ export class FlowEngineService {
         mediaUrl: mediaUrl || null,
       });
 
-      console.log(`[FlowEngine] 💾 Mensagem salva na conversa do customer ${customer.id} (messageId: ${message.id})`);
     } catch (err: any) {
       // Não falha o fluxo se não conseguir salvar na conversa
       console.warn(`[FlowEngine] ⚠️ Falha ao salvar mensagem na conversa (não crítico):`, err.message);

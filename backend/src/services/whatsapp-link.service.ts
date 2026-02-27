@@ -164,7 +164,6 @@ class WhatsAppLinkService {
       });
 
       if (recentClick) {
-        console.log(`[WhatsAppLink] Clique duplicado ignorado para IP ${data.ipAddress} no link ${linkId}`);
         return null; // Ignora clique duplicado
       }
     }

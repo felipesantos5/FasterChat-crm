@@ -99,15 +99,6 @@ class WhatsAppService {
 
       const { instance, hash, qrcode } = response.data;
 
-      console.log(
-        "Evolution API Response:",
-        JSON.stringify({
-          instanceName: instance?.instanceName,
-          hasApiKey: !!hash?.apikey,
-          hasQRCode: !!qrcode?.base64,
-        })
-      );
-
       // Configura webhook para receber mensagens
       await this.configureWebhook(finalInstanceName);
 
@@ -211,7 +202,6 @@ class WhatsAppService {
       // 🛡️ BLINDAGEM: Se não achou QR Code, a instância pode ter sumido da Evolution.
       // Vamos tentar recriá-la automaticamente (Auto-Healing).
       if (!qrCode) {
-        console.log(`[WhatsApp Service] ⚠️ QR Code não encontrado. Tentando restaurar instância ${instance.instanceName}...`);
 
         try {
           // Tenta recriar a instância na Evolution
@@ -225,7 +215,6 @@ class WhatsAppService {
             browser: ["CRM AI Agent", "Chrome", "10.0"], // Mesma config do createInstance
           });
 
-          console.log(`[WhatsApp Service] ✅ Instância restaurada. Buscando QR Code novamente...`);
 
           // Aguarda 1s para garantir que a Evolution processou
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -295,7 +284,6 @@ class WhatsAppService {
         apiState = response.data.state;
       } catch (apiError: any) {
         // Se a Evolution API falhar, retorna o último status conhecido (do banco ou cache)
-        console.log(`[WhatsApp Service] ⚠ Evolution API failed, returning last known status`);
         return {
           status: cached?.status || instance.status,
           phoneNumber: instance.phoneNumber,
@@ -315,7 +303,6 @@ class WhatsAppService {
         case "close":
         case "closed":
           status = WhatsAppStatus.DISCONNECTED;
-          console.log(`❌ Evolution API: ${instance.instanceName} DISCONNECTED`);
           break;
         default:
           status = WhatsAppStatus.CONNECTING;
@@ -402,17 +389,14 @@ class WhatsAppService {
 
       // Verificação de status com tolerância para 'CONNECTING'
       if (instance.status !== WhatsAppStatus.CONNECTED) {
-        console.log(`[WhatsApp Service] Status: ${instance.status}. Double checking API...`);
 
         const statusResult = await this.getStatus(instanceId);
 
         // Aceitamos CONNECTED ou CONNECTING
         if (statusResult.status !== WhatsAppStatus.CONNECTED && statusResult.status !== WhatsAppStatus.CONNECTING) {
-          console.log(`[WhatsApp Service] Instance ${instance.displayName || instance.instanceName} is ${statusResult.status}`);
           throw Errors.whatsappDisconnected(instance.displayName || instance.instanceName);
         }
 
-        console.log("[WhatsApp Service] Connection valid (Open or Connecting). Sending message...");
       }
 
       // Valida o número de telefone (com suporte a LIDs)
@@ -547,7 +531,6 @@ class WhatsAppService {
    */
   async downloadMedia(instanceName: string, messageKey: any): Promise<Buffer> {
     try {
-      console.log(`[WhatsApp Service] ⬇️ Downloading media for instance ${instanceName}, message ${messageKey.id}...`);
       
       const response = await this.axiosInstance.post(`/chat/getBase64FromMediaMessage/${instanceName}`, {
         message: {
@@ -563,7 +546,6 @@ class WhatsAppService {
         throw new Error("No base64 data received from Evolution API");
       }
 
-      console.log(`[WhatsApp Service] ✅ Media downloaded successfully for ${messageKey.id} (${(base64Data.length / 1024).toFixed(2)} KB)`);
 
       return Buffer.from(base64Data, "base64");
     } catch (error: any) {
@@ -587,7 +569,6 @@ class WhatsAppService {
 
       const fullWebhookUrl = `${webhookUrl}/api/webhooks/whatsapp`;
 
-      console.log(`🔄 Configurando webhook para ${instanceName} em: ${fullWebhookUrl}`);
 
       await this.axiosInstance.post(`/webhook/set/${instanceName}`, {
         webhook: {
@@ -608,7 +589,6 @@ class WhatsAppService {
         },
       });
 
-      console.log(`✅ Webhook configured successfully: ${instanceName}`);
     } catch (error: any) {
       console.error("✗ Error configuring webhook:", error.response?.data || error.message);
     }
@@ -622,18 +602,15 @@ class WhatsAppService {
       // ✅ CORREÇÃO: Usa o helper formatJid para garantir o domínio @g.us
       const remoteJid = this.formatJid(groupJid);
 
-      console.log(`[WhatsApp Service] 👥 Fetching group info for ${remoteJid}...`);
 
       const response = await this.axiosInstance.get(`/group/findGroupInfos/${instanceName}?groupJid=${remoteJid}`);
 
       if (response.data) {
-        console.log(`[WhatsApp Service] ✅ Group info found for ${remoteJid}`);
         return response.data;
       }
 
       return null;
     } catch (error: any) {
-      console.log(`[WhatsApp Service] 👥 Could not fetch group info for ${groupJid}: ${error.response?.data?.message || error.message}`);
       return null;
     }
   }
@@ -646,7 +623,6 @@ class WhatsAppService {
       // ✅ CORREÇÃO: Usa o helper formatJid para garantir o domínio correto (@lid vs @s.whatsapp.net)
       const remoteJid = this.formatJid(phone);
 
-      console.log(`[WhatsApp Service] 📷 Fetching profile picture for ${remoteJid}...`);
 
       const response = await this.axiosInstance.post(`/chat/fetchProfilePictureUrl/${instanceName}`, {
         number: remoteJid,
@@ -655,14 +631,11 @@ class WhatsAppService {
       const profilePicUrl = response.data?.profilePictureUrl || response.data?.picture || response.data?.url;
 
       if (profilePicUrl) {
-        console.log(`[WhatsApp Service] ✅ Profile picture found for ${phone}`);
         return profilePicUrl;
       }
 
-      console.log(`[WhatsApp Service] ⚠️ No profile picture for ${phone}`);
       return null;
     } catch (error: any) {
-      console.log(`[WhatsApp Service] 📷 Could not fetch profile picture for ${phone}: ${error.response?.data?.message || error.message}`);
       return null;
     }
   }
@@ -707,7 +680,6 @@ class WhatsAppService {
       // ENVIO DE ÁUDIO (Endpoint específico)
       // ========================================
       if (mediaType === "audio") {
-        console.log(`[WhatsApp Service] 🎤 Sending audio to ${to} (${remoteJid})...`);
 
         // ✅ PADRÃO EVOLUTION V2: 'sendWhatsAppAudio' com PTT e Encoding
         const response = await this.axiosInstance.post(`/message/sendWhatsAppAudio/${instance.instanceName}`, {
@@ -718,7 +690,6 @@ class WhatsAppService {
           ptt: true, // Envia como 'Mensagem de Voz' (ondas sonoras)
         });
 
-        console.log(`[WhatsApp Service] ✅ Audio sent successfully to ${to}`);
 
         return {
           success: true,
@@ -742,7 +713,6 @@ class WhatsAppService {
         else if (mediaBase64.includes("data:video/webm")) mimetype = "video/webm";
       }
 
-      console.log(`[WhatsApp Service] ${isVideo ? '🎥' : '📷'} Sending ${mediaType} to ${to} (${remoteJid})...`);
 
       const response = await this.axiosInstance.post(`/message/sendMedia/${instance.instanceName}`, {
         number: remoteJid,
@@ -752,7 +722,6 @@ class WhatsAppService {
         media: base64Data,
       });
 
-      console.log(`[WhatsApp Service] ✅ ${mediaType} sent successfully to ${to}`);
 
       return {
         success: true,
@@ -829,7 +798,6 @@ class WhatsAppService {
       };
     } catch (error: any) {
       // Em caso de erro, retorna offline sem quebrar
-      console.log(`[WhatsApp Service] Could not fetch presence for ${phone}: ${error.message}`);
       return { isOnline: false };
     }
   }
@@ -839,14 +807,12 @@ class WhatsAppService {
    */
   async updateInstanceName(instanceId: string, displayName: string): Promise<void> {
     try {
-      console.log(`[WhatsApp Service] Updating instance display name: ${instanceId} -> ${displayName}`);
 
       await prisma.whatsAppInstance.update({
         where: { id: instanceId },
         data: { displayName },
       });
 
-      console.log(`✅ Instance display name updated successfully: ${displayName}`);
     } catch (error: any) {
       console.error("✗ Error updating instance display name:", error);
       throw new Error(`Failed to update instance display name: ${error.message}`);
@@ -889,7 +855,6 @@ class WhatsAppService {
    */
   async resolveContactFromLid(instanceName: string, lidJid: string): Promise<string | null> {
     try {
-      console.log(`[WhatsApp Service] 🔍 Tentando resolver LID via API: ${lidJid}`);
 
       // Tenta usar o endpoint chat/findContacts para buscar o contato pelo LID
       const response = await this.axiosInstance.post(`/chat/findContacts/${instanceName}`, {
@@ -913,13 +878,11 @@ class WhatsAppService {
           const cleanPhone = String(possiblePhone).replace(/\D/g, "");
           // Verifica se é um telefone real (não outro LID)
           if (cleanPhone.length >= 8 && cleanPhone.length <= 13) {
-            console.log(`[WhatsApp Service] ✅ LID resolvido via findContacts: ${lidJid} → ${cleanPhone}`);
             return cleanPhone;
           }
         }
 
         // Tenta o campo pushName/notify para ao menos ter o nome
-        console.log(`[WhatsApp Service] ⚠️ findContacts retornou contato mas sem telefone real`, {
           id: contact.id,
           name: contact.pushName || contact.notify || contact.name,
         });
@@ -928,7 +891,6 @@ class WhatsAppService {
       return null;
     } catch (error: any) {
       // Silenciosamente retorna null - este é um fallback, não deve quebrar o fluxo
-      console.log(`[WhatsApp Service] 📱 Não foi possível resolver LID via API: ${error.response?.status || error.message}`);
       return null;
     }
   }

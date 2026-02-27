@@ -45,7 +45,6 @@ class ConversationExampleService {
       // Indexa no RAG para busca semântica
       this.indexExampleInRAG(example.id, companyId, conversationId, notes).catch(() => {});
 
-      console.log(`Conversation ${conversationId} marked as example`);
       return example;
     } catch (error: any) {
       console.error('Error marking conversation as example:', error);
@@ -74,7 +73,6 @@ class ConversationExampleService {
         where: { conversationId },
       });
 
-      console.log(`Example removed for conversation ${conversationId}`);
       return { success: true };
     } catch (error: any) {
       console.error('Error removing example:', error);
@@ -266,7 +264,6 @@ ${messagesText}`;
         type: 'conversation_example' as any,
       }).catch((err: any) => console.warn('[ConversationExample] Erro ao indexar exemplo no RAG:', err.message));
 
-      console.log(`Synthetic example created for company ${companyId}`);
       return result;
     } catch (error: any) {
       console.error('Error creating synthetic example:', error);
@@ -319,7 +316,6 @@ ${messagesText}`;
       const ragSource = `conversation_example_${exampleId}`;
       ragService.clearBySource(example.companyId, ragSource).catch(() => {});
 
-      console.log(`Example ${exampleId} deleted (synthetic: ${isSynthetic})`);
       return { success: true };
     } catch (error: any) {
       console.error('Error deleting example:', error);

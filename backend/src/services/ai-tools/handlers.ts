@@ -49,14 +49,6 @@ function createBrazilDate(dateString: string, timeString: string): Date {
 
   const date = new Date(isoString);
 
-  console.log('[Helper] ============================================');
-  console.log('[Helper] CRIANDO DATA - TIMEZONE BRASIL');
-  console.log('[Helper] ============================================');
-  console.log('[Helper] Input:', dateString, timeString);
-  console.log('[Helper] ISO String criada:', isoString);
-  console.log('[Helper] Date UTC (interno):', date.toISOString());
-  console.log('[Helper] Verificação - Hora em São Paulo:', date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-  console.log('[Helper] ============================================');
 
   return date;
 }
@@ -89,7 +81,6 @@ function searchProducts(
 ): Product[] {
   if (!products.length) return [];
 
-  console.log(`[SearchProducts] Buscando "${query}" em ${products.length} produtos`);
 
   const fuse = new Fuse(products, {
     keys: [
@@ -106,9 +97,7 @@ function searchProducts(
 
   const results = fuse.search(query);
 
-  console.log(`[SearchProducts] Encontrados ${results.length} resultados para "${query}"`);
   results.forEach((r, i) => {
-    console.log(`[SearchProducts]   ${i + 1}. ${r.item.name} (score: ${r.score?.toFixed(3)})`);
   });
 
   return results.map(r => r.item);
@@ -192,7 +181,6 @@ export async function handleGetProductInfo(args: {
   try {
     const { query, companyId } = args;
 
-    console.log(`[Tool] GetProductInfo: Buscando "${query}" para company ${companyId}`);
 
     // =============================================
     // 1. BUSCA SEMÂNTICA (COM SINÔNIMOS E EMBEDDINGS)
@@ -211,7 +199,6 @@ export async function handleGetProductInfo(args: {
       );
 
       if (semanticResults.length > 0) {
-        console.log(`[Tool] GetProductInfo: Busca semântica encontrou ${semanticResults.length} serviços`);
 
         // Busca detalhes completos dos serviços encontrados
         const serviceIds = semanticResults.map((r) => r.id);
@@ -284,7 +271,6 @@ export async function handleGetProductInfo(args: {
 
       // Fallback: busca lexical simples se semântica não encontrou
       if (servicesWithVariables.length === 0) {
-        console.log(`[Tool] GetProductInfo: Usando fallback lexical para "${query}"`);
 
         const services = await prisma.service.findMany({
           where: {
@@ -308,7 +294,6 @@ export async function handleGetProductInfo(args: {
         });
 
         if (services.length > 0) {
-          console.log(`[Tool] GetProductInfo: Fallback encontrou ${services.length} serviços`);
 
           servicesWithVariables = services.map((service) => {
             const variations: Array<{ name: string; price: number; description?: string }> = [];
@@ -434,7 +419,6 @@ export async function handleGetProductInfo(args: {
 
         // Busca com Fuzzy Search
         products = searchProducts(allProducts, query);
-        console.log(`[Tool] GetProductInfo: Encontrados ${products.length} produtos no AIKnowledge`);
       } catch (error) {
         console.error('[Tool] GetProductInfo: Erro ao parsear produtos:', error);
       }
@@ -530,7 +514,6 @@ Qual opção te interessa?"`;
       }));
     }
 
-    console.log(`[Tool] GetProductInfo: Retornando ${servicesWithVariables.length} serviços e ${products.length} produtos`);
     return response;
 
   } catch (error) {
@@ -612,9 +595,6 @@ export async function handleGetAvailableSlots(args: {
   try {
     const { preferred_date, companyId, service_type } = args;
 
-    console.log('[Tool] GetAvailableSlots: Iniciando busca');
-    console.log('[Tool] GetAvailableSlots: service_type =', service_type || '(não especificado)');
-    console.log('[Tool] GetAvailableSlots: preferred_date =', preferred_date || '(próximos 7 dias)');
 
     // Busca a duração do serviço do catálogo da empresa
     let slotDuration = 60; // Duração padrão de 1 hora
@@ -637,15 +617,12 @@ export async function handleGetAvailableSlots(args: {
         // Se o serviço tiver duração configurada, usa; senão mantém o padrão
         if (service?.duration) {
           slotDuration = parseInt(service.duration);
-          console.log('[Tool] GetAvailableSlots: Duração do serviço encontrada:', slotDuration, 'min');
         }
       }
     } catch (error) {
       console.warn('[Tool] GetAvailableSlots: Erro ao buscar duração do serviço, usando padrão:', error);
     }
 
-    console.log('[Tool] GetAvailableSlots: Buscando horários disponíveis');
-    console.log('[Tool] GetAvailableSlots: Serviço:', service_type, '- Duração:', slotDuration, 'min');
 
     // Busca horários para os próximos 7 dias
     // FIX: Corrigir parsing de preferred_date para interpretar no timezone de São Paulo
@@ -670,7 +647,6 @@ export async function handleGetAvailableSlots(args: {
       if (dayOfWeek === 0) continue;
 
       try {
-        console.log(`[Tool] GetAvailableSlots: Buscando slots para ${format(currentDate, 'dd/MM/yyyy')}`);
 
         // Usa o appointmentService que já integra Google Calendar + banco local
         const daySlots = await appointmentService.getAvailableSlots(
@@ -679,7 +655,6 @@ export async function handleGetAvailableSlots(args: {
           slotDuration
         );
 
-        console.log(`[Tool] GetAvailableSlots: Encontrados ${daySlots.length} slots disponíveis para ${format(currentDate, 'dd/MM/yyyy')}`);
 
         // Converte para formato amigável para a IA
         daySlots.forEach(slot => {
@@ -696,12 +671,10 @@ export async function handleGetAvailableSlots(args: {
         if (allSlots.length >= 12) break;
 
       } catch (dayError: any) {
-        console.log(`[Tool] GetAvailableSlots: Erro ao buscar dia ${format(currentDate, 'dd/MM/yyyy')}:`, dayError.message);
         // Continua para o próximo dia
       }
     }
 
-    console.log(`[Tool] GetAvailableSlots: Total de ${allSlots.length} slots disponíveis encontrados`);
 
     if (allSlots.length === 0) {
       return {
@@ -794,7 +767,6 @@ export async function handleCreateAppointment(args: {
     const isFakeNumber = /^[^,\d]*,?\s*1\s*$|rua\s+\w+\s+1\s*$/i.test(address);
 
     if (!hasValidNumber || isFakeNumber) {
-      console.log('[CreateAppointment] ❌ Endereço sem número válido:', address);
       return {
         success: false,
         error: 'ENDERECO_INCOMPLETO',
@@ -845,14 +817,9 @@ export async function handleCreateAppointment(args: {
     }
 
     // Parse da data e hora no timezone do Brasil (America/Sao_Paulo)
-    console.log('[CreateAppointment] Criando agendamento para:', date, time, '(horário de Brasília)');
-    console.log('[CreateAppointment] Cliente:', customer.name);
-    console.log('[CreateAppointment] Serviço:', service_type, '- Duração:', duration, 'min');
     const dateTime = createBrazilDate(date, time);
     const endTime = addMinutes(dateTime, duration);
 
-    console.log('[CreateAppointment] Data/hora criada:', dateTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
-    console.log('[CreateAppointment] Data/hora fim:', endTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }));
 
     // Cria o agendamento usando o serviço existente
     // Formato do título: "Nome do Serviço - Nome do Cliente"

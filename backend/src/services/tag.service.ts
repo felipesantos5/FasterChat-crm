@@ -23,11 +23,8 @@ class TagService {
    */
   async findAllNames(companyId: string): Promise<string[]> {
     try {
-      console.log('[Tag Service] findAllNames for company:', companyId);
       const tags = await this.findAll(companyId);
-      console.log('[Tag Service] Found tags:', tags.length);
       const names = tags.map((tag) => tag.name);
-      console.log('[Tag Service] Returning tag names:', names);
       return names;
     } catch (error: any) {
       console.error('[Tag Service] Error finding tag names:', error);
@@ -77,12 +74,10 @@ class TagService {
    */
   async createOrGetMany(companyId: string, names: string[]) {
     try {
-      console.log('[Tag Service] Creating/getting tags:', { companyId, names });
       const tags = await Promise.all(
         names.map((name) => this.createOrGet(companyId, name))
       );
 
-      console.log('[Tag Service] Tags created/retrieved:', tags.map(t => t.name));
       return tags;
     } catch (error: any) {
       console.error('Error creating/getting tags:', error);
