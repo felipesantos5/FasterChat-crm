@@ -1,7 +1,9 @@
-import React from 'react';
-import { X, Play, Clock, CheckCircle2, XCircle, AlertCircle, Phone, Database } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Play, Clock, CheckCircle2, XCircle, AlertCircle, Phone, Database, StopCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import api from '@/lib/api';
+import { toast } from 'sonner';
 
 type Execution = {
   id: string;
@@ -20,15 +22,30 @@ type ExecutionDrawerProps = {
   executions: Execution[];
   onSelectExecution: (execution: Execution | null) => void;
   selectedExecutionId?: string;
+  flowId: string;
+  onExecutionCancelled: (executionId: string) => void;
 };
 
-export function ExecutionDrawer({ isOpen, onClose, executions, onSelectExecution, selectedExecutionId }: ExecutionDrawerProps) {
+const ACTIVE_STATUSES = ['RUNNING', 'WAITING_REPLY', 'DELAYED'];
+
+export function ExecutionDrawer({
+  isOpen,
+  onClose,
+  executions,
+  onSelectExecution,
+  selectedExecutionId,
+  flowId,
+  onExecutionCancelled,
+}: ExecutionDrawerProps) {
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
   if (!isOpen) return null;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'COMPLETED': return <CheckCircle2 className="text-green-500" size={16} />;
       case 'FAILED': return <XCircle className="text-red-500" size={16} />;
+      case 'PAUSED': return <StopCircle className="text-orange-500" size={16} />;
       case 'RUNNING': return <Play className="text-blue-500 animate-pulse" size={16} />;
       case 'WAITING_REPLY': return <Clock className="text-purple-500" size={16} />;
       default: return <AlertCircle className="text-gray-400" size={16} />;
@@ -39,10 +56,27 @@ export function ExecutionDrawer({ isOpen, onClose, executions, onSelectExecution
     switch (status) {
       case 'COMPLETED': return 'Concluído';
       case 'FAILED': return 'Falhou';
+      case 'PAUSED': return 'Cancelado';
       case 'RUNNING': return 'Rodando';
       case 'WAITING_REPLY': return 'Aguardando';
       case 'DELAYED': return 'Atrasado';
       default: return status;
+    }
+  };
+
+  const handleCancel = async (e: React.MouseEvent, executionId: string) => {
+    e.stopPropagation();
+    if (cancellingId) return;
+    setCancellingId(executionId);
+    try {
+      await api.delete(`/flows/${flowId}/executions/${executionId}`);
+      onExecutionCancelled(executionId);
+      toast.success('Execução cancelada.');
+      if (selectedExecutionId === executionId) onSelectExecution(null);
+    } catch {
+      toast.error('Não foi possível cancelar a execução.');
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -69,10 +103,11 @@ export function ExecutionDrawer({ isOpen, onClose, executions, onSelectExecution
             <div
               key={exe.id}
               onClick={() => onSelectExecution(selectedExecutionId === exe.id ? null : exe)}
-              className={`p-4 border rounded-lg cursor-pointer transition-all group ${selectedExecutionId === exe.id
+              className={`p-4 border rounded-lg cursor-pointer transition-all group ${
+                selectedExecutionId === exe.id
                   ? 'border-green-500 bg-green-50 ring-1 ring-green-500'
                   : 'hover:border-primary/50 hover:bg-gray-50'
-                }`}
+              }`}
             >
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 font-semibold text-sm text-gray-900">
@@ -85,15 +120,33 @@ export function ExecutionDrawer({ isOpen, onClose, executions, onSelectExecution
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-                <div className="flex items-center gap-1">
-                  <Clock size={12} />
-                  {format(new Date(exe.startedAt), "dd/MM HH:mm", { locale: ptBR })}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Clock size={12} />
+                    {format(new Date(exe.startedAt), "dd/MM HH:mm", { locale: ptBR })}
+                  </div>
+                  {exe.history && (
+                    <span className="bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 text-[10px]">
+                      {exe.history.length > 0 ? `${exe.history.length} etapas` : 'Iniciando'}
+                    </span>
+                  )}
                 </div>
-                {exe.history && (
-                  <span className="bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 text-[10px]">
-                    {exe.history.length > 0 ? `${exe.history.length} etapas` : 'Iniciando'}
-                  </span>
+
+                {ACTIVE_STATUSES.includes(exe.status) && (
+                  <button
+                    onClick={(e) => handleCancel(e, exe.id)}
+                    disabled={cancellingId === exe.id}
+                    className="flex items-center gap-1 text-[11px] font-medium text-red-500 hover:text-red-700 hover:bg-red-50 border border-red-200 hover:border-red-300 px-2 py-0.5 rounded-full transition-all disabled:opacity-50"
+                    title="Cancelar execução"
+                  >
+                    {cancellingId === exe.id ? (
+                      <Loader2 size={11} className="animate-spin" />
+                    ) : (
+                      <StopCircle size={11} />
+                    )}
+                    Cancelar
+                  </button>
                 )}
               </div>
 

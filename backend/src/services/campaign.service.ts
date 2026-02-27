@@ -232,8 +232,6 @@ class CampaignService {
           );
 
           sentCount++;
-            `[Campaign ${campaignId}] Message sent to ${customer.name} (${sentCount}/${customers.length})`
-          );
 
           // Delay artificial entre 2 e 5 segundos para evitar banimento
           const delay = Math.floor(Math.random() * 3000) + 2000; // 2000-5000ms
@@ -262,9 +260,6 @@ class CampaignService {
       });
 
       const duration = Date.now() - startTime;
-
-        `[Campaign ${campaignId}] Completed! Sent: ${sentCount}, Failed: ${failedCount}, Duration: ${Math.round(duration / 1000)}s`
-      );
 
       return {
         campaignId,

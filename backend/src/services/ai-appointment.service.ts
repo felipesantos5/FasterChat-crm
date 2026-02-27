@@ -2585,11 +2585,6 @@ export class AIAppointmentService {
       if (catalogInfo.name) state.serviceName = catalogInfo.name;
       if (catalogInfo.price) state.servicePrice = catalogInfo.price;
       if (catalogInfo.duration) state.duration = catalogInfo.duration;
-
-        serviceName: state.serviceName,
-        servicePrice: state.servicePrice,
-        duration: state.duration
-      });
     }
   }
 }

@@ -15,10 +15,6 @@ export class CustomerController {
         return;
       }
 
-        companyId: req.user.companyId,
-        body: req.body,
-      });
-
       const validatedData = validateCreateCustomer(req.body);
 
       const customer = await customerService.create(req.user.companyId, validatedData);

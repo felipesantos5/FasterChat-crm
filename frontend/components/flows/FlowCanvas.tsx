@@ -399,6 +399,16 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         executions={executions}
         onSelectExecution={setSelectedExecution}
         selectedExecutionId={selectedExecution?.id}
+        flowId={flowId}
+        onExecutionCancelled={(executionId) => {
+          setExecutions((prev) =>
+            prev.map((e) =>
+              e.id === executionId
+                ? { ...e, status: 'PAUSED', error: 'Cancelado pelo usuário' }
+                : e
+            )
+          );
+        }}
       />
 
       <FlowBatchUploadModal

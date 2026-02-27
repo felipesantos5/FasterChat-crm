@@ -39,13 +39,6 @@ export class CustomerService {
       pipelineStageId = firstStage?.id || null;
     }
 
-      companyId,
-      name: data.name,
-      tags: data.tags,
-      isGroup,
-      pipelineStageId,
-    });
-
     return prisma.customer.create({
       data: {
         ...data,

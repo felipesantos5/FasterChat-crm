@@ -883,9 +883,6 @@ class WhatsAppService {
         }
 
         // Tenta o campo pushName/notify para ao menos ter o nome
-          id: contact.id,
-          name: contact.pushName || contact.notify || contact.name,
-        });
       }
 
       return null;

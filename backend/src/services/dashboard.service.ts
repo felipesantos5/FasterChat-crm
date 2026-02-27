@@ -523,12 +523,6 @@ class DashboardService {
   ): Promise<MessagesOverTimeData[]> {
     const endDate = new Date(startDate.getTime() + daysCount * 24 * 60 * 60 * 1000);
 
-      companyId,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      daysCount,
-    });
-
     const messages = await prisma.message.findMany({
       where: {
         customer: { companyId },

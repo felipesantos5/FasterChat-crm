@@ -119,14 +119,6 @@ class AIKnowledgeController {
         });
       }
 
-        companyId,
-        companyName,
-        companySegment,
-        setupStep,
-        setupCompleted,
-        productsCount: products?.length,
-      });
-
       const knowledge = await aiKnowledgeService.upsertKnowledge(companyId, {
         companyName,
         companySegment,

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { AppError } from '../utils/errors';
+import { FlowExecutionStatus } from '@prisma/client';
 
 export class FlowController {
   public async getFlows(req: Request, res: Response): Promise<Response> {
@@ -243,5 +244,40 @@ export class FlowController {
     });
 
     return res.json(executions);
+  }
+
+  public async cancelExecution(req: Request, res: Response): Promise<Response> {
+    const { id: flowId, executionId } = req.params;
+    const { companyId } = req.user!;
+
+    const execution = await prisma.flowExecution.findFirst({
+      where: { id: executionId, flowId, flow: { companyId } }
+    });
+
+    if (!execution) {
+      return res.status(404).json({ error: 'Execução não encontrada.' });
+    }
+
+    const cancellable: FlowExecutionStatus[] = [
+      FlowExecutionStatus.RUNNING,
+      FlowExecutionStatus.WAITING_REPLY,
+      FlowExecutionStatus.DELAYED,
+    ];
+
+    if (!cancellable.includes(execution.status)) {
+      return res.status(400).json({ error: 'Esta execução já foi concluída ou cancelada.' });
+    }
+
+    await prisma.flowExecution.update({
+      where: { id: executionId },
+      data: {
+        status: FlowExecutionStatus.PAUSED,
+        resumesAt: null,
+        completedAt: new Date(),
+        error: 'Cancelado pelo usuário',
+      }
+    });
+
+    return res.json({ success: true });
   }
 }
