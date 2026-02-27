@@ -47,6 +47,14 @@ export const MediaNode = memo(({ id, data, type }: any) => {
       return;
     }
 
+    const MAX_MB = 10;
+    const MAX_SIZE = MAX_MB * 1024 * 1024;
+
+    if (file.size > MAX_SIZE) {
+      toast.error(`O tamanho máximo permitido para o arquivo é de ${MAX_MB}MB. Por favor, escolha um arquivo menor.`);
+      return;
+    }
+
     // Set local preview immediately
     const objectUrl = URL.createObjectURL(file);
     setLocalPreview(objectUrl);
@@ -66,9 +74,16 @@ export const MediaNode = memo(({ id, data, type }: any) => {
       updateNodeData(id, { mediaUrl: url, fileName: file.name });
       setLocalPreview(url); // Update with final URL
       toast.success(`${isVideo ? 'Vídeo' : 'Imagem'} enviado com sucesso!`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading media', error);
-      toast.error('Erro ao enviar arquivo');
+
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (errorMessage?.includes('too large') || error.response?.status === 413) {
+        toast.error(`O arquivo enviado é muito grande. O limite máximo é de 10MB.`);
+      } else {
+        toast.error(`Erro ao enviar arquivo: ${errorMessage || 'Desconhecido'}`);
+      }
+
       setLocalPreview(data?.mediaUrl || null); // Revert on error
     } finally {
       setIsUploading(false);

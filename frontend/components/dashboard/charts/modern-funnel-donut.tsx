@@ -4,7 +4,6 @@ import { PieChart, Pie, Label } from "recharts";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -57,14 +56,13 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
 
   return (
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
-      <CardHeader className="items-start pb-0">
-        <CardTitle>Funil de Vendas</CardTitle>
-        <CardDescription>Distribuição por estágio</CardDescription>
+      <CardHeader className="items-start pb-0 pt-4 px-4">
+        <CardTitle className="text-base">Funil de Vendas</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 pb-0">
         <ChartContainer
           config={chartConfig}
-          className="mx-auto aspect-square max-h-[250px]"
+          className="mx-auto aspect-square max-h-[200px]"
         >
           <PieChart>
             <ChartTooltip
@@ -114,7 +112,7 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
           </PieChart>
         </ChartContainer>
 
-        <div className="space-y-3 mt-4 mb-4">
+        <div className="space-y-2 mt-2 mb-3 px-1">
           {chartData.map((item, index) => {
             const percentage = ((item.value / total) * 100).toFixed(1);
             return (

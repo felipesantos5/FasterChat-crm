@@ -7,8 +7,11 @@ import {
   ModernMessagesChart,
   ModernFunnelDonut,
   ModernPeakHoursChart,
+  ModernResponseTimeCard,
+  ModernAppointmentsCard,
+  ModernAgentStatsCard,
 } from "@/components/dashboard/charts";
-import { MessageSquare, Bot, UserPlus, MessageCircle } from "lucide-react";
+import { MessageSquare, UserPlus, MessageCircle } from "lucide-react";
 import { spacing } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
@@ -61,7 +64,7 @@ function DashboardPageContent() {
   //   checkGoogleCalendar();
   // }, [user?.companyId]);
 
-  // Transforma o objeto stats em um array para renderização
+  // Transforma o objeto stats em um array para renderização (3 cards)
   const statCards = stats
     ? [
       {
@@ -91,15 +94,6 @@ function DashboardPageContent() {
         colorName: "orange" as const,
         description: "",
       },
-      {
-        title: "Respostas da IA",
-        value: stats.messagesWithAI?.current || 0,
-        percentageChange: stats.messagesWithAI?.percentageChange || 0,
-        icon: Bot,
-        gradient: "bg-gradient-to-br from-purple-500 to-purple-600",
-        colorName: "purple" as const,
-        description: "",
-      },
     ]
     : [];
 
@@ -118,34 +112,24 @@ function DashboardPageContent() {
           <Skeleton className="h-10 w-40" />
         </div>
 
-        {/* Stats Skeletons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <Skeleton className="h-4 w-24 mb-2" />
-                  <Skeleton className="h-8 w-20 mb-2" />
-                  <Skeleton className="h-3 w-32" />
-                </div>
-                <Skeleton className="h-12 w-12 rounded-xl" />
-              </div>
-              <Skeleton className="h-8 w-20" />
-            </div>
-          ))}
+        {/* Linha 1: 3 stat cards + funil */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+            ))}
+          </div>
+          <Skeleton className="h-[400px] w-full rounded-2xl lg:row-span-2" />
+          <div className="lg:col-span-3">
+            <Skeleton className="h-[300px] w-full rounded-2xl" />
+          </div>
         </div>
 
-        {/* Charts Skeletons */}
-        <Skeleton className="h-96 w-full rounded-2xl" />
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Skeleton className="h-96 w-full rounded-2xl" />
-          <Skeleton className="h-96 w-full rounded-2xl" />
-        </div>
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <Skeleton className="h-96 w-full rounded-2xl" />
-          </div>
-          <Skeleton className="h-96 w-full rounded-2xl" />
+        {/* Linha 3: 4 cards bottom */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-[280px] w-full rounded-2xl" />
+          ))}
         </div>
       </div>
     );
@@ -166,39 +150,53 @@ function DashboardPageContent() {
   return (
     <div className="p-4 sm:p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className={spacing.section}>
-        <div className="flex flex-col gap-6 w-full mx-auto">
-          {/* Primeira linha: Cards Stat */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {statCards.map((stat) => (
-              <ModernStatCard
-                key={stat.title}
-                title={stat.title}
-                value={stat.value}
-                percentageChange={stat.percentageChange}
-                icon={stat.icon}
-                gradient={stat.gradient}
-                description={stat.description}
-                colorName={stat.colorName}
-              />
-            ))}
-          </div>
-
-          {/* Segunda linha: Graficos Principais (Esquerda) e Funil (Direita) */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
-            <div className="lg:col-span-5 flex flex-col gap-6">
-              {chartsData && (
-                <>
-                  <ModernMessagesChart data={chartsData.messagesOverTime} />
-                  <ModernPeakHoursChart data={chartsData.messagesByHour} />
-                </>
-              )}
+        <div className="flex flex-col gap-4 w-full mx-auto">
+          {/* Linha 1: 3 Stat Cards + Funil (row-span-2) */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+            {/* 3 Stat Cards */}
+            <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {statCards.map((stat) => (
+                <ModernStatCard
+                  key={stat.title}
+                  title={stat.title}
+                  value={stat.value}
+                  percentageChange={stat.percentageChange}
+                  icon={stat.icon}
+                  gradient={stat.gradient}
+                  description={stat.description}
+                  colorName={stat.colorName}
+                />
+              ))}
             </div>
 
-            <div className="lg:col-span-2">
+            {/* Funil de Vendas - row-span-2 */}
+            <div className="lg:row-span-2">
               {chartsData && (
                 <ModernFunnelDonut data={chartsData.pipelineFunnel} />
               )}
             </div>
+
+            {/* Gráfico de Mensagens - abaixo dos stat cards */}
+            <div className="lg:col-span-3">
+              {chartsData && (
+                <ModernMessagesChart data={chartsData.messagesOverTime} />
+              )}
+            </div>
+          </div>
+
+          {/* Linha 3: 4 cards bottom - Tempo Resp + Pico + Agendamentos + Agente */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {chartsData && (
+              <>
+                <ModernResponseTimeCard
+                  data={chartsData.avgResponseTime}
+                  hourlyData={chartsData.messagesByHour}
+                />
+                <ModernPeakHoursChart data={chartsData.messagesByHour} />
+                <ModernAppointmentsCard data={chartsData.activeAppointments} />
+                <ModernAgentStatsCard data={chartsData.messagesByAgent} />
+              </>
+            )}
           </div>
         </div>
       </div>

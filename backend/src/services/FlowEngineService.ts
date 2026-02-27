@@ -357,12 +357,15 @@ export class FlowEngineService {
     }
     await new Promise(resolve => setTimeout(resolve, delayMs));
 
-    
+
     const result = await whatsappService.sendMessage({
       instanceId: instance.id,
       to: execution.contactPhone,
       text
     });
+
+    // 🔗 Captura o LID retornado pela Evolution API para mapeamento futuro
+    await this.storeLidMapping(execution, result?.remoteJid);
 
     // 💾 Salvar a mensagem no banco para aparecer na aba de conversas
     await this.saveFlowMessageToConversation(execution, instance, text, result?.messageId, 'text');
@@ -397,6 +400,9 @@ export class FlowEngineService {
           mediaType: node.type, // 'audio', 'image' or 'video'
           caption: caption
         });
+
+        // 🔗 Captura o LID retornado pela Evolution API para mapeamento futuro
+        await this.storeLidMapping(execution, result?.remoteJid);
 
         // 💾 Salvar mídia na conversa
         await this.saveFlowMessageToConversation(
@@ -521,23 +527,54 @@ export class FlowEngineService {
       executions.forEach(e => console.log(`  -> execution id=${e.id} contactPhone="${e.contactPhone}" nodeType="${e.currentNode?.type}" resumesAt=${e.resumesAt}`));
     }
 
-    // 🔗 FALLBACK: Se não encontrou pelo telefone, tenta pela instância WhatsApp.
-    // Cobre o caso onde o contato responde de um número totalmente diferente do disparo,
-    // mas na mesma instância. Só usa se houver EXATAMENTE 1 execução esperando (sem ambiguidade).
-    if (executions.length === 0 && whatsappInstanceId) {
-      const execsByInstance = await prisma.flowExecution.findMany({
+    // 🔗 FALLBACK POR LID: Se não encontrou pelo telefone, tenta pelo mapeamento LID.
+    // Quando o fluxo envia mensagem e a Evolution API retorna um LID diferente,
+    // armazenamos o LID no campo contactLid. Aqui buscamos execuções cujo contactLid
+    // corresponde ao telefone que está respondendo (ou vice-versa).
+    if (executions.length === 0) {
+      // Busca pelo LID armazenado na execução (caso o phone que responde É o LID)
+      const execsByLid = await prisma.flowExecution.findMany({
         where: {
+          contactLid: cleanPhone,
           status: FlowExecutionStatus.WAITING_REPLY,
-          whatsappInstanceId,
           flow: { companyId },
           startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
         },
         include: { currentNode: true },
       });
 
-      if (execsByInstance.length === 1) {
-        console.log(`[FlowEngine:handleIncomingMessage] 🔗 Fallback by instance: matched reply from "${cleanPhone}" to execution for "${execsByInstance[0].contactPhone}"`);
-        executions = execsByInstance;
+      if (execsByLid.length > 0) {
+        console.log(`[FlowEngine:handleIncomingMessage] 🔗 Matched by contactLid: reply from "${cleanPhone}" matched ${execsByLid.length} execution(s)`);
+        executions = execsByLid;
+      }
+    }
+
+    // 🔗 FALLBACK POR CUSTOMER LID: Busca o customer pelo lidPhone e usa o phone real
+    // para encontrar a execução.
+    if (executions.length === 0) {
+      const customerByLid = await prisma.customer.findFirst({
+        where: {
+          companyId,
+          lidPhone: cleanPhone,
+        },
+        select: { phone: true },
+      });
+
+      if (customerByLid) {
+        const realRightDigits = customerByLid.phone.length > 8 ? customerByLid.phone.slice(-8) : customerByLid.phone;
+        const execsByRealPhone = await prisma.flowExecution.findMany({
+          where: {
+            contactPhone: { endsWith: realRightDigits },
+            status: FlowExecutionStatus.WAITING_REPLY,
+            flow: { companyId },
+          },
+          include: { currentNode: true },
+        });
+
+        if (execsByRealPhone.length > 0) {
+          console.log(`[FlowEngine:handleIncomingMessage] 🔗 Matched by customer lidPhone: LID "${cleanPhone}" → real phone "${customerByLid.phone}", found ${execsByRealPhone.length} execution(s)`);
+          executions = execsByRealPhone;
+        }
       }
     }
 
@@ -670,6 +707,61 @@ export class FlowEngineService {
     const handle = result ? 'true' : 'false';
 
     await this.processNextNodes(execution.id, node.id, handle);
+  }
+
+  /**
+   * 🔗 Captura o LID retornado pela Evolution API e armazena no FlowExecution e no Customer.
+   * Quando enviamos uma mensagem para um telefone real, a Evolution API pode retornar um
+   * remoteJid diferente (LID). Armazenamos esse mapeamento para que quando o cliente
+   * responder com o LID, possamos identificá-lo corretamente.
+   */
+  private async storeLidMapping(execution: any, responseRemoteJid?: string) {
+    if (!responseRemoteJid) return;
+
+    try {
+      const responsePhone = responseRemoteJid
+        .replace("@s.whatsapp.net", "")
+        .replace("@lid", "")
+        .replace(/\D/g, "");
+
+      const cleanContactPhone = execution.contactPhone.replace(/\D/g, "");
+
+      // Se o JID retornado é diferente do telefone que enviamos, é um LID
+      if (responsePhone && responsePhone !== cleanContactPhone) {
+        // Determina qual é o LID e qual é o phone real
+        const responseLooksLikeLid = responsePhone.length >= 14;
+        const contactLooksLikeLid = cleanContactPhone.length >= 14;
+
+        // Só armazena se um deles parece LID e o outro parece phone real
+        if (responseLooksLikeLid || contactLooksLikeLid) {
+          const lidValue = responseLooksLikeLid ? responsePhone : cleanContactPhone;
+          const realPhone = responseLooksLikeLid ? cleanContactPhone : responsePhone;
+
+          console.log(`[FlowEngine] 🔗 LID mapping detectado: LID=${lidValue} → phone=${realPhone}`);
+
+          // Salva no FlowExecution para matching de respostas
+          await prisma.flowExecution.update({
+            where: { id: execution.id },
+            data: { contactLid: lidValue },
+          });
+
+          // Salva no Customer para matching futuro permanente
+          const flow = await prisma.flow.findUnique({
+            where: { id: execution.flowId },
+            select: { companyId: true },
+          });
+
+          if (flow) {
+            await prisma.customer.updateMany({
+              where: { companyId: flow.companyId, phone: realPhone, lidPhone: null },
+              data: { lidPhone: lidValue },
+            });
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[FlowEngine] ⚠️ Falha ao armazenar LID mapping (não crítico):`, err.message);
+    }
   }
 
   /**

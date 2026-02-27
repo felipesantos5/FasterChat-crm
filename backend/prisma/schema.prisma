@@ -118,6 +118,7 @@ model Customer {
   zoneId          String?  @map("zone_id") // Zona de preço do cliente (opcional)
   address         String?  @db.Text // Endereço do cliente
   neighborhood    String? // Bairro do cliente (para cálculo automático de zona)
+  lidPhone        String?  @map("lid_phone") // LID alternativo do WhatsApp Business (mapeamento LID↔phone)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -136,6 +137,7 @@ model Customer {
   @@index([isGroup])
   @@index([pipelineStageId])
   @@index([zoneId])
+  @@index([lidPhone])
   @@map("customers")
 }
 
@@ -990,6 +992,7 @@ model FlowExecution {
   id                 String              @id @default(uuid())
   flowId             String              @map("flow_id")
   contactPhone       String              @map("contact_phone") // Telefone do lead
+  contactLid         String?             @map("contact_lid") // LID alternativo recebido da Evolution API (mapeamento LID↔phone)
   currentNodeId      String?             @map("current_node_id") // Nó onde o fluxo parou/está
   whatsappInstanceId String?             @map("whatsapp_instance_id") // Instância WhatsApp selecionada no início do fluxo
   history            Json?               @default("[]") // Histórico de IDs de nós visitados

@@ -1,5 +1,5 @@
 import { prisma } from "../utils/prisma";
-import { MessageDirection, MessageStatus, MessageFeedback, FlowExecutionStatus } from "@prisma/client";
+import { MessageDirection, MessageStatus, MessageFeedback } from "@prisma/client";
 import { CreateMessageRequest, GetMessagesRequest, ConversationSummary } from "../types/message";
 import openaiService from "./ai-providers/openai.service";
 import geminiService from "./ai-providers/gemini.service";
@@ -557,77 +557,56 @@ class MessageService {
         where: { companyId_phone: { companyId: instance.companyId, phone } },
       });
 
-      // 🚨 ANTI-DUPLICATA: Se não encontrou pelo phone exato,
-      // tenta encontrar o mesmo contato que pode ter sido salvo com phone/LID diferente.
+      // 🔗 ANTI-DUPLICATA POR LID: Se não encontrou pelo phone exato,
+      // busca pelo campo lidPhone (mapeamento LID↔telefone real).
       // Cenários cobertos:
-      //   - LID primeiro, phone real depois (ou vice-versa)
-      //   - Webhooks duplicados com JIDs diferentes para o mesmo contato
+      //   - Fluxo enviou para phone real, cliente respondeu com LID → lidPhone contém o LID
+      //   - Mensagem anterior já mapeou este LID para um customer existente
       if (!customer) {
-        const trimmedPushName = data.pushName?.trim();
-        // pushName válido = não vazio e não é um ID numérico longo (WABA ID)
-        const isValidPushName = !!trimmedPushName && !/^\d{11,}$/.test(trimmedPushName);
-        const incomingIsLid = isLid && !resolvedFromLid;
+        const customerByLid = await prisma.customer.findFirst({
+          where: {
+            companyId: instance.companyId,
+            lidPhone: phone,
+          },
+        });
 
-        if (isValidPushName) {
-          // Busca cliente existente com o mesmo nome na empresa
-          const existingByName = await prisma.customer.findFirst({
+        if (customerByLid) {
+          console.log(`[MessageService] 🔗 Customer encontrado por lidPhone: LID "${phone}" → customer "${customerByLid.phone}" (${customerByLid.name})`);
+          customer = customerByLid;
+        }
+      }
+
+      // 🔗 ANTI-DUPLICATA POR FLOW EXECUTION LID: Se ainda não encontrou,
+      // busca execuções de fluxo que tenham este phone como contactLid.
+      // Isso cobre o caso onde a Evolution API retornou um LID diferente na resposta do envio.
+      if (!customer && !isGroup) {
+        const execByLid = await prisma.flowExecution.findFirst({
+          where: {
+            contactLid: phone,
+            flow: { companyId: instance.companyId },
+            startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+          },
+          select: { contactPhone: true },
+        });
+
+        if (execByLid) {
+          const flowCustomer = await prisma.customer.findFirst({
             where: {
               companyId: instance.companyId,
-              name: trimmedPushName,
-              isGroup: false,
+              phone: execByLid.contactPhone,
             },
-            orderBy: { updatedAt: 'desc' },
           });
 
-          if (existingByName && existingByName.phone !== phone) {
-            // Confirma que é duplicata LID/Phone: um dos phones deve parecer LID (>=13 dígitos)
-            const existingPhoneIsLid = /^\d{13,}$/.test(existingByName.phone);
-
-            if (existingPhoneIsLid || incomingIsLid) {
-              customer = existingByName;
-
-              // Se temos phone real e o existente era LID, atualiza para o phone real
-              if (!incomingIsLid && existingPhoneIsLid) {
-                try {
-                  customer = await prisma.customer.update({
-                    where: { id: existingByName.id },
-                    data: { phone },
-                  });
-                } catch {
-                  // Unique constraint violation - outro customer já tem esse phone
-                }
-              }
-            }
-          }
-        }
-
-        // 🔗 FLOW REPLY MATCH: Quando o contato responde de um número diferente do usado no disparo,
-        // tentamos vinculá-lo ao cliente correto pelo nome (pushName).
-        // Ex: fluxo disparado para 4896365757, mas o contato responde de 40006469 — mesmo pushName.
-        if (!customer && isValidPushName && trimmedPushName && !isGroup) {
-          const waitingExecs = await prisma.flowExecution.findMany({
-            where: {
-              status: FlowExecutionStatus.WAITING_REPLY,
-              flow: { companyId: instance.companyId },
-              startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) }, // últimas 48h
-            },
-            select: { contactPhone: true },
-          });
-
-          for (const exec of waitingExecs) {
-            const execCustomer = await prisma.customer.findFirst({
-              where: {
-                companyId: instance.companyId,
-                phone: exec.contactPhone,
-                name: trimmedPushName,
-                isGroup: false,
-              },
-            });
-
-            if (execCustomer) {
-              customer = execCustomer;
-              console.log(`[MessageService] 🔗 Resposta de "${phone}" vinculada ao cliente do fluxo "${execCustomer.phone}" pelo nome ("${trimmedPushName}")`);
-              break;
+          if (flowCustomer) {
+            console.log(`[MessageService] 🔗 Customer encontrado via FlowExecution.contactLid: LID "${phone}" → flow customer "${flowCustomer.phone}" (${flowCustomer.name})`);
+            // Armazena o LID no customer para buscas futuras diretas
+            try {
+              customer = await prisma.customer.update({
+                where: { id: flowCustomer.id },
+                data: { lidPhone: phone },
+              });
+            } catch {
+              customer = flowCustomer;
             }
           }
         }
@@ -742,55 +721,20 @@ class MessageService {
       }
 
       // ==================================================================================
-      // 🔗 FLOW REPLY REROUTE: Quando o contato responde de um número diferente do usado
-      // no disparo do fluxo, redirecionamos a mensagem para o customer do fluxo.
-      // Ex: fluxo disparou para 4896365757, contato responde de 40006469 (mesmo aparelho/conta).
-      // Critério: mesma instância WhatsApp + exatamente 1 execução WAITING_REPLY + últimas 48h.
+      // 🔗 ARMAZENAR LID MAPPING: Quando resolvemos um LID para phone real,
+      // salvamos o LID no customer para buscas futuras sem depender de resolução.
       // ==================================================================================
-      if (customer && !isGroup) {
-        const waitingExecsForInstance = await prisma.flowExecution.findMany({
-          where: {
-            status: FlowExecutionStatus.WAITING_REPLY,
-            whatsappInstanceId: instance.id,
-            flow: { companyId: instance.companyId },
-            contactPhone: { not: customer.phone },
-            startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
-          },
-        });
-
-        // Só redireciona se houver EXATAMENTE 1 execução esperando (evita ambiguidade)
-        if (waitingExecsForInstance.length === 1) {
-          const exec = waitingExecsForInstance[0];
-          const flowCustomer = await prisma.customer.findFirst({
-            where: { companyId: instance.companyId, phone: exec.contactPhone },
-          });
-
-          if (flowCustomer) {
-            console.log(`[MessageService] 🔗 Rerouting reply: "${customer.phone}" → flow customer "${flowCustomer.phone}" (exec ${exec.id})`);
-
-            // Atualiza o customer do fluxo com nome e foto do WhatsApp real
-            const flowUpdates: any = {};
-            if (data.pushName && flowCustomer.name === flowCustomer.phone) {
-              const betterName = this.sanitizePushName(data.pushName, flowCustomer.phone);
-              if (betterName !== flowCustomer.phone) flowUpdates.name = betterName;
-            }
-            if (!flowCustomer.profilePicUrl && customer.profilePicUrl) {
-              flowUpdates.profilePicUrl = customer.profilePicUrl;
-            } else if (!flowCustomer.profilePicUrl) {
-              try {
-                const pic = await whatsappService.getProfilePicture(instanceName, phone);
-                if (pic) flowUpdates.profilePicUrl = pic;
-              } catch {}
-            }
-
-            if (Object.keys(flowUpdates).length > 0) {
-              customer = await prisma.customer.update({
-                where: { id: flowCustomer.id },
-                data: flowUpdates,
-              });
-            } else {
-              customer = flowCustomer;
-            }
+      if (customer && isLid && !isGroup) {
+        const rawLid = rawNumber; // O número bruto do LID original (antes da resolução)
+        if (rawLid && !customer.lidPhone && rawLid !== customer.phone) {
+          try {
+            customer = await prisma.customer.update({
+              where: { id: customer.id },
+              data: { lidPhone: rawLid },
+            });
+            console.log(`[MessageService] 🔗 LID mapping salvo: customer "${customer.phone}" → lidPhone "${rawLid}"`);
+          } catch (lidErr: any) {
+            console.warn(`[MessageService] ⚠️ Falha ao salvar lidPhone (não crítico):`, lidErr.message);
           }
         }
       }

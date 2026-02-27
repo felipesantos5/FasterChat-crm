@@ -14,7 +14,6 @@ import { HourlyMessageData } from "@/lib/dashboard";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -59,27 +58,24 @@ export function ModernPeakHoursChart({ data }: ModernPeakHoursChartProps) {
 
   return (
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
-      <CardHeader className="items-start pb-4">
+      <CardHeader className="items-start pb-2 pt-4 px-4">
         <div className="flex w-full justify-between items-start">
-          <div>
-            <CardTitle>Pico de Mensagens</CardTitle>
-            <CardDescription>Volume a cada 2 horas</CardDescription>
-          </div>
-          {peakHour && peakHour.count > 0 && (
-            <div className="text-right">
-              <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 justify-end leading-none">
-                <TrendingUp className="h-3.5 w-3.5" />
-                <span className="text-sm font-bold">{peakHour.hour}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-semibold">
-                Pico
-              </p>
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-violet-100 dark:bg-violet-900/30">
+              <TrendingUp className="h-4 w-4 text-violet-600 dark:text-violet-400" />
             </div>
-          )}
+            <CardTitle className="text-sm font-semibold">Pico de Mensagens</CardTitle>
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 pb-2">
-        <ChartContainer config={chartConfig} className="h-[200px] w-full">
+      <CardContent className="flex-1 pb-3 px-4">
+        {peakHour && peakHour.count > 0 && (
+          <div className="text-center mb-2">
+            <span className="text-2xl font-bold">{peakHour.hour.replace(':00', ':00')}</span>
+            <p className="text-[11px] text-muted-foreground">Maior volume de mensagens</p>
+          </div>
+        )}
+        <ChartContainer config={chartConfig} className="h-[140px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={groupedData}

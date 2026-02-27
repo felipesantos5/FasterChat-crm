@@ -138,9 +138,16 @@ export const AudioNode = memo(({ id, data }: any) => {
       updateNodeData(id, { mediaUrl: url, fileName });
       setLocalPreview(url);
       toast.success('Áudio salvo com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading recorded audio', error);
-      toast.error('Erro ao salvar gravação');
+
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (errorMessage?.includes('too large') || error.response?.status === 413) {
+        toast.error(`O arquivo de áudio gravado é muito grande. O limite máximo é de 10MB.`);
+      } else {
+        toast.error(`Erro ao salvar gravação: ${errorMessage || 'Desconhecido'}`);
+      }
+
       setLocalPreview(data?.mediaUrl || null);
     } finally {
       setIsUploading(false);
@@ -159,6 +166,14 @@ export const AudioNode = memo(({ id, data }: any) => {
       return;
     }
 
+    const MAX_MB = 10;
+    const MAX_SIZE = MAX_MB * 1024 * 1024;
+
+    if (file.size > MAX_SIZE) {
+      toast.error(`O tamanho máximo permitido para o arquivo é de ${MAX_MB}MB. Por favor, escolha um arquivo menor.`);
+      return;
+    }
+
     const objectUrl = URL.createObjectURL(file);
     setLocalPreview(objectUrl);
     setIsUploading(true);
@@ -174,9 +189,16 @@ export const AudioNode = memo(({ id, data }: any) => {
       updateNodeData(id, { mediaUrl: url, fileName: file.name });
       setLocalPreview(url);
       toast.success('Áudio enviado com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading audio', error);
-      toast.error('Erro ao enviar áudio');
+
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (errorMessage?.includes('too large') || error.response?.status === 413) {
+        toast.error(`O arquivo enviado é muito grande. O limite máximo é de 10MB.`);
+      } else {
+        toast.error(`Erro ao enviar áudio: ${errorMessage || 'Desconhecido'}`);
+      }
+
       setLocalPreview(data?.mediaUrl || null);
     } finally {
       setIsUploading(false);

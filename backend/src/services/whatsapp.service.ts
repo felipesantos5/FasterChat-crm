@@ -416,6 +416,7 @@ class WhatsAppService {
       return {
         success: true,
         messageId: response.data.key.id,
+        remoteJid: response.data.key.remoteJid,
         timestamp: response.data.messageTimestamp,
       };
     } catch (error: any) {
@@ -694,6 +695,7 @@ class WhatsAppService {
         return {
           success: true,
           messageId: (response.data.key?.id || response.data.key || "").toString(),
+          remoteJid: response.data.key?.remoteJid,
           timestamp: response.data.messageTimestamp,
         };
       }
@@ -726,6 +728,7 @@ class WhatsAppService {
       return {
         success: true,
         messageId: response.data.key?.id,
+        remoteJid: response.data.key?.remoteJid,
         timestamp: response.data.messageTimestamp,
       };
     } catch (error: any) {

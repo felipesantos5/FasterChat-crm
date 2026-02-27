@@ -88,6 +88,20 @@ class WebhookController {
               });
               companyId = instance?.companyId || null;
               instanceId = instance?.id || null;
+
+              // 🔗 Se o phone parece ser um LID (14+ dígitos), tenta encontrar o phone real
+              // via mapeamento lidPhone no customer
+              if (phone && companyId && phone.replace(/\D/g, '').length >= 14) {
+                const customerByLid = await prisma.customer.findFirst({
+                  where: { companyId, lidPhone: phone.replace(/\D/g, '') },
+                  select: { phone: true },
+                });
+                if (customerByLid) {
+                  console.log(`[Webhook:FlowEngine] 🔗 Resolved LID "${phone}" → real phone "${customerByLid.phone}" via lidPhone mapping`);
+                  phone = customerByLid.phone;
+                }
+              }
+
               // Tenta extrair conteúdo textual do payload bruto
               messageContent = data.message?.conversation
                 || data.message?.extendedTextMessage?.text
@@ -410,6 +424,64 @@ class WebhookController {
         } catch (error) {
           return res.status(200).json({ success: false, message: "Error updating QR" });
         }
+      }
+
+      // 🔗 Evento SEND_MESSAGE: captura LID mapping de mensagens enviadas
+      // Quando enviamos uma mensagem via API, a Evolution pode retornar o remoteJid
+      // como LID ao invés do phone real. Usamos isso para criar o mapeamento.
+      if (payload.event === "send.message") {
+        try {
+          const sendData = payload.data;
+          const sendKey = sendData?.key;
+          if (sendKey?.remoteJid && payload.instance) {
+            const sentToJid = sendKey.remoteJid;
+            const sentToPhone = sentToJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "");
+
+            // Se o remoteJid parece ser um LID (14+ dígitos), tenta criar mapeamento
+            if (sentToPhone.length >= 14) {
+              const inst = await prisma.whatsAppInstance.findFirst({
+                where: { instanceName: payload.instance },
+                select: { companyId: true },
+              });
+
+              if (inst) {
+                // Procura se há uma execução de fluxo recente para esta instância
+                // que enviou para um phone diferente (o phone real)
+                const recentExec = await prisma.flowExecution.findFirst({
+                  where: {
+                    flow: { companyId: inst.companyId },
+                    contactPhone: { not: sentToPhone },
+                    startedAt: { gte: new Date(Date.now() - 5 * 60 * 1000) }, // últimos 5 min
+                    status: { in: ['RUNNING', 'WAITING_REPLY', 'DELAYED'] },
+                  },
+                  orderBy: { updatedAt: 'desc' },
+                });
+
+                if (recentExec) {
+                  // Armazena o LID na execução e no customer
+                  await prisma.flowExecution.update({
+                    where: { id: recentExec.id },
+                    data: { contactLid: sentToPhone },
+                  });
+
+                  await prisma.customer.updateMany({
+                    where: {
+                      companyId: inst.companyId,
+                      phone: recentExec.contactPhone,
+                      lidPhone: null,
+                    },
+                    data: { lidPhone: sentToPhone },
+                  });
+
+                  console.log(`[Webhook:SendMessage] 🔗 LID mapping: "${recentExec.contactPhone}" → LID "${sentToPhone}"`);
+                }
+              }
+            }
+          }
+        } catch (sendErr: any) {
+          console.warn(`[Webhook] ⚠️ Error processing send.message LID mapping:`, sendErr.message);
+        }
+        return res.status(200).json({ success: true, message: "Send message processed" });
       }
 
       return res.status(200).json({ success: true, message: "Event received" });

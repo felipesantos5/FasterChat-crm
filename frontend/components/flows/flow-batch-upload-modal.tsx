@@ -67,10 +67,13 @@ export function FlowBatchUploadModal({
 }: FlowBatchUploadModalProps) {
   const storeFile = useBatchStore((s) => s.file);
   const storePreview = useBatchStore((s) => s.preview);
+  const storeFlowId = useBatchStore((s) => s.flowId);
   const setStoreFile = useBatchStore((s) => s.setFile);
   const setStorePreview = useBatchStore((s) => s.setPreview);
+  const setStoreFlowId = useBatchStore((s) => s.setFlowId);
+  const resetStore = useBatchStore((s) => s.reset);
 
-  const [step, setStep] = useState<Step>(storeFile && storePreview ? "preview" : "upload");
+  const [step, setStep] = useState<Step>(storeFile && storePreview && storeFlowId === flowId ? "preview" : "upload");
   const [loading, setLoading] = useState(false);
   const [batchStatus, setBatchStatus] = useState<BatchStatus | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,17 +82,23 @@ export function FlowBatchUploadModal({
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
 
-  // Reset specific modal state when opens/closes, but KEEP file in store
+  // Reset specific modal state when opens/closes, but KEEP file in store for the SAME flow
   useEffect(() => {
     if (open) {
-      if (storeFile && storePreview) {
+      if (storeFlowId !== null && storeFlowId !== flowId) {
+        resetStore();
+        setStep("upload");
+      } else if (storeFile && storePreview) {
         setStep("preview");
       } else {
         setStep("upload");
       }
+      setStoreFlowId(flowId);
     } else {
       const t = setTimeout(() => {
-        setStep(storeFile && storePreview ? "preview" : "upload");
+        const currentFile = useBatchStore.getState().file;
+        const currentPreview = useBatchStore.getState().preview;
+        setStep(currentFile && currentPreview ? "preview" : "upload");
         setBatchStatus(null);
         setLoading(false);
         if (pollRef.current) clearInterval(pollRef.current);
@@ -97,7 +106,7 @@ export function FlowBatchUploadModal({
       return () => { clearTimeout(t); };
     }
     return undefined;
-  }, [open, storeFile, storePreview]);
+  }, [open, flowId, storeFile, storePreview, storeFlowId, resetStore, setStoreFlowId]);
 
   // Cleanup polling on unmount
   useEffect(() => {
