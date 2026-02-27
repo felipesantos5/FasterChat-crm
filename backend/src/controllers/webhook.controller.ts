@@ -21,7 +21,7 @@ class WebhookController {
     try {
       // Valida webhook secret enviado pela Evolution API
       const webhookSecret = process.env.WEBHOOK_SECRET;
-      if (webhookSecret && webhookSecret !== 'change-this-webhook-secret') {
+      if (webhookSecret && webhookSecret !== 'your-webhook-secret-key') {
         const receivedSecret = req.headers['x-webhook-secret'] || req.headers['x-api-key'];
         if (!receivedSecret || receivedSecret !== webhookSecret) {
           console.warn('[Webhook] Rejecting request: invalid or missing webhook secret');
