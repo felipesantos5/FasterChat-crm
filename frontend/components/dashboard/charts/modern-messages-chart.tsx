@@ -26,20 +26,18 @@ interface ModernMessagesChartProps {
 }
 
 export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
-  console.log('[ModernMessagesChart] Received data:', data);
-
-  const formattedData = data.map((item) => ({
-    ...item,
-    dateLabel: format(new Date(item.date), "dd/MM", { locale: ptBR }),
-    total: item.inbound + item.outbound,
-  }));
-
-  console.log('[ModernMessagesChart] Formatted data:', formattedData);
+  const formattedData = data.map((item) => {
+    // Parse "YYYY-MM-DD" as local date to avoid UTC-midnight timezone shift
+    const [y, m, d] = item.date.split("-").map(Number);
+    return {
+      ...item,
+      dateLabel: format(new Date(y, m - 1, d), "dd/MM", { locale: ptBR }),
+      total: item.inbound + item.outbound,
+    };
+  });
 
   const totalMessages = formattedData.reduce((acc, curr) => acc + curr.total, 0);
   const avgDaily = Math.round(totalMessages / formattedData.length);
-
-  console.log('[ModernMessagesChart] Total messages:', totalMessages, 'Average daily:', avgDaily);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">

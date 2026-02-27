@@ -541,7 +541,7 @@ class DashboardService {
 
     const dataMap = new Map<string, MessagesOverTimeData>();
 
-    for (let i = 0; i < daysCount; i++) {
+    for (let i = 0; i <= daysCount; i++) {
       const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
       const dateStr = date.toISOString().split("T")[0];
       dataMap.set(dateStr, {

@@ -150,13 +150,11 @@ export function Sidebar() {
   const { user } = useAuthStore();
   const { count: handoffsCount, isError } = useHandoffsCount();
 
-  // Debug log
   useEffect(() => {
-    console.log('[Sidebar] Handoffs count:', handoffsCount);
     if (isError) {
       console.error('[Sidebar] Error loading handoffs count:', isError);
     }
-  }, [handoffsCount, isError]);
+  }, [isError]);
 
   // Fecha a sidebar ao navegar no mobile
   useEffect(() => {
@@ -247,12 +245,7 @@ export function Sidebar() {
 
     // Item sem submenu (link direto)
     const showBadge = item.label === "Conversas" && handoffsCount > 0;
-
-    console.log('[Sidebar renderMenuItem]', {
-      label: item.label,
-      handoffsCount,
-      showBadge,
-    });
+    const isConversas = item.label === "Conversas";
 
     return (
       <Link
@@ -260,14 +253,21 @@ export function Sidebar() {
         href={item.href!}
         prefetch={true}
         className={cn(
-          "flex items-center justify-between space-x-2 md:space-x-3 rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-colors relative",
-          isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          "flex items-center justify-between rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all relative",
+          isActive
+            ? "bg-primary text-primary-foreground"
+            : isConversas
+            ? "bg-primary/8 text-foreground border-l-2 border-primary hover:bg-primary/15"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         )}
-        style={{ paddingLeft: `${depth * 12 + 12}px` }}
+        style={{ paddingLeft: isConversas && !isActive ? `${depth * 12 + 10}px` : `${depth * 12 + 12}px` }}
       >
         <div className="flex items-center space-x-2 md:space-x-3 flex-1">
-          <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
-          <span className="truncate">{item.label}</span>
+          <Icon className={cn(
+            "h-4 w-4 md:h-5 md:w-5 flex-shrink-0",
+            !isActive && isConversas && "text-primary"
+          )} />
+          <span className={cn("truncate", !isActive && isConversas && "font-semibold")}>{item.label}</span>
         </div>
         {showBadge && (
           <div className="flex-shrink-0 flex items-center justify-center w-5 h-5 px-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-full shadow-lg animate-pulse">

@@ -463,6 +463,8 @@ export class FlowEngineService {
     const cleanPhone = contactPhone.replace(/\D/g, '');
     const rightDigits = cleanPhone.length > 8 ? cleanPhone.slice(-8) : cleanPhone;
 
+    console.log(`[FlowEngine:handleIncomingMessage] contactPhone="${contactPhone}" cleanPhone="${cleanPhone}" rightDigits="${rightDigits}" companyId="${companyId}"`);
+
     // Find if there's any active execution waiting for a reply for this contact
     const executions = await prisma.flowExecution.findMany({
       where: {
@@ -475,7 +477,19 @@ export class FlowEngineService {
       }
     });
 
+    console.log(`[FlowEngine:handleIncomingMessage] Found ${executions.length} WAITING_REPLY executions for rightDigits="${rightDigits}"`);
+    if (executions.length > 0) {
+      executions.forEach(e => console.log(`  -> execution id=${e.id} contactPhone="${e.contactPhone}" nodeType="${e.currentNode?.type}" resumesAt=${e.resumesAt}`));
+    }
+
     if (executions.length === 0) {
+      // Debug: check if there are executions for this phone in any status
+      const anyExec = await prisma.flowExecution.findMany({
+        where: { contactPhone: { endsWith: rightDigits } },
+        select: { id: true, status: true, contactPhone: true, resumesAt: true },
+        take: 5,
+      });
+      console.log(`[FlowEngine:handleIncomingMessage] No WAITING_REPLY found. All executions for this phone:`, JSON.stringify(anyExec));
       return false;
     }
 

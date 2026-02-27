@@ -152,13 +152,6 @@ export default function FlowsPage() {
                     {flow.status === 'ACTIVE' ? 'Ativo' : 'Rascunho'}
                   </span>
                   <button
-                    onClick={(e) => openBatchModal(flow, e)}
-                    className="text-gray-400 hover:text-blue-500 transition-colors p-1"
-                    title="Disparo em Massa"
-                  >
-                    <Upload size={16} />
-                  </button>
-                  <button
                     onClick={(e) => openConfigModal(flow, e)}
                     className="text-gray-400 hover:text-primary transition-colors p-1"
                     title="Configurar Fluxo"
