@@ -93,25 +93,27 @@ export const MessageNode = memo(({ id, data }: any) => {
           </label>
         </div>
 
-        <div className="relative font-sans group">
-          {/* Mirroring Highlighted Layer */}
+        <div className="font-sans group" style={{ display: 'grid' }}>
+          {/* Mirror layer: shows highlighted text and establishes height for the grid */}
           <div
-            className="w-full text-sm p-3 whitespace-pre-wrap break-words break-all pointer-events-none text-gray-800 border-2 border-transparent min-h-[140px] leading-relaxed"
+            className="text-sm p-3 whitespace-pre-wrap break-words pointer-events-none text-gray-800 border-2 border-transparent min-h-[140px] leading-relaxed rounded-xl"
             aria-hidden="true"
+            style={{ gridArea: '1 / 1' }}
           >
             {renderHighlightedText(text)}
-            {text.endsWith('\n') ? '\n ' : ''}
+            {text.endsWith('\n') ? '\n ' : ' '}
           </div>
 
-          {/* Actual Input Layer */}
+          {/* Textarea: sits on top of mirror in same grid cell, grows together — no internal scroll */}
           <textarea
             ref={textareaRef}
             id={`msg-text-${id}`}
             value={text}
             onChange={onChange}
-            className="absolute inset-0 w-full h-full text-sm p-3 border-2 border-gray-100 rounded-xl resize-none focus:outline-none focus:ring-0 focus:border-blue-400 nodrag bg-transparent text-transparent caret-gray-800 selection:bg-blue-200/50 transition-all hover:border-gray-200 break-words break-all leading-relaxed"
+            className="text-sm p-3 border-2 border-gray-100 rounded-xl resize-none focus:outline-none focus:ring-0 focus:border-blue-400 nodrag bg-transparent text-transparent caret-gray-800 selection:bg-blue-200/50 transition-all hover:border-gray-200 break-words leading-relaxed min-h-[140px]"
             placeholder="Digite sua mensagem aqui..."
             spellCheck={false}
+            style={{ gridArea: '1 / 1', overflow: 'hidden' }}
           />
         </div>
 

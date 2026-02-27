@@ -12,6 +12,7 @@ export const MediaNode = memo(({ id, data, type }: any) => {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [localPreview, setLocalPreview] = useState<string | null>(data?.mediaUrl || null);
   const [isUploading, setIsUploading] = useState(false);
+  const [caption, setCaption] = useState<string>(data?.caption || '');
 
   // Sync local preview with data changes (e.g. on load)
   useEffect(() => {
@@ -21,6 +22,13 @@ export const MediaNode = memo(({ id, data, type }: any) => {
       setLocalPreview(null);
     }
   }, [data?.mediaUrl]);
+
+  // Sync caption with external data changes
+  useEffect(() => {
+    if (data?.caption !== undefined && data.caption !== caption) {
+      setCaption(data.caption || '');
+    }
+  }, [data?.caption]);
 
   const isVideo = type === 'video';
   const Icon = isVideo ? Video : ImageIcon;
@@ -68,18 +76,20 @@ export const MediaNode = memo(({ id, data, type }: any) => {
   };
 
   const handleCaptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    updateNodeData(id, { caption: e.target.value });
+    const val = e.target.value;
+    setCaption(val);
+    updateNodeData(id, { caption: val });
   };
 
   const insertVariable = (variable: string) => {
     const variableText = `{{${variable}}}`;
     const textarea = captionRef.current;
-    const currentCaption = data?.caption || '';
 
     if (textarea) {
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
-      const newText = currentCaption.substring(0, start) + variableText + currentCaption.substring(end);
+      const newText = caption.substring(0, start) + variableText + caption.substring(end);
+      setCaption(newText);
       updateNodeData(id, { caption: newText });
 
       setTimeout(() => {
@@ -87,8 +97,25 @@ export const MediaNode = memo(({ id, data, type }: any) => {
         textarea.setSelectionRange(start + variableText.length, start + variableText.length);
       }, 0);
     } else {
-      updateNodeData(id, { caption: currentCaption + ' ' + variableText });
+      const newText = caption + ' ' + variableText;
+      setCaption(newText);
+      updateNodeData(id, { caption: newText });
     }
+  };
+
+  const renderHighlightedCaption = (content: string) => {
+    if (!content) return null;
+    const parts = content.split(/(\{\{[^{}]*\}\})/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('{{') && part.endsWith('}}')) {
+        return (
+          <span key={i} className="bg-orange-100 text-orange-700 font-semibold">
+            {part}
+          </span>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
   };
 
   return (
@@ -177,15 +204,26 @@ export const MediaNode = memo(({ id, data, type }: any) => {
                   <Tag size={10} /> Variáveis
                 </button>
               </div>
-              <textarea
-                ref={captionRef}
-                className={`w-full p-2.5 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 nodrag resize-none transition-all ${isVideo ? 'focus:ring-indigo-500/20 focus:border-indigo-400' : 'focus:ring-pink-500/20 focus:border-pink-400'
-                  }`}
-                rows={2}
-                placeholder="Digite uma legenda..."
-                value={data?.caption || ''}
-                onChange={handleCaptionChange}
-              />
+              <div style={{ display: 'grid' }}>
+                {/* Mirror layer: shows highlighted text and establishes height */}
+                <div
+                  className="text-sm p-2.5 whitespace-pre-wrap break-words pointer-events-none text-gray-700 border border-transparent bg-gray-50 rounded-lg min-h-[64px] leading-relaxed"
+                  aria-hidden="true"
+                  style={{ gridArea: '1 / 1' }}
+                >
+                  {renderHighlightedCaption(caption)}
+                  {caption.endsWith('\n') ? '\n ' : ' '}
+                </div>
+                {/* Textarea: overlaps mirror, grows together — no internal scroll */}
+                <textarea
+                  ref={captionRef}
+                  className={`text-sm p-2.5 bg-transparent border rounded-lg text-transparent caret-gray-700 focus:outline-none focus:ring-2 nodrag resize-none transition-all selection:bg-blue-200/50 break-words leading-relaxed min-h-[64px] border-gray-100 ${isVideo ? 'focus:ring-indigo-500/20 focus:border-indigo-400' : 'focus:ring-pink-500/20 focus:border-pink-400'}`}
+                  placeholder="Digite uma legenda..."
+                  value={caption}
+                  onChange={handleCaptionChange}
+                  style={{ gridArea: '1 / 1', overflow: 'hidden' }}
+                />
+              </div>
             </div>
 
             <button
