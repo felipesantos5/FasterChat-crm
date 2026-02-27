@@ -59,6 +59,54 @@ class WebhookController {
           data // Payload completo com data.key para download de mídia
         );
 
+        // 🔄 FLOW ENGINE: Verifica se há fluxo esperando resposta deste cliente
+        // IMPORTANTE: Roda ANTES do early return de !result para que mensagens
+        // de tipos não processados (stickers, reactions, etc.) ainda disparem o "respondeu"
+        try {
+          const remoteJid = data.key.remoteJid;
+          const isGroup = remoteJid?.endsWith("@g.us");
+
+          if (!isGroup && remoteJid) {
+            // Extrai phone e companyId: usa result se disponível, senão busca da instância
+            let phone: string | null = null;
+            let companyId: string | null = null;
+            let messageContent = "";
+
+            if (result) {
+              phone = result.customer.phone;
+              companyId = result.customer.companyId;
+              messageContent = result.message.content || "";
+            } else {
+              // Fallback: extrai phone do remoteJid e companyId da instância
+              phone = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "");
+              const instance = await prisma.whatsAppInstance.findFirst({
+                where: { instanceName: payload.instance },
+                select: { companyId: true },
+              });
+              companyId = instance?.companyId || null;
+              // Tenta extrair conteúdo textual do payload bruto
+              messageContent = data.message?.conversation
+                || data.message?.extendedTextMessage?.text
+                || "";
+            }
+
+            if (phone && companyId) {
+              const { FlowEngineService } = await import("../services/FlowEngineService");
+              const flowEngine = new FlowEngineService();
+              const flowResumed = await flowEngine.handleIncomingMessage(phone, companyId, messageContent);
+
+              if (flowResumed) {
+                return res.status(200).json({
+                  success: true,
+                  message: "Flow resumed, skipping other processing"
+                });
+              }
+            }
+          }
+        } catch (flowError) {
+          console.error("[Webhook] Error processing flow engine reply:", flowError);
+        }
+
         // Se não conseguiu processar (mensagem sem conteúdo válido)
         if (!result) {
           return res.status(200).json({ success: true, message: "No valid content to process" });
@@ -74,22 +122,6 @@ class WebhookController {
           );
         } catch (conversionError) {
           console.error("[Webhook] Error processing link conversion:", conversionError);
-        }
-
-        // 🔄 FLOW ENGINE: Verifica se há fluxo esperando resposta deste cliente
-        try {
-          const { FlowEngineService } = await import("../services/FlowEngineService");
-          const flowEngine = new FlowEngineService();
-          const flowResumed = await flowEngine.handleIncomingMessage(result.customer.phone, result.customer.companyId, result.message.content);
-          
-          if (flowResumed) {
-            return res.status(200).json({
-              success: true,
-              message: "Flow resumed, skipping other processing"
-            });
-          }
-        } catch (flowError) {
-          console.error("[Webhook] Error processing flow engine reply:", flowError);
         }
 
         // AUTO-FIX: Se recebemos mensagem, estamos conectados

@@ -66,6 +66,10 @@ initializeGlobalErrorHandlers();
 const app = express();
 const PORT = process.env.PORT || 3051;
 
+// Necessário quando rodando atrás de proxy (Docker/nginx/cloud)
+// Faz o Express confiar no header X-Forwarded-For para identificar o IP real
+app.set('trust proxy', 1);
+
 // Cria servidor HTTP para compartilhar com Socket.IO
 const httpServer = createServer(app);
 
