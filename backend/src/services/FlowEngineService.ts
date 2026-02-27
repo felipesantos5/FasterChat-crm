@@ -4,8 +4,187 @@ import { FlowExecutionStatus, MessageDirection, MessageStatus } from '@prisma/cl
 import messageService from './message.service';
 import { websocketService } from './websocket.service';
 
+// ==================================================================================
+// 🛡️ CIRCUIT BREAKER: Protege a Evolution API contra sobrecarga.
+// Se muitos erros consecutivos ocorrerem, pausa os envios temporariamente.
+// Estado compartilhado entre todas as instâncias do FlowEngineService.
+// ==================================================================================
+interface CircuitBreakerState {
+  consecutiveErrors: number;
+  lastErrorTime: number;
+  isOpen: boolean;        // true = circuito aberto (parado), false = funcionando
+  cooldownUntil: number;  // timestamp até quando o circuito fica aberto
+  totalErrors: number;    // total de erros acumulados (para logging)
+}
+
+const circuitBreaker: CircuitBreakerState = {
+  consecutiveErrors: 0,
+  lastErrorTime: 0,
+  isOpen: false,
+  cooldownUntil: 0,
+  totalErrors: 0,
+};
+
+// Configurações do circuit breaker
+const CB_MAX_CONSECUTIVE_ERRORS = 5;     // Abre o circuito após 5 erros seguidos
+const CB_INITIAL_COOLDOWN_MS = 30_000;   // 30s de pausa inicial
+const CB_MAX_COOLDOWN_MS = 5 * 60_000;   // Máximo 5 minutos de pausa
+const CB_MAX_RETRIES = 2;                // Tentativas por mensagem (1 original + 2 retries)
+const CB_RETRY_BASE_DELAY_MS = 3_000;    // 3s base para retry (exponencial)
+
 export class FlowEngineService {
   constructor() {
+  }
+
+  /**
+   * 🛡️ Verifica se o circuit breaker está aberto e deve bloquear envios.
+   * Se o cooldown expirou, reseta para half-open (permite 1 tentativa).
+   */
+  private checkCircuitBreaker(): { blocked: boolean; reason?: string } {
+    if (!circuitBreaker.isOpen) {
+      return { blocked: false };
+    }
+
+    const now = Date.now();
+    if (now >= circuitBreaker.cooldownUntil) {
+      // Cooldown expirou — entra em half-open (permite tentar novamente)
+      console.log(`[FlowEngine:CircuitBreaker] ⏰ Cooldown expirou. Tentando reabrir (half-open)...`);
+      circuitBreaker.isOpen = false;
+      circuitBreaker.consecutiveErrors = 0; // Reseta para dar chance
+      return { blocked: false };
+    }
+
+    const remainingSec = Math.ceil((circuitBreaker.cooldownUntil - now) / 1000);
+    return {
+      blocked: true,
+      reason: `Circuit breaker aberto: ${circuitBreaker.totalErrors} erros acumulados. Próxima tentativa em ${remainingSec}s`,
+    };
+  }
+
+  /**
+   * 🛡️ Registra sucesso no circuit breaker (reseta erros consecutivos)
+   */
+  private recordSuccess() {
+    if (circuitBreaker.consecutiveErrors > 0) {
+      console.log(`[FlowEngine:CircuitBreaker] ✅ Envio bem-sucedido após ${circuitBreaker.consecutiveErrors} erro(s). Resetando contador.`);
+    }
+    circuitBreaker.consecutiveErrors = 0;
+    circuitBreaker.isOpen = false;
+  }
+
+  /**
+   * 🛡️ Registra erro no circuit breaker. Se ultrapassar o limite, abre o circuito.
+   */
+  private recordError(error: string) {
+    circuitBreaker.consecutiveErrors++;
+    circuitBreaker.totalErrors++;
+    circuitBreaker.lastErrorTime = Date.now();
+
+    console.warn(`[FlowEngine:CircuitBreaker] ⚠️ Erro #${circuitBreaker.consecutiveErrors} consecutivo (total: ${circuitBreaker.totalErrors}): ${error}`);
+
+    if (circuitBreaker.consecutiveErrors >= CB_MAX_CONSECUTIVE_ERRORS) {
+      // Calcula cooldown com backoff exponencial baseado no total de erros
+      const backoffFactor = Math.min(circuitBreaker.totalErrors / CB_MAX_CONSECUTIVE_ERRORS, 5);
+      const cooldownMs = Math.min(
+        CB_INITIAL_COOLDOWN_MS * Math.pow(2, backoffFactor - 1),
+        CB_MAX_COOLDOWN_MS
+      );
+
+      circuitBreaker.isOpen = true;
+      circuitBreaker.cooldownUntil = Date.now() + cooldownMs;
+
+      console.error(`[FlowEngine:CircuitBreaker] 🔴 CIRCUITO ABERTO! ${circuitBreaker.consecutiveErrors} erros consecutivos. Pausando envios por ${(cooldownMs / 1000).toFixed(0)}s`);
+    }
+  }
+
+  /**
+   * 🛡️ Envia mensagem com retry e circuit breaker.
+   * Retorna o resultado do envio ou lança erro após todas as tentativas.
+   */
+  private async sendWithRetry(
+    sendFn: () => Promise<any>,
+    context: string
+  ): Promise<any> {
+    // Verifica circuit breaker antes de tentar
+    const cbCheck = this.checkCircuitBreaker();
+    if (cbCheck.blocked) {
+      throw new Error(`[CircuitBreaker] ${cbCheck.reason}`);
+    }
+
+    let lastError: any;
+
+    for (let attempt = 0; attempt <= CB_MAX_RETRIES; attempt++) {
+      try {
+        const result = await sendFn();
+        this.recordSuccess();
+        return result;
+      } catch (err: any) {
+        lastError = err;
+        const isLastAttempt = attempt === CB_MAX_RETRIES;
+
+        // Identifica se é erro de rede/API (retentável) vs erro de dados (não retentável)
+        const isRetryable = this.isRetryableError(err);
+
+        if (!isRetryable || isLastAttempt) {
+          this.recordError(err.message || 'Erro desconhecido');
+          if (!isLastAttempt) {
+            console.warn(`[FlowEngine] ❌ ${context}: Erro não retentável: ${err.message}`);
+          } else {
+            console.error(`[FlowEngine] ❌ ${context}: Falhou após ${CB_MAX_RETRIES + 1} tentativas: ${err.message}`);
+          }
+          break;
+        }
+
+        // Backoff exponencial: 3s, 6s
+        const delayMs = CB_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+        console.warn(`[FlowEngine] ⏳ ${context}: Tentativa ${attempt + 1}/${CB_MAX_RETRIES + 1} falhou (${err.message}). Retry em ${(delayMs / 1000).toFixed(1)}s...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+
+        // Re-verifica circuit breaker antes do retry
+        const cbRecheck = this.checkCircuitBreaker();
+        if (cbRecheck.blocked) {
+          throw new Error(`[CircuitBreaker] ${cbRecheck.reason}`);
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
+   * 🛡️ Determina se um erro é retentável (falha de rede/API) ou permanente (dados inválidos)
+   */
+  private isRetryableError(err: any): boolean {
+    const message = (err.message || '').toLowerCase();
+    const status = err.response?.status;
+
+    // Erros de rede são retentáveis
+    if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ENOTFOUND' || err.code === 'ECONNRESET') {
+      return true;
+    }
+
+    // HTTP 429 (rate limit), 500, 502, 503, 504 são retentáveis
+    if (status && (status === 429 || status >= 500)) {
+      return true;
+    }
+
+    // Timeout
+    if (message.includes('timeout') || message.includes('timed out')) {
+      return true;
+    }
+
+    // Erros de conexão genéricos
+    if (message.includes('socket hang up') || message.includes('network') || message.includes('connection')) {
+      return true;
+    }
+
+    // Erros 400, 401, 403, 404 NÃO são retentáveis (problema nos dados)
+    if (status && status >= 400 && status < 500) {
+      return false;
+    }
+
+    // Default: não retentável (melhor falhar rápido do que ficar tentando)
+    return false;
   }
 
   /**
@@ -358,11 +537,14 @@ export class FlowEngineService {
     await new Promise(resolve => setTimeout(resolve, delayMs));
 
 
-    const result = await whatsappService.sendMessage({
-      instanceId: instance.id,
-      to: execution.contactPhone,
-      text
-    });
+    const result = await this.sendWithRetry(
+      () => whatsappService.sendMessage({
+        instanceId: instance.id,
+        to: execution.contactPhone,
+        text
+      }),
+      `sendMessage(${execution.contactPhone})`
+    );
 
     // 🔗 Captura o LID retornado pela Evolution API para mapeamento futuro
     await this.storeLidMapping(execution, result?.remoteJid);
@@ -393,13 +575,16 @@ export class FlowEngineService {
           caption = this.replaceVariables(caption, variables);
         }
 
-        const result = await whatsappService.sendMedia({
-          instanceId: instance.id,
-          to: execution.contactPhone,
-          mediaBase64: mediaSource,
-          mediaType: node.type, // 'audio', 'image' or 'video'
-          caption: caption
-        });
+        const result = await this.sendWithRetry(
+          () => whatsappService.sendMedia({
+            instanceId: instance.id,
+            to: execution.contactPhone,
+            mediaBase64: mediaSource,
+            mediaType: node.type, // 'audio', 'image' or 'video'
+            caption: caption
+          }),
+          `sendMedia(${execution.contactPhone}, ${node.type})`
+        );
 
         // 🔗 Captura o LID retornado pela Evolution API para mapeamento futuro
         await this.storeLidMapping(execution, result?.remoteJid);

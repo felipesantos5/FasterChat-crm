@@ -30,7 +30,7 @@ import api from "@/lib/api";
 
 interface BatchStatusData {
   batchId: string;
-  status: "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  status: "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED" | "PAUSED";
   total: number;
   processed: number;
   succeeded: number;
@@ -38,6 +38,9 @@ interface BatchStatusData {
   errors: Array<{ row: number; phone: string; error: string }>;
   startedAt: string;
   completedAt: string | null;
+  pausedUntil: string | null;
+  consecutiveErrors: number;
+  pauseCount: number;
 }
 
 interface BatchStatusButtonProps {
@@ -102,7 +105,8 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
       const res = await api.get(`/flows/${flowId}/batch/${batchId}`);
       setStatus(res.data);
 
-      if (res.data.status === "COMPLETED" || res.data.status === "FAILED" || res.data.status === "CANCELLED") {
+      const finalStatuses = ["COMPLETED", "FAILED", "CANCELLED"];
+      if (finalStatuses.includes(res.data.status)) {
         // Stop polling
         if (pollRef.current) {
           clearInterval(pollRef.current);
@@ -157,16 +161,18 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
   if (!visible || !batchId) return null;
 
   const isProcessing = !status || status.status === "PROCESSING";
+  const isPaused = status?.status === "PAUSED";
   const isCompleted = status?.status === "COMPLETED";
   const isFailed = status?.status === "FAILED";
   const isCancelled = status?.status === "CANCELLED";
+  const isActive = isProcessing || isPaused;
   const progressPercent = status
     ? Math.round((status.processed / status.total) * 100)
     : 0;
 
-  // Estimate remaining time: avg 10s per contact
+  // Estimate remaining time: avg ~50s per contact (30-60s anti-spam + envio)
   const remaining = status ? status.total - status.processed : 0;
-  const estimatedSecsLeft = remaining * 10;
+  const estimatedSecsLeft = remaining * 50;
 
   const formatTime = (totalSecs: number) => {
     if (totalSecs <= 0) return "0s";
@@ -185,14 +191,18 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
       {/* Compact header button */}
       <button
         onClick={() => setIsModalOpen(true)}
-        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm ${isProcessing
-          ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-          : isCompleted && status?.failed === 0
-            ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-            : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm ${isPaused
+          ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+          : isProcessing
+            ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+            : isCompleted && status?.failed === 0
+              ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+              : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
           }`}
       >
-        {isProcessing ? (
+        {isPaused ? (
+          <AlertTriangle size={14} className="animate-pulse" />
+        ) : isProcessing ? (
           <Loader2 size={14} className="animate-spin" />
         ) : isCompleted && status?.failed === 0 ? (
           <CheckCircle2 size={14} />
@@ -201,19 +211,21 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
         )}
 
         <span>
-          {isProcessing
-            ? `Enviando ${status?.processed ?? 0}/${status?.total ?? "..."}`
-            : isCompleted
-              ? `✅ ${status?.succeeded}/${status?.total} concluído`
-              : isCancelled
-                ? `🚫 Cancelado`
-                : `⚠️ Falha no disparo`}
+          {isPaused
+            ? `⏸️ Pausado ${status?.processed ?? 0}/${status?.total ?? "..."}`
+            : isProcessing
+              ? `Enviando ${status?.processed ?? 0}/${status?.total ?? "..."}`
+              : isCompleted
+                ? `${status?.succeeded}/${status?.total} concluído`
+                : isCancelled
+                  ? `Cancelado`
+                  : `Falha no disparo`}
         </span>
 
-        {isProcessing && status && (
-          <div className="w-12 h-1.5 bg-blue-200 rounded-full overflow-hidden">
+        {isActive && status && (
+          <div className={`w-12 h-1.5 rounded-full overflow-hidden ${isPaused ? "bg-amber-200" : "bg-blue-200"}`}>
             <div
-              className="h-full bg-blue-600 rounded-full transition-all duration-500"
+              className={`h-full rounded-full transition-all duration-500 ${isPaused ? "bg-amber-500" : "bg-blue-600"}`}
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -236,7 +248,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-semibold text-gray-700">
-                    {isProcessing ? "Disparando..." : isCompleted ? "Concluído!" : isCancelled ? "Cancelado" : "Falha"}
+                    {isPaused ? "Pausado (proteção anti-erro)" : isProcessing ? "Disparando..." : isCompleted ? "Concluído!" : isCancelled ? "Cancelado" : "Falha"}
                   </span>
                   <span className="text-sm font-bold text-primary">
                     {progressPercent}%
@@ -298,6 +310,27 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                 )}
               </div>
 
+              {/* Paused indicator */}
+              {isPaused && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-amber-600 animate-pulse" />
+                    <span className="text-sm font-semibold text-amber-700">
+                      Envio pausado automaticamente
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-600">
+                    {status.consecutiveErrors > 0
+                      ? `${status.consecutiveErrors} erros consecutivos detectados. O sistema pausou para proteger a conexão do WhatsApp.`
+                      : "O sistema detectou instabilidade e pausou temporariamente."}
+                    {status.pauseCount > 1 && ` (pausa #${status.pauseCount})`}
+                  </p>
+                  <p className="text-xs text-amber-500">
+                    O envio será retomado automaticamente em breve.
+                  </p>
+                </div>
+              )}
+
               {/* Processing indicator */}
               {isProcessing && (
                 <div className="flex items-center justify-center gap-2 py-1">
@@ -352,7 +385,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
               )}
 
               {/* Cancel Button */}
-              {isProcessing && (
+              {isActive && (
                 <div className="mt-4 flex justify-center border-t pt-4">
                   <button
                     onClick={() => setIsCancelModalOpen(true)}

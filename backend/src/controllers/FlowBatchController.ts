@@ -16,7 +16,7 @@ import * as XLSX from 'xlsx';
 interface BatchStatus {
   batchId: string;
   flowId: string;
-  status: 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  status: 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'PAUSED';
   total: number;
   processed: number;
   succeeded: number;
@@ -24,6 +24,9 @@ interface BatchStatus {
   errors: Array<{ row: number; phone: string; error: string }>;
   startedAt: Date;
   completedAt: Date | null;
+  pausedUntil: Date | null;     // Se pausado, quando retoma
+  consecutiveErrors: number;     // Erros seguidos no batch
+  pauseCount: number;            // Quantas vezes já pausou
 }
 
 // Store em memória para rastrear progresso dos batches
@@ -111,6 +114,9 @@ export class FlowBatchController {
       errors: [],
       startedAt: new Date(),
       completedAt: null,
+      pausedUntil: null,
+      consecutiveErrors: 0,
+      pauseCount: 0,
     };
     batchStore.set(batchId, batchStatus);
 
@@ -133,8 +139,20 @@ export class FlowBatchController {
     return res as any;
   }
 
+  // ==================================================================================
+  // 🛡️ CONFIGURAÇÕES DE PROTEÇÃO DO BATCH
+  // ==================================================================================
+  private static readonly BATCH_CONSECUTIVE_ERROR_LIMIT = 3;   // Pausa após 3 erros seguidos
+  private static readonly BATCH_PAUSE_BASE_MS = 60_000;         // 1 min de pausa base
+  private static readonly BATCH_PAUSE_MAX_MS = 10 * 60_000;     // 10 min de pausa máxima
+  private static readonly BATCH_TOTAL_ERROR_ABORT_RATIO = 0.5;  // Aborta se >50% falhou
+  private static readonly BATCH_MIN_PROCESSED_FOR_ABORT = 10;   // Mínimo processados antes de checar ratio
+  private static readonly BATCH_ANTI_SPAM_MIN_MS = 30_000;      // 30s mínimo entre contatos
+  private static readonly BATCH_ANTI_SPAM_MAX_MS = 60_000;      // 60s máximo entre contatos
+  private static readonly BATCH_INSTANCE_CHECK_INTERVAL = 10;   // Verifica instância a cada N contatos
+
   /**
-   * Processa as linhas sequencialmente com delay entre cada uma
+   * Processa as linhas sequencialmente com delay, circuit breaker e auto-pause
    */
   private async processRows(
     batch: BatchStatus,
@@ -144,44 +162,137 @@ export class FlowBatchController {
   ) {
     const flowEngine = new FlowEngineService();
 
+    // Verifica se há instância WhatsApp conectada ANTES de começar
+    const connectedInstance = await prisma.whatsAppInstance.findFirst({
+      where: { companyId: flow.companyId, status: { in: ['CONNECTED', 'CONNECTING'] } },
+      select: { id: true, instanceName: true },
+    });
+
+    if (!connectedInstance) {
+      console.error(`[FlowBatch] ❌ Nenhuma instância WhatsApp conectada. Abortando batch ${batch.batchId}`);
+      batch.status = 'FAILED';
+      batch.completedAt = new Date();
+      batch.errors.push({ row: 0, phone: '', error: 'Nenhuma instância WhatsApp conectada' });
+      return;
+    }
 
     for (let i = 0; i < rows.length; i++) {
+      // 🛑 Verifica cancelamento
       if (batch.status === 'CANCELLED') {
-        console.log(`[FlowBatch] 🛑 Batch ${batch.batchId} foi cancelado pelo usuário.`);
+        console.log(`[FlowBatch] 🛑 Batch ${batch.batchId} cancelado pelo usuário. ${batch.processed}/${batch.total} processados.`);
         break;
+      }
+
+      // 🛡️ Verifica se taxa de erro é muito alta (aborta para proteger a API)
+      if (batch.processed >= FlowBatchController.BATCH_MIN_PROCESSED_FOR_ABORT) {
+        const errorRatio = batch.failed / batch.processed;
+        if (errorRatio >= FlowBatchController.BATCH_TOTAL_ERROR_ABORT_RATIO) {
+          console.error(`[FlowBatch] 🔴 Taxa de erro muito alta (${(errorRatio * 100).toFixed(0)}%). Abortando batch ${batch.batchId} para proteger a API.`);
+          batch.status = 'FAILED';
+          batch.completedAt = new Date();
+          batch.errors.push({
+            row: i + 1,
+            phone: '',
+            error: `Batch abortado: ${(errorRatio * 100).toFixed(0)}% dos envios falharam (${batch.failed}/${batch.processed}). Verifique a conexão do WhatsApp.`,
+          });
+          break;
+        }
+      }
+
+      // 🏥 Verifica saúde da instância WhatsApp a cada N contatos
+      if (i > 0 && i % FlowBatchController.BATCH_INSTANCE_CHECK_INTERVAL === 0) {
+        const instanceOk = await prisma.whatsAppInstance.findFirst({
+          where: { companyId: flow.companyId, status: 'CONNECTED' },
+          select: { id: true },
+        });
+
+        if (!instanceOk) {
+          console.error(`[FlowBatch] 🔴 Instância WhatsApp desconectada durante o batch. Pausando...`);
+          batch.status = 'PAUSED';
+          const pauseMs = FlowBatchController.BATCH_PAUSE_MAX_MS; // Pausa longa para reconexão
+          batch.pausedUntil = new Date(Date.now() + pauseMs);
+          batch.pauseCount++;
+
+          console.log(`[FlowBatch] ⏸️ Aguardando ${(pauseMs / 1000).toFixed(0)}s para reconexão...`);
+          await new Promise(resolve => setTimeout(resolve, pauseMs));
+
+          // Re-verifica após pausa
+          const reconnected = await prisma.whatsAppInstance.findFirst({
+            where: { companyId: flow.companyId, status: 'CONNECTED' },
+            select: { id: true },
+          });
+
+          if (!reconnected) {
+            console.error(`[FlowBatch] 🔴 Instância ainda desconectada após pausa. Abortando batch.`);
+            batch.status = 'FAILED';
+            batch.completedAt = new Date();
+            batch.errors.push({ row: i + 1, phone: '', error: 'WhatsApp desconectado durante o envio' });
+            break;
+          }
+
+          batch.status = 'PROCESSING';
+          batch.pausedUntil = null;
+          console.log(`[FlowBatch] ▶️ Instância reconectada. Retomando batch...`);
+        }
       }
 
       const row = rows[i];
       const phone = String(row[phoneColumn] || '').replace(/\D/g, '');
 
-      // Monta as variáveis a partir de todas as colunas (exceto a de telefone)
+      // Monta as variáveis a partir de todas as colunas
       const variables: Record<string, any> = {};
       for (const key of Object.keys(row)) {
         variables[key] = row[key];
       }
-      // Garante que phone está presente nas variáveis
       variables.phone = phone;
 
       try {
-        
         await flowEngine.startFlow(flow.id, phone, variables);
-        
+
         batch.succeeded++;
+        batch.consecutiveErrors = 0; // Reseta erros consecutivos no sucesso
       } catch (err: any) {
         batch.failed++;
+        batch.consecutiveErrors++;
         batch.errors.push({
           row: i + 1,
           phone,
           error: err.message || 'Erro desconhecido',
         });
         console.error(`[FlowBatch] ❌ [${i + 1}/${rows.length}] Erro ao disparar para ${phone}:`, err.message);
+
+        // 🛡️ AUTO-PAUSE: Muitos erros seguidos → pausa para a API se recuperar
+        if (batch.consecutiveErrors >= FlowBatchController.BATCH_CONSECUTIVE_ERROR_LIMIT) {
+          const pauseFactor = Math.min(batch.pauseCount + 1, 5); // Backoff: mais pausas = pausa mais longa
+          const pauseMs = Math.min(
+            FlowBatchController.BATCH_PAUSE_BASE_MS * Math.pow(2, pauseFactor - 1),
+            FlowBatchController.BATCH_PAUSE_MAX_MS
+          );
+
+          batch.status = 'PAUSED';
+          batch.pausedUntil = new Date(Date.now() + pauseMs);
+          batch.pauseCount++;
+
+          console.warn(`[FlowBatch] ⏸️ ${batch.consecutiveErrors} erros consecutivos. Pausando por ${(pauseMs / 1000).toFixed(0)}s (pausa #${batch.pauseCount})`);
+
+          await new Promise(resolve => setTimeout(resolve, pauseMs));
+
+          // Verifica cancelamento durante a pausa (status pode mudar externamente via cancelBatch)
+          if ((batch.status as string) === 'CANCELLED') break;
+
+          batch.status = 'PROCESSING';
+          batch.pausedUntil = null;
+          batch.consecutiveErrors = 0; // Reseta para dar outra chance
+          console.log(`[FlowBatch] ▶️ Retomando após pausa #${batch.pauseCount}...`);
+        }
       }
 
       batch.processed++;
 
-      // Delay anti-spam: 30-60s entre cada contato para evitar ban do WhatsApp
-      if (i < rows.length - 1) {
-        const delayMs = Math.floor(Math.random() * 30000) + 30000; // 30000-60000ms
+      // Delay anti-spam entre contatos (30-60s)
+      if (i < rows.length - 1 && (batch.status as string) !== 'CANCELLED') {
+        const delayMs = Math.floor(Math.random() * (FlowBatchController.BATCH_ANTI_SPAM_MAX_MS - FlowBatchController.BATCH_ANTI_SPAM_MIN_MS))
+          + FlowBatchController.BATCH_ANTI_SPAM_MIN_MS;
         console.log(`[FlowBatch] ⏳ Anti-spam: aguardando ${(delayMs / 1000).toFixed(1)}s antes do próximo contato (${i + 2}/${rows.length})`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
@@ -192,6 +303,8 @@ export class FlowBatchController {
     }
     batch.completedAt = new Date();
 
+    const duration = ((batch.completedAt.getTime() - batch.startedAt.getTime()) / 1000 / 60).toFixed(1);
+    console.log(`[FlowBatch] 📊 Batch ${batch.batchId} finalizado em ${duration}min: ${batch.succeeded} OK, ${batch.failed} erros, ${batch.pauseCount} pausas`);
 
     // Remove o batch da memória após 1 hora
     setTimeout(() => {
@@ -226,9 +339,10 @@ export class FlowBatchController {
       return res.status(404).json({ error: 'Batch não encontrado.' });
     }
 
-    if (batch.status === 'PROCESSING') {
+    if (batch.status === 'PROCESSING' || batch.status === 'PAUSED') {
       batch.status = 'CANCELLED';
       batch.completedAt = new Date();
+      batch.pausedUntil = null;
       return res.json({ message: 'Disparo cancelado com sucesso.', batch });
     }
 
