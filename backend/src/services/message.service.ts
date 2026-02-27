@@ -38,8 +38,6 @@ class MessageService {
             messageId: data.messageId,
             mediaType: data.mediaType || "text",
             mediaUrl: data.mediaUrl || null,
-            quotedMessageId: data.quotedMessageId || null,
-            quotedContent: data.quotedContent || null,
           },
           include: {
             customer: true,
@@ -61,8 +59,6 @@ class MessageService {
             senderType: message.senderType,
             mediaType: message.mediaType,
             mediaUrl: message.mediaUrl,
-            quotedMessageId: message.quotedMessageId,
-            quotedContent: message.quotedContent,
           });
         }
 
@@ -81,8 +77,6 @@ class MessageService {
           messageId: data.messageId,
           mediaType: data.mediaType || "text",
           mediaUrl: data.mediaUrl || null,
-          quotedMessageId: data.quotedMessageId || null,
-          quotedContent: data.quotedContent || null,
         },
         include: {
           customer: true,
@@ -104,8 +98,6 @@ class MessageService {
           senderType: message.senderType,
           mediaType: message.mediaType,
           mediaUrl: message.mediaUrl,
-          quotedMessageId: message.quotedMessageId,
-          quotedContent: message.quotedContent,
         });
       }
 
@@ -839,37 +831,6 @@ class MessageService {
         content = msgData.contactMessage.displayName || "Contato recebido";
       }
 
-      // 9. EXTRAIR MENSAGEM RESPONDIDA (QUOTED MESSAGE)
-      let quotedMessageId: string | null = null;
-      let quotedContent: string | null = null;
-
-      const contextInfo = msgData?.extendedTextMessage?.contextInfo || msgData?.imageMessage?.contextInfo || msgData?.videoMessage?.contextInfo || msgData?.audioMessage?.contextInfo || msgData?.documentMessage?.contextInfo;
-      
-      if (contextInfo?.quotedMessage) {
-        quotedMessageId = contextInfo.stanzaId || null;
-        
-        const qMsg = contextInfo.quotedMessage;
-        if (qMsg.conversation) {
-          quotedContent = qMsg.conversation;
-        } else if (qMsg.extendedTextMessage?.text) {
-          quotedContent = qMsg.extendedTextMessage.text;
-        } else if (qMsg.imageMessage) {
-          quotedContent = qMsg.imageMessage.caption ? `📷 ${qMsg.imageMessage.caption}` : '📷 Imagem';
-        } else if (qMsg.videoMessage) {
-          quotedContent = qMsg.videoMessage.caption ? `🎥 ${qMsg.videoMessage.caption}` : '🎥 Vídeo';
-        } else if (qMsg.audioMessage) {
-          quotedContent = '🎤 Áudio';
-        } else if (qMsg.documentMessage) {
-          quotedContent = `📄 ${qMsg.documentMessage.fileName || 'Documento'}`;
-        } else if (qMsg.stickerMessage) {
-          quotedContent = '🧩 Sticker';
-        } else if (qMsg.contactMessage) {
-          quotedContent = `👤 ${qMsg.contactMessage.displayName || 'Contato'}`;
-        } else {
-          quotedContent = 'Mensagem';
-        }
-      }
-
       // Se não conseguiu extrair conteúdo, retorna null
       if (!content && !mediaUrl) {
         return null;
@@ -888,8 +849,6 @@ class MessageService {
         status: MessageStatus.DELIVERED,
         mediaType,
         mediaUrl,
-        quotedMessageId: quotedMessageId || undefined,
-        quotedContent: quotedContent || undefined,
       });
 
       return { message, customer, instance };

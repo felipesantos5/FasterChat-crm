@@ -34,8 +34,6 @@ export interface Message {
   mediaType?: string | null;
   feedback?: MessageFeedback | null;
   feedbackNote?: string | null;
-  quotedMessageId?: string | null;
-  quotedContent?: string | null;
   createdAt: string;
   updatedAt: string;
   customer?: {
