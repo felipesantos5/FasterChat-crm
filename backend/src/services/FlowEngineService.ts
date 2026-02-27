@@ -71,6 +71,14 @@ export class FlowEngineService {
           where: { id: customer.id },
           data: { tags: combinedTags } // Mais seguro do que { push: xxx }
         });
+
+        // Registrar as tags recém-adicionadas na tabela Tag para aparecer nos filtros do chat
+        try {
+          const { default: tagService } = await import('./tag.service');
+          await tagService.createOrGetMany(flow.companyId, combinedTags);
+        } catch (tagErr: any) {
+          console.warn(`[FlowEngine] ⚠️ Error creating tags in DB for customer ${customer.id}:`, tagErr.message);
+        }
       }
 
       // Desativar a IA quando entra em um fluxo vindo de webhook

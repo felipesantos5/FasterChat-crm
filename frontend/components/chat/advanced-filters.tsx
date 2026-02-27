@@ -38,6 +38,13 @@ export function AdvancedFilters({ filters, onFiltersChange, instances }: Advance
       try {
         setLoadingTags(true);
         const allTags = await tagApi.getAll();
+
+        // Garante que a tag "automação" adicionada pelo fluxo de forma automática esteja sempre disponível para filtro
+        const hasAutoTag = allTags.some(t => t.name.toLowerCase() === 'automação');
+        if (!hasAutoTag) {
+          allTags.push({ id: 'sys-automacao', name: 'automação', color: '#8b5cf6', companyId: '' } as any);
+        }
+
         setTags(allTags);
       } catch (error) {
         console.error("Error loading tags:", error);
