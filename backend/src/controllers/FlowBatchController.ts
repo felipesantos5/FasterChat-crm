@@ -57,7 +57,10 @@ export class FlowBatchController {
     // Parse da planilha
     let rows: Record<string, any>[];
     try {
-      const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+      const isCsv = file.originalname.toLowerCase().endsWith('.csv');
+      const workbook = isCsv
+        ? XLSX.read(file.buffer.toString('utf-8'), { type: 'string' })
+        : XLSX.read(file.buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });
@@ -222,7 +225,10 @@ export class FlowBatchController {
     }
 
     try {
-      const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+      const isCsv = file.originalname.toLowerCase().endsWith('.csv');
+      const workbook = isCsv
+        ? XLSX.read(file.buffer.toString('utf-8'), { type: 'string' })
+        : XLSX.read(file.buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });

@@ -306,27 +306,6 @@ export function FlowBatchUploadModal({
               </div>
             )}
 
-            {/* Columns */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Colunas detectadas
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {storePreview.columns.map((col: string) => (
-                  <span
-                    key={col}
-                    className={`text-xs px-2 py-1 rounded-full font-medium ${col === storePreview.detectedPhoneColumn
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-600"
-                      }`}
-                  >
-                    {col === storePreview.detectedPhoneColumn && "📱 "}
-                    {col}
-                  </span>
-                ))}
-              </div>
-            </div>
-
             {/* Preview table */}
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -371,8 +350,7 @@ export function FlowBatchUploadModal({
                 Tempo estimado:{" "}
                 <strong>
                   {Math.ceil((storePreview.totalRows * 10) / 60)} minutos
-                </strong>{" "}
-                (delay de 5-15s entre cada disparo para segurança)
+                </strong>
               </p>
             </div>
           </div>

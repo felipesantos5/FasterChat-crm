@@ -432,6 +432,11 @@ class MessageService {
       // Isso é crítico para não processar grupos como LIDs (já que grupos têm muitos dígitos)
       const isGroup = remoteJid.includes("@g.us");
 
+      // Grupos de WhatsApp não são salvos como clientes — ignora silenciosamente
+      if (isGroup) {
+        return null;
+      }
+
       // Extrai o número bruto do JID para análise
       const rawNumber = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace("@g.us", "").replace(/\D/g, "");
 

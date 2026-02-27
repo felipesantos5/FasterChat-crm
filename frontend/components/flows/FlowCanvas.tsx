@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { toast } from 'sonner';
-import { Pencil, ArrowLeft, History, FileSpreadsheet, Check } from 'lucide-react';
+import { Pencil, ArrowLeft, History, FileSpreadsheet, Check, Loader2 } from 'lucide-react';
+import { whatsappApi } from '@/lib/whatsapp';
+import { getUser } from '@/lib/auth';
+import { WhatsAppStatus } from '@/types/whatsapp';
 import { ExecutionDrawer } from './ExecutionDrawer';
 import { FlowBatchUploadModal } from './flow-batch-upload-modal';
 import { BatchStatusButton } from './BatchStatusButton';
@@ -76,6 +79,30 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   const [selectedExecution, setSelectedExecution] = useState<any | null>(null);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  const [checkingWhatsApp, setCheckingWhatsApp] = useState(false);
+
+  const handleOpenBatchModal = async () => {
+    setCheckingWhatsApp(true);
+    try {
+      const user = getUser();
+      if (!user) return;
+      const res = await whatsappApi.getInstances(user.companyId);
+      const hasConnected = res.data?.some((inst) => inst.status === WhatsAppStatus.CONNECTED);
+      if (!hasConnected) {
+        toast.error('Nenhum WhatsApp conectado', {
+          description: 'Conecte uma instância do WhatsApp para poder disparar fluxos.',
+          action: { label: 'Conectar agora', onClick: () => router.push('/dashboard/whatsapp') },
+          duration: 6000,
+        });
+        return;
+      }
+      setIsBatchModalOpen(true);
+    } catch {
+      setIsBatchModalOpen(true);
+    } finally {
+      setCheckingWhatsApp(false);
+    }
+  };
 
   // Load or Create Flow
   useEffect(() => {
@@ -302,10 +329,15 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         <div className="flex items-center gap-3">
           <BatchStatusButton flowId={flowId} activeBatchId={activeBatchId} />
           <button
-            onClick={() => setIsBatchModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-md hover:bg-gray-50 transition-all text-sm font-medium shadow-sm"
+            onClick={handleOpenBatchModal}
+            disabled={checkingWhatsApp}
+            className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-md hover:bg-gray-50 transition-all text-sm font-medium shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <FileSpreadsheet size={16} className="text-primary" />
+            {checkingWhatsApp ? (
+              <Loader2 size={16} className="animate-spin text-primary" />
+            ) : (
+              <FileSpreadsheet size={16} className="text-primary" />
+            )}
             Disparar em Massa
           </button>
 

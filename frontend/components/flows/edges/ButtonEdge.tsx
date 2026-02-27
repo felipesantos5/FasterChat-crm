@@ -2,7 +2,7 @@ import React from 'react';
 import {
   BaseEdge,
   EdgeLabelRenderer,
-  getBezierPath,
+  getSmoothStepPath,
   useReactFlow,
   type EdgeProps,
 } from '@xyflow/react';
@@ -20,13 +20,14 @@ export default function ButtonEdge({
   markerEnd,
 }: EdgeProps) {
   const { setEdges } = useReactFlow();
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
+    borderRadius: 12,
   });
 
   const onEdgeClick = (evt: React.MouseEvent) => {

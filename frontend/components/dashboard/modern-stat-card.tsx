@@ -86,7 +86,7 @@ export function ModernStatCard({
         {/* Bottom: Sparkline + Percentage */}
         <div className="flex items-center justify-between gap-2">
           {/* Sparkline Graph */}
-          <div className="w-[80px] h-[28px]">
+          <div className="flex-1 h-[28px]">
             <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="w-full h-full">
               <defs>
                 <linearGradient id={`gradient-${title.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
