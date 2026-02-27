@@ -102,6 +102,17 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
             </div>
           </button>
 
+          <button
+            onClick={() => addNode('random', 'Randomização')}
+            className="flex items-center gap-3 p-3 bg-white border rounded-md shadow-sm hover:border-teal-400 hover:shadow-md transition-all text-left group"
+          >
+            <div className="bg-teal-100 p-2 rounded-md text-teal-600 group-hover:bg-teal-500 group-hover:text-white transition-colors">🎲</div>
+            <div>
+              <p className="font-medium text-sm text-gray-900 font-sans">Randomização</p>
+              <p className="text-xs text-gray-500">Teste A/B aleatório</p>
+            </div>
+          </button>
+
         </div>
       </div>
     </div>

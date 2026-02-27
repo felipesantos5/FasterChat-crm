@@ -62,7 +62,7 @@ export function ModernStatCard({
   const colors = colorMap[colorName] || colorMap.default;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-100 dark:border-gray-700
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm px-5 py-4 border border-gray-100 dark:border-gray-700
       hover:shadow-md transition-all duration-300 relative overflow-hidden group">
 
       {/* Icon Badge Top Right */}
@@ -72,20 +72,21 @@ export function ModernStatCard({
         </div>
       </div>
 
-      <div className="relative z-10 flex flex-col h-full justify-between gap-4">
+      <div className="relative z-10 flex flex-col h-full justify-between gap-3">
         {/* Title */}
         <p className="text-[15px] font-medium text-gray-600 dark:text-gray-400 max-w-[70%]">
           {title}
         </p>
 
-        {/* Value and Sparkline Row */}
-        <div className="flex items-end justify-between -mt-1">
-          <h3 className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
-            {typeof value === "number" ? value.toLocaleString("pt-BR") : value}
-          </h3>
+        {/* Value */}
+        <h3 className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight -mt-1">
+          {typeof value === "number" ? value.toLocaleString("pt-BR") : value}
+        </h3>
 
+        {/* Bottom: Sparkline + Percentage */}
+        <div className="flex items-center justify-between gap-2">
           {/* Sparkline Graph */}
-          <div className="w-[80px] h-[35px] mb-1">
+          <div className="w-[80px] h-[28px]">
             <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="w-full h-full">
               <defs>
                 <linearGradient id={`gradient-${title.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
@@ -97,31 +98,30 @@ export function ModernStatCard({
               <path d={path} fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" stroke={colors.stroke} />
             </svg>
           </div>
-        </div>
 
-        {/* Bottom Stats */}
-        <div className="flex items-center justify-end gap-2 mt-1">
-          <div
-            className={cn(
-              "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold shrink-0",
-              finalTrend === "up" && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-              finalTrend === "down" && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-              finalTrend === "neutral" && "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+          <div className="flex items-center gap-2">
+            {description && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {description}
+              </p>
             )}
-          >
-            {finalTrend === "up" && <TrendingUp className="h-[14px] w-[14px]" />}
-            {finalTrend === "down" && <TrendingDown className="h-[14px] w-[14px]" />}
-            {finalTrend === "neutral" && <Minus className="h-[14px] w-[14px]" />}
-            <span>
-              {isPositive && "+"}
-              {percentageChange}%
-            </span>
+            <div
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold shrink-0",
+                finalTrend === "up" && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                finalTrend === "down" && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                finalTrend === "neutral" && "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+              )}
+            >
+              {finalTrend === "up" && <TrendingUp className="h-[14px] w-[14px]" />}
+              {finalTrend === "down" && <TrendingDown className="h-[14px] w-[14px]" />}
+              {finalTrend === "neutral" && <Minus className="h-[14px] w-[14px]" />}
+              <span>
+                {isPositive && "+"}
+                {percentageChange}%
+              </span>
+            </div>
           </div>
-          {description && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-              {description}
-            </p>
-          )}
         </div>
       </div>
     </div>

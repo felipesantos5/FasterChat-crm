@@ -28,6 +28,7 @@ import { AudioNode } from './nodes/AudioNode';
 import { MediaNode } from './nodes/MediaNode';
 import { AiActionNode } from './nodes/AiActionNode';
 import { ValidationNode } from './nodes/ValidationNode';
+import { RandomNode } from './nodes/RandomNode';
 import { NodeSidebar } from './NodeSidebar';
 import ButtonEdge from './edges/ButtonEdge';
 
@@ -41,6 +42,7 @@ const nodeTypes = {
   video: MediaNode,
   ai_action: AiActionNode,
   validation: ValidationNode,
+  random: RandomNode,
 };
 
 const edgeTypes = {
@@ -234,7 +236,15 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
           label: name,
           flowId,
           ...(type === 'audio' ? { mediaUrl: '', fileName: '' } : {}),
-          ...(type === 'ai_action' ? { aiAction: 'enable' } : {})
+          ...(type === 'ai_action' ? { aiAction: 'enable' } : {}),
+          ...(type === 'random' ? {
+            paths: [
+              { id: 'path_a', label: 'A', percent: 50 },
+              { id: 'path_b', label: 'B', percent: 50 },
+              { id: 'path_c', label: 'C', percent: 0 },
+            ],
+            enabledPaths: 2,
+          } : {})
         },
       };
 

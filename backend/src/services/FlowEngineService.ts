@@ -243,6 +243,10 @@ export class FlowEngineService {
           await this.executeValidationNode(execution, node, data, variables);
           break;
 
+        case 'random':
+          await this.executeRandomNode(execution, node, data);
+          break;
+
         default:
           console.warn(`[FlowEngine] Unknown node type: ${node.type}`);
           await this.processNextNodes(execution.id, node.id);
@@ -519,6 +523,30 @@ export class FlowEngineService {
     }
 
     return true;
+  }
+
+  private async executeRandomNode(execution: any, node: any, data: any) {
+    const paths = data.paths || [
+      { id: 'path_a', percent: 50 },
+      { id: 'path_b', percent: 50 },
+    ];
+    const enabledPaths = data.enabledPaths || 2;
+    const activePaths = paths.slice(0, enabledPaths);
+
+    const rand = Math.random() * 100;
+    let cumulative = 0;
+    let selectedHandle = activePaths[0].id;
+
+    for (const path of activePaths) {
+      cumulative += path.percent;
+      if (rand <= cumulative) {
+        selectedHandle = path.id;
+        break;
+      }
+    }
+
+    console.log(`[FlowEngine] 🎲 Random node ${node.id}: rand=${rand.toFixed(2)} → ${selectedHandle}`);
+    await this.processNextNodes(execution.id, node.id, selectedHandle);
   }
 
   private async executeValidationNode(execution: any, node: any, data: any, variables: any) {
