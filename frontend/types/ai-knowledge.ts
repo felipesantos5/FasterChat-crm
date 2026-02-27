@@ -86,6 +86,7 @@ export interface AIKnowledge {
 export interface GetAIKnowledgeResponse {
   success: boolean;
   data: AIKnowledge | null;
+  autoReplyEnabled?: boolean | null;
 }
 
 export interface UpdateAIKnowledgeRequest {
