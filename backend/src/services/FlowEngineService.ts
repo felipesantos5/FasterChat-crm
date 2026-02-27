@@ -490,14 +490,14 @@ export class FlowEngineService {
   /**
    * Called by the Webhook (Evolution API) when a message is received
    */
-  public async handleIncomingMessage(contactPhone: string, companyId: string, messageText: string = ''): Promise<boolean> {
+  public async handleIncomingMessage(contactPhone: string, companyId: string, messageText: string = '', whatsappInstanceId?: string | null): Promise<boolean> {
     const cleanPhone = contactPhone.replace(/\D/g, '');
     const rightDigits = cleanPhone.length > 8 ? cleanPhone.slice(-8) : cleanPhone;
 
-    console.log(`[FlowEngine:handleIncomingMessage] contactPhone="${contactPhone}" cleanPhone="${cleanPhone}" rightDigits="${rightDigits}" companyId="${companyId}"`);
+    console.log(`[FlowEngine:handleIncomingMessage] contactPhone="${contactPhone}" cleanPhone="${cleanPhone}" rightDigits="${rightDigits}" companyId="${companyId}" instanceId="${whatsappInstanceId}"`);
 
     // Find if there's any active execution waiting for a reply for this contact
-    const executions = await prisma.flowExecution.findMany({
+    let executions = await prisma.flowExecution.findMany({
       where: {
         contactPhone: { endsWith: rightDigits },
         status: FlowExecutionStatus.WAITING_REPLY,
@@ -511,6 +511,26 @@ export class FlowEngineService {
     console.log(`[FlowEngine:handleIncomingMessage] Found ${executions.length} WAITING_REPLY executions for rightDigits="${rightDigits}"`);
     if (executions.length > 0) {
       executions.forEach(e => console.log(`  -> execution id=${e.id} contactPhone="${e.contactPhone}" nodeType="${e.currentNode?.type}" resumesAt=${e.resumesAt}`));
+    }
+
+    // 🔗 FALLBACK: Se não encontrou pelo telefone, tenta pela instância WhatsApp.
+    // Cobre o caso onde o contato responde de um número totalmente diferente do disparo,
+    // mas na mesma instância. Só usa se houver EXATAMENTE 1 execução esperando (sem ambiguidade).
+    if (executions.length === 0 && whatsappInstanceId) {
+      const execsByInstance = await prisma.flowExecution.findMany({
+        where: {
+          status: FlowExecutionStatus.WAITING_REPLY,
+          whatsappInstanceId,
+          flow: { companyId },
+          startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+        },
+        include: { currentNode: true },
+      });
+
+      if (execsByInstance.length === 1) {
+        console.log(`[FlowEngine:handleIncomingMessage] 🔗 Fallback by instance: matched reply from "${cleanPhone}" to execution for "${execsByInstance[0].contactPhone}"`);
+        executions = execsByInstance;
+      }
     }
 
     if (executions.length === 0) {

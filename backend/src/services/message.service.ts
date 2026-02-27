@@ -742,6 +742,60 @@ class MessageService {
       }
 
       // ==================================================================================
+      // 🔗 FLOW REPLY REROUTE: Quando o contato responde de um número diferente do usado
+      // no disparo do fluxo, redirecionamos a mensagem para o customer do fluxo.
+      // Ex: fluxo disparou para 4896365757, contato responde de 40006469 (mesmo aparelho/conta).
+      // Critério: mesma instância WhatsApp + exatamente 1 execução WAITING_REPLY + últimas 48h.
+      // ==================================================================================
+      if (customer && !isGroup) {
+        const waitingExecsForInstance = await prisma.flowExecution.findMany({
+          where: {
+            status: FlowExecutionStatus.WAITING_REPLY,
+            whatsappInstanceId: instance.id,
+            flow: { companyId: instance.companyId },
+            contactPhone: { not: customer.phone },
+            startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+          },
+        });
+
+        // Só redireciona se houver EXATAMENTE 1 execução esperando (evita ambiguidade)
+        if (waitingExecsForInstance.length === 1) {
+          const exec = waitingExecsForInstance[0];
+          const flowCustomer = await prisma.customer.findFirst({
+            where: { companyId: instance.companyId, phone: exec.contactPhone },
+          });
+
+          if (flowCustomer) {
+            console.log(`[MessageService] 🔗 Rerouting reply: "${customer.phone}" → flow customer "${flowCustomer.phone}" (exec ${exec.id})`);
+
+            // Atualiza o customer do fluxo com nome e foto do WhatsApp real
+            const flowUpdates: any = {};
+            if (data.pushName && flowCustomer.name === flowCustomer.phone) {
+              const betterName = this.sanitizePushName(data.pushName, flowCustomer.phone);
+              if (betterName !== flowCustomer.phone) flowUpdates.name = betterName;
+            }
+            if (!flowCustomer.profilePicUrl && customer.profilePicUrl) {
+              flowUpdates.profilePicUrl = customer.profilePicUrl;
+            } else if (!flowCustomer.profilePicUrl) {
+              try {
+                const pic = await whatsappService.getProfilePicture(instanceName, phone);
+                if (pic) flowUpdates.profilePicUrl = pic;
+              } catch {}
+            }
+
+            if (Object.keys(flowUpdates).length > 0) {
+              customer = await prisma.customer.update({
+                where: { id: flowCustomer.id },
+                data: flowUpdates,
+              });
+            } else {
+              customer = flowCustomer;
+            }
+          }
+        }
+      }
+
+      // ==================================================================================
       // PROCESSAMENTO DE MÍDIA E CONTEÚDO
       // ==================================================================================
       let content = "";

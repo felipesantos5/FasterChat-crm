@@ -72,29 +72,33 @@ class WebhookController {
             let companyId: string | null = null;
             let messageContent = "";
 
+            let instanceId: string | null = null;
+
             if (result) {
               phone = result.customer.phone;
               companyId = result.customer.companyId;
               messageContent = result.message.content || "";
+              instanceId = result.instance?.id || result.message?.whatsappInstanceId || null;
             } else {
               // Fallback: extrai phone do remoteJid e companyId da instância
               phone = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "");
               const instance = await prisma.whatsAppInstance.findFirst({
                 where: { instanceName: payload.instance },
-                select: { companyId: true },
+                select: { companyId: true, id: true },
               });
               companyId = instance?.companyId || null;
+              instanceId = instance?.id || null;
               // Tenta extrair conteúdo textual do payload bruto
               messageContent = data.message?.conversation
                 || data.message?.extendedTextMessage?.text
                 || "";
             }
 
-            console.log(`[FlowEngine] Checking reply: phone=${phone} companyId=${companyId} content="${messageContent}" fromResult=${!!result}`);
+            console.log(`[FlowEngine] Checking reply: phone=${phone} companyId=${companyId} instanceId=${instanceId} content="${messageContent}" fromResult=${!!result}`);
             if (phone && companyId) {
               const { FlowEngineService } = await import("../services/FlowEngineService");
               const flowEngine = new FlowEngineService();
-              const flowResumed = await flowEngine.handleIncomingMessage(phone, companyId, messageContent);
+              const flowResumed = await flowEngine.handleIncomingMessage(phone, companyId, messageContent, instanceId);
 
               console.log(`[FlowEngine] handleIncomingMessage returned: ${flowResumed}`);
               if (flowResumed) {
