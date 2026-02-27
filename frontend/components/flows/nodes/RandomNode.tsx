@@ -76,7 +76,7 @@ export const RandomNode = memo(({ id, data }: any) => {
 
   return (
     <div className="bg-white border-2 border-teal-400 rounded-xl shadow-lg min-w-[300px] overflow-hidden transition-all hover:shadow-teal-100 hover:border-teal-500/50">
-      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-teal-500 border-2 border-white" />
+      <Handle type="target" position={Position.Left} className="w-5 h-5 bg-teal-500 border-2 border-white" />
 
       {/* Header */}
       <div className="bg-teal-50 px-3 py-3 border-b border-teal-100 flex items-center justify-between gap-2">
@@ -88,7 +88,7 @@ export const RandomNode = memo(({ id, data }: any) => {
         </div>
         <button
           onClick={() => { if (confirm('Excluir este bloco?')) deleteElements({ nodes: [{ id }] }); }}
-          className="text-teal-300 hover:text-red-500 transition-colors nodrag p-1 hover:bg-red-50 rounded-md"
+          className="text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors nodrag p-1 rounded-md"
         >
           <Trash2 size={14} />
         </button>
@@ -119,11 +119,10 @@ export const RandomNode = memo(({ id, data }: any) => {
           return (
             <div
               key={path.id}
-              className={`flex items-center justify-between p-2.5 rounded-lg border relative transition-all ${
-                isEnabled
+              className={`flex items-center justify-between p-2.5 rounded-lg border relative transition-all ${isEnabled
                   ? `${colors.bg} ${colors.border} hover:opacity-90`
                   : 'bg-gray-50 border-gray-100 opacity-50'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2 flex-1">
                 <span className={`text-[11px] font-bold uppercase ${isEnabled ? colors.text : 'text-gray-400'}`}>
@@ -149,7 +148,7 @@ export const RandomNode = memo(({ id, data }: any) => {
                 type="source"
                 position={Position.Right}
                 id={path.id}
-                className={`w-3 h-3 border-2 border-white -mr-1 ${isEnabled ? colors.handle : 'bg-gray-300'}`}
+                className={`w-5 h-5 border-2 border-white -mr-1 ${isEnabled ? colors.handle : 'bg-gray-300'}`}
               />
             </div>
           );

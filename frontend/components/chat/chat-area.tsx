@@ -241,7 +241,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     if (!companyId) return;
     aiKnowledgeApi.getKnowledge(companyId)
       .then((data) => setAutoReplyEnabled(data.autoReplyEnabled ?? true))
-      .catch(() => {/* mantém true como fallback */});
+      .catch(() => {/* mantém true como fallback */ });
   }, []);
 
   // Scroll para última mensagem
@@ -870,6 +870,24 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                         </div>
                       )}
 
+                      {/* Vídeo */}
+                      {message.mediaType === "video" && message.mediaUrl && (
+                        <div className="space-y-2">
+                          <video
+                            src={message.mediaUrl}
+                            controls
+                            preload="metadata"
+                            className="max-w-full max-h-[400px] object-contain rounded-lg shadow-md bg-black/5"
+                          />
+                          {message.content && !message.content.startsWith("[Vídeo") && (
+                            <MessageText
+                              content={message.content}
+                              className={cn("text-xs italic", isInbound ? "text-muted-foreground" : "text-white/80")}
+                            />
+                          )}
+                        </div>
+                      )}
+
                       {/* Áudio com Player Customizado */}
                       {message.mediaType === "audio" && message.mediaUrl ? (
                         <AudioPlayer audioUrl={message.mediaUrl} transcription={message.content} isInbound={isInbound} />
@@ -880,12 +898,12 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                         </div>
                       ) : null}
 
-                      {/* Texto (apenas se não for áudio e não for imagem - imagens já mostram legenda no próprio bloco) */}
-                      {message.mediaType !== "audio" && message.mediaType !== "image" && message.content && (
+                      {/* Texto (apenas se não for áudio, imagem ou vídeo - mídias já mostram legenda no próprio bloco) */}
+                      {message.mediaType !== "audio" && message.mediaType !== "image" && message.mediaType !== "video" && message.content && (
                         <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
                       )}
                     </div>
-                    <div className="flex items-center justify-between gap-2 mt-1">
+                    <div className="flex items-center justify-end gap-2 mt-1">
                       <div className="flex items-center gap-1">
                         <p className={cn("text-xs", isInbound || isAi ? "text-gray-600" : "text-white")}>{formatMessageTime(message.timestamp)}</p>
                         {/* Checkmarks para mensagens enviadas - baseado no status real */}

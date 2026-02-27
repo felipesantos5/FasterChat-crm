@@ -406,12 +406,19 @@ export function FlowBatchUploadModal({
 
             {/* Executing animation */}
             {step === "executing" && (
-              <div className="flex items-center justify-center gap-2 py-2">
-                <Loader2 size={18} className="animate-spin text-primary" />
-                <span className="text-sm text-gray-500">
-                  Disparando contato {batchStatus.processed + 1} de{" "}
-                  {batchStatus.total}...
-                </span>
+              <div className="flex flex-col items-center justify-center gap-4 py-2">
+                <div className="flex items-center gap-2">
+                  <Loader2 size={18} className="animate-spin text-primary" />
+                  <span className="text-sm text-gray-500">
+                    Disparando contato {batchStatus.processed + 1} de{" "}
+                    {batchStatus.total}...
+                  </span>
+                </div>
+                <div className="w-full p-3 bg-blue-50 border border-blue-100 rounded-lg text-center">
+                  <p className="text-sm text-blue-700">
+                    <strong>ℹ️ Aviso:</strong> Você pode fechar esta aba. O envio das mensagens irá continuar em segundo plano.
+                  </p>
+                </div>
               </div>
             )}
 

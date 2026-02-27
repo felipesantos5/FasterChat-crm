@@ -1,18 +1,32 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   AreaChart,
   Area,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, TrendingUp } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, MessageSquare, Calendar } from "lucide-react";
+
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
 
 interface MessagesOverTimeData {
   date: string;
@@ -25,156 +39,150 @@ interface ModernMessagesChartProps {
   data: MessagesOverTimeData[];
 }
 
+const chartConfig = {
+  inbound: {
+    label: "Recebidas",
+    color: "hsl(var(--chart-1))",
+  },
+  outbound: {
+    label: "Enviadas",
+    color: "hsl(var(--chart-2))",
+  },
+  aiResponses: {
+    label: "IA",
+    color: "hsl(var(--chart-3))",
+  },
+} satisfies ChartConfig;
+
 export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
   const formattedData = data.map((item) => {
-    // Parse "YYYY-MM-DD" as local date to avoid UTC-midnight timezone shift
     const [y, m, d] = item.date.split("-").map(Number);
     return {
       ...item,
-      dateLabel: format(new Date(y, m - 1, d), "dd/MM", { locale: ptBR }),
+      dateLabel: format(new Date(y, m - 1, d), "d MMM", { locale: ptBR }),
       total: item.inbound + item.outbound,
     };
   });
 
-  const totalMessages = formattedData.reduce((acc, curr) => acc + curr.total, 0);
-  const avgDaily = Math.round(totalMessages / formattedData.length);
+  const miniStats = useMemo(() => {
+    const totalInbound = data.reduce((acc, d) => acc + d.inbound, 0);
+    const totalOutbound = data.reduce((acc, d) => acc + d.outbound, 0);
+    const totalAI = data.reduce((acc, d) => acc + d.aiResponses, 0);
+    const peakDay = data.length > 0
+      ? data.reduce((max, d) => (d.inbound + d.outbound > max.inbound + max.outbound ? d : max), data[0])
+      : null;
+    let peakDayLabel = "";
+    if (peakDay) {
+      const [y, m, d] = peakDay.date.split("-").map(Number);
+      peakDayLabel = format(new Date(y, m - 1, d), "d MMM", { locale: ptBR });
+    }
+    return { totalInbound, totalOutbound, totalAI, peakDayLabel, peakDayTotal: peakDay ? peakDay.inbound + peakDay.outbound : 0 };
+  }, [data]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
-              <MessageSquare className="h-5 w-5 text-white" />
+    <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
+      <CardHeader className="items-start pb-2 pt-4 px-4">
+        <CardTitle className="text-base">Visão Geral de Mensagens</CardTitle>
+      </CardHeader>
+      <CardContent className="flex-1 pb-0 px-4">
+        <ChartContainer config={chartConfig} className="h-[200px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={formattedData}
+              margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="fillInbound" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-inbound)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="var(--color-inbound)" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id="fillOutbound" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-outbound)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="var(--color-outbound)" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id="fillAI" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-aiResponses)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="var(--color-aiResponses)" stopOpacity={0.1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.5} />
+              <XAxis
+                dataKey="dateLabel"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                minTickGap={32}
+                fontSize={11}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => `${value}`}
+                width={35}
+                fontSize={11}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent indicator="dot" />}
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Area
+                type="monotone"
+                dataKey="inbound"
+                stackId="1"
+                stroke="var(--color-inbound)"
+                fill="url(#fillInbound)"
+              />
+              <Area
+                type="monotone"
+                dataKey="outbound"
+                stackId="1"
+                stroke="var(--color-outbound)"
+                fill="url(#fillOutbound)"
+              />
+              <Area
+                type="monotone"
+                dataKey="aiResponses"
+                stackId="1"
+                stroke="var(--color-aiResponses)"
+                fill="url(#fillAI)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+
+        {/* Mini Stats Bar */}
+        <div className="grid grid-cols-4 gap-2 py-3 border-t border-gray-100 dark:border-gray-800 mt-1">
+          <div className="flex items-center gap-1.5">
+            <ArrowDownLeft className="h-3.5 w-3.5 text-blue-500" />
+            <div>
+              <p className="text-xs text-muted-foreground">Recebidas</p>
+              <p className="text-sm font-semibold">{miniStats.totalInbound}</p>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Gráfico de Mensagens
-            </h3>
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Histórico de interações
-          </p>
-        </div>
-        <div className="text-right">
-          <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-            <TrendingUp className="h-4 w-4" />
-            <span className="text-sm font-medium">+12.5%</span>
+          <div className="flex items-center gap-1.5">
+            <ArrowUpRight className="h-3.5 w-3.5 text-green-500" />
+            <div>
+              <p className="text-xs text-muted-foreground">Enviadas</p>
+              <p className="text-sm font-semibold">{miniStats.totalOutbound}</p>
+            </div>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {avgDaily} msg/dia
-          </p>
-        </div>
-      </div>
-
-      <ResponsiveContainer width="100%" height={300}>
-        <AreaChart
-          data={formattedData}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-        >
-          <defs>
-            <linearGradient id="colorInbound" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="colorOutbound" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="colorAI" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" opacity={0.5} />
-          <XAxis
-            dataKey="dateLabel"
-            stroke="#9CA3AF"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            stroke="#9CA3AF"
-            fontSize={12}
-            tickLine={false}
-            axisLine={false}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "rgba(255, 255, 255, 0.95)",
-              border: "1px solid #E5E7EB",
-              borderRadius: "12px",
-              padding: "12px",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            }}
-          />
-          <Legend
-            wrapperStyle={{ paddingTop: "20px" }}
-            iconType="circle"
-            iconSize={8}
-          />
-          <Area
-            type="monotone"
-            dataKey="inbound"
-            stroke="#3B82F6"
-            strokeWidth={2}
-            fill="url(#colorInbound)"
-            name="Recebidas"
-          />
-          <Area
-            type="monotone"
-            dataKey="outbound"
-            stroke="#10B981"
-            strokeWidth={2}
-            fill="url(#colorOutbound)"
-            name="Enviadas"
-          />
-          <Area
-            type="monotone"
-            dataKey="aiResponses"
-            stroke="#8B5CF6"
-            strokeWidth={2}
-            fill="url(#colorAI)"
-            name="Atendimento Automático"
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-
-      <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              Recebidas
-            </span>
+          <div className="flex items-center gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5 text-purple-500" />
+            <div>
+              <p className="text-xs text-muted-foreground">Respostas IA</p>
+              <p className="text-sm font-semibold">{miniStats.totalAI}</p>
+            </div>
           </div>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">
-            {formattedData.reduce((acc, curr) => acc + curr.inbound, 0)}
-          </p>
-        </div>
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="h-2 w-2 rounded-full bg-green-500"></div>
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              Enviadas
-            </span>
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 text-orange-500" />
+            <div>
+              <p className="text-xs text-muted-foreground">Maior volume</p>
+              <p className="text-sm font-semibold">{miniStats.peakDayLabel} ({miniStats.peakDayTotal})</p>
+            </div>
           </div>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">
-            {formattedData.reduce((acc, curr) => acc + curr.outbound, 0)}
-          </p>
         </div>
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <div className="h-2 w-2 rounded-full bg-purple-500"></div>
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              IA
-            </span>
-          </div>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">
-            {formattedData.reduce((acc, curr) => acc + curr.aiResponses, 0)}
-          </p>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

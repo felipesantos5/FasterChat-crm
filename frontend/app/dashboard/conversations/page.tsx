@@ -170,8 +170,23 @@ function ConversationsPageContent() {
     const customerId = searchParams.get("customer");
     if (customerId) {
       setSelectedCustomerId(customerId);
+
+      // Se o cliente não existe na lista de conversas, busca os dados e cria conversa pendente
+      const existsInConversations = conversations.some((c) => c.customerId === customerId);
+      if (!existsInConversations && !isLoading) {
+        customerApi.getById(customerId).then((customer) => {
+          setPendingConversation({
+            customerId: customer.id,
+            customerName: customer.name,
+            customerPhone: customer.phone,
+            customerProfilePic: customer.profilePicUrl || null,
+          });
+        }).catch((err) => {
+          console.error("Erro ao buscar cliente para conversa pendente:", err);
+        });
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, conversations, isLoading]);
 
   // Limpa a conversa pendente quando ela aparecer na lista de conversas
   useEffect(() => {

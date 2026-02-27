@@ -201,7 +201,7 @@ export const AudioNode = memo(({ id, data }: any) => {
 
   return (
     <div className="bg-white border border-emerald-400 rounded-md shadow-md min-w-[250px] overflow-hidden transition-all hover:shadow-lg">
-      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-emerald-500" />
+      <Handle type="target" position={Position.Left} className="w-5 h-5 bg-emerald-500" />
 
       <div className="bg-emerald-50 px-3 py-2 border-b border-emerald-100 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -212,7 +212,7 @@ export const AudioNode = memo(({ id, data }: any) => {
           onClick={() => {
             if (confirm('Excluir este bloco de áudio?')) deleteElements({ nodes: [{ id }] });
           }}
-          className="text-emerald-300 hover:text-red-500 transition-colors nodrag"
+          className="text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors nodrag p-1 rounded-md"
         >
           <Trash2 size={14} />
         </button>
@@ -346,7 +346,7 @@ export const AudioNode = memo(({ id, data }: any) => {
         />
       </div>
 
-      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-emerald-500" />
+      <Handle type="source" position={Position.Right} className="w-5 h-5 bg-emerald-500" />
     </div>
   );
 });

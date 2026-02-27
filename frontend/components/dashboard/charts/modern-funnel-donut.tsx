@@ -1,6 +1,19 @@
 "use client";
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { PieChart, Pie, Label } from "recharts";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 
 interface PipelineFunnelData {
   stageId: string;
@@ -15,13 +28,11 @@ interface ModernFunnelDonutProps {
 }
 
 const COLORS = [
-  "#3B82F6", // blue
-  "#10B981", // green
-  "#F59E0B", // amber
-  "#EF4444", // red
-  "#8B5CF6", // purple
-  "#EC4899", // pink
-  "#14B8A6", // teal
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
 ];
 
 export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
@@ -31,101 +42,105 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
   const chartData = filteredData.map((item, index) => ({
     name: item.stageName,
     value: item.count,
-    color: COLORS[index % COLORS.length],
+    fill: COLORS[index % COLORS.length],
   }));
+
+  const chartConfig = chartData.reduce((acc, curr, index) => {
+    acc[`stage_${index}`] = {
+      label: curr.name,
+      color: curr.fill,
+    };
+    return acc;
+  }, {} as ChartConfig);
 
   const total = chartData.reduce((acc, curr) => acc + curr.value, 0);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 h-full w-full">
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <div className="flex items-center gap-2">
-            {/* <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
-              <Filter className="h-5 w-5 text-white" />
-            </div> */}
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Funil de Vendas
-            </h3>
-          </div>
-          {/* <p className="text-sm text-gray-500 dark:text-gray-400">
-            Distribuição por estágio
-          </p> */}
-        </div>
-      </div>
-
-      <div className="relative">
-        <ResponsiveContainer width="100%" height={250}>
+    <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
+      <CardHeader className="items-start pb-0">
+        <CardTitle>Funil de Vendas</CardTitle>
+        <CardDescription>Distribuição por estágio</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1 pb-0">
+        <ChartContainer
+          config={chartConfig}
+          className="mx-auto aspect-square max-h-[250px]"
+        >
           <PieChart>
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideLabel />}
+            />
             <Pie
               data={chartData}
-              cx="50%"
-              cy="50%"
-              innerRadius={70}
-              outerRadius={100}
-              paddingAngle={2}
               dataKey="value"
+              nameKey="name"
+              innerRadius={60}
+              outerRadius={80}
+              strokeWidth={2}
+              stroke="var(--background)"
             >
-              {chartData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={entry.color}
-                  className="stroke-white dark:stroke-gray-800"
-                  strokeWidth={2}
-                />
-              ))}
+              <Label
+                content={({ viewBox }) => {
+                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                    return (
+                      <text
+                        x={viewBox.cx}
+                        y={viewBox.cy}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        <tspan
+                          x={viewBox.cx}
+                          y={viewBox.cy}
+                          className="fill-foreground text-3xl font-bold"
+                        >
+                          {total.toLocaleString()}
+                        </tspan>
+                        <tspan
+                          x={viewBox.cx}
+                          y={(viewBox.cy || 0) + 24}
+                          className="fill-muted-foreground text-xs"
+                        >
+                          Total
+                        </tspan>
+                      </text>
+                    );
+                  }
+                  return null;
+                }}
+              />
             </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "rgba(255, 255, 255, 0.95)",
-                border: "1px solid #E5E7EB",
-                borderRadius: "12px",
-                padding: "8px 12px",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              }}
-            />
           </PieChart>
-        </ResponsiveContainer>
+        </ChartContainer>
 
-        {/* Label central customizado */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {total}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              Total
-            </div>
-          </div>
+        <div className="space-y-3 mt-4 mb-4">
+          {chartData.map((item, index) => {
+            const percentage = ((item.value / total) * 100).toFixed(1);
+            return (
+              <div key={index} className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: item.fill }}
+                  ></div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[120px]">
+                    {item.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {item.value}
+                  </span>
+                  <span className="text-xs text-muted-foreground w-12 text-right">
+                    {percentage}%
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </div>
-
-      <div className="space-y-3 mt-6">
-        {chartData.map((item, index) => {
-          const percentage = ((item.value / total) * 100).toFixed(1);
-          return (
-            <div key={index} className="flex items-center justify-between">
-              <div className="flex items-center gap-3 flex-1">
-                <div
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                ></div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {item.name}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {item.value}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 w-12 text-right">
-                  {percentage}%
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

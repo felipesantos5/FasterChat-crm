@@ -60,6 +60,24 @@ interface HourlyMessageData {
   count: number;
 }
 
+interface AvgResponseTimeData {
+  avgSeconds: number;
+  percentageChange: number;
+}
+
+interface ActiveAppointmentsData {
+  active: number;
+  percentageChange: number;
+  avgDurationMinutes: number;
+  completed: number;
+}
+
+interface AgentStatsData {
+  agentName: string;
+  humanCount: number;
+  aiCount: number;
+}
+
 interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
@@ -67,6 +85,9 @@ interface DashboardChartsData {
   appointmentsByStatus: AppointmentsByStatusData[];
   customerActivity: CustomerActivityData;
   messagesByHour: HourlyMessageData[];
+  avgResponseTime: AvgResponseTimeData;
+  activeAppointments: ActiveAppointmentsData;
+  messagesByAgent: AgentStatsData[];
 }
 
 const APPOINTMENT_TYPE_LABELS: Record<AppointmentType, string> = {
@@ -432,8 +453,7 @@ class DashboardService {
     customStartDate?: string,
     customEndDate?: string
   ): Promise<DashboardChartsData> {
-    const now = new Date();
-    const { currentStart, currentEnd } = this.getDateRangeFromPreset(preset, customStartDate, customEndDate);
+    const { currentStart, currentEnd, previousStart, previousEnd } = this.getDateRangeFromPreset(preset, customStartDate, customEndDate);
 
     // Calcula o número de dias para agrupamento dos gráficos
     const daysCount = Math.ceil((currentEnd.getTime() - currentStart.getTime()) / (1000 * 60 * 60 * 24));
@@ -445,6 +465,9 @@ class DashboardService {
       appointmentsByStatus,
       customerActivity,
       messagesByHour,
+      avgResponseTime,
+      activeAppointments,
+      messagesByAgent,
     ] = await Promise.all([
       this.getPipelineFunnelData(companyId),
       this.getMessagesOverTimeData(companyId, currentStart, daysCount),
@@ -452,6 +475,9 @@ class DashboardService {
       this.getAppointmentsByStatusData(companyId),
       this.getCustomerActivityData(companyId),
       this.getMessagesByHourData(companyId, currentStart, currentEnd),
+      this.getAvgResponseTimeData(companyId, currentStart, currentEnd, previousStart, previousEnd),
+      this.getActiveAppointmentsData(companyId, currentStart, currentEnd, previousStart, previousEnd),
+      this.getMessagesByAgentData(companyId, currentStart, currentEnd),
     ]);
 
     return {
@@ -461,6 +487,9 @@ class DashboardService {
       appointmentsByStatus,
       customerActivity,
       messagesByHour,
+      avgResponseTime,
+      activeAppointments,
+      messagesByAgent,
     };
   }
 
@@ -682,6 +711,189 @@ class DashboardService {
       inactive: totalCustomers - activeCount,
       total: totalCustomers,
     };
+  }
+
+  private async getAvgResponseTimeData(
+    companyId: string,
+    currentStart: Date,
+    currentEnd: Date,
+    previousStart: Date,
+    previousEnd: Date
+  ): Promise<AvgResponseTimeData> {
+    const calcAvg = async (start: Date, end: Date): Promise<number> => {
+      // Get inbound messages in the period
+      const inboundMessages = await prisma.message.findMany({
+        where: {
+          customer: { companyId },
+          direction: MessageDirection.INBOUND,
+          timestamp: { gte: start, lte: end },
+        },
+        select: { customerId: true, timestamp: true },
+        orderBy: { timestamp: "asc" },
+      });
+
+      if (inboundMessages.length === 0) return 0;
+
+      // For each inbound, find the next outbound for same customer
+      let totalSeconds = 0;
+      let count = 0;
+
+      for (const inMsg of inboundMessages) {
+        const nextOutbound = await prisma.message.findFirst({
+          where: {
+            customerId: inMsg.customerId,
+            direction: MessageDirection.OUTBOUND,
+            timestamp: { gt: inMsg.timestamp },
+          },
+          select: { timestamp: true },
+          orderBy: { timestamp: "asc" },
+        });
+
+        if (nextOutbound) {
+          const diffSeconds = (nextOutbound.timestamp.getTime() - inMsg.timestamp.getTime()) / 1000;
+          // Only count if response was within 24h (ignore abandoned conversations)
+          if (diffSeconds < 86400) {
+            totalSeconds += diffSeconds;
+            count++;
+          }
+        }
+      }
+
+      return count > 0 ? Math.round(totalSeconds / count) : 0;
+    };
+
+    // Limit to last 100 inbound messages for performance
+    const currentAvg = await calcAvg(currentStart, currentEnd);
+    const previousAvg = await calcAvg(previousStart, previousEnd);
+
+    return {
+      avgSeconds: currentAvg,
+      percentageChange: this.calculatePercentageChange(
+        previousAvg, // inverted: lower is better
+        currentAvg
+      ),
+    };
+  }
+
+  private async getActiveAppointmentsData(
+    companyId: string,
+    currentStart: Date,
+    currentEnd: Date,
+    previousStart: Date,
+    previousEnd: Date
+  ): Promise<ActiveAppointmentsData> {
+    const now = new Date();
+
+    const [activeCount, previousActiveCount, completedAppointments, completedCount] = await Promise.all([
+      prisma.appointment.count({
+        where: {
+          companyId,
+          status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED] },
+          startTime: { gte: now },
+        },
+      }),
+      prisma.appointment.count({
+        where: {
+          companyId,
+          status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED] },
+          startTime: { gte: previousStart, lte: previousEnd },
+        },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          companyId,
+          status: AppointmentStatus.COMPLETED,
+          startTime: { gte: currentStart, lte: currentEnd },
+        },
+        select: { startTime: true, endTime: true },
+      }),
+      prisma.appointment.count({
+        where: {
+          companyId,
+          status: AppointmentStatus.COMPLETED,
+          startTime: { gte: currentStart, lte: currentEnd },
+        },
+      }),
+    ]);
+
+    // Calculate average duration of completed appointments
+    let avgDurationMinutes = 0;
+    if (completedAppointments.length > 0) {
+      const totalMinutes = completedAppointments.reduce((acc, apt) => {
+        return acc + (apt.endTime.getTime() - apt.startTime.getTime()) / 60000;
+      }, 0);
+      avgDurationMinutes = Math.round(totalMinutes / completedAppointments.length);
+    }
+
+    return {
+      active: activeCount,
+      percentageChange: this.calculatePercentageChange(activeCount, previousActiveCount),
+      avgDurationMinutes,
+      completed: completedCount,
+    };
+  }
+
+  private async getMessagesByAgentData(
+    companyId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<AgentStatsData[]> {
+    // Get AI message count
+    const aiCount = await prisma.message.count({
+      where: {
+        customer: { companyId },
+        direction: MessageDirection.OUTBOUND,
+        senderType: "AI",
+        timestamp: { gte: startDate, lte: endDate },
+      },
+    });
+
+    // Get human messages grouped by assigned agent
+    const conversations = await prisma.conversation.findMany({
+      where: { companyId },
+      select: {
+        id: true,
+        customerId: true,
+        assignedTo: { select: { name: true } },
+      },
+    });
+
+    const agentMap = new Map<string, number>();
+
+    for (const conv of conversations) {
+      if (!conv.assignedTo) continue;
+
+      const msgCount = await prisma.message.count({
+        where: {
+          customerId: conv.customerId,
+          direction: MessageDirection.OUTBOUND,
+          senderType: "HUMAN",
+          timestamp: { gte: startDate, lte: endDate },
+        },
+      });
+
+      if (msgCount > 0) {
+        const current = agentMap.get(conv.assignedTo.name) || 0;
+        agentMap.set(conv.assignedTo.name, current + msgCount);
+      }
+    }
+
+    const result: AgentStatsData[] = [];
+
+    // Add AI as first entry
+    if (aiCount > 0) {
+      result.push({ agentName: "IA", humanCount: 0, aiCount });
+    }
+
+    // Add human agents
+    for (const [agentName, humanCount] of agentMap) {
+      result.push({ agentName, humanCount, aiCount: 0 });
+    }
+
+    // Sort by total count descending
+    result.sort((a, b) => (b.humanCount + b.aiCount) - (a.humanCount + a.aiCount));
+
+    return result;
   }
 
   private async getMessagesByHourData(

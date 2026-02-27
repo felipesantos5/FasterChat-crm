@@ -148,7 +148,7 @@ export function AdvancedFilters({ filters, onFiltersChange, instances }: Advance
           {instances.length > 0 && (
             <div className="space-y-2">
               <Label className="text-xs font-medium text-muted-foreground">
-                INSTÂNCIA DO WHATSAPP
+                NÚMEROS DO WHATSAPP
               </Label>
               <Select
                 value={filters.selectedInstanceId || "all"}
@@ -157,11 +157,11 @@ export function AdvancedFilters({ filters, onFiltersChange, instances }: Advance
                 <SelectTrigger className="h-9 text-sm">
                   <div className="flex items-center gap-2">
                     <Smartphone className="h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Todas as instâncias" />
+                    <SelectValue placeholder="Todos os números" />
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas as instâncias</SelectItem>
+                  <SelectItem value="all">Todos os números</SelectItem>
                   {instances.map((instance) => (
                     <SelectItem key={instance.id} value={instance.id}>
                       {instance.displayName || instance.instanceName}
@@ -283,53 +283,6 @@ export function AdvancedFilters({ filters, onFiltersChange, instances }: Advance
               )}
             </div>
           </div>
-
-          {/* Resumo dos filtros ativos */}
-          {hasActiveFilters && (
-            <div className="pt-2 border-t">
-              <p className="text-xs text-muted-foreground mb-2">Filtros ativos:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {filters.onlyNeedsHelp && (
-                  <Badge className="text-xs bg-yellow-500">
-                    🚨 Precisa de ajuda
-                  </Badge>
-                )}
-                {filters.onlyAiEnabled && (
-                  <Badge variant="secondary" className="text-xs">
-                    IA ativa
-                  </Badge>
-                )}
-                {filters.excludeGroups && (
-                  <Badge variant="secondary" className="text-xs">
-                    Sem grupos
-                  </Badge>
-                )}
-                {filters.selectedInstanceId && (
-                  <Badge variant="secondary" className="text-xs">
-                    📱 {instances.find(i => i.id === filters.selectedInstanceId)?.displayName || instances.find(i => i.id === filters.selectedInstanceId)?.instanceName || "Instância"}
-                  </Badge>
-                )}
-                {filters.selectedTags.map((tagName) => {
-                  const tag = tags.find(t => t.name === tagName);
-                  const tagColor = tag?.color || "#e5e7eb";
-                  return (
-                    <Badge
-                      key={tagName}
-                      variant="outline"
-                      className="text-xs"
-                      style={{
-                        backgroundColor: `${tagColor}20`,
-                        borderColor: tagColor,
-                        color: tagColor,
-                      }}
-                    >
-                      {tagName}
-                    </Badge>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
       </PopoverContent>
     </Popover>

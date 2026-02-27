@@ -16,7 +16,7 @@ import * as XLSX from 'xlsx';
 interface BatchStatus {
   batchId: string;
   flowId: string;
-  status: 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  status: 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   total: number;
   processed: number;
   succeeded: number;
@@ -146,6 +146,11 @@ export class FlowBatchController {
 
 
     for (let i = 0; i < rows.length; i++) {
+      if (batch.status === 'CANCELLED') {
+        console.log(`[FlowBatch] 🛑 Batch ${batch.batchId} foi cancelado pelo usuário.`);
+        break;
+      }
+
       const row = rows[i];
       const phone = String(row[phoneColumn] || '').replace(/\D/g, '');
 
@@ -182,7 +187,9 @@ export class FlowBatchController {
       }
     }
 
-    batch.status = 'COMPLETED';
+    if (batch.status === 'PROCESSING') {
+      batch.status = 'COMPLETED';
+    }
     batch.completedAt = new Date();
 
 
@@ -205,6 +212,27 @@ export class FlowBatchController {
     }
 
     return res.json(batch);
+  }
+
+  /**
+   * POST /flows/:id/batch/:batchId/cancel
+   * Cancela um batch em andamento
+   */
+  public async cancelBatch(req: Request, res: Response): Promise<Response> {
+    const { batchId } = req.params;
+
+    const batch = batchStore.get(batchId);
+    if (!batch) {
+      return res.status(404).json({ error: 'Batch não encontrado.' });
+    }
+
+    if (batch.status === 'PROCESSING') {
+      batch.status = 'CANCELLED';
+      batch.completedAt = new Date();
+      return res.json({ message: 'Disparo cancelado com sucesso.', batch });
+    }
+
+    return res.status(400).json({ error: 'Batch já foi finalizado ou já cancelado.', batch });
   }
 
   /**

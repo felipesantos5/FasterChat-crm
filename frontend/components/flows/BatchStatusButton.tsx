@@ -14,12 +14,23 @@ import {
   Loader2,
   Clock,
   AlertTriangle,
+  Ban,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import api from "@/lib/api";
 
 interface BatchStatusData {
   batchId: string;
-  status: "PROCESSING" | "COMPLETED" | "FAILED";
+  status: "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
   total: number;
   processed: number;
   succeeded: number;
@@ -66,6 +77,8 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
   const [status, setStatus] = useState<BatchStatusData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -89,7 +102,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
       const res = await api.get(`/flows/${flowId}/batch/${batchId}`);
       setStatus(res.data);
 
-      if (res.data.status === "COMPLETED" || res.data.status === "FAILED") {
+      if (res.data.status === "COMPLETED" || res.data.status === "FAILED" || res.data.status === "CANCELLED") {
         // Stop polling
         if (pollRef.current) {
           clearInterval(pollRef.current);
@@ -112,6 +125,20 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
     }
   }, [batchId, flowId]);
 
+  const handleCancelBatch = async () => {
+    if (!batchId) return;
+    setIsCanceling(true);
+    try {
+      await api.post(`/flows/${flowId}/batch/${batchId}/cancel`);
+      await fetchStatus();
+      setIsCancelModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao cancelar disparos em massa:", error);
+    } finally {
+      setIsCanceling(false);
+    }
+  };
+
   useEffect(() => {
     if (!batchId) return;
 
@@ -132,6 +159,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
   const isProcessing = !status || status.status === "PROCESSING";
   const isCompleted = status?.status === "COMPLETED";
   const isFailed = status?.status === "FAILED";
+  const isCancelled = status?.status === "CANCELLED";
   const progressPercent = status
     ? Math.round((status.processed / status.total) * 100)
     : 0;
@@ -176,8 +204,10 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
           {isProcessing
             ? `Enviando ${status?.processed ?? 0}/${status?.total ?? "..."}`
             : isCompleted
-              ? `✅ ${status.succeeded}/${status.total} concluído`
-              : `⚠️ Falha no disparo`}
+              ? `✅ ${status?.succeeded}/${status?.total} concluído`
+              : isCancelled
+                ? `🚫 Cancelado`
+                : `⚠️ Falha no disparo`}
         </span>
 
         {isProcessing && status && (
@@ -206,7 +236,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-semibold text-gray-700">
-                    {isProcessing ? "Disparando..." : isCompleted ? "Concluído!" : "Falha"}
+                    {isProcessing ? "Disparando..." : isCompleted ? "Concluído!" : isCancelled ? "Cancelado" : "Falha"}
                   </span>
                   <span className="text-sm font-bold text-primary">
                     {progressPercent}%
@@ -279,17 +309,21 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
               )}
 
               {/* Done indicator */}
-              {(isCompleted || isFailed) && (
+              {(isCompleted || isFailed || isCancelled) && (
                 <div className="flex flex-col items-center gap-2 py-1">
                   {isCompleted && status.failed === 0 ? (
                     <CheckCircle2 size={32} className="text-green-500" />
+                  ) : isCancelled ? (
+                    <Ban size={32} className="text-red-500" />
                   ) : (
                     <XCircle size={32} className="text-amber-500" />
                   )}
-                  <p className="text-sm font-semibold text-gray-700">
+                  <p className="text-sm font-semibold text-gray-700 text-center">
                     {isCompleted && status.failed === 0
                       ? "Todos os disparos foram realizados com sucesso!"
-                      : `${status.succeeded} disparos OK, ${status.failed} falhas`}
+                      : isCancelled
+                        ? "Os disparos foram cancelados pelo usuário."
+                        : `${status.succeeded} disparos OK, ${status.failed} falhas`}
                   </p>
                 </div>
               )}
@@ -316,6 +350,19 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                   </div>
                 </div>
               )}
+
+              {/* Cancel Button */}
+              {isProcessing && (
+                <div className="mt-4 flex justify-center border-t pt-4">
+                  <button
+                    onClick={() => setIsCancelModalOpen(true)}
+                    className="flex items-center gap-2 text-red-500 hover:text-red-700 text-sm font-medium transition-colors p-2 rounded-md hover:bg-red-50"
+                  >
+                    <Ban size={16} />
+                    Cancelar Envios
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex items-center justify-center py-8">
@@ -325,6 +372,42 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Confirmation Modal */}
+      <AlertDialog
+        open={isCancelModalOpen}
+        onOpenChange={setIsCancelModalOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar Envios em Massa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja cancelar os envios deste lote? Os contatos já
+              processados não poderão ser revertidos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCanceling}>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-500 hover:bg-red-600 text-white"
+              onClick={(e) => {
+                e.preventDefault();
+                handleCancelBatch();
+              }}
+              disabled={isCanceling}
+            >
+              {isCanceling ? (
+                <>
+                  <Loader2 size={16} className="mr-2 animate-spin" />
+                  Cancelando...
+                </>
+              ) : (
+                "Sim, Cancelar"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

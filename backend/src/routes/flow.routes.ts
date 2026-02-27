@@ -44,5 +44,6 @@ flowRouter.delete('/:id', asyncHandler(flowController.deleteFlow));
 flowRouter.post('/:id/batch/preview', upload.single('file'), asyncHandler(flowBatchController.previewUpload.bind(flowBatchController)));
 flowRouter.post('/:id/batch', upload.single('file'), asyncHandler(flowBatchController.uploadAndExecute.bind(flowBatchController)));
 flowRouter.get('/:id/batch/:batchId', asyncHandler(flowBatchController.getBatchStatus.bind(flowBatchController)));
+flowRouter.post('/:id/batch/:batchId/cancel', asyncHandler(flowBatchController.cancelBatch.bind(flowBatchController)));
 
 export { flowRouter };

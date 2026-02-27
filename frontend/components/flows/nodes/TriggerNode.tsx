@@ -168,7 +168,7 @@ export const TriggerNode = memo(({ data }: any) => {
         </p>
       </div>
 
-      <Handle type="source" position={Position.Right} id="a" className="w-3 h-3 bg-primary" />
+      <Handle type="source" position={Position.Right} id="a" className="w-5 h-5 bg-primary" />
     </div>
   );
 });

@@ -68,6 +68,24 @@ export interface HourlyMessageData {
   count: number;
 }
 
+export interface AvgResponseTimeData {
+  avgSeconds: number;
+  percentageChange: number;
+}
+
+export interface ActiveAppointmentsData {
+  active: number;
+  percentageChange: number;
+  avgDurationMinutes: number;
+  completed: number;
+}
+
+export interface AgentStatsData {
+  agentName: string;
+  humanCount: number;
+  aiCount: number;
+}
+
 export interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
@@ -75,6 +93,9 @@ export interface DashboardChartsData {
   appointmentsByStatus: AppointmentsByStatusData[];
   customerActivity: CustomerActivityData;
   messagesByHour: HourlyMessageData[];
+  avgResponseTime: AvgResponseTimeData;
+  activeAppointments: ActiveAppointmentsData;
+  messagesByAgent: AgentStatsData[];
 }
 
 export const dashboardApi = {

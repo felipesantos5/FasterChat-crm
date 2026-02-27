@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { toast } from 'sonner';
@@ -82,6 +82,8 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [checkingWhatsApp, setCheckingWhatsApp] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const initialLoadRef = useRef(true);
 
   const handleOpenBatchModal = async () => {
     setCheckingWhatsApp(true);
@@ -236,8 +238,9 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
     }));
   }, [selectedExecution, setNodes, setEdges]);
 
-  const saveFlow = async () => {
+  const saveFlow = useCallback(async (silent = false) => {
     try {
+      if (silent) setIsAutoSaving(true);
       // 1. Atualiza dados do fluxo (Nome)
       if (flowId !== 'new') {
         await api.put(`/flows/${flowId}`, { name: flowName });
@@ -261,12 +264,34 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
       };
 
       await api.post(`/flows/${flowId}/nodes`, payload);
-      toast.success('Fluxo salvo com sucesso!');
+      if (!silent) toast.success('Fluxo salvo com sucesso!');
     } catch (error) {
       console.error('Error saving flow', error);
-      toast.error('Erro ao salvar fluxo');
+      if (!silent) toast.error('Erro ao salvar fluxo');
+    } finally {
+      if (silent) setIsAutoSaving(false);
     }
-  };
+  }, [flowId, flowName, nodes, edges]);
+
+  const nodesJson = JSON.stringify(nodes.map(n => ({ id: n.id, data: n.data, position: n.position })));
+  const edgesJson = JSON.stringify(edges.map(e => ({ id: e.id, source: e.source, target: e.target })));
+
+  useEffect(() => {
+    if (loading || flowId === 'new') return;
+
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
+
+    const handler = setTimeout(() => {
+      saveFlow(true);
+    }, 1500);
+
+    return () => clearTimeout(handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodesJson, edgesJson, flowName, loading, flowId]);
+
 
   const NODE_HEIGHT_ESTIMATE: Record<string, number> = {
     trigger: 110,
@@ -387,9 +412,25 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
             {isHistoryOpen ? 'Fechar Histórico' : 'Ver Execuções'}
           </button>
 
-          <button onClick={saveFlow} className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 text-sm font-semibold shadow-md transition-colors flex items-center gap-2">
-            <Check size={16} />
-            Salvar
+          <button
+            onClick={() => saveFlow(false)}
+            disabled={isAutoSaving}
+            className={`px-6 py-2 rounded-md text-sm font-semibold shadow-md transition-colors flex items-center gap-2 ${isAutoSaving
+              ? 'bg-gray-100 text-gray-500 cursor-not-allowed border border-gray-200'
+              : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
+          >
+            {isAutoSaving ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Check size={16} />
+                Salvar
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -408,6 +449,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
               defaultEdgeOptions={{ type: 'button-edge' }}
+              deleteKeyCode={['Backspace', 'Delete']}
               fitView
               proOptions={{ hideAttribution: true }}
             >

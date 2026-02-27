@@ -399,14 +399,12 @@ function PipelinePageContent() {
                             <Badge
                               key={tag}
                               variant="outline"
-                              className="text-[9px] px-1 py-0 leading-tight h-4"
+                              className="text-[9px] px-1 py-0 leading-tight h-4 border-0"
                               style={tagColor ? {
-                                backgroundColor: `${tagColor}20`,
-                                borderColor: tagColor,
-                                color: tagColor,
+                                backgroundColor: tagColor,
+                                color: '#fff',
                               } : {
-                                backgroundColor: 'white',
-                                borderColor: '#e5e7eb',
+                                backgroundColor: '#e5e7eb',
                                 color: '#4b5563',
                               }}
                             >

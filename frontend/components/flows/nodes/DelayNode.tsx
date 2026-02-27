@@ -18,7 +18,7 @@ export const DelayNode = memo(({ id, data }: any) => {
 
   return (
     <div className="bg-white border-2 border-orange-400 rounded-xl shadow-lg min-w-[220px] overflow-hidden transition-all hover:shadow-orange-100 hover:border-orange-500">
-      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-orange-500 border-2 border-white" />
+      <Handle type="target" position={Position.Left} className="w-5 h-5 bg-orange-500 border-2 border-white" />
 
       <div className="bg-orange-50 px-3 py-3 border-b border-orange-100 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -29,7 +29,7 @@ export const DelayNode = memo(({ id, data }: any) => {
         </div>
         <button
           onClick={() => { if (confirm('Excluir este bloco?')) deleteElements({ nodes: [{ id }] }) }}
-          className="text-orange-300 hover:text-red-500 transition-colors nodrag p-1 hover:bg-red-50 rounded"
+          className="text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors nodrag p-1 rounded-md"
         >
           <Trash2 size={14} />
         </button>
@@ -65,7 +65,7 @@ export const DelayNode = memo(({ id, data }: any) => {
         </div>
       </div>
 
-      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-orange-500 border-2 border-white" />
+      <Handle type="source" position={Position.Right} className="w-5 h-5 bg-orange-500 border-2 border-white" />
     </div>
   );
 });

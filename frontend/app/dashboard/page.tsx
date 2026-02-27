@@ -166,49 +166,41 @@ function DashboardPageContent() {
   return (
     <div className="p-4 sm:p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className={spacing.section}>
-        <section className="flex flex-col md:flex-row gap-6 w-full">
-          {/* Primeira linha: Cards (2x2) à esquerda + Funil à direita */}
-          <div className="flex flex-col gap-6 w-full">
-            {/* Cards em grid 2x2 */}
-            <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {statCards.map((stat) => (
-                <ModernStatCard
-                  key={stat.title}
-                  title={stat.title}
-                  value={stat.value}
-                  percentageChange={stat.percentageChange}
-                  icon={stat.icon}
-                  gradient={stat.gradient}
-                  description={stat.description}
-                  colorName={stat.colorName}
-                />
-              ))}
-            </div>
-
-            {/* Funil de Vendas */}
-            {chartsData && (
-              <div className="grid grid-cols-1 gap-6">
-                <ModernMessagesChart data={chartsData.messagesOverTime} />
-                <ModernPeakHoursChart data={chartsData.messagesByHour} />
-              </div>
-            )}
+        <div className="flex flex-col gap-6 w-full mx-auto">
+          {/* Primeira linha: Cards Stat */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {statCards.map((stat) => (
+              <ModernStatCard
+                key={stat.title}
+                title={stat.title}
+                value={stat.value}
+                percentageChange={stat.percentageChange}
+                icon={stat.icon}
+                gradient={stat.gradient}
+                description={stat.description}
+                colorName={stat.colorName}
+              />
+            ))}
           </div>
 
-          {/* {chartsData ? (
-          <>
-            <div className="mb-6">
-              <ModernVolumeBars data={chartsData.messagesOverTime} />
+          {/* Segunda linha: Graficos Principais (Esquerda) e Funil (Direita) */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
+            <div className="lg:col-span-5 flex flex-col gap-6">
+              {chartsData && (
+                <>
+                  <ModernMessagesChart data={chartsData.messagesOverTime} />
+                  <ModernPeakHoursChart data={chartsData.messagesByHour} />
+                </>
+              )}
             </div>
-          </>
-        ) : null} */}
-          <div className="max-w-[25%] w-full">
-            {chartsData && (
 
-              <ModernFunnelDonut data={chartsData.pipelineFunnel} />
-
-            )}
+            <div className="lg:col-span-2">
+              {chartsData && (
+                <ModernFunnelDonut data={chartsData.pipelineFunnel} />
+              )}
+            </div>
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );

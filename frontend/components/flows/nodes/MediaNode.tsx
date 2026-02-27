@@ -126,7 +126,7 @@ export const MediaNode = memo(({ id, data, type }: any) => {
       <Handle
         type="target"
         position={Position.Left}
-        className={`w-3 h-3 border-2 border-white ${isVideo ? 'bg-indigo-500' : 'bg-pink-500'}`}
+        className={`w-5 h-5 border-2 border-white ${isVideo ? 'bg-indigo-500' : 'bg-pink-500'}`}
       />
 
       <div className={`px-3 py-3 border-b flex items-center justify-between gap-2 ${isVideo ? 'bg-indigo-50 border-indigo-100' : 'bg-pink-50 border-pink-100'
@@ -142,8 +142,7 @@ export const MediaNode = memo(({ id, data, type }: any) => {
         </div>
         <button
           onClick={() => { if (confirm('Excluir este bloco?')) deleteElements({ nodes: [{ id }] }) }}
-          className={`transition-colors nodrag p-1 hover:bg-red-50 rounded-md ${isVideo ? 'text-indigo-300 hover:text-red-500' : 'text-pink-300 hover:text-red-500'
-            }`}
+          className="text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors nodrag p-1 rounded-md"
         >
           <Trash2 size={14} />
         </button>
@@ -278,7 +277,7 @@ export const MediaNode = memo(({ id, data, type }: any) => {
       <Handle
         type="source"
         position={Position.Right}
-        className={`w-3 h-3 border-2 border-white ${isVideo ? 'bg-indigo-500' : 'bg-pink-500'}`}
+        className={`w-5 h-5 border-2 border-white ${isVideo ? 'bg-indigo-500' : 'bg-pink-500'}`}
       />
     </div>
   );
