@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { Pencil, ArrowLeft, History, FileSpreadsheet, Check, Loader2 } from 'lucide-react';
@@ -69,6 +69,7 @@ type FlowCanvasProps = {
 
 export function FlowCanvas({ flowId }: FlowCanvasProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [loading, setLoading] = useState(true);
@@ -77,6 +78,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [executions, setExecutions] = useState<any[]>([]);
   const [selectedExecution, setSelectedExecution] = useState<any | null>(null);
+  const [autoOpenExecutionId] = useState(() => searchParams.get('executionId'));
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [checkingWhatsApp, setCheckingWhatsApp] = useState(false);
@@ -181,6 +183,22 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
     return () => clearInterval(interval);
   }, [isHistoryOpen, fetchExecutions]);
 
+  // Auto-abre o drawer e seleciona a execução quando vier via query param (ex: link de "Ver novo fluxo")
+  useEffect(() => {
+    if (!autoOpenExecutionId || loading) return;
+
+    const open = async () => {
+      setIsHistoryOpen(true);
+      const res = await api.get(`/flows/${flowId}/executions`).catch(() => null);
+      if (!res) return;
+      setExecutions(res.data);
+      const target = res.data.find((e: any) => e.id === autoOpenExecutionId);
+      if (target) setSelectedExecution(target);
+    };
+
+    open();
+  }, [autoOpenExecutionId, loading, flowId]);
+
   useEffect(() => {
     if (!selectedExecution) {
       setNodes((nds) => nds.map(n => ({ ...n, style: { ...n.style, opacity: 1, border: undefined, boxShadow: undefined } })));
@@ -250,14 +268,31 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
     }
   };
 
+  const NODE_HEIGHT_ESTIMATE: Record<string, number> = {
+    trigger: 110,
+    message: 200,
+    condition: 340,
+    delay: 150,
+    audio: 200,
+    image: 200,
+    video: 200,
+    ai_action: 160,
+    validation: 300,
+    random: 220,
+  };
+  const NODE_GAP = 60;
+
   const handleAddNode = useCallback((type: string, name: string) => {
     setNodes((nds) => {
       const newNodeId = `${type}-${Math.random().toString(36).substr(2, 9)}`;
       const lastNode = nds[nds.length - 1];
+      const lastHeight = NODE_HEIGHT_ESTIMATE[lastNode?.type ?? ''] ?? 200;
       const newNode: Node = {
         id: newNodeId,
         type,
-        position: lastNode ? { x: lastNode.position.x, y: lastNode.position.y + 150 } : { x: 400, y: 300 },
+        position: lastNode
+          ? { x: lastNode.position.x, y: lastNode.position.y + lastHeight + NODE_GAP }
+          : { x: 400, y: 300 },
         data: {
           name,
           label: name,

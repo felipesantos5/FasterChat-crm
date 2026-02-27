@@ -174,9 +174,10 @@ export class FlowBatchController {
 
       batch.processed++;
 
-      // Delay aleatório de 5-15 segundos entre cada disparo (equilíbrio entre velocidade e segurança)
+      // Delay anti-spam: 30-60s entre cada contato para evitar ban do WhatsApp
       if (i < rows.length - 1) {
-        const delayMs = Math.floor(Math.random() * 10000) + 5000; // 5000-15000ms
+        const delayMs = Math.floor(Math.random() * 30000) + 30000; // 30000-60000ms
+        console.log(`[FlowBatch] ⏳ Anti-spam: aguardando ${(delayMs / 1000).toFixed(1)}s antes do próximo contato (${i + 2}/${rows.length})`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }

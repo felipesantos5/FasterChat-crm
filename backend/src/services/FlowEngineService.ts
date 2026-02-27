@@ -97,6 +97,21 @@ export class FlowEngineService {
       throw new Error(`Nenhuma instância WhatsApp conectada para iniciar o fluxo`);
     }
 
+    // Coleta execuções ativas para cancelar depois de criar a nova (precisamos do novo ID)
+    const activeStatuses: FlowExecutionStatus[] = [
+      FlowExecutionStatus.RUNNING,
+      FlowExecutionStatus.WAITING_REPLY,
+      FlowExecutionStatus.DELAYED,
+    ];
+    const activeExecs = await prisma.flowExecution.findMany({
+      where: {
+        contactPhone: cleanPhone,
+        status: { in: activeStatuses },
+        flow: { companyId: flow.companyId },
+      },
+      select: { id: true },
+    });
+
     // Create execution (usa o phone limpo + instância selecionada)
     const execution = await prisma.flowExecution.create({
       data: {
@@ -110,6 +125,22 @@ export class FlowEngineService {
       }
     });
 
+
+    // Cancela execuções anteriores agora que temos o ID da nova
+    if (activeExecs.length > 0) {
+      await prisma.flowExecution.updateMany({
+        where: { id: { in: activeExecs.map(e => e.id) } },
+        data: {
+          status: FlowExecutionStatus.FORCE_CANCELLED,
+          resumesAt: null,
+          completedAt: new Date(),
+          error: `Cancelamento forçado: novo fluxo iniciado para o mesmo contato`,
+          replacedByExecutionId: execution.id,
+          replacedByFlowId: flowId,
+        },
+      });
+      console.log(`[FlowEngine] ⚡ ${activeExecs.length} execução(ões) cancelada(s) para ${cleanPhone} → substituída por ${execution.id}`);
+    }
 
     // Start processing from the next node
     await this.processNextNodes(execution.id, triggerNode.id);
@@ -295,7 +326,7 @@ export class FlowEngineService {
 
   private async executeMessageNode(execution: any, data: any, variables: any) {
     let text = data.text || data.message || data.content || '';
-    
+
     text = this.replaceVariables(text, variables);
 
     if (!text || text.trim() === '') {

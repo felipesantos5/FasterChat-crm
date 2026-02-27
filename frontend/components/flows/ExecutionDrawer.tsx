@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Play, Clock, CheckCircle2, XCircle, AlertCircle, Phone, Database, StopCircle, Loader2 } from 'lucide-react';
+import { X, Play, Clock, CheckCircle2, XCircle, AlertCircle, Phone, Database, StopCircle, Loader2, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -14,6 +15,8 @@ type Execution = {
   startedAt: string;
   completedAt?: string;
   error?: string;
+  replacedByExecutionId?: string;
+  replacedByFlowId?: string;
 };
 
 type ExecutionDrawerProps = {
@@ -38,6 +41,7 @@ export function ExecutionDrawer({
   onExecutionCancelled,
 }: ExecutionDrawerProps) {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const router = useRouter();
 
   if (!isOpen) return null;
 
@@ -46,6 +50,7 @@ export function ExecutionDrawer({
       case 'COMPLETED': return <CheckCircle2 className="text-green-500" size={16} />;
       case 'FAILED': return <XCircle className="text-red-500" size={16} />;
       case 'PAUSED': return <StopCircle className="text-orange-500" size={16} />;
+      case 'FORCE_CANCELLED': return <StopCircle className="text-red-600" size={16} />;
       case 'RUNNING': return <Play className="text-blue-500 animate-pulse" size={16} />;
       case 'WAITING_REPLY': return <Clock className="text-purple-500" size={16} />;
       default: return <AlertCircle className="text-gray-400" size={16} />;
@@ -57,6 +62,7 @@ export function ExecutionDrawer({
       case 'COMPLETED': return 'Concluído';
       case 'FAILED': return 'Falhou';
       case 'PAUSED': return 'Cancelado';
+      case 'FORCE_CANCELLED': return 'Canc. Forçado';
       case 'RUNNING': return 'Rodando';
       case 'WAITING_REPLY': return 'Aguardando';
       case 'DELAYED': return 'Atrasado';
@@ -146,6 +152,20 @@ export function ExecutionDrawer({
                       <StopCircle size={11} />
                     )}
                     Cancelar
+                  </button>
+                )}
+
+                {exe.status === 'FORCE_CANCELLED' && exe.replacedByFlowId && exe.replacedByExecutionId && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/dashboard/flows/${exe.replacedByFlowId}?executionId=${exe.replacedByExecutionId}`);
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 hover:border-blue-300 px-2 py-0.5 rounded-full transition-all"
+                    title="Ver fluxo que substituiu este"
+                  >
+                    <ExternalLink size={11} />
+                    Ver novo fluxo
                   </button>
                 )}
               </div>

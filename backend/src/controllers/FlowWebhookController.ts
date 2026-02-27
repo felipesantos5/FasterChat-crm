@@ -3,7 +3,7 @@ import { prisma } from '../utils/prisma';
 import { FlowEngineService } from '../services/FlowEngineService';
 
 export class FlowWebhookController {
-  public async handleTrigger(req: Request, res: Response): Promise<Response> {
+  public async handleTrigger(req: Request, res: Response): Promise<void> {
     const { slug } = req.params;
     
     // As variáveis podem vir do body ou da query
@@ -36,7 +36,8 @@ export class FlowWebhookController {
 
       if (!flow) {
         console.error(`[FlowWebhook] ❌ Flow não encontrado para slug: "${slug}"`);
-        return res.status(404).json({ error: 'Flow not found or not active' });
+        res.status(404).json({ error: 'Flow not found or not active' });
+        return;
       }
 
 
@@ -50,28 +51,31 @@ export class FlowWebhookController {
 
       if (!contactPhone) {
         console.warn(`[FlowWebhook] ⚠️ Nenhum "phone" encontrado no payload. Variáveis mapeadas, fluxo NÃO será disparado.`);
-        return res.status(200).json({ 
+        res.status(200).json({
           message: 'Webhook received and variables mapped. No contact phone provided to execute flow automatically.',
           variablesMapped: true,
           tip: 'Send a "phone" field in the body or query string to trigger the flow execution.'
         });
+        return;
       }
 
       const flowEngine = new FlowEngineService();
-      
-      // Start the flow execution
-      const execution = await flowEngine.startFlow(flow.id, String(contactPhone), variables);
 
-      return res.status(200).json({ 
-        message: 'Flow triggered successfully',
-        executionId: execution.id 
+      // Responde imediatamente — o flow roda em background para não bloquear o request
+      res.status(202).json({ message: 'Flow triggered successfully' });
+
+      // Fire-and-forget: executa o fluxo sem bloquear o request
+      flowEngine.startFlow(flow.id, String(contactPhone), variables).catch((err: any) => {
+        console.error('[FlowWebhook] ❌ Erro na execução do flow em background:', err?.message || err);
       });
     } catch (error: any) {
       console.error('[FlowWebhook] ❌ Erro ao disparar o flow:', error);
-      return res.status(500).json({ 
-        error: 'Internal server error',
-        details: error?.message || 'Unknown error'
-      });
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Internal server error',
+          details: error?.message || 'Unknown error'
+        });
+      }
     }
   }
 }

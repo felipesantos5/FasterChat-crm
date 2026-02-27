@@ -983,6 +983,7 @@ enum FlowExecutionStatus {
   WAITING_REPLY // Esperando cliente responder
   COMPLETED
   FAILED
+  FORCE_CANCELLED // Cancelado porque um novo fluxo foi iniciado para o mesmo contato
 }
 
 model FlowExecution {
@@ -999,6 +1000,9 @@ model FlowExecution {
   startedAt          DateTime            @default(now()) @map("started_at")
   completedAt        DateTime?           @map("completed_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  replacedByExecutionId String?  @map("replaced_by_execution_id") // ID da execução que substituiu esta
+  replacedByFlowId      String?  @map("replaced_by_flow_id")      // flowId da execução que substituiu esta
 
   flow              Flow              @relation(fields: [flowId], references: [id], onDelete: Cascade)
   currentNode       FlowNode?         @relation("CurrentNode", fields: [currentNodeId], references: [id], onDelete: SetNull)

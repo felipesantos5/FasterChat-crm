@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+// import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -12,16 +12,15 @@ import {
   ChevronRight,
   Play,
   Clock,
-  Settings,
-  Upload,
+  Settings
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FlowConfigModal } from '@/components/flows/flow-config-modal';
-import { FlowBatchUploadModal } from '@/components/flows/flow-batch-upload-modal';
-import { whatsappApi } from '@/lib/whatsapp';
-import { getUser } from '@/lib/auth';
-import { WhatsAppStatus } from '@/types/whatsapp';
+// import { FlowBatchUploadModal } from '@/components/flows/flow-batch-upload-modal';
+// import { whatsappApi } from '@/lib/whatsapp';
+// import { getUser } from '@/lib/auth';
+// import { WhatsAppStatus } from '@/types/whatsapp';
 
 interface Flow {
   id: string;
@@ -36,17 +35,13 @@ interface Flow {
 }
 
 export default function FlowsPage() {
-  const router = useRouter();
+  // const router = useRouter();
   const [flows, setFlows] = useState<Flow[]>([]);
   const [loading, setLoading] = useState(true);
 
   // For Config Modal
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedFlow, setSelectedFlow] = useState<Flow | null>(null);
-
-  // For Batch Upload Modal
-  const [batchModalOpen, setBatchModalOpen] = useState(false);
-  const [batchFlow, setBatchFlow] = useState<Flow | null>(null);
 
   const fetchFlows = async () => {
     try {
@@ -89,29 +84,6 @@ export default function FlowsPage() {
   const handleSaveConfig = (tags: string[], status: string) => {
     if (!selectedFlow) return;
     setFlows(flows.map(f => f.id === selectedFlow.id ? { ...f, autoTags: tags, status: status } : f));
-  };
-
-  const openBatchModal = async (flow: Flow, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      const user = getUser();
-      if (!user) return;
-      const res = await whatsappApi.getInstances(user.companyId);
-      const hasConnected = res.data?.some((inst) => inst.status === WhatsAppStatus.CONNECTED);
-      if (!hasConnected) {
-        toast.error('Nenhum WhatsApp conectado', {
-          description: 'Conecte uma instância do WhatsApp para poder disparar fluxos.',
-          action: { label: 'Conectar agora', onClick: () => router.push('/dashboard/whatsapp') },
-          duration: 6000,
-        });
-        return;
-      }
-    } catch {
-      // Se falhar a verificação, abre o modal mesmo assim
-    }
-    setBatchFlow(flow);
-    setBatchModalOpen(true);
   };
 
   return (
@@ -225,14 +197,14 @@ export default function FlowsPage() {
         />
       )}
 
-      {batchFlow && (
+      {/* {batchFlow && (
         <FlowBatchUploadModal
           open={batchModalOpen}
           onClose={() => setBatchModalOpen(false)}
           flowId={batchFlow.id}
           flowName={batchFlow.name}
         />
-      )}
+      )} */}
     </div>
   );
 }
