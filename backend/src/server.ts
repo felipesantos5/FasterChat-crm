@@ -177,6 +177,25 @@ const authLimiter = rateLimit({
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/signup", authLimiter);
 
+// Rate limiting geral para toda a API (previne scraping e DoS)
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 300, // 300 req por IP a cada 15 min
+  message: {
+    success: false,
+    message: "Muitas requisições. Por favor, tente novamente em alguns minutos.",
+    code: "API_RATE_LIMIT_EXCEEDED",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Webhooks da Evolution API ficam fora do rate limit (volume alto esperado)
+    return req.path.startsWith("/webhooks/");
+  },
+});
+
+app.use("/api", apiLimiter);
+
 // ===========================================
 // BODY PARSERS
 // ===========================================

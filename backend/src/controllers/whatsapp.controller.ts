@@ -3,6 +3,16 @@ import whatsappService from '../services/whatsapp.service';
 import { CreateInstanceRequest, SendMessageRequest } from '../types/whatsapp';
 import { prisma } from '../utils/prisma';
 
+/**
+ * Garante que a instância pertence à empresa do usuário autenticado.
+ * Retorna null se não existir ou não pertencer à empresa.
+ */
+async function getOwnedInstance(instanceId: string, companyId: string) {
+  return prisma.whatsAppInstance.findFirst({
+    where: { id: instanceId, companyId },
+  });
+}
+
 class WhatsAppController {
   /**
    * POST /api/whatsapp/create-instance
@@ -10,14 +20,8 @@ class WhatsAppController {
    */
   async createInstance(req: Request, res: Response) {
     try {
-      const { companyId, instanceName } = req.body;
-
-      if (!companyId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Company ID is required',
-        });
-      }
+      const companyId = req.user!.companyId;
+      const { instanceName } = req.body;
 
       const data: CreateInstanceRequest = {
         companyId,
@@ -46,12 +50,11 @@ class WhatsAppController {
   async getQRCode(req: Request, res: Response) {
     try {
       const { instanceId } = req.params;
+      const companyId = req.user!.companyId;
 
-      if (!instanceId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Instance ID is required',
-        });
+      const owned = await getOwnedInstance(instanceId, companyId);
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
 
       const result = await whatsappService.getQRCode(instanceId);
@@ -76,12 +79,11 @@ class WhatsAppController {
   async getStatus(req: Request, res: Response) {
     try {
       const { instanceId } = req.params;
+      const companyId = req.user!.companyId;
 
-      if (!instanceId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Instance ID is required',
-        });
+      const owned = await getOwnedInstance(instanceId, companyId);
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
 
       const result = await whatsappService.getStatus(instanceId);
@@ -95,7 +97,7 @@ class WhatsAppController {
       return res.status(200).json({
         success: true,
         data: result,
-        timestamp: new Date().toISOString(), // Força resposta única
+        timestamp: new Date().toISOString(),
       });
     } catch (error: any) {
       console.error('Error in getStatus controller:', error);
@@ -113,12 +115,18 @@ class WhatsAppController {
   async sendMessage(req: Request, res: Response) {
     try {
       const { instanceId, to, text } = req.body;
+      const companyId = req.user!.companyId;
 
       if (!instanceId || !to || !text) {
         return res.status(400).json({
           success: false,
           message: 'Instance ID, recipient phone number, and message text are required',
         });
+      }
+
+      const owned = await getOwnedInstance(instanceId, companyId);
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
 
       const data: SendMessageRequest = {
@@ -144,18 +152,12 @@ class WhatsAppController {
 
   /**
    * GET /api/whatsapp/instances/:companyId
-   * Obtém todas as instâncias de uma empresa
+   * Obtém todas as instâncias da empresa autenticada
+   * O :companyId no path é ignorado — sempre usa o companyId do token JWT
    */
   async getInstances(req: Request, res: Response) {
     try {
-      const { companyId } = req.params;
-
-      if (!companyId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Company ID is required',
-        });
-      }
+      const companyId = req.user!.companyId;
 
       const instances = await whatsappService.getInstancesByCompany(companyId);
 
@@ -179,12 +181,11 @@ class WhatsAppController {
   async deleteInstance(req: Request, res: Response) {
     try {
       const { instanceId } = req.params;
+      const companyId = req.user!.companyId;
 
-      if (!instanceId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Instance ID is required',
-        });
+      const owned = await getOwnedInstance(instanceId, companyId);
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
 
       const result = await whatsappService.deleteInstance(instanceId);
@@ -209,12 +210,11 @@ class WhatsAppController {
   async disconnectInstance(req: Request, res: Response) {
     try {
       const { instanceId } = req.params;
+      const companyId = req.user!.companyId;
 
-      if (!instanceId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Instance ID is required',
-        });
+      const owned = await getOwnedInstance(instanceId, companyId);
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
 
       const result = await whatsappService.disconnectInstance(instanceId);
@@ -235,22 +235,19 @@ class WhatsAppController {
   /**
    * POST /api/whatsapp/sync/:instanceId
    * Força sincronização de status com Evolution API
-   * Útil quando webhook não funciona (Evolution em Docker)
    */
   async syncStatus(req: Request, res: Response) {
     try {
       const { instanceId } = req.params;
+      const companyId = req.user!.companyId;
 
-      if (!instanceId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Instance ID is required',
-        });
+      const owned = await getOwnedInstance(instanceId, companyId);
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
 
       console.log('🔄 Manual sync requested for instance:', instanceId);
 
-      // Força consulta sem cache
       const result = await whatsappService.getStatus(instanceId);
 
       console.log('✓ Status synced:', result.status);
@@ -277,19 +274,18 @@ class WhatsAppController {
     try {
       const { instanceId } = req.params;
       const { instanceName } = req.body;
-
-      if (!instanceId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Instance ID is required',
-        });
-      }
+      const companyId = req.user!.companyId;
 
       if (!instanceName || !instanceName.trim()) {
         return res.status(400).json({
           success: false,
           message: 'Instance name is required',
         });
+      }
+
+      const owned = await getOwnedInstance(instanceId, companyId);
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
 
       await whatsappService.updateInstanceName(instanceId, instanceName.trim());
@@ -314,12 +310,11 @@ class WhatsAppController {
   async reconfigureWebhook(req: Request, res: Response) {
     try {
       const { instanceId } = req.params;
+      const companyId = req.user!.companyId;
 
-      if (!instanceId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Instance ID is required',
-        });
+      const owned = await getOwnedInstance(instanceId, companyId);
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
 
       const result = await whatsappService.reconfigureWebhook(instanceId);
@@ -345,12 +340,18 @@ class WhatsAppController {
   async getContactPresence(req: Request, res: Response) {
     try {
       const { instanceId, phone } = req.params;
+      const companyId = req.user!.companyId;
 
       if (!instanceId || !phone) {
         return res.status(400).json({
           success: false,
           message: 'Instance ID and phone number are required',
         });
+      }
+
+      const owned = await getOwnedInstance(instanceId, companyId);
+      if (!owned) {
+        return res.status(403).json({ success: false, message: 'Acesso negado' });
       }
 
       const result = await whatsappService.getContactPresence(instanceId, phone);
@@ -374,25 +375,22 @@ class WhatsAppController {
    */
   async getCompanyStrategy(req: Request, res: Response) {
     try {
-      const user = (req as any).user;
-      if (!user || !user.companyId) {
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
-      }
+      const companyId = req.user!.companyId;
 
       const company = await prisma.company.findUnique({
-        where: { id: user.companyId },
-        select: { whatsappStrategy: true, defaultWhatsappInstanceId: true }
+        where: { id: companyId },
+        select: { whatsappStrategy: true, defaultWhatsappInstanceId: true },
       });
 
       return res.status(200).json({
         success: true,
-        data: company || { whatsappStrategy: 'RANDOM', defaultWhatsappInstanceId: null }
+        data: company || { whatsappStrategy: 'RANDOM', defaultWhatsappInstanceId: null },
       });
     } catch (error: any) {
       console.error('Error fetching company strategy:', error);
       return res.status(500).json({
         success: false,
-        message: error.message || 'Error fetching strategy'
+        message: error.message || 'Error fetching strategy',
       });
     }
   }
@@ -403,20 +401,23 @@ class WhatsAppController {
    */
   async updateCompanyStrategy(req: Request, res: Response) {
     try {
-      // O req.user já deve estar populado pelo middleware de autenticação
-      const user = (req as any).user;
-      if (!user || !user.companyId) {
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
-      }
-
+      const companyId = req.user!.companyId;
       const { whatsappStrategy, defaultWhatsappInstanceId } = req.body;
 
+      // Se defaultWhatsappInstanceId fornecido, valida que pertence à empresa
+      if (defaultWhatsappInstanceId) {
+        const owned = await getOwnedInstance(defaultWhatsappInstanceId, companyId);
+        if (!owned) {
+          return res.status(403).json({ success: false, message: 'Instância padrão não pertence à empresa' });
+        }
+      }
+
       await prisma.company.update({
-        where: { id: user.companyId },
+        where: { id: companyId },
         data: {
           whatsappStrategy,
           defaultWhatsappInstanceId: defaultWhatsappInstanceId || null,
-        }
+        },
       });
 
       return res.status(200).json({

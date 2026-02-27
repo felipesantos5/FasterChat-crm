@@ -19,14 +19,15 @@ class WebhookController {
    */
   async handleWhatsAppWebhook(req: Request, res: Response) {
     try {
-      // Valida webhook secret (segurança) - Descomentar em produção
-      // const webhookSecret = process.env.WEBHOOK_SECRET;
-      // const receivedSecret = req.headers['x-webhook-secret'];
-
-      // if (webhookSecret && webhookSecret !== receivedSecret) {
-      //   console.warn('⚠️  Invalid webhook secret received');
-      //   return res.status(401).json({ success: false, message: 'Unauthorized' });
-      // }
+      // Valida webhook secret enviado pela Evolution API
+      const webhookSecret = process.env.WEBHOOK_SECRET;
+      if (webhookSecret && webhookSecret !== 'change-this-webhook-secret') {
+        const receivedSecret = req.headers['x-webhook-secret'] || req.headers['x-api-key'];
+        if (!receivedSecret || receivedSecret !== webhookSecret) {
+          console.warn('[Webhook] Rejecting request: invalid or missing webhook secret');
+          return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+      }
 
       const payload: EvolutionWebhookPayload = req.body;
 
