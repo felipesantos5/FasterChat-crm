@@ -13,6 +13,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { messageApi } from "@/lib/message";
 import { conversationApi } from "@/lib/conversation";
 import { whatsappApi } from "@/lib/whatsapp";
+import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
 import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck } from "lucide-react";
@@ -62,6 +63,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isContactOnline, setIsContactOnline] = useState(false);
   const [whatsappInstanceId, setWhatsappInstanceId] = useState<string | null>(null);
+  const [autoReplyEnabled, setAutoReplyEnabled] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,7 +84,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         });
 
         // Se foi mensagem do cliente, marca IA como processando
-        if (message.direction === MessageDirection.INBOUND && conversation?.aiEnabled) {
+        if (message.direction === MessageDirection.INBOUND && conversation?.aiEnabled && autoReplyEnabled) {
           setAiProcessing(true);
           // Remove indicador após 30 segundos
           setTimeout(() => setAiProcessing(false), 30000);
@@ -95,7 +97,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         }
       }
     },
-    [customerId, conversation?.aiEnabled]
+    [customerId, conversation?.aiEnabled, autoReplyEnabled]
   );
 
   // Handler para atualizações de conversa via WebSocket
@@ -119,12 +121,12 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   // Handler para indicador de digitação - só processa se IA estiver habilitada
   const handleWebSocketTyping = useCallback(
     (data: any) => {
-      if (data.customerId === customerId && conversation?.aiEnabled) {
+      if (data.customerId === customerId && conversation?.aiEnabled && autoReplyEnabled) {
         console.log("⌨️ Indicador de digitação:", data.isTyping);
         setIsTyping(data.isTyping);
       }
     },
-    [customerId, conversation?.aiEnabled]
+    [customerId, conversation?.aiEnabled, autoReplyEnabled]
   );
 
   // Handler para atualização de status de mensagem
@@ -180,7 +182,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
 
       // Verifica se há mensagem recente do cliente sem resposta da IA
       const lastMessage = messages[messages.length - 1];
-      if (conversation?.aiEnabled && lastMessage?.direction === MessageDirection.INBOUND) {
+      if (conversation?.aiEnabled && autoReplyEnabled && lastMessage?.direction === MessageDirection.INBOUND) {
         // Verifica se há resposta da IA depois dessa mensagem
         const hasAiResponse = messages.some(
           (msg, idx) => idx > messages.length - 1 && msg.direction === MessageDirection.OUTBOUND && msg.senderType === SenderType.AI
@@ -232,6 +234,15 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       checkIsExample();
     }
   }, [conversation?.id]);
+
+  // Carrega configuração global de resposta automática
+  useEffect(() => {
+    const companyId = getCompanyId();
+    if (!companyId) return;
+    aiKnowledgeApi.getKnowledge(companyId)
+      .then((data) => setAutoReplyEnabled(data.autoReplyEnabled ?? true))
+      .catch(() => {/* mantém true como fallback */});
+  }, []);
 
   // Scroll para última mensagem
   useEffect(() => {
@@ -909,8 +920,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           })
         )}
 
-        {/* AI Processing/Typing Indicator - só aparece se IA estiver habilitada */}
-        {isAiEnabled && (aiProcessing || isTyping) && (
+        {/* AI Processing/Typing Indicator - só aparece se IA estiver habilitada globalmente e no chat */}
+        {isAiEnabled && autoReplyEnabled && (aiProcessing || isTyping) && (
           <div className="flex justify-start">
             <div className="max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 bg-green-100 dark:bg-green-900/30">
               <div className="flex items-center gap-2">

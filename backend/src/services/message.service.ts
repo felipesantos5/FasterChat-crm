@@ -1,5 +1,5 @@
 import { prisma } from "../utils/prisma";
-import { MessageDirection, MessageStatus, MessageFeedback } from "@prisma/client";
+import { MessageDirection, MessageStatus, MessageFeedback, FlowExecutionStatus } from "@prisma/client";
 import { CreateMessageRequest, GetMessagesRequest, ConversationSummary } from "../types/message";
 import openaiService from "./ai-providers/openai.service";
 import geminiService from "./ai-providers/gemini.service";
@@ -597,6 +597,37 @@ class MessageService {
                   // Unique constraint violation - outro customer já tem esse phone
                 }
               }
+            }
+          }
+        }
+
+        // 🔗 FLOW REPLY MATCH: Quando o contato responde de um número diferente do usado no disparo,
+        // tentamos vinculá-lo ao cliente correto pelo nome (pushName).
+        // Ex: fluxo disparado para 4896365757, mas o contato responde de 40006469 — mesmo pushName.
+        if (!customer && isValidPushName && trimmedPushName && !isGroup) {
+          const waitingExecs = await prisma.flowExecution.findMany({
+            where: {
+              status: FlowExecutionStatus.WAITING_REPLY,
+              flow: { companyId: instance.companyId },
+              startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) }, // últimas 48h
+            },
+            select: { contactPhone: true },
+          });
+
+          for (const exec of waitingExecs) {
+            const execCustomer = await prisma.customer.findFirst({
+              where: {
+                companyId: instance.companyId,
+                phone: exec.contactPhone,
+                name: trimmedPushName,
+                isGroup: false,
+              },
+            });
+
+            if (execCustomer) {
+              customer = execCustomer;
+              console.log(`[MessageService] 🔗 Resposta de "${phone}" vinculada ao cliente do fluxo "${execCustomer.phone}" pelo nome ("${trimmedPushName}")`);
+              break;
             }
           }
         }
