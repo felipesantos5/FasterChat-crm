@@ -102,29 +102,47 @@ export class CustomerService {
   }
 
   async findByPhoneWithVariant(phone: string, companyId: string): Promise<Customer | null> {
+    const cleanPhone = phone.replace(/\D/g, "");
+
     // Busca exata primeiro
     let customer = await prisma.customer.findUnique({
-      where: { companyId_phone: { companyId, phone } },
+      where: { companyId_phone: { companyId, phone: cleanPhone } },
     });
 
     if (customer) return customer;
 
-    // Se não achou na busca exata e é do Brasil e não é grupo
-    if (phone.startsWith("55") && !phone.includes("@g.us")) {
-      let variantPhone: string | null = null;
-      const dddAndNumber = phone.substring(2);
-
-      if (dddAndNumber.length === 10) {
-        // Ex: 55 48 84471100 -> Tenta adicionar o 9: 55 48 9 84471100
-        variantPhone = `55${dddAndNumber.substring(0, 2)}9${dddAndNumber.substring(2)}`;
-      } else if (dddAndNumber.length === 11 && dddAndNumber[2] === "9") {
-        // Ex: 55 48 9 84471100 -> Tenta remover o 9: 55 48 84471100
-        variantPhone = `55${dddAndNumber.substring(0, 2)}${dddAndNumber.substring(3)}`;
+    // Se é do Brasil e não é grupo
+    if (!phone.includes("@g.us")) {
+      const variants = new Set<string>();
+      
+      let dddAndNumber = '';
+      if (cleanPhone.startsWith('55') && cleanPhone.length >= 12) {
+        dddAndNumber = cleanPhone.substring(2);
+      } else if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
+        dddAndNumber = cleanPhone;
       }
 
-      if (variantPhone) {
-        customer = await prisma.customer.findUnique({
-          where: { companyId_phone: { companyId, phone: variantPhone } },
+      if (dddAndNumber.length === 10 || dddAndNumber.length === 11) {
+        const ddd = dddAndNumber.substring(0, 2);
+        const isNineDigit = dddAndNumber.length === 11;
+        const number = isNineDigit ? dddAndNumber.substring(3) : dddAndNumber.substring(2);
+        
+        // As 4 variantes possíveis (DDI 55 ou sem, com 9 ou sem)
+        variants.add(`55${ddd}9${number}`);
+        variants.add(`55${ddd}${number}`);
+        variants.add(`${ddd}9${number}`);
+        variants.add(`${ddd}${number}`);
+      }
+
+      variants.delete(cleanPhone); // Remove a inicial
+
+      if (variants.size > 0) {
+        // Tenta achar entre as variantes (findFirst cobre os casos onde a formatação antiga persiste)
+        customer = await prisma.customer.findFirst({
+          where: {
+            companyId,
+            phone: { in: Array.from(variants) },
+          },
         });
       }
     }

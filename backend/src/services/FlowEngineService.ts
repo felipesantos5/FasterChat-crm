@@ -48,8 +48,6 @@ export class FlowEngineService {
 
     const now = Date.now();
     if (now >= circuitBreaker.cooldownUntil) {
-      // Cooldown expirou — entra em half-open (permite tentar novamente)
-      console.log(`[FlowEngine:CircuitBreaker] ⏰ Cooldown expirou. Tentando reabrir (half-open)...`);
       circuitBreaker.isOpen = false;
       circuitBreaker.consecutiveErrors = 0; // Reseta para dar chance
       return { blocked: false };
@@ -66,9 +64,6 @@ export class FlowEngineService {
    * 🛡️ Registra sucesso no circuit breaker (reseta erros consecutivos)
    */
   private recordSuccess() {
-    if (circuitBreaker.consecutiveErrors > 0) {
-      console.log(`[FlowEngine:CircuitBreaker] ✅ Envio bem-sucedido após ${circuitBreaker.consecutiveErrors} erro(s). Resetando contador.`);
-    }
     circuitBreaker.consecutiveErrors = 0;
     circuitBreaker.isOpen = false;
   }
@@ -233,26 +228,17 @@ export class FlowEngineService {
     // Busca pelo telefone normalizado usando índice único e cobrindo variantes do 9º dígito
     let customer = await customerService.findByPhoneWithVariant(cleanPhone, flow.companyId);
 
-    // Fallback: contato criado antes desta normalização (sem código do país)
-    if (!customer && cleanPhone.startsWith('55')) {
-      const phoneWithoutCountry = cleanPhone.slice(2);
-      const old = await prisma.customer.findUnique({
-        where: { companyId_phone: { companyId: flow.companyId, phone: phoneWithoutCountry } }
-      });
-      if (old) {
-        // Atualiza para o formato normalizado
-        try {
-          customer = await prisma.customer.update({
-            where: { id: old.id },
-            data: { phone: cleanPhone }
-          });
-          console.log(`[FlowEngine] 📞 Phone normalizado: ${phoneWithoutCountry} → ${cleanPhone}`);
-        } catch (e: any) {
-          if (e.code === 'P2002') {
-            customer = await prisma.customer.findUnique({
-              where: { companyId_phone: { companyId: flow.companyId, phone: cleanPhone } }
-            });
-          }
+    // Se o cliente existe mas seu número salvo não é o 'cleanPhone' (ex: formato antigo sem 55),
+    // vamos tentar atualizá-lo e normalizá-lo para evitar duplicidade posterior
+    if (customer && customer.phone !== cleanPhone && !customer.isGroup) {
+      try {
+        customer = await prisma.customer.update({
+          where: { id: customer.id },
+          data: { phone: cleanPhone }
+        });
+      } catch (e: any) {
+        if (e.code === 'P2002') {
+          console.warn(`[FlowEngine] ⚠️ Conflito ao normalizar telefone ${customer.phone} para ${cleanPhone}`);
         }
       }
     }
@@ -273,7 +259,6 @@ export class FlowEngineService {
           pipelineStageId: firstStage?.id || null,
         }
       });
-      console.log(`[FlowEngine] 👤 Novo contato: ${cleanPhone}`);
     }
 
     if (customer) {
@@ -364,7 +349,6 @@ export class FlowEngineService {
           replacedByFlowId: flowId,
         },
       });
-      console.log(`[FlowEngine] ⚡ ${activeExecs.length} execução(ões) cancelada(s) para ${cleanPhone} → substituída por ${execution.id}`);
     }
 
     // Start processing from the next node
@@ -731,8 +715,6 @@ export class FlowEngineService {
     const cleanPhone = contactPhone.replace(/\D/g, '');
     const rightDigits = cleanPhone.length > 8 ? cleanPhone.slice(-8) : cleanPhone;
 
-    console.log(`[FlowEngine:handleIncomingMessage] contactPhone="${contactPhone}" cleanPhone="${cleanPhone}" rightDigits="${rightDigits}" companyId="${companyId}" instanceId="${whatsappInstanceId}"`);
-
     // Find if there's any active execution waiting for a reply for this contact
     let executions = await prisma.flowExecution.findMany({
       where: {
@@ -745,9 +727,7 @@ export class FlowEngineService {
       }
     });
 
-    console.log(`[FlowEngine:handleIncomingMessage] Found ${executions.length} WAITING_REPLY executions for rightDigits="${rightDigits}"`);
     if (executions.length > 0) {
-      executions.forEach(e => console.log(`  -> execution id=${e.id} contactPhone="${e.contactPhone}" nodeType="${e.currentNode?.type}" resumesAt=${e.resumesAt}`));
     }
 
     // 🔗 FALLBACK POR LID: Se não encontrou pelo telefone, tenta pelo mapeamento LID.
@@ -767,7 +747,6 @@ export class FlowEngineService {
       });
 
       if (execsByLid.length > 0) {
-        console.log(`[FlowEngine:handleIncomingMessage] 🔗 Matched by contactLid: reply from "${cleanPhone}" matched ${execsByLid.length} execution(s)`);
         executions = execsByLid;
       }
     }
@@ -1008,10 +987,8 @@ export class FlowEngineService {
 
       if (!flow) return;
 
-      // Busca o customer pelo telefone + companyId (índice único)
-      const customer = await prisma.customer.findUnique({
-        where: { companyId_phone: { companyId: flow.companyId, phone: execution.contactPhone } }
-      });
+      // Busca o customer usando a busca por variantes, pois o número pode ter sido formatado diferentemente
+      const customer = await customerService.findByPhoneWithVariant(execution.contactPhone, flow.companyId);
 
       if (!customer) {
         console.warn(`[FlowEngine] ⚠️ Customer não encontrado para salvar mensagem na conversa: ${execution.contactPhone}`);
