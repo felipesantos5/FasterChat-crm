@@ -7,9 +7,9 @@ import {
   ModernMessagesChart,
   ModernFunnelDonut,
   ModernPeakHoursChart,
-  ModernResponseTimeCard,
   ModernAppointmentsCard,
-  ModernAgentStatsCard,
+  ModernConversionCard,
+  ModernBatchEngagementCard,
 } from "@/components/dashboard/charts";
 import { MessageSquare, UserPlus, MessageCircle } from "lucide-react";
 import { spacing } from "@/lib/design-system";
@@ -72,8 +72,8 @@ function DashboardPageContent() {
         value: stats.totalCustomers?.current || 0,
         percentageChange: stats.totalCustomers?.percentageChange || 0,
         icon: UserPlus,
-        gradient: "bg-gradient-to-br from-blue-500 to-blue-600",
-        colorName: "blue" as const,
+        gradient: "bg-gradient-to-br from-[#14522b] to-[#1a753a]",
+        colorName: "green" as const,
         description: "",
       },
       {
@@ -81,7 +81,7 @@ function DashboardPageContent() {
         value: stats.activeConversations?.current || 0,
         percentageChange: stats.activeConversations?.percentageChange || 0,
         icon: MessageCircle,
-        gradient: "bg-gradient-to-br from-green-500 to-green-600",
+        gradient: "bg-gradient-to-br from-[#209849] to-[#26bc58]",
         colorName: "green" as const,
         description: "",
       },
@@ -90,8 +90,8 @@ function DashboardPageContent() {
         value: stats.messagesReceived?.current || 0,
         percentageChange: stats.messagesReceived?.percentageChange || 0,
         icon: MessageSquare,
-        gradient: "bg-gradient-to-br from-orange-500 to-orange-600",
-        colorName: "orange" as const,
+        gradient: "bg-gradient-to-br from-[#0f311c] to-[#14522b]",
+        colorName: "green" as const,
         description: "",
       },
     ]
@@ -184,19 +184,20 @@ function DashboardPageContent() {
             </div>
           </div>
 
-          {/* Linha 3: 4 ou 3 cards bottom, dependendo dos agendamentos */}
-          <div className={`grid grid-cols-1 sm:grid-cols-2 ${chartsData && chartsData.activeAppointments?.active > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
+          {/* Linha 3: Cards bottom, dinâmico dependendo do uso */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {chartsData && (
               <>
-                <ModernResponseTimeCard
-                  data={chartsData.avgResponseTime}
-                  hourlyData={chartsData.messagesByHour}
-                />
+                <ModernConversionCard data={chartsData.overallConversion} />
                 <ModernPeakHoursChart data={chartsData.messagesByHour} />
+
                 {chartsData.activeAppointments?.active > 0 && (
                   <ModernAppointmentsCard data={chartsData.activeAppointments} />
                 )}
-                <ModernAgentStatsCard data={chartsData.messagesByAgent} />
+
+                {chartsData.batchEngagement?.hasBatchExecutions && (
+                  <ModernBatchEngagementCard data={chartsData.batchEngagement} />
+                )}
               </>
             )}
           </div>

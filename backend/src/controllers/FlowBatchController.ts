@@ -130,7 +130,7 @@ export class FlowBatchController {
     });
 
     // Processa em background (não bloqueia a resposta)
-    this.processRows(batchStatus, validRows, phoneColumn, flow).catch(err => {
+    this.processRows(batchStatus, validRows, phoneColumn, flow, file.originalname).catch(err => {
       console.error(`[FlowBatch] ❌ Erro fatal no batch ${batchId}:`, err);
       batchStatus.status = 'FAILED';
       batchStatus.completedAt = new Date();
@@ -158,7 +158,8 @@ export class FlowBatchController {
     batch: BatchStatus,
     rows: Record<string, any>[],
     phoneColumn: string,
-    flow: any
+    flow: any,
+    fileName: string
   ) {
     const flowEngine = new FlowEngineService();
 
@@ -245,6 +246,11 @@ export class FlowBatchController {
         variables[key] = row[key];
       }
       variables.phone = phone;
+
+      // Injeta metadados ocultos do batch para agrupar no frontend
+      variables._batchId = batch.batchId;
+      variables._batchName = fileName;
+      variables._batchTotal = batch.total;
 
       try {
         await flowEngine.startFlow(flow.id, phone, variables);

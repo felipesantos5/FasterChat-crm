@@ -78,6 +78,20 @@ interface AgentStatsData {
   aiCount: number;
 }
 
+interface OverallConversionData {
+  totalLeads: number;
+  convertedLeads: number;
+  conversionRate: number;
+}
+
+interface BatchEngagementData {
+  hasBatchExecutions: boolean;
+  totalCalls: number;
+  attemptedCalls: number;
+  replies: number;
+  responseRate: number;
+}
+
 interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
@@ -88,6 +102,8 @@ interface DashboardChartsData {
   avgResponseTime: AvgResponseTimeData;
   activeAppointments: ActiveAppointmentsData;
   messagesByAgent: AgentStatsData[];
+  overallConversion: OverallConversionData;
+  batchEngagement: BatchEngagementData;
 }
 
 const APPOINTMENT_TYPE_LABELS: Record<AppointmentType, string> = {
@@ -468,6 +484,8 @@ class DashboardService {
       avgResponseTime,
       activeAppointments,
       messagesByAgent,
+      overallConversion,
+      batchEngagement,
     ] = await Promise.all([
       this.getPipelineFunnelData(companyId),
       this.getMessagesOverTimeData(companyId, currentStart, daysCount),
@@ -478,6 +496,8 @@ class DashboardService {
       this.getAvgResponseTimeData(companyId, currentStart, currentEnd, previousStart, previousEnd),
       this.getActiveAppointmentsData(companyId, currentStart, currentEnd, previousStart, previousEnd),
       this.getMessagesByAgentData(companyId, currentStart, currentEnd),
+      this.getOverallConversionData(companyId, currentStart, currentEnd),
+      this.getBatchEngagementData(companyId, currentStart, currentEnd),
     ]);
 
     return {
@@ -490,6 +510,8 @@ class DashboardService {
       avgResponseTime,
       activeAppointments,
       messagesByAgent,
+      overallConversion,
+      batchEngagement,
     };
   }
 
@@ -934,6 +956,84 @@ class DashboardService {
       hour: `${hour.toString().padStart(2, "0")}:00`,
       count,
     }));
+  }
+
+  private async getOverallConversionData(companyId: string, startDate: Date, endDate: Date): Promise<OverallConversionData> {
+    const lastStage = await prisma.pipelineStage.findFirst({
+      where: { companyId },
+      orderBy: { order: "desc" },
+      select: { id: true }
+    });
+
+    const totalLeads = await prisma.customer.count({
+      where: { companyId, createdAt: { gte: startDate, lte: endDate } }
+    });
+
+    let convertedLeads = 0;
+    if (lastStage) {
+      convertedLeads = await prisma.customer.count({
+        where: { companyId, pipelineStageId: lastStage.id, createdAt: { gte: startDate, lte: endDate } }
+      });
+    }
+
+    const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+    
+    return {
+      totalLeads,
+      convertedLeads,
+      conversionRate: Math.round(conversionRate * 10) / 10
+    };
+  }
+
+  private async getBatchEngagementData(companyId: string, startDate: Date, endDate: Date): Promise<BatchEngagementData> {
+    const flows = await (prisma as any).flow.findMany({
+      where: { companyId },
+      select: { id: true }
+    });
+    const flowIds = flows.map((f: any) => f.id);
+
+    if (flowIds.length === 0) return { hasBatchExecutions: false, totalCalls: 0, attemptedCalls: 0, replies: 0, responseRate: 0 };
+
+    const executions = await (prisma as any).flowExecution.findMany({
+      where: {
+        flowId: { in: flowIds },
+        startedAt: { gte: startDate, lte: endDate },
+      },
+      select: {
+        contactPhone: true,
+        status: true,
+        variables: true
+      }
+    });
+
+    const batchExecs = executions.filter((e: any) => e.variables && typeof e.variables === 'object' && '_batchId' in (e.variables as any));
+    const hasBatchExecutions = batchExecs.length > 0;
+    if (!hasBatchExecutions) return { hasBatchExecutions: false, totalCalls: 0, attemptedCalls: 0, replies: 0, responseRate: 0 };
+
+    const totalCalls = batchExecs.length;
+    const attemptedCalls = batchExecs.filter((e: any) => e.status !== "FAILED").length;
+    
+    const uniquePhones = [...new Set(batchExecs.map((e: any) => e.contactPhone))] as string[];
+    
+    const replyingCustomers = await prisma.message.groupBy({
+      by: ['customerId'],
+      where: {
+        customer: { companyId, phone: { in: uniquePhones } },
+        direction: 'INBOUND',
+        timestamp: { gte: startDate, lte: new Date(endDate.getTime() + 86400000) }
+      }
+    });
+
+    const replies = replyingCustomers.length;
+    const responseRate = attemptedCalls > 0 ? (replies / attemptedCalls) * 100 : 0;
+
+    return {
+      hasBatchExecutions: true,
+      totalCalls,
+      attemptedCalls,
+      replies,
+      responseRate: Math.round(responseRate * 10) / 10
+    };
   }
 }
 

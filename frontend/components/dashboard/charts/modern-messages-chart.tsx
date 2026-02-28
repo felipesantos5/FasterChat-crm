@@ -42,15 +42,15 @@ interface ModernMessagesChartProps {
 const chartConfig = {
   inbound: {
     label: "Recebidas",
-    color: "hsl(var(--chart-1))",
+    color: "#209849",
   },
   outbound: {
     label: "Enviadas",
-    color: "hsl(var(--chart-2))",
+    color: "#14522b",
   },
   aiResponses: {
     label: "IA",
-    color: "hsl(var(--chart-3))",
+    color: "#4ed479",
   },
 } satisfies ChartConfig;
 
@@ -154,28 +154,28 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
         {/* Mini Stats Bar */}
         <div className="grid grid-cols-4 gap-2 py-3 border-t border-gray-100 dark:border-gray-800 mt-1">
           <div className="flex items-center gap-1.5">
-            <ArrowDownLeft className="h-3.5 w-3.5 text-blue-500" />
+            <ArrowDownLeft className="h-3.5 w-3.5 text-[#209849]" />
             <div>
               <p className="text-xs text-muted-foreground">Recebidas</p>
               <p className="text-sm font-semibold">{miniStats.totalInbound}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <ArrowUpRight className="h-3.5 w-3.5 text-green-500" />
+            <ArrowUpRight className="h-3.5 w-3.5 text-[#14522b]" />
             <div>
               <p className="text-xs text-muted-foreground">Enviadas</p>
               <p className="text-sm font-semibold">{miniStats.totalOutbound}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <MessageSquare className="h-3.5 w-3.5 text-purple-500" />
+            <MessageSquare className="h-3.5 w-3.5 text-[#4ed479]" />
             <div>
               <p className="text-xs text-muted-foreground">Respostas IA</p>
               <p className="text-sm font-semibold">{miniStats.totalAI}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5 text-orange-500" />
+            <Calendar className="h-3.5 w-3.5 text-gray-700 dark:text-gray-300" />
             <div>
               <p className="text-xs text-muted-foreground">Maior volume</p>
               <p className="text-sm font-semibold">{miniStats.peakDayLabel} ({miniStats.peakDayTotal})</p>

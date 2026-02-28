@@ -29,8 +29,8 @@ export function ModernAppointmentsCard({ data }: ModernAppointmentsCardProps) {
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
       <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-            <CalendarCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <div className="p-1.5 rounded-lg bg-[#d6ffe4] dark:bg-[#0f311c]/30">
+            <CalendarCheck className="h-4 w-4 text-[#1a753a] dark:text-[#4ed479]" />
           </div>
           <CardTitle className="text-sm font-semibold">Agendamentos Ativos</CardTitle>
         </div>
@@ -39,7 +39,7 @@ export function ModernAppointmentsCard({ data }: ModernAppointmentsCardProps) {
         <div className="flex items-baseline gap-2 mb-1">
           <span className="text-3xl font-bold tracking-tight">{data.active}</span>
           {data.percentageChange !== 0 && (
-            <span className={`flex items-center gap-0.5 text-xs font-medium ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+            <span className={`flex items-center gap-0.5 text-xs font-medium ${isPositive ? "text-[#1a753a] dark:text-[#4ed479]" : "text-gray-900 dark:text-gray-100"}`}>
               <TrendIcon className="h-3 w-3" />
               {Math.abs(data.percentageChange).toFixed(0)}%
             </span>
@@ -57,7 +57,7 @@ export function ModernAppointmentsCard({ data }: ModernAppointmentsCardProps) {
               <div className="flex items-baseline gap-1.5">
                 <span className="text-sm font-bold">{formatDuration(data.avgDurationMinutes)}</span>
                 {data.percentageChange !== 0 && (
-                  <span className={`text-[10px] font-medium ${isPositive ? "text-emerald-600" : "text-red-500"}`}>
+                  <span className={`text-[10px] font-medium ${isPositive ? "text-[#1a753a]" : "text-gray-900"}`}>
                     {isPositive ? "↗" : "↘"} {Math.abs(data.percentageChange).toFixed(0)}%
                   </span>
                 )}

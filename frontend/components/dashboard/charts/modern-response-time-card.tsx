@@ -51,8 +51,8 @@ export function ModernResponseTimeCard({ data, hourlyData }: ModernResponseTimeC
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
       <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-            <Clock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <div className="p-1.5 rounded-lg bg-[#d6ffe4] dark:bg-[#0f311c]/30">
+            <Clock className="h-4 w-4 text-[#1a753a] dark:text-[#4ed479]" />
           </div>
           <CardTitle className="text-sm font-semibold">Tempo Médio de Resposta</CardTitle>
         </div>
@@ -61,13 +61,13 @@ export function ModernResponseTimeCard({ data, hourlyData }: ModernResponseTimeC
         <div className="flex items-baseline gap-2 mb-1">
           <span className="text-2xl font-bold tracking-tight">{formatTime(data.avgSeconds)}</span>
           {data.percentageChange !== 0 && (
-            <span className={`flex items-center gap-0.5 text-xs font-medium ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+            <span className={`flex items-center gap-0.5 text-xs font-medium ${isPositive ? "text-[#1a753a] dark:text-[#4ed479]" : "text-gray-900 dark:text-gray-100"}`}>
               <TrendIcon className="h-3 w-3" />
               {Math.abs(data.percentageChange).toFixed(0)}%
             </span>
           )}
           {isPositive && data.avgSeconds > 0 && (
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            <CheckCircle2 className="h-4 w-4 text-[#26bc58]" />
           )}
         </div>
 
@@ -82,8 +82,8 @@ export function ModernResponseTimeCard({ data, hourlyData }: ModernResponseTimeC
                       key={`cell-${index}`}
                       fill={
                         entry.hour === peakHour?.hour
-                          ? "hsl(152, 69%, 40%)"
-                          : "hsl(152, 69%, 40%, 0.3)"
+                          ? "#1a753a"
+                          : "rgba(26, 117, 58, 0.3)"
                       }
                     />
                   ))}

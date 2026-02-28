@@ -27,11 +27,15 @@ interface ModernFunnelDonutProps {
 }
 
 const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
+  "#0f311c", // very dark green
+  "#14522b", // dark green
+  "#1a753a", // deep green
+  "#209849", // green
+  "#26bc58", // vivid green
+  "#4ed479", // light green
+  "#7ded9d", // very light green
+  "#aeffc1", // pale green
+  "#d6ffe4", // ultra pale green
 ];
 
 export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {

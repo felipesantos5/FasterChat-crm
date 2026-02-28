@@ -86,6 +86,20 @@ export interface AgentStatsData {
   aiCount: number;
 }
 
+export interface OverallConversionData {
+  totalLeads: number;
+  convertedLeads: number;
+  conversionRate: number;
+}
+
+export interface BatchEngagementData {
+  hasBatchExecutions: boolean;
+  totalCalls: number;
+  attemptedCalls: number;
+  replies: number;
+  responseRate: number;
+}
+
 export interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
@@ -96,6 +110,8 @@ export interface DashboardChartsData {
   avgResponseTime: AvgResponseTimeData;
   activeAppointments: ActiveAppointmentsData;
   messagesByAgent: AgentStatsData[];
+  overallConversion: OverallConversionData;
+  batchEngagement: BatchEngagementData;
 }
 
 export const dashboardApi = {
