@@ -556,8 +556,40 @@ class MessageService {
       // 🔍 BUSCA INTELIGENTE DE CLIENTE (Previne duplicatas LID/Phone/9º dígito)
       // ==================================================================================
 
-      // Primeiro tenta buscar pelo phone, abrangendo variações do 9º dígito
-      let customer = await customerService.findByPhoneWithVariant(phone, instance.companyId);
+      let customer = null;
+
+      // 🌟 ANTI-DUPLICATA POR FLUXO ATIVO: Se o cliente tem um fluxo aguardando resposta para essa variação
+      // de número (com/sem 9º dígito), prioriza o número exato atrelado ao fluxo.
+      // Isso impede que `findByPhoneWithVariant` priorize um cliente duplicado ou crie um novo.
+      if (!isGroup) {
+        let rightDigits = phone.replace(/\D/g, "");
+        if (rightDigits.length > 8) rightDigits = rightDigits.slice(-8);
+
+        const activeFlow = await prisma.flowExecution.findFirst({
+          where: {
+            contactPhone: { endsWith: rightDigits },
+            status: "WAITING_REPLY",
+            flow: { companyId: instance.companyId }
+          }
+        });
+
+        if (activeFlow) {
+          customer = await prisma.customer.findFirst({
+            where: {
+              companyId: instance.companyId,
+              phone: activeFlow.contactPhone
+            }
+          });
+          if (customer) {
+            console.log(`[MessageService] 🔗 Customer encontrado via Flow Ativo: ${phone} -> ${customer.phone}`);
+          }
+        }
+      }
+
+      // Primeiro tenta buscar pelo phone original, abrangendo variações do 9º dígito, caso não haja fluxo
+      if (!customer) {
+        customer = await customerService.findByPhoneWithVariant(phone, instance.companyId);
+      }
 
       // 🔗 ANTI-DUPLICATA POR LID: Se não encontrou pelo phone exato,
       // busca pelo campo lidPhone (mapeamento LID↔telefone real).
