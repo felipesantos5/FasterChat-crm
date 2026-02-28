@@ -34,6 +34,7 @@ import { ValidationNode } from './nodes/ValidationNode';
 import { RandomNode } from './nodes/RandomNode';
 import { NodeSidebar } from './NodeSidebar';
 import ButtonEdge from './edges/ButtonEdge';
+import { FlowIdContext } from './FlowIdContext';
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -347,7 +348,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
 
       return nds.concat(newNode);
     });
-  }, [setNodes, setEdges]);
+  }, [flowId, setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'button-edge' }, eds)),
@@ -440,22 +441,24 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
           {loading ? (
             <div className="flex w-full h-full items-center justify-center text-gray-400">Carregando fluxo...</div>
           ) : (
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              defaultEdgeOptions={{ type: 'button-edge' }}
-              deleteKeyCode={['Backspace', 'Delete']}
-              fitView
-              proOptions={{ hideAttribution: true }}
-            >
-              <Controls />
-              <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
-            </ReactFlow>
+            <FlowIdContext.Provider value={flowId}>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                defaultEdgeOptions={{ type: 'button-edge' }}
+                deleteKeyCode={['Backspace', 'Delete']}
+                fitView
+                proOptions={{ hideAttribution: true }}
+              >
+                <Controls />
+                <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+              </ReactFlow>
+            </FlowIdContext.Provider>
           )}
         </div>
 

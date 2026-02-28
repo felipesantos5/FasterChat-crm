@@ -9,15 +9,19 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import api from '@/lib/api';
 import { History, Tag, Search, X } from 'lucide-react';
+import { useFlowId } from './FlowIdContext';
 
 interface VariablePickerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (variable: string) => void;
-  flowId: string;
+  flowId?: string;
 }
 
-export function VariablePickerModal({ isOpen, onClose, onSelect, flowId }: VariablePickerModalProps) {
+export function VariablePickerModal({ isOpen, onClose, onSelect, flowId: flowIdProp }: VariablePickerModalProps) {
+  // Usa o Context como fonte de verdade; cai back no prop se não estiver no contexto
+  const contextFlowId = useFlowId();
+  const flowId = contextFlowId || flowIdProp || '';
   const [variables, setVariables] = useState<{ key: string, value: any }[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');

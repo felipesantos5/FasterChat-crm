@@ -412,7 +412,10 @@ class MessageService {
   ) {
     try {
       const instance = await prisma.whatsAppInstance.findFirst({ where: { instanceName } });
-      if (!instance) throw new Error(`Instance not found: ${instanceName}`);
+      if (!instance) {
+        console.warn(`[MessageService] Instance not found (ignoring webhook): ${instanceName}`);
+        return null;
+      }
 
       // ==================================================================================
       // 🕵️ RESOLUÇÃO DE NÚMERO REAL (LID vs PHONE)

@@ -188,11 +188,28 @@ export class FlowEngineService {
   }
 
   /**
+   * Normaliza telefone para formato brasileiro completo (55 + DDD + número).
+   * Garante que o número salvo no banco seja igual ao que o WhatsApp envia via webhook.
+   */
+  private normalizeBrazilianPhone(phone: string): string {
+    const digits = phone.replace(/\D/g, '');
+    // Já tem código do país (55) + DDD + número = 12-13 dígitos
+    if (digits.length >= 12 && digits.startsWith('55')) {
+      return digits;
+    }
+    // Tem DDD + número mas sem código do país = 10-11 dígitos → adiciona 55
+    if (digits.length >= 10 && digits.length <= 11) {
+      return `55${digits}`;
+    }
+    return digits;
+  }
+
+  /**
    * Starts a flow execution for a given contact
    */
   public async startFlow(flowId: string, contactPhone: string, variables: any) {
-    // Limpa o número de telefone (remove formatações)
-    const cleanPhone = contactPhone.replace(/\D/g, '');
+    // Normaliza para formato WhatsApp: 55 + DDD + número (mesma forma que o webhook recebe)
+    const cleanPhone = this.normalizeBrazilianPhone(contactPhone);
 
     // Find the flow and its nodes/edges
     const flow = await prisma.flow.findUnique({
@@ -212,16 +229,37 @@ export class FlowEngineService {
     }
 
 
-    // Add "automação" tag and flow autoTags to customer (creates customer if not present)
-    let customer = await prisma.customer.findFirst({
-      where: { phone: cleanPhone, companyId: flow.companyId }
+    // Busca pelo telefone normalizado usando índice único (companyId + phone)
+    let customer = await prisma.customer.findUnique({
+      where: { companyId_phone: { companyId: flow.companyId, phone: cleanPhone } }
     });
 
+    // Fallback: contato criado antes desta normalização (sem código do país)
+    if (!customer && cleanPhone.startsWith('55')) {
+      const phoneWithoutCountry = cleanPhone.slice(2);
+      const old = await prisma.customer.findUnique({
+        where: { companyId_phone: { companyId: flow.companyId, phone: phoneWithoutCountry } }
+      });
+      if (old) {
+        // Atualiza para o formato normalizado
+        try {
+          customer = await prisma.customer.update({
+            where: { id: old.id },
+            data: { phone: cleanPhone }
+          });
+          console.log(`[FlowEngine] 📞 Phone normalizado: ${phoneWithoutCountry} → ${cleanPhone}`);
+        } catch (e: any) {
+          if (e.code === 'P2002') {
+            customer = await prisma.customer.findUnique({
+              where: { companyId_phone: { companyId: flow.companyId, phone: cleanPhone } }
+            });
+          }
+        }
+      }
+    }
+
     if (!customer) {
-      // Try to extract name from variables if it's a new lead
-      const custName = variables.name || variables.nome || variables.customer?.name || variables.customer?.nome || variables.data?.customer?.name || variables.data?.nome || variables.lead?.name || cleanPhone;
-      
-      // Busca o primeiro estágio do pipeline para atribuir ao novo lead
+      // Usa o telefone como nome — o nome real vem do pushName quando o contato responder
       const firstStage = await prisma.pipelineStage.findFirst({
         where: { companyId: flow.companyId },
         orderBy: { order: 'asc' },
@@ -231,11 +269,12 @@ export class FlowEngineService {
         data: {
           companyId: flow.companyId,
           phone: cleanPhone,
-          name: String(custName),
+          name: cleanPhone,
           tags: [],
           pipelineStageId: firstStage?.id || null,
         }
       });
+      console.log(`[FlowEngine] 👤 Novo contato: ${cleanPhone}`);
     }
 
     if (customer) {
@@ -663,8 +702,8 @@ export class FlowEngineService {
     const action = data.aiAction || 'enable';
     const turnOn = action === 'enable'; // 'enable' or 'disable'
     
-    const customer = await prisma.customer.findFirst({
-      where: { phone: execution.contactPhone, companyId: execution.flow.companyId }
+    const customer = await prisma.customer.findUnique({
+      where: { companyId_phone: { companyId: execution.flow.companyId, phone: execution.contactPhone } }
     });
 
     if (customer) {
@@ -970,12 +1009,9 @@ export class FlowEngineService {
 
       if (!flow) return;
 
-      // Busca o customer pelo telefone + companyId
-      const customer = await prisma.customer.findFirst({
-        where: {
-          phone: execution.contactPhone,
-          companyId: flow.companyId
-        }
+      // Busca o customer pelo telefone + companyId (índice único)
+      const customer = await prisma.customer.findUnique({
+        where: { companyId_phone: { companyId: flow.companyId, phone: execution.contactPhone } }
       });
 
       if (!customer) {
