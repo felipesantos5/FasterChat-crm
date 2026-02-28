@@ -184,8 +184,8 @@ function DashboardPageContent() {
             </div>
           </div>
 
-          {/* Linha 3: 4 cards bottom - Tempo Resp + Pico + Agendamentos + Agente */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Linha 3: 4 ou 3 cards bottom, dependendo dos agendamentos */}
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${chartsData && chartsData.activeAppointments?.active > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
             {chartsData && (
               <>
                 <ModernResponseTimeCard
@@ -193,7 +193,9 @@ function DashboardPageContent() {
                   hourlyData={chartsData.messagesByHour}
                 />
                 <ModernPeakHoursChart data={chartsData.messagesByHour} />
-                <ModernAppointmentsCard data={chartsData.activeAppointments} />
+                {chartsData.activeAppointments?.active > 0 && (
+                  <ModernAppointmentsCard data={chartsData.activeAppointments} />
+                )}
                 <ModernAgentStatsCard data={chartsData.messagesByAgent} />
               </>
             )}

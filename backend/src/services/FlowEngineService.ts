@@ -3,6 +3,7 @@ import whatsappService from './whatsapp.service';
 import { FlowExecutionStatus, MessageDirection, MessageStatus } from '@prisma/client';
 import messageService from './message.service';
 import { websocketService } from './websocket.service';
+import { customerService } from './customer.service';
 
 // ==================================================================================
 // 🛡️ CIRCUIT BREAKER: Protege a Evolution API contra sobrecarga.
@@ -229,10 +230,8 @@ export class FlowEngineService {
     }
 
 
-    // Busca pelo telefone normalizado usando índice único (companyId + phone)
-    let customer = await prisma.customer.findUnique({
-      where: { companyId_phone: { companyId: flow.companyId, phone: cleanPhone } }
-    });
+    // Busca pelo telefone normalizado usando índice único e cobrindo variantes do 9º dígito
+    let customer = await customerService.findByPhoneWithVariant(cleanPhone, flow.companyId);
 
     // Fallback: contato criado antes desta normalização (sem código do país)
     if (!customer && cleanPhone.startsWith('55')) {

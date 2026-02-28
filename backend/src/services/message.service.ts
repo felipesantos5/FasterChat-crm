@@ -8,6 +8,7 @@ import whatsappService from "./whatsapp.service";
 import { Errors, AppError } from "../utils/errors";
 import ragService from "./rag.service";
 import { AIProvider } from "../types/ai-provider";
+import { customerService } from "./customer.service";
 
 class MessageService {
   /**
@@ -552,13 +553,11 @@ class MessageService {
       // A detecção de isGroup já foi feita no início do método com sucesso
 
       // ==================================================================================
-      // 🔍 BUSCA INTELIGENTE DE CLIENTE (Previne duplicatas LID/Phone)
+      // 🔍 BUSCA INTELIGENTE DE CLIENTE (Previne duplicatas LID/Phone/9º dígito)
       // ==================================================================================
 
-      // Primeiro tenta buscar pelo phone exato
-      let customer = await prisma.customer.findUnique({
-        where: { companyId_phone: { companyId: instance.companyId, phone } },
-      });
+      // Primeiro tenta buscar pelo phone, abrangendo variações do 9º dígito
+      let customer = await customerService.findByPhoneWithVariant(phone, instance.companyId);
 
       // 🔗 ANTI-DUPLICATA POR LID: Se não encontrou pelo phone exato,
       // busca pelo campo lidPhone (mapeamento LID↔telefone real).

@@ -101,6 +101,37 @@ export class CustomerService {
     });
   }
 
+  async findByPhoneWithVariant(phone: string, companyId: string): Promise<Customer | null> {
+    // Busca exata primeiro
+    let customer = await prisma.customer.findUnique({
+      where: { companyId_phone: { companyId, phone } },
+    });
+
+    if (customer) return customer;
+
+    // Se não achou na busca exata e é do Brasil e não é grupo
+    if (phone.startsWith("55") && !phone.includes("@g.us")) {
+      let variantPhone: string | null = null;
+      const dddAndNumber = phone.substring(2);
+
+      if (dddAndNumber.length === 10) {
+        // Ex: 55 48 84471100 -> Tenta adicionar o 9: 55 48 9 84471100
+        variantPhone = `55${dddAndNumber.substring(0, 2)}9${dddAndNumber.substring(2)}`;
+      } else if (dddAndNumber.length === 11 && dddAndNumber[2] === "9") {
+        // Ex: 55 48 9 84471100 -> Tenta remover o 9: 55 48 84471100
+        variantPhone = `55${dddAndNumber.substring(0, 2)}${dddAndNumber.substring(3)}`;
+      }
+
+      if (variantPhone) {
+        customer = await prisma.customer.findUnique({
+          where: { companyId_phone: { companyId, phone: variantPhone } },
+        });
+      }
+    }
+
+    return customer;
+  }
+
   async update(id: string, companyId: string, data: UpdateCustomerDTO): Promise<Customer> {
     // Check if customer exists and belongs to company
     const customer = await this.findById(id, companyId);
