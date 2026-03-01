@@ -1,11 +1,11 @@
-import { Customer } from "@prisma/client";
 import { prisma } from "../utils/prisma";
 import { CreateCustomerDTO, UpdateCustomerDTO, CustomerFilters } from "../types/customer";
 import tagService from "./tag.service";
 import { getStateFromPhone } from "../utils/phone.utils";
+import { customFieldService, FieldValueDTO } from "./custom-field.service";
 
 export class CustomerService {
-  async create(companyId: string, data: CreateCustomerDTO): Promise<Customer> {
+  async create(companyId: string, data: CreateCustomerDTO & { customFieldValues?: FieldValueDTO[] }): Promise<any> {
     // Check if phone already exists for this company
     const existingCustomer = await prisma.customer.findUnique({
       where: {
@@ -43,9 +43,11 @@ export class CustomerService {
     // Deduz o estado através do DDD
     const stateDeduced = getStateFromPhone(data.phone);
 
-    return prisma.customer.create({
+    const { customFieldValues, ...customerData } = data;
+
+    const customer = await prisma.customer.create({
       data: {
-        ...data,
+        ...customerData,
         companyId,
         email: data.email || null,
         tags: data.tags || [],
@@ -55,6 +57,12 @@ export class CustomerService {
         pipelineStageId,
       },
     });
+
+    if (customFieldValues && customFieldValues.length > 0) {
+      await customFieldService.upsertCustomerValues(customer.id, customFieldValues);
+    }
+
+    return customer;
   }
 
   async findAll(companyId: string, filters: CustomerFilters): Promise<{ customers: Customer[]; total: number; page: number; limit: number }> {
@@ -112,11 +120,13 @@ export class CustomerService {
     };
   }
 
-  async findById(id: string, companyId: string): Promise<Customer | null> {
+  async findById(id: string, companyId: string): Promise<any> {
     return prisma.customer.findFirst({
-      where: {
-        id,
-        companyId,
+      where: { id, companyId },
+      include: {
+        customFieldValues: {
+          include: { field: true },
+        },
       },
     });
   }
@@ -170,7 +180,7 @@ export class CustomerService {
     return customer;
   }
 
-  async update(id: string, companyId: string, data: UpdateCustomerDTO): Promise<Customer> {
+  async update(id: string, companyId: string, data: UpdateCustomerDTO & { customFieldValues?: FieldValueDTO[] }): Promise<any> {
     // Check if customer exists and belongs to company
     const customer = await this.findById(id, companyId);
     if (!customer) {
@@ -198,13 +208,21 @@ export class CustomerService {
       await tagService.createOrGetMany(companyId, data.tags);
     }
 
-    return prisma.customer.update({
+    const { customFieldValues, ...customerData } = data;
+
+    const updated = await prisma.customer.update({
       where: { id },
       data: {
-        ...data,
-        email: data.email === "" ? null : data.email,
+        ...customerData,
+        email: customerData.email === "" ? null : customerData.email,
       },
     });
+
+    if (customFieldValues && customFieldValues.length > 0) {
+      await customFieldService.upsertCustomerValues(id, customFieldValues);
+    }
+
+    return updated;
   }
 
   async delete(id: string, companyId: string): Promise<void> {

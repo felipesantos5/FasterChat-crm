@@ -415,6 +415,43 @@ export default function CustomerDetailPage() {
             </Card>
           )}
 
+          {/* Custom Fields */}
+          {customer.customFieldValues && customer.customFieldValues.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Campos Personalizados
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {customer.customFieldValues.map((cfv) => {
+                    let display = cfv.value ?? "—";
+                    if (cfv.value) {
+                      if (cfv.field.type === "date") {
+                        try {
+                          display = new Date(cfv.value).toLocaleDateString("pt-BR");
+                        } catch {
+                          display = cfv.value;
+                        }
+                      } else if (cfv.field.type === "number") {
+                        const n = parseFloat(cfv.value);
+                        display = isNaN(n) ? cfv.value : n.toLocaleString("pt-BR");
+                      }
+                    }
+                    return (
+                      <div key={cfv.id}>
+                        <p className="text-sm font-medium">{cfv.field.label}</p>
+                        <p className="text-sm text-muted-foreground">{display}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Customer Notes - Observações do Chat */}
           <Card>
             <CardHeader>

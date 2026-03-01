@@ -19,6 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { TagSelector } from "./tag-selector";
 import { Customer, CreateCustomerData, UpdateCustomerData } from "@/types/customer";
 import { Tag } from "@/lib/tag";
+import { customFieldApi } from "@/lib/custom-field";
+import { CustomFieldDefinition } from "@/types/custom-field";
 
 const customerSchema = z.object({
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
@@ -36,7 +38,7 @@ interface CustomerFormModalProps {
   onSubmit: (data: CreateCustomerData | UpdateCustomerData) => Promise<void>;
   customer?: Customer;
   availableTags: Tag[];
-  onTagCreated?: () => void; // Callback para recarregar tags quando uma nova é criada
+  onTagCreated?: () => void;
 }
 
 export function CustomerFormModal({
@@ -50,6 +52,8 @@ export function CustomerFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
 
   const {
     register,
@@ -69,6 +73,10 @@ export function CustomerFormModal({
   });
 
   useEffect(() => {
+    customFieldApi.getDefinitions().then(setCustomFields).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (customer) {
       reset({
         name: customer.name,
@@ -77,6 +85,13 @@ export function CustomerFormModal({
         notes: customer.notes || "",
       });
       setTags(customer.tags || []);
+
+      // Pre-populate custom field values
+      const vals: Record<string, string> = {};
+      customer.customFieldValues?.forEach((v) => {
+        vals[v.fieldId] = v.value ?? "";
+      });
+      setCustomValues(vals);
     } else {
       reset({
         name: "",
@@ -85,6 +100,7 @@ export function CustomerFormModal({
         notes: "",
       });
       setTags([]);
+      setCustomValues({});
     }
   }, [customer, reset]);
 
@@ -97,11 +113,16 @@ export function CustomerFormModal({
     setError("");
 
     try {
+      const customFieldValues = customFields
+        .map((f) => ({ fieldId: f.id, value: customValues[f.id] ?? null }))
+        .filter((v) => v.value !== null && v.value !== "" || false);
+
       await onSubmit({
         ...data,
         tags: tags,
         email: data.email || undefined,
-      });
+        customFieldValues: customFieldValues.length > 0 ? customFieldValues : undefined,
+      } as any);
       onClose();
     } catch (err: any) {
       setError(
@@ -186,7 +207,6 @@ export function CustomerFormModal({
               placeholder="Selecionar tags..."
               disabled={isSubmitting}
               onTagCreated={() => {
-                // Notifica o componente pai para recarregar as tags
                 onTagCreated?.();
               }}
             />
@@ -205,6 +225,30 @@ export function CustomerFormModal({
               disabled={isSubmitting}
             />
           </div>
+
+          {/* Custom Fields */}
+          {customFields.length > 0 && (
+            <div className="space-y-4 pt-2 border-t">
+              <p className="text-sm font-medium text-muted-foreground">Campos Personalizados</p>
+              {customFields.map((field) => (
+                <div key={field.id} className="space-y-2">
+                  <Label htmlFor={`cf-${field.id}`}>
+                    {field.label}
+                    {field.required && <span className="text-destructive ml-1">*</span>}
+                  </Label>
+                  <Input
+                    id={`cf-${field.id}`}
+                    type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
+                    value={customValues[field.id] ?? ""}
+                    onChange={(e) =>
+                      setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                    }
+                    disabled={isSubmitting}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           <DialogFooter>
             <Button

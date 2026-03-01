@@ -16,8 +16,9 @@ export class CustomerController {
       }
 
       const validatedData = validateCreateCustomer(req.body);
+      const customFieldValues = Array.isArray(req.body.customFieldValues) ? req.body.customFieldValues : undefined;
 
-      const customer = await customerService.create(req.user.companyId, validatedData);
+      const customer = await customerService.create(req.user.companyId, { ...validatedData, customFieldValues });
 
       res.status(201).json({
         success: true,
@@ -134,7 +135,8 @@ export class CustomerController {
 
       const { id } = req.params;
       const validatedData = validateUpdateCustomer(req.body);
-      const customer = await customerService.update(id, req.user.companyId, validatedData);
+      const customFieldValues = Array.isArray(req.body.customFieldValues) ? req.body.customFieldValues : undefined;
+      const customer = await customerService.update(id, req.user.companyId, { ...validatedData, customFieldValues });
 
       res.status(200).json({
         success: true,

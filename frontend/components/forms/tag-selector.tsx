@@ -90,6 +90,7 @@ export function TagSelector({
   const handleAddNewTag = () => {
     if (newTagValue.trim()) {
       addTag(newTagValue, true, newTagColor); // Passa a cor selecionada no ColorPicker
+      setOpen(false); // Fecha o input inteiro (popover) após adicionar
     }
   };
 
@@ -264,13 +265,14 @@ export function TagSelector({
                       size="sm"
                       onClick={handleAddNewTag}
                       disabled={!newTagValue.trim() || creating}
-                      className="h-8 w-8 p-0"
+                      className="h-8 px-3"
                     >
                       {creating ? (
-                        <span className="animate-spin text-xs">⏳</span>
+                        <span className="animate-spin text-xs mr-1">⏳</span>
                       ) : (
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-4 w-4 mr-1" />
                       )}
+                      Adicionar
                     </Button>
                   </div>
                   {newTagValue.trim() && (
