@@ -30,6 +30,7 @@ import api from "@/lib/api";
 
 interface BatchStatusData {
   batchId: string;
+  flowId?: string;
   status: "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED" | "PAUSED";
   total: number;
   processed: number;

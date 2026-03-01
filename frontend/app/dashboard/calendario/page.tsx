@@ -66,6 +66,8 @@ interface CalendarEvent {
   resource: Appointment;
 }
 
+const CalendarComponent = BigCalendar as any;
+
 export default function CalendarioPage() {
   return (
     <ProtectedPage requiredPage="CALENDAR">
@@ -414,7 +416,7 @@ function CalendarioPageContent() {
       <div className="flex-1 px-3 md:px-6 pb-3 md:pb-6 pt-4 sm:pt-6">
         <div className={`${cards.default} h-full pt-2`}>
           <div className="calendar-container h-full p-2 md:p-4">
-            <BigCalendar
+            <CalendarComponent
               localizer={localizer}
               events={events}
               startAccessor="start"
@@ -442,11 +444,11 @@ function CalendarioPageContent() {
               defaultDate={new Date()}
               defaultView="week"
               formats={{
-                timeGutterFormat: (date, culture, localizer) =>
+                timeGutterFormat: (date: any, culture: any, localizer: any) =>
                   localizer?.format(date, "HH:mm", culture) || "",
-                eventTimeRangeFormat: ({ start, end }, culture, localizer) =>
+                eventTimeRangeFormat: ({ start, end }: any, culture: any, localizer: any) =>
                   `${localizer?.format(start, "HH:mm", culture)} - ${localizer?.format(end, "HH:mm", culture)}`,
-                agendaTimeRangeFormat: ({ start, end }, culture, localizer) =>
+                agendaTimeRangeFormat: ({ start, end }: any, culture: any, localizer: any) =>
                   `${localizer?.format(start, "HH:mm", culture)} - ${localizer?.format(end, "HH:mm", culture)}`,
               }}
             />
