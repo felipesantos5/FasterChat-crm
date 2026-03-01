@@ -69,7 +69,7 @@ export const MessageNode = memo(({ id, data }: any) => {
 
   return (
     <div className="bg-white border-2 border-blue-400 rounded-xl shadow-lg min-w-[320px] max-w-[400px] overflow-hidden transition-all hover:shadow-blue-100 hover:border-blue-500">
-      <Handle type="target" position={Position.Left} className="w-5 h-5 bg-blue-500 border-2 border-white" />
+      <Handle type="target" position={Position.Left} className="w-8 h-8 bg-blue-500 border-2 border-white" />
 
       <div className="bg-blue-50 px-3 py-3 border-b border-blue-100 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -139,7 +139,7 @@ export const MessageNode = memo(({ id, data }: any) => {
         flowId={data?.flowId}
       />
 
-      <Handle type="source" position={Position.Right} className="w-5 h-5 bg-blue-500 border-2 border-white" />
+      <Handle type="source" position={Position.Right} className="w-8 h-8 bg-blue-500 border-2 border-white" />
     </div>
   );
 });

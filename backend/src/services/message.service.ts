@@ -185,7 +185,8 @@ class MessageService {
   async updateMessageStatusByWhatsAppId(
     whatsappInstanceId: string,
     messageId: string,
-    status: MessageStatus
+    status: MessageStatus,
+    remoteJid?: string
   ): Promise<{ message: any; companyId: string } | null> {
     try {
       // Busca a mensagem pelo índice composto
@@ -213,6 +214,21 @@ class MessageService {
 
       if (newOrder <= currentOrder) {
         // Status atual já é igual ou mais avançado, não atualiza
+        // Mas podemos ainda assim aproveitar para mapear o LID
+        if (remoteJid && !message.customer.isGroup) {
+          const rawPhone = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "");
+          if (rawPhone.length >= 14 && rawPhone !== message.customer.phone && message.customer.lidPhone !== rawPhone) {
+            try {
+              await prisma.customer.update({
+                where: { id: message.customer.id },
+                data: { lidPhone: rawPhone }
+              });
+              console.log(`[MessageService] 🔗 LID mapping salvo via Status Update: customer "${message.customer.phone}" → lidPhone "${rawPhone}"`);
+            } catch (e) {
+              console.warn(`[MessageService] ⚠️ Erro ao salvar lidPhone:`, e);
+            }
+          }
+        }
         return { message, companyId: message.customer.companyId };
       }
 
@@ -224,6 +240,22 @@ class MessageService {
           customer: true,
         },
       });
+
+      // Mapeamento LID também aqui caso precisasse atualizar
+      if (remoteJid && !updatedMessage.customer.isGroup) {
+        const rawPhone = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "");
+        if (rawPhone.length >= 14 && rawPhone !== updatedMessage.customer.phone && updatedMessage.customer.lidPhone !== rawPhone) {
+          try {
+            await prisma.customer.update({
+              where: { id: updatedMessage.customer.id },
+              data: { lidPhone: rawPhone }
+            });
+            console.log(`[MessageService] 🔗 LID mapping salvo via Status Update: customer "${updatedMessage.customer.phone}" → lidPhone "${rawPhone}"`);
+          } catch (e) {
+            console.warn(`[MessageService] ⚠️ Erro ao salvar lidPhone:`, e);
+          }
+        }
+      }
 
       // Emite via WebSocket
       if (websocketService.isInitialized()) {

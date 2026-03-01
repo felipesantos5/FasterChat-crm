@@ -23,7 +23,7 @@ export const ConditionNode = memo(({ id, data }: any) => {
 
   return (
     <div className="bg-white border-2 border-purple-400 rounded-xl shadow-lg min-w-[300px] overflow-hidden transition-all hover:shadow-purple-100 hover:border-purple-500/50">
-      <Handle type="target" position={Position.Left} className="w-5 h-5 bg-purple-500 border-2 border-white" />
+      <Handle type="target" position={Position.Left} className="w-8 h-8 bg-purple-500 border-2 border-white" />
 
       <div className="bg-purple-50 px-3 py-3 border-b border-purple-100 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -76,7 +76,7 @@ export const ConditionNode = memo(({ id, data }: any) => {
               <MessageSquare size={14} className="text-blue-500" />
               <span className="text-[11px] font-bold text-blue-700 uppercase">Respondeu (Qualquer)</span>
             </div>
-            <Handle type="source" position={Position.Right} id="respondeu" className="w-5 h-5 bg-blue-500 border-2 border-white -mr-1" />
+            <Handle type="source" position={Position.Right} id="respondeu" className="w-8 h-8 bg-blue-500 border-2 border-white -mr-1" />
           </div>
 
           <div className="flex flex-col gap-2 bg-green-50/40 p-2.5 rounded-lg border border-green-100 relative group hover:bg-green-50 transition-colors">
@@ -85,7 +85,7 @@ export const ConditionNode = memo(({ id, data }: any) => {
                 <Key size={14} className="text-green-500" />
                 <span className="text-[11px] font-bold text-green-700 uppercase">Respondeu Palavra-chave</span>
               </div>
-              <Handle type="source" position={Position.Right} id="palavra_chave" className="w-5 h-5 bg-green-500 border-2 border-white -mr-1" />
+              <Handle type="source" position={Position.Right} id="palavra_chave" className="w-8 h-8 bg-green-500 border-2 border-white -mr-1" />
             </div>
             <input
               type="text"
@@ -101,7 +101,7 @@ export const ConditionNode = memo(({ id, data }: any) => {
               <Clock size={14} className="text-gray-400" />
               <span className="text-[11px] font-bold text-gray-500 uppercase">Se não responder</span>
             </div>
-            <Handle type="source" position={Position.Right} id="nao_respondeu" className="w-5 h-5 bg-gray-400 border-2 border-white -mr-1" />
+            <Handle type="source" position={Position.Right} id="nao_respondeu" className="w-8 h-8 bg-gray-400 border-2 border-white -mr-1" />
           </div>
         </div>
       </div>

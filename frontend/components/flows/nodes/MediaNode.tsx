@@ -141,7 +141,7 @@ export const MediaNode = memo(({ id, data, type }: any) => {
       <Handle
         type="target"
         position={Position.Left}
-        className={`w-5 h-5 border-2 border-white ${isVideo ? 'bg-indigo-500' : 'bg-pink-500'}`}
+        className={`w-8 h-8 border-2 border-white ${isVideo ? 'bg-indigo-500' : 'bg-pink-500'}`}
       />
 
       <div className={`px-3 py-3 border-b flex items-center justify-between gap-2 ${isVideo ? 'bg-indigo-50 border-indigo-100' : 'bg-pink-50 border-pink-100'
@@ -292,7 +292,7 @@ export const MediaNode = memo(({ id, data, type }: any) => {
       <Handle
         type="source"
         position={Position.Right}
-        className={`w-5 h-5 border-2 border-white ${isVideo ? 'bg-indigo-500' : 'bg-pink-500'}`}
+        className={`w-8 h-8 border-2 border-white ${isVideo ? 'bg-indigo-500' : 'bg-pink-500'}`}
       />
     </div>
   );

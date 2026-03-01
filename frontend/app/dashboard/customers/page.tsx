@@ -65,6 +65,8 @@ function CustomersPageContent() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [orderBy, setOrderBy] = useState<"recent" | "old" | "az" | "za">("recent");
+  const [typeFilter, setTypeFilter] = useState<"all" | "individual" | "group">("all");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const { hasError, handleError, clearError } = useErrorHandler();
@@ -109,6 +111,8 @@ function CustomersPageContent() {
       const response = await customerApi.getAll({
         search: debouncedSearch || undefined,
         tags: selectedTags.length > 0 ? selectedTags : undefined,
+        orderBy,
+        type: typeFilter,
         page,
         limit,
       });
@@ -123,7 +127,7 @@ function CustomersPageContent() {
 
   useEffect(() => {
     loadCustomers();
-  }, [debouncedSearch, selectedTags, page, limit]);
+  }, [debouncedSearch, selectedTags, orderBy, typeFilter, page, limit]);
 
   const handleCreate = async (customerData: any) => {
     await customerApi.create(customerData);
@@ -163,6 +167,8 @@ function CustomersPageContent() {
   const clearFilters = () => {
     setSearch("");
     setSelectedTags([]);
+    setOrderBy("recent");
+    setTypeFilter("all");
     setPage(1);
   };
 
@@ -171,7 +177,7 @@ function CustomersPageContent() {
   const customers = data?.customers || [];
   const total = data?.total || 0;
 
-  const hasActiveFilters = search || selectedTags.length > 0;
+  const hasActiveFilters = search || selectedTags.length > 0 || orderBy !== "recent" || typeFilter !== "all";
 
   return (
     <div className="flex flex-col h-full">
@@ -231,29 +237,66 @@ function CustomersPageContent() {
           )}
         </div>
 
-        {/* Filtros de tags */}
-        {showFilters && availableTags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
-            {availableTags.map((tag) => (
-              <Badge
-                key={tag.id}
-                className={cn(
-                  "cursor-pointer transition-all",
-                  selectedTags.includes(tag.name) ? "text-white" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                )}
-                style={
-                  selectedTags.includes(tag.name)
-                    ? {
-                      backgroundColor: tag.color || "#22C55E",
-                      borderColor: tag.color || "#22C55E",
-                    }
-                    : undefined
-                }
-                onClick={() => toggleTagFilter(tag.name)}
-              >
-                {tag.name}
-              </Badge>
-            ))}
+        {/* Filtros e Ordenação Avançados */}
+        {showFilters && (
+          <div className="mt-4 pt-3 border-t space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="space-y-1.5 flex-1 max-w-[200px]">
+                <label className="text-xs font-medium text-muted-foreground">Ordenar por</label>
+                <select
+                  className="w-full flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  value={orderBy}
+                  onChange={(e) => setOrderBy(e.target.value as any)}
+                >
+                  <option value="recent">Mais recentes</option>
+                  <option value="old">Mais antigos</option>
+                  <option value="az">Nome (A-Z)</option>
+                  <option value="za">Nome (Z-A)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5 flex-1 max-w-[200px]">
+                <label className="text-xs font-medium text-muted-foreground">Tipo de Contato</label>
+                <select
+                  className="w-full flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as any)}
+                >
+                  <option value="all">Todos</option>
+                  <option value="individual">Individuais</option>
+                  <option value="group">Grupos</option>
+                </select>
+              </div>
+            </div>
+
+            {availableTags.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Filtrar por Tags</label>
+                <div className="flex flex-wrap gap-2">
+                  {availableTags.map((tag) => {
+                    const isSelected = selectedTags.includes(tag.name);
+                    const tagColor = tag.color || "#22C55E";
+                    return (
+                      <Badge
+                        key={tag.id}
+                        className={cn(
+                          "cursor-pointer transition-all border",
+                          isSelected ? "shadow-sm text-white scale-105" : "text-foreground opacity-70 hover:opacity-100"
+                        )}
+                        style={{
+                          backgroundColor: isSelected ? tagColor : `${tagColor}22`,
+                          borderColor: tagColor,
+                          color: isSelected ? "#fff" : tagColor,
+                        }}
+                        onClick={() => toggleTagFilter(tag.name)}
+                      >
+                        {tag.name}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

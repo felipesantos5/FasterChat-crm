@@ -50,7 +50,7 @@ export const ValidationNode = memo(({ id, data }: any) => {
 
   return (
     <div className="bg-white border-2 border-amber-400 rounded-xl shadow-lg min-w-[320px] max-w-[380px] overflow-hidden transition-all hover:shadow-amber-100 hover:border-amber-500">
-      <Handle type="target" position={Position.Left} className="w-5 h-5 bg-amber-500 border-2 border-white" />
+      <Handle type="target" position={Position.Left} className="w-8 h-8 bg-amber-500 border-2 border-white" />
 
       {/* Header */}
       <div className="bg-amber-50 px-3 py-3 border-b border-amber-100 flex items-center justify-between gap-2">
@@ -152,7 +152,7 @@ export const ValidationNode = memo(({ id, data }: any) => {
               <div className="w-2 h-2 rounded-full bg-green-500" />
               <span className="text-[11px] font-bold text-green-700 uppercase">✓ Verdadeiro</span>
             </div>
-            <Handle type="source" position={Position.Right} id="true" className="w-5 h-5 bg-green-500 border-2 border-white -mr-1" />
+            <Handle type="source" position={Position.Right} id="true" className="w-8 h-8 bg-green-500 border-2 border-white -mr-1" />
           </div>
 
           <div className="flex items-center justify-between bg-red-50/50 p-2.5 rounded-lg border border-red-200 relative group hover:bg-red-50 transition-colors">
@@ -160,7 +160,7 @@ export const ValidationNode = memo(({ id, data }: any) => {
               <div className="w-2 h-2 rounded-full bg-red-500" />
               <span className="text-[11px] font-bold text-red-700 uppercase">✗ Falso</span>
             </div>
-            <Handle type="source" position={Position.Right} id="false" className="w-5 h-5 bg-red-500 border-2 border-white -mr-1" />
+            <Handle type="source" position={Position.Right} id="false" className="w-8 h-8 bg-red-500 border-2 border-white -mr-1" />
           </div>
         </div>
       </div>

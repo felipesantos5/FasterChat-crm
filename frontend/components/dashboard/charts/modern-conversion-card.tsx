@@ -18,8 +18,8 @@ export function ModernConversionCard({ data }: ModernConversionCardProps) {
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
       <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-[#d6ffe4] dark:bg-[#0f311c]/30">
-            <Target className="h-4 w-4 text-[#1a753a] dark:text-[#4ed479]" />
+          <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+            <Target className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <CardTitle className="text-sm font-semibold">Taxa de Conversão Geral</CardTitle>
         </div>

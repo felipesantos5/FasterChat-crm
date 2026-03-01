@@ -16,6 +16,7 @@ import * as XLSX from 'xlsx';
 interface BatchStatus {
   batchId: string;
   flowId: string;
+  companyId: string;
   status: 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'PAUSED';
   total: number;
   processed: number;
@@ -106,6 +107,7 @@ export class FlowBatchController {
     const batchStatus: BatchStatus = {
       batchId,
       flowId,
+      companyId,
       status: 'PROCESSING',
       total: validRows.length,
       processed: 0,
@@ -331,6 +333,24 @@ export class FlowBatchController {
     }
 
     return res.json(batch);
+  }
+
+  /**
+   * GET /flows/batches/active
+   * Retorna os disparos ativos e recentes da empresa logada
+   */
+  public async getActiveBatches(req: Request, res: Response): Promise<Response> {
+    const { companyId } = req.user!;
+
+    const activeBatches: BatchStatus[] = [];
+    for (const batch of batchStore.values()) {
+      if (batch.companyId === companyId) {
+        // Retornamos PROCESSING e os pausados ou recentemente terminados
+        activeBatches.push(batch);
+      }
+    }
+
+    return res.json({ activeBatches });
   }
 
   /**

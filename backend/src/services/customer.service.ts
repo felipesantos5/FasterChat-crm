@@ -74,12 +74,27 @@ export class CustomerService {
       };
     }
 
+    if (filters.type === 'individual') {
+      where.isGroup = false;
+    } else if (filters.type === 'group') {
+      where.isGroup = true;
+    }
+
+    let prismaOrderBy: any = { createdAt: "desc" };
+    if (filters.orderBy === "old") {
+      prismaOrderBy = { createdAt: "asc" };
+    } else if (filters.orderBy === "az") {
+      prismaOrderBy = { name: "asc" };
+    } else if (filters.orderBy === "za") {
+      prismaOrderBy = { name: "desc" };
+    }
+
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: prismaOrderBy,
       }),
       prisma.customer.count({ where }),
     ]);

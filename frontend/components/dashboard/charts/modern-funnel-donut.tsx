@@ -27,15 +27,14 @@ interface ModernFunnelDonutProps {
 }
 
 const COLORS = [
-  "#0f311c", // very dark green
-  "#14522b", // dark green
-  "#1a753a", // deep green
-  "#209849", // green
-  "#26bc58", // vivid green
-  "#4ed479", // light green
-  "#7ded9d", // very light green
-  "#aeffc1", // pale green
-  "#d6ffe4", // ultra pale green
+  "#86efac", // green-300
+  "#4ade80", // green-400
+  "#22c55e", // green-500
+  "#16a34a", // green-600
+  "#15803d", // green-700
+  "#166534", // green-800
+  "#14532d", // green-900
+  "#052e16", // green-950
 ];
 
 export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {

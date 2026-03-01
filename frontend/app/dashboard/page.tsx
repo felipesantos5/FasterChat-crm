@@ -72,8 +72,8 @@ function DashboardPageContent() {
         value: stats.totalCustomers?.current || 0,
         percentageChange: stats.totalCustomers?.percentageChange || 0,
         icon: UserPlus,
-        gradient: "bg-gradient-to-br from-[#14522b] to-[#1a753a]",
-        colorName: "green" as const,
+        gradient: "bg-gradient-to-br from-emerald-500 to-emerald-400",
+        colorName: "emerald" as const,
         description: "",
       },
       {
@@ -81,8 +81,8 @@ function DashboardPageContent() {
         value: stats.activeConversations?.current || 0,
         percentageChange: stats.activeConversations?.percentageChange || 0,
         icon: MessageCircle,
-        gradient: "bg-gradient-to-br from-[#209849] to-[#26bc58]",
-        colorName: "green" as const,
+        gradient: "bg-gradient-to-br from-lime-500 to-lime-400",
+        colorName: "lime" as const,
         description: "",
       },
       {
@@ -90,8 +90,8 @@ function DashboardPageContent() {
         value: stats.messagesReceived?.current || 0,
         percentageChange: stats.messagesReceived?.percentageChange || 0,
         icon: MessageSquare,
-        gradient: "bg-gradient-to-br from-[#0f311c] to-[#14522b]",
-        colorName: "green" as const,
+        gradient: "bg-gradient-to-br from-teal-500 to-teal-400",
+        colorName: "teal" as const,
         description: "",
       },
     ]

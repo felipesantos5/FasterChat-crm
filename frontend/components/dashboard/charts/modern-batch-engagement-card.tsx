@@ -18,8 +18,8 @@ export function ModernBatchEngagementCard({ data }: ModernBatchEngagementCardPro
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
       <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-[#d6ffe4] dark:bg-[#0f311c]/30">
-            <MessageSquareShare className="h-4 w-4 text-[#1a753a] dark:text-[#4ed479]" />
+          <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
+            <MessageSquareShare className="h-4 w-4 text-green-600 dark:text-green-400" />
           </div>
           <CardTitle className="text-sm font-semibold">Engajamento em Disparos</CardTitle>
         </div>
@@ -44,11 +44,11 @@ export function ModernBatchEngagementCard({ data }: ModernBatchEngagementCardPro
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-[#d6ffe4]/50 dark:bg-[#14522b]/30">
-            <Reply className="h-4 w-4 text-[#1a753a]" />
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-green-100/50 dark:bg-green-900/30">
+            <Reply className="h-4 w-4 text-green-600" />
             <div className="flex-1">
               <p className="text-xs text-muted-foreground font-medium">Respostas Recebidas</p>
-              <span className="text-sm font-bold text-[#14522b] dark:text-[#4ed479]">{data.replies}</span>
+              <span className="text-sm font-bold text-green-700 dark:text-green-400">{data.replies}</span>
             </div>
           </div>
         </div>
