@@ -1,4 +1,5 @@
 import { prisma } from "../utils/prisma";
+import { Customer } from "@prisma/client";
 import { CreateCustomerDTO, UpdateCustomerDTO, CustomerFilters } from "../types/customer";
 import tagService from "./tag.service";
 import { getStateFromPhone } from "../utils/phone.utils";
