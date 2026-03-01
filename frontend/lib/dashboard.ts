@@ -100,6 +100,11 @@ export interface BatchEngagementData {
   responseRate: number;
 }
 
+export interface ClientsByStateData {
+  state: string;
+  count: number;
+}
+
 export interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
@@ -112,6 +117,7 @@ export interface DashboardChartsData {
   messagesByAgent: AgentStatsData[];
   overallConversion: OverallConversionData;
   batchEngagement: BatchEngagementData;
+  clientsByState: ClientsByStateData[];
 }
 
 export const dashboardApi = {

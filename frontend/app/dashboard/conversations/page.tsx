@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConversationListSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
@@ -383,6 +382,8 @@ function ConversationsPageContent() {
                     filters={advancedFilters}
                     onFiltersChange={setAdvancedFilters}
                     instances={instances}
+                    sortType={sortType}
+                    onSortChange={(value: string) => setSortType(value as SortType)}
                   />
                 </div>
                 {/* <Badge variant="secondary" className="text-xs">
@@ -458,17 +459,6 @@ function ConversationsPageContent() {
                 )}
               </div>
 
-              {/* Ordenação */}
-              <Select value={sortType} onValueChange={(value: SortType) => setSortType(value)}>
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">Mais recentes</SelectItem>
-                  <SelectItem value="oldest">Mais antigas</SelectItem>
-                  <SelectItem value="name">Nome (A-Z)</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Lista de Conversas */}

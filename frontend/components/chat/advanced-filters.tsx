@@ -25,9 +25,11 @@ interface AdvancedFiltersProps {
   filters: AdvancedFilters;
   onFiltersChange: (filters: AdvancedFilters) => void;
   instances: WhatsAppInstance[];
+  sortType?: string;
+  onSortChange?: (value: string) => void;
 }
 
-export function AdvancedFilters({ filters, onFiltersChange, instances }: AdvancedFiltersProps) {
+export function AdvancedFilters({ filters, onFiltersChange, instances, sortType, onSortChange }: AdvancedFiltersProps) {
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
@@ -174,6 +176,25 @@ export function AdvancedFilters({ filters, onFiltersChange, instances }: Advance
                       {instance.displayName || instance.instanceName}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Ordenação */}
+          {sortType && onSortChange && (
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground">
+                ORDENAÇÃO
+              </Label>
+              <Select value={sortType} onValueChange={onSortChange}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Mais recentes</SelectItem>
+                  <SelectItem value="oldest">Mais antigas</SelectItem>
+                  <SelectItem value="name">Nome (A-Z)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

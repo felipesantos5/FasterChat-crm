@@ -2,6 +2,7 @@ import { Customer } from "@prisma/client";
 import { prisma } from "../utils/prisma";
 import { CreateCustomerDTO, UpdateCustomerDTO, CustomerFilters } from "../types/customer";
 import tagService from "./tag.service";
+import { getStateFromPhone } from "../utils/phone.utils";
 
 export class CustomerService {
   async create(companyId: string, data: CreateCustomerDTO): Promise<Customer> {
@@ -39,6 +40,9 @@ export class CustomerService {
       pipelineStageId = firstStage?.id || null;
     }
 
+    // Deduz o estado através do DDD
+    const stateDeduced = getStateFromPhone(data.phone);
+
     return prisma.customer.create({
       data: {
         ...data,
@@ -46,6 +50,7 @@ export class CustomerService {
         email: data.email || null,
         tags: data.tags || [],
         notes: data.notes || null,
+        state: stateDeduced,
         isGroup,
         pipelineStageId,
       },

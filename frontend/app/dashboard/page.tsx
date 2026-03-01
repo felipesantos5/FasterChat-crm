@@ -10,6 +10,7 @@ import {
   ModernAppointmentsCard,
   ModernConversionCard,
   ModernBatchEngagementCard,
+  ModernRegionChart,
 } from "@/components/dashboard/charts";
 import { MessageSquare, UserPlus, MessageCircle } from "lucide-react";
 import { spacing } from "@/lib/design-system";
@@ -193,6 +194,10 @@ function DashboardPageContent() {
 
                 {chartsData.activeAppointments?.active > 0 && (
                   <ModernAppointmentsCard data={chartsData.activeAppointments} />
+                )}
+
+                {chartsData.clientsByState && chartsData.clientsByState.length > 1 && (
+                  <ModernRegionChart data={chartsData.clientsByState} />
                 )}
 
                 {chartsData.batchEngagement?.hasBatchExecutions && (

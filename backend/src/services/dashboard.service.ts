@@ -92,6 +92,11 @@ interface BatchEngagementData {
   responseRate: number;
 }
 
+interface ClientsByStateData {
+  state: string;
+  count: number;
+}
+
 interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
@@ -104,6 +109,7 @@ interface DashboardChartsData {
   messagesByAgent: AgentStatsData[];
   overallConversion: OverallConversionData;
   batchEngagement: BatchEngagementData;
+  clientsByState: ClientsByStateData[];
 }
 
 const APPOINTMENT_TYPE_LABELS: Record<AppointmentType, string> = {
@@ -486,6 +492,7 @@ class DashboardService {
       messagesByAgent,
       overallConversion,
       batchEngagement,
+      clientsByState,
     ] = await Promise.all([
       this.getPipelineFunnelData(companyId),
       this.getMessagesOverTimeData(companyId, currentStart, daysCount),
@@ -498,6 +505,7 @@ class DashboardService {
       this.getMessagesByAgentData(companyId, currentStart, currentEnd),
       this.getOverallConversionData(companyId, currentStart, currentEnd),
       this.getBatchEngagementData(companyId, currentStart, currentEnd),
+      this.getClientsByStateData(companyId),
     ]);
 
     return {
@@ -512,6 +520,7 @@ class DashboardService {
       messagesByAgent,
       overallConversion,
       batchEngagement,
+      clientsByState,
     };
   }
 
@@ -1034,6 +1043,31 @@ class DashboardService {
       replies,
       responseRate: Math.round(responseRate * 10) / 10
     };
+  }
+
+  private async getClientsByStateData(companyId: string): Promise<ClientsByStateData[]> {
+    const clients = await prisma.customer.groupBy({
+      by: ['state'],
+      where: {
+        companyId,
+        state: {
+          not: null,
+        },
+      },
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        _count: {
+          id: 'desc',
+        },
+      },
+    });
+
+    return clients.map((c: any) => ({
+      state: c.state as string,
+      count: c._count.id,
+    }));
   }
 }
 
