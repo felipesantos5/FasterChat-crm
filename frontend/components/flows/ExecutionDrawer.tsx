@@ -5,6 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { formatPhoneNumber } from '@/lib/utils';
 
 type Execution = {
   id: string;
@@ -120,14 +121,14 @@ export function ExecutionDrawer({
       key={exe.id}
       onClick={() => onSelectExecution(selectedExecutionId === exe.id ? null : exe)}
       className={`p-4 border rounded-lg cursor-pointer transition-all group ${selectedExecutionId === exe.id
-          ? 'border-green-500 bg-green-50 ring-1 ring-green-500'
-          : 'hover:border-primary/50 hover:bg-gray-50 bg-white'
+        ? 'border-green-500 bg-green-50 ring-1 ring-green-500'
+        : 'hover:border-primary/50 hover:bg-gray-50 bg-white'
         }`}
     >
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-2 font-semibold text-sm text-gray-900">
           <Phone size={14} className="text-gray-400" />
-          {exe.contactPhone}
+          {formatPhoneNumber(exe.contactPhone)}
         </div>
         <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white border">
           {getStatusIcon(exe.status)}

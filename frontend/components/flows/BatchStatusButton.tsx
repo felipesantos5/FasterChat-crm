@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import api from "@/lib/api";
+import { formatPhoneNumber } from "@/lib/utils";
 
 interface BatchStatusData {
   batchId: string;
@@ -397,7 +398,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                         <span className="text-red-600 font-medium">
                           Linha {err.row}
                         </span>{" "}
-                        ({err.phone}):{" "}
+                        ({formatPhoneNumber(err.phone)}):{" "}
                         <span className="text-gray-600">{err.error}</span>
                       </div>
                     ))}
