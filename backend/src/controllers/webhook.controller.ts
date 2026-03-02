@@ -98,40 +98,38 @@ class WebhookController {
                   select: { phone: true },
                 });
                 if (customerByLid) {
-                  console.log(`[Webhook:FlowEngine] 🔗 Resolved LID "${phone}" → real phone "${customerByLid.phone}" via lidPhone mapping`);
+                  console.log(`[Webhook:FlowEngine] 🔗 Resolved LID "${phone}" → real phone "${customerByLid.phone}" via customer.lidPhone mapping`);
                   phone = customerByLid.phone;
-                } else if (instanceId) {
-                  // 🔑 Fallback: FlowExecution WAITING_REPLY sem contactLid (WhatsApp Business)
-                  const waitingExec = await prisma.flowExecution.findFirst({
+                } else {
+                  // 🔑 Fallback: Busca por contactLid na FlowExecution (mapeado pelo storeLidMapping no envio)
+                  const execByLid = await prisma.flowExecution.findFirst({
                     where: {
+                      contactLid: cleanLid,
                       status: 'WAITING_REPLY',
                       flow: { companyId },
-                      whatsappInstanceId: instanceId,
-                      contactLid: null,
                       startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
                     },
-                    orderBy: { updatedAt: 'desc' },
                     select: { id: true, contactPhone: true },
                   });
 
-                  if (waitingExec) {
-                    console.log(`[Webhook:FlowEngine] 🔗 Resolved LID "${phone}" → real phone "${waitingExec.contactPhone}" via FlowExecution WAITING_REPLY`);
-                    phone = waitingExec.contactPhone;
+                  if (execByLid) {
+                    console.log(`[Webhook:FlowEngine] 🔗 Resolved LID "${phone}" → real phone "${execByLid.contactPhone}" via flowExecution.contactLid mapping`);
+                    phone = execByLid.contactPhone;
 
-                    // Armazena o mapeamento LID para futuras resoluções
-                    await prisma.flowExecution.update({
-                      where: { id: waitingExec.id },
-                      data: { contactLid: cleanLid },
-                    });
-
+                    // Salva no customer para futuras resoluções permanentes
                     await prisma.customer.updateMany({
                       where: {
                         companyId,
-                        phone: waitingExec.contactPhone,
+                        phone: execByLid.contactPhone,
                         lidPhone: null,
                       },
                       data: { lidPhone: cleanLid },
                     });
+                  } else {
+                    // ⛔ Sem mapeamento conhecido. NÃO adivinhamos.
+                    // O storeLidMapping() deveria ter capturado no envio.
+                    // Se não capturou, é melhor perder a mensagem do que contaminar outro fluxo.
+                    console.warn(`[Webhook:FlowEngine] ⚠️ LID "${cleanLid}" sem mapeamento conhecido (customer.lidPhone ou flowExecution.contactLid). Não é possível resolver com segurança. Mensagem não será associada a nenhum fluxo.`);
                   }
                 }
               }
@@ -480,35 +478,52 @@ class WebhookController {
               });
 
               if (inst) {
-                // Procura se há uma execução de fluxo recente para esta instância
-                // que enviou para um phone diferente (o phone real)
-                const recentExec = await prisma.flowExecution.findFirst({
-                  where: {
-                    flow: { companyId: inst.companyId },
-                    contactPhone: { not: sentToPhone },
-                    startedAt: { gte: new Date(Date.now() - 5 * 60 * 1000) }, // últimos 5 min
-                    status: { in: ['RUNNING', 'WAITING_REPLY', 'DELAYED'] },
-                  },
-                  orderBy: { updatedAt: 'desc' },
-                });
+                // 🔗 Usa o messageId para correlação EXATA: busca a mensagem salva pelo fluxo
+                // com o mesmo externalId (WhatsApp message ID), e a partir dela identifica o customer/phone.
+                const messageId = sendKey.id;
+                let mapped = false;
 
-                if (recentExec) {
-                  // Armazena o LID na execução e no customer
-                  await prisma.flowExecution.update({
-                    where: { id: recentExec.id },
-                    data: { contactLid: sentToPhone },
-                  });
-
-                  await prisma.customer.updateMany({
+                if (messageId) {
+                  const savedMsg = await prisma.message.findFirst({
                     where: {
-                      companyId: inst.companyId,
-                      phone: recentExec.contactPhone,
-                      lidPhone: null,
+                      externalId: messageId,
+                      customer: { companyId: inst.companyId },
                     },
-                    data: { lidPhone: sentToPhone },
+                    select: { customer: { select: { phone: true } } },
                   });
 
-                  console.log(`[Webhook:SendMessage] 🔗 LID mapping: "${recentExec.contactPhone}" → LID "${sentToPhone}"`);
+                  if (savedMsg) {
+                    const realPhone = savedMsg.customer.phone.replace(/\D/g, '');
+                    // Encontra a execução deste phone para salvar o LID
+                    const exec = await prisma.flowExecution.findFirst({
+                      where: {
+                        contactPhone: { endsWith: realPhone.slice(-(Math.min(realPhone.length, 11))) },
+                        contactLid: null,
+                        flow: { companyId: inst.companyId },
+                        status: { in: ['RUNNING', 'WAITING_REPLY', 'DELAYED'] },
+                      },
+                      orderBy: { updatedAt: 'desc' },
+                    });
+
+                    if (exec) {
+                      await prisma.flowExecution.update({
+                        where: { id: exec.id },
+                        data: { contactLid: sentToPhone },
+                      });
+
+                      await prisma.customer.updateMany({
+                        where: { companyId: inst.companyId, phone: savedMsg.customer.phone, lidPhone: null },
+                        data: { lidPhone: sentToPhone },
+                      });
+
+                      console.log(`[Webhook:SendMessage] 🔗 LID mapping via messageId: "${savedMsg.customer.phone}" → LID "${sentToPhone}"`);
+                      mapped = true;
+                    }
+                  }
+                }
+
+                if (!mapped) {
+                  console.warn(`[Webhook:SendMessage] ⚠️ Could not map LID "${sentToPhone}" via messageId correlation. storeLidMapping() should handle this at send time.`);
                 }
               }
             }

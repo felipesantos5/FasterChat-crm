@@ -730,12 +730,12 @@ export class FlowEngineService {
    */
   public async handleIncomingMessage(contactPhone: string, companyId: string, messageText: string = '', whatsappInstanceId?: string | null): Promise<boolean> {
     const cleanPhone = contactPhone.replace(/\D/g, '');
-    const rightDigits = cleanPhone.length > 8 ? cleanPhone.slice(-8) : cleanPhone;
 
     // Find if there's any active execution waiting for a reply for this contact
+    // 1) Try exact match first
     let executions = await prisma.flowExecution.findMany({
       where: {
-        contactPhone: { endsWith: rightDigits },
+        contactPhone: cleanPhone,
         status: FlowExecutionStatus.WAITING_REPLY,
         flow: { companyId }
       },
@@ -743,6 +743,21 @@ export class FlowEngineService {
         currentNode: true
       }
     });
+
+    // 2) Fallback: match by last 10+ digits (DDD + number) to handle country code differences
+    if (executions.length === 0 && cleanPhone.length >= 10) {
+      const suffixDigits = cleanPhone.slice(-(Math.min(cleanPhone.length, 11)));
+      executions = await prisma.flowExecution.findMany({
+        where: {
+          contactPhone: { endsWith: suffixDigits },
+          status: FlowExecutionStatus.WAITING_REPLY,
+          flow: { companyId }
+        },
+        include: {
+          currentNode: true
+        }
+      });
+    }
 
     if (executions.length > 0) {
     }
@@ -780,15 +795,28 @@ export class FlowEngineService {
       });
 
       if (customerByLid) {
-        const realRightDigits = customerByLid.phone.length > 8 ? customerByLid.phone.slice(-8) : customerByLid.phone;
-        const execsByRealPhone = await prisma.flowExecution.findMany({
+        const realCleanPhone = customerByLid.phone.replace(/\D/g, '');
+        // Try exact match first, then fallback with 10+ digit suffix
+        let execsByRealPhone = await prisma.flowExecution.findMany({
           where: {
-            contactPhone: { endsWith: realRightDigits },
+            contactPhone: realCleanPhone,
             status: FlowExecutionStatus.WAITING_REPLY,
             flow: { companyId },
           },
           include: { currentNode: true },
         });
+
+        if (execsByRealPhone.length === 0 && realCleanPhone.length >= 10) {
+          const realSuffix = realCleanPhone.slice(-(Math.min(realCleanPhone.length, 11)));
+          execsByRealPhone = await prisma.flowExecution.findMany({
+            where: {
+              contactPhone: { endsWith: realSuffix },
+              status: FlowExecutionStatus.WAITING_REPLY,
+              flow: { companyId },
+            },
+            include: { currentNode: true },
+          });
+        }
 
         if (execsByRealPhone.length > 0) {
           console.log(`[FlowEngine:handleIncomingMessage] 🔗 Matched by customer lidPhone: LID "${cleanPhone}" → real phone "${customerByLid.phone}", found ${execsByRealPhone.length} execution(s)`);
@@ -800,7 +828,7 @@ export class FlowEngineService {
     if (executions.length === 0) {
       // Debug: check if there are executions for this phone in any status
       const anyExec = await prisma.flowExecution.findMany({
-        where: { contactPhone: { endsWith: rightDigits } },
+        where: { contactPhone: cleanPhone },
         select: { id: true, status: true, contactPhone: true, resumesAt: true },
         take: 5,
       });

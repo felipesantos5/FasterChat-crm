@@ -122,23 +122,38 @@ class FlowSchedulerService {
       for (const execution of waitingExecutions) {
         try {
           const cleanPhone = execution.contactPhone.replace(/\D/g, '');
-          const rightDigits = cleanPhone.length > 8 ? cleanPhone.slice(-8) : cleanPhone;
 
           // Considera mensagens recebidas desde que a execução entrou em WAITING_REPLY
           // Buffer de 30s para capturar mensagens que chegaram perto do momento da transição
           const checkFrom = new Date(execution.updatedAt.getTime() - 30000);
 
-          const recentMessage = await prisma.message.findFirst({
+          // Try exact match first, then fallback with 10+ digit suffix (includes DDD)
+          let recentMessage = await prisma.message.findFirst({
             where: {
               direction: MessageDirection.INBOUND,
               timestamp: { gt: checkFrom },
               customer: {
                 companyId: execution.flow.companyId,
-                phone: { endsWith: rightDigits }
+                phone: cleanPhone
               }
             },
             orderBy: { timestamp: 'desc' }
           });
+
+          if (!recentMessage && cleanPhone.length >= 10) {
+            const suffixDigits = cleanPhone.slice(-(Math.min(cleanPhone.length, 11)));
+            recentMessage = await prisma.message.findFirst({
+              where: {
+                direction: MessageDirection.INBOUND,
+                timestamp: { gt: checkFrom },
+                customer: {
+                  companyId: execution.flow.companyId,
+                  phone: { endsWith: suffixDigits }
+                }
+              },
+              orderBy: { timestamp: 'desc' }
+            });
+          }
 
           if (!recentMessage) continue;
 
