@@ -561,9 +561,11 @@ class MessageService {
           // Ignora se owner for igual ao nosso próprio número de instância
           if (ownerStr.includes("@s.whatsapp.net")) {
             const ownerPhone = ownerStr.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+            const instancePhone = instance.phoneNumber?.replace(/\D/g, "") || "";
             // Só usa owner se não for o número da instância (owner geralmente é "nós mesmos")
+            // Verifica com endsWith para evitar que variações sem DDI ou DDD escapem
             if (ownerPhone && ownerPhone.length >= 8 && ownerPhone.length <= 13
-              && ownerPhone !== instance.phoneNumber?.replace(/\D/g, "")) {
+              && (!instancePhone || !instancePhone.endsWith(ownerPhone) && !ownerPhone.endsWith(instancePhone))) {
               realJid = `${ownerPhone}@s.whatsapp.net`;
               resolvedFromLid = true;
             }
@@ -640,6 +642,24 @@ class MessageService {
           console.error(`[MessageService] ❌ Número rejeitado na validação final (LID): ${phone}`);
         }
         return null;
+      }
+
+      // ==================================================================================
+      // 🛡️ ANTI SELF-CREATION: Garante que a instância nunca crie a si mesma como cliente
+      // ==================================================================================
+      if (!isGroup && instance.phoneNumber) {
+        const instancePhoneClean = instance.phoneNumber.replace(/\D/g, "");
+        const extractPhoneClean = phone.replace(/\D/g, "");
+
+        // Se o número extraído termina com o número da instância (ou vice-versa para pegar erros sem DDD), 
+        // ignora a mensagem silenciosamente para não criar lixo na base de dados
+        if (
+          instancePhoneClean && extractPhoneClean &&
+          (instancePhoneClean.endsWith(extractPhoneClean) || extractPhoneClean.endsWith(instancePhoneClean))
+        ) {
+          console.warn(`[MessageService] ⚠️ Anti Self-Creation acionado. Ignorando mensagem do próprio número da instância: ${phone}`);
+          return null;
+        }
       }
 
       // ==================================================================================
@@ -875,11 +895,11 @@ class MessageService {
         try {
           const currentStage = await prisma.pipelineStage.findUnique({
             where: { id: customer.pipelineStageId },
-            select: { isFixed: true, order: true },
+            select: { order: true },
           });
-          if (currentStage?.isFixed && currentStage.order === 0) {
+          if (currentStage?.order === 0) {
             const qualifiedStage = await prisma.pipelineStage.findFirst({
-              where: { companyId: instance.companyId, isFixed: true, order: 1 },
+              where: { companyId: instance.companyId, order: 1 },
               select: { id: true },
             });
             if (qualifiedStage) {
