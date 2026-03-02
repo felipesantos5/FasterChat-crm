@@ -113,15 +113,20 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
                   <span className="text-[10px] text-muted-foreground">{formatTime(conversation.lastMessageTimestamp)}</span>
                   {conversation.unreadCount > 0 && (
-                    <Badge className="h-4 w-4 flex items-center justify-center p-0 text-[10px]">{conversation.unreadCount}</Badge>
+                    <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" title="Conversa não aberta" />
                   )}
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground truncate mt-0.5">{truncate(conversation.lastMessage, 40)}</p>
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                {conversation.direction === "OUTBOUND" && (
+                  <span className="text-teal-600 dark:text-teal-400 font-medium">Você: </span>
+                )}
+                {truncate(conversation.lastMessage, 40)}
+              </p>
             </div>
           </div>
         );

@@ -473,7 +473,8 @@ class DashboardService {
     companyId: string,
     preset: string = "7days",
     customStartDate?: string,
-    customEndDate?: string
+    customEndDate?: string,
+    utcOffset: number = 0
   ): Promise<DashboardChartsData> {
     const { currentStart, currentEnd, previousStart, previousEnd } = this.getDateRangeFromPreset(preset, customStartDate, customEndDate);
 
@@ -499,7 +500,7 @@ class DashboardService {
       this.getAppointmentsOverTimeData(companyId, currentStart, daysCount),
       this.getAppointmentsByStatusData(companyId),
       this.getCustomerActivityData(companyId),
-      this.getMessagesByHourData(companyId, currentStart, currentEnd),
+      this.getMessagesByHourData(companyId, currentStart, currentEnd, utcOffset),
       this.getAvgResponseTimeData(companyId, currentStart, currentEnd, previousStart, previousEnd),
       this.getActiveAppointmentsData(companyId, currentStart, currentEnd, previousStart, previousEnd),
       this.getMessagesByAgentData(companyId, currentStart, currentEnd),
@@ -930,7 +931,8 @@ class DashboardService {
   private async getMessagesByHourData(
     companyId: string,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
+    utcOffset: number = 0
   ): Promise<HourlyMessageData[]> {
     // Busca mensagens INBOUND no período
     const messages = await prisma.message.findMany({
@@ -953,10 +955,13 @@ class DashboardService {
       hourMap.set(i, 0);
     }
 
-    // Conta mensagens por hora (ajustando para o timezone se necessário, 
-    // mas aqui usaremos a hora local do servidor/banco)
+    // Aplica o offset UTC do cliente para exibir horários no fuso correto.
+    // Os timestamps são armazenados em UTC no banco; sem ajuste, getHours()
+    // retornaria a hora UTC, causando deslocamento para usuários em outros fusos.
+    const offsetMs = utcOffset * 60 * 1000;
     messages.forEach((msg) => {
-      const hour = msg.timestamp.getHours();
+      const localTime = new Date(msg.timestamp.getTime() + offsetMs);
+      const hour = localTime.getUTCHours();
       hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
     });
 

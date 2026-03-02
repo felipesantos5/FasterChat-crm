@@ -71,8 +71,9 @@ class DashboardController {
       const preset = (req.query.preset as string) || "7days";
       const startDate = req.query.startDate as string | undefined;
       const endDate = req.query.endDate as string | undefined;
+      const utcOffset = parseInt(req.query.utcOffset as string) || 0;
 
-      const chartsData = await dashboardService.getChartsData(req.user.companyId, preset, startDate, endDate);
+      const chartsData = await dashboardService.getChartsData(req.user.companyId, preset, startDate, endDate, utcOffset);
 
       res.status(200).json({
         success: true,

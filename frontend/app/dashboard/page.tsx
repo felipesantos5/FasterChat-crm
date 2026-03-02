@@ -13,12 +13,9 @@ import {
   ModernRegionChart,
 } from "@/components/dashboard/charts";
 import { MessageSquare, UserPlus, MessageCircle } from "lucide-react";
-import { spacing } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
 import { useDashboardFilter } from "@/contexts/DashboardFilterContext";
-// import { googleCalendarApi } from "@/lib/google-calendar";
-// import { useAuthStore } from "@/lib/store/auth.store";
 
 export default function DashboardPage() {
   return (
@@ -29,43 +26,18 @@ export default function DashboardPage() {
 }
 
 function DashboardPageContent() {
-  // const router = useRouter();
-  // const user = useAuthStore((state) => state.user);
   const { dateFilter } = useDashboardFilter();
-  // const [isGoogleCalendarConnected, setIsGoogleCalendarConnected] = useState(false);
 
-  // Usa SWR para gerenciar stats com cache e refresh automático
   const { stats, isLoading, isError: statsError, mutate: refetchStats } = useDashboardStats(
     dateFilter.preset,
     dateFilter.customRange
   );
 
-  // Usa SWR para gerenciar charts data
   const { chartsData, isLoading: isLoadingCharts, isError: chartsError, mutate: refetchCharts } = useDashboardCharts(
     dateFilter.preset,
     dateFilter.customRange
   );
 
-  // Verifica se Google Calendar está conectado
-  // useEffect(() => {
-  //   async function checkGoogleCalendar() {
-  //     if (!user?.companyId) {
-  //       return;
-  //     }
-
-  //     try {
-  //       const status = await googleCalendarApi.getStatus(user.companyId);
-  //       // setIsGoogleCalendarConnected(status.connected);
-  //     } catch (error) {
-  //       console.error('[Dashboard] Error checking Google Calendar status:', error);
-  //       // setIsGoogleCalendarConnected(false);
-  //     }
-  //   }
-
-  //   checkGoogleCalendar();
-  // }, [user?.companyId]);
-
-  // Transforma o objeto stats em um array para renderização (3 cards)
   const statCards = stats
     ? [
       {
@@ -98,14 +70,12 @@ function DashboardPageContent() {
     ]
     : [];
 
-  // Loading state unificado
   const isPageLoading = (isLoading && !stats) || (isLoadingCharts && !chartsData);
 
   if (isPageLoading) {
     return (
-      <div className="p-4 sm:p-6 bg-gray-50 dark:bg-gray-900 min-h-screen space-y-8">
-        {/* Header Skeleton */}
-        <div className="flex items-center justify-between">
+      <div className="h-full flex flex-col gap-6 p-4 sm:p-6 bg-gray-50 dark:bg-gray-900">
+        <div className="flex items-center justify-between flex-none">
           <div>
             <Skeleton className="h-10 w-48 mb-2" />
             <Skeleton className="h-4 w-64" />
@@ -113,8 +83,7 @@ function DashboardPageContent() {
           <Skeleton className="h-10 w-40" />
         </div>
 
-        {/* Linha 1: 3 stat cards + funil */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-none">
           <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-28 w-full rounded-2xl" />
@@ -126,10 +95,9 @@ function DashboardPageContent() {
           </div>
         </div>
 
-        {/* Linha 3: 4 cards bottom */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-[280px] w-full rounded-2xl" />
+            <Skeleton key={i} className="h-full w-full rounded-2xl" />
           ))}
         </div>
       </div>
@@ -148,64 +116,71 @@ function DashboardPageContent() {
     );
   }
 
+  // Coleta os cards de baixo dinamicamente, máximo 4
+  const bottomCards = chartsData
+    ? [
+        <ModernConversionCard key="conversion" data={chartsData.overallConversion} />,
+        <ModernPeakHoursChart key="peak" data={chartsData.messagesByHour} />,
+        ...(chartsData.activeAppointments?.active > 0
+          ? [<ModernAppointmentsCard key="appointments" data={chartsData.activeAppointments} />]
+          : []),
+        ...(chartsData.clientsByState && chartsData.clientsByState.length > 1
+          ? [<ModernRegionChart key="region" data={chartsData.clientsByState} />]
+          : []),
+        ...(chartsData.batchEngagement?.hasBatchExecutions
+          ? [<ModernBatchEngagementCard key="batch" data={chartsData.batchEngagement} />]
+          : []),
+      ].slice(0, 4)
+    : [];
+
+  // Classe de colunas para desktop — sempre preenche a linha inteira
+  const bottomColClass = (
+    {
+      1: "lg:grid-cols-1",
+      2: "lg:grid-cols-2",
+      3: "lg:grid-cols-3",
+      4: "lg:grid-cols-4",
+    } as Record<number, string>
+  )[bottomCards.length] ?? "lg:grid-cols-4";
+
   return (
-    <div className="p-4 sm:p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className={spacing.section}>
-        <div className="flex flex-col gap-4 w-full mx-auto">
-          {/* Linha 1: 3 Stat Cards + Funil (row-span-2) */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-            {/* 3 Stat Cards */}
-            <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {statCards.map((stat) => (
-                <ModernStatCard
-                  key={stat.title}
-                  title={stat.title}
-                  value={stat.value}
-                  percentageChange={stat.percentageChange}
-                  icon={stat.icon}
-                  gradient={stat.gradient}
-                  description={stat.description}
-                  colorName={stat.colorName}
-                />
-              ))}
-            </div>
-
-            {/* Funil de Vendas - row-span-2 */}
-            <div className="lg:row-span-2">
-              {chartsData && (
-                <ModernFunnelDonut data={chartsData.pipelineFunnel} />
-              )}
-            </div>
-
-            {/* Gráfico de Mensagens - abaixo dos stat cards */}
-            <div className="lg:col-span-3">
-              {chartsData && (
-                <ModernMessagesChart data={chartsData.messagesOverTime} />
-              )}
-            </div>
+    <div className="h-full flex flex-col p-4 sm:p-6 bg-gray-50 dark:bg-gray-900">
+      <div className="flex flex-col gap-4 flex-1 min-h-0">
+        {/* Linha 1: 3 Stat Cards + Funil (row-span-2) + Gráfico de Mensagens */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 flex-none">
+          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {statCards.map((stat) => (
+              <ModernStatCard
+                key={stat.title}
+                title={stat.title}
+                value={stat.value}
+                percentageChange={stat.percentageChange}
+                icon={stat.icon}
+                gradient={stat.gradient}
+                description={stat.description}
+                colorName={stat.colorName}
+              />
+            ))}
           </div>
 
-          {/* Linha 3: Cards bottom, dinâmico dependendo do uso */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Funil de Vendas - row-span-2 */}
+          <div className="lg:row-span-2">
             {chartsData && (
-              <>
-                <ModernConversionCard data={chartsData.overallConversion} />
-                <ModernPeakHoursChart data={chartsData.messagesByHour} />
-
-                {chartsData.activeAppointments?.active > 0 && (
-                  <ModernAppointmentsCard data={chartsData.activeAppointments} />
-                )}
-
-                {chartsData.clientsByState && chartsData.clientsByState.length > 1 && (
-                  <ModernRegionChart data={chartsData.clientsByState} />
-                )}
-
-                {chartsData.batchEngagement?.hasBatchExecutions && (
-                  <ModernBatchEngagementCard data={chartsData.batchEngagement} />
-                )}
-              </>
+              <ModernFunnelDonut data={chartsData.pipelineFunnel} />
             )}
           </div>
+
+          {/* Gráfico de Mensagens */}
+          <div className="lg:col-span-3">
+            {chartsData && (
+              <ModernMessagesChart data={chartsData.messagesOverTime} />
+            )}
+          </div>
+        </div>
+
+        {/* Linha 2: Cards bottom — preenche o restante da tela, colunas dinâmicas */}
+        <div className={`flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 ${bottomColClass} gap-4`}>
+          {bottomCards}
         </div>
       </div>
     </div>

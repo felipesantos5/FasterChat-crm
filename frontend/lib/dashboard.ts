@@ -141,6 +141,9 @@ export const dashboardApi = {
   async getChartsData(preset: DateRangePreset, customRange?: DateRange): Promise<DashboardChartsData> {
     const params: Record<string, string> = { preset };
 
+    // Envia o offset UTC do browser para o backend ajustar os horários corretamente
+    params.utcOffset = String(-new Date().getTimezoneOffset());
+
     if (preset === 'custom' && customRange) {
       params.startDate = customRange.from.toISOString();
       params.endDate = customRange.to.toISOString();
