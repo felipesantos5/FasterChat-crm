@@ -486,7 +486,7 @@ class WebhookController {
                 if (messageId) {
                   const savedMsg = await prisma.message.findFirst({
                     where: {
-                      externalId: messageId,
+                      messageId: messageId,
                       customer: { companyId: inst.companyId },
                     },
                     select: { customer: { select: { phone: true } } },

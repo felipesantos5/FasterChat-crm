@@ -1178,7 +1178,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 placeholder="Digite uma mensagem"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                disabled={sending || !!selectedImage}
+                disabled={!!selectedImage}
                 className="flex-1 rounded-full border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus-visible:ring-1"
               />
 
