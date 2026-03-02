@@ -92,13 +92,47 @@ class WebhookController {
               // 🔗 Se o phone parece ser um LID (14+ dígitos), tenta encontrar o phone real
               // via mapeamento lidPhone no customer
               if (phone && companyId && phone.replace(/\D/g, '').length >= 14) {
+                const cleanLid = phone.replace(/\D/g, '');
                 const customerByLid = await prisma.customer.findFirst({
-                  where: { companyId, lidPhone: phone.replace(/\D/g, '') },
+                  where: { companyId, lidPhone: cleanLid },
                   select: { phone: true },
                 });
                 if (customerByLid) {
                   console.log(`[Webhook:FlowEngine] 🔗 Resolved LID "${phone}" → real phone "${customerByLid.phone}" via lidPhone mapping`);
                   phone = customerByLid.phone;
+                } else if (instanceId) {
+                  // 🔑 Fallback: FlowExecution WAITING_REPLY sem contactLid (WhatsApp Business)
+                  const waitingExec = await prisma.flowExecution.findFirst({
+                    where: {
+                      status: 'WAITING_REPLY',
+                      flow: { companyId },
+                      whatsappInstanceId: instanceId,
+                      contactLid: null,
+                      startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+                    },
+                    orderBy: { updatedAt: 'desc' },
+                    select: { id: true, contactPhone: true },
+                  });
+
+                  if (waitingExec) {
+                    console.log(`[Webhook:FlowEngine] 🔗 Resolved LID "${phone}" → real phone "${waitingExec.contactPhone}" via FlowExecution WAITING_REPLY`);
+                    phone = waitingExec.contactPhone;
+
+                    // Armazena o mapeamento LID para futuras resoluções
+                    await prisma.flowExecution.update({
+                      where: { id: waitingExec.id },
+                      data: { contactLid: cleanLid },
+                    });
+
+                    await prisma.customer.updateMany({
+                      where: {
+                        companyId,
+                        phone: waitingExec.contactPhone,
+                        lidPhone: null,
+                      },
+                      data: { lidPhone: cleanLid },
+                    });
+                  }
                 }
               }
 

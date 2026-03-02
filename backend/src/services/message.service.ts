@@ -530,6 +530,52 @@ class MessageService {
             console.warn(`[MessageService] ⚠️ Falha ao resolver LID via API: ${resolveError.message}`);
           }
         }
+
+        // 🔑 PRIORIDADE 7: FlowExecution WAITING_REPLY (WhatsApp Business sem LID no send response)
+        // Quando enviamos para um número WA Business, a Evolution API retorna o mesmo phone (sem LID).
+        // Mas quando o WA Business responde, o remoteJid vem como LID. Como nenhum mapeamento foi criado,
+        // todas as prioridades anteriores falham. Aqui buscamos uma execução de fluxo aguardando resposta
+        // na mesma instância e sem contactLid mapeado.
+        if (!resolvedFromLid) {
+          try {
+            const waitingExec = await prisma.flowExecution.findFirst({
+              where: {
+                status: 'WAITING_REPLY',
+                flow: { companyId: instance.companyId },
+                whatsappInstanceId: instance.id,
+                contactLid: null,
+                startedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+              },
+              orderBy: { updatedAt: 'desc' },
+              select: { id: true, contactPhone: true },
+            });
+
+            if (waitingExec) {
+              realJid = `${waitingExec.contactPhone}@s.whatsapp.net`;
+              resolvedFromLid = true;
+              console.log(`[MessageService] 🔗 PRIORIDADE 7: LID "${lidId}" resolvido via FlowExecution WAITING_REPLY → phone "${waitingExec.contactPhone}"`);
+
+              // Armazena o mapeamento LID para futuras resoluções
+              await prisma.flowExecution.update({
+                where: { id: waitingExec.id },
+                data: { contactLid: lidId },
+              });
+
+              await prisma.customer.updateMany({
+                where: {
+                  companyId: instance.companyId,
+                  phone: waitingExec.contactPhone,
+                  lidPhone: null,
+                },
+                data: { lidPhone: lidId },
+              });
+
+              console.log(`[MessageService] 🔗 LID mapping criado: phone "${waitingExec.contactPhone}" → LID "${lidId}"`);
+            }
+          } catch (p7Error: any) {
+            console.warn(`[MessageService] ⚠️ Falha na PRIORIDADE 7 (FlowExecution WAITING_REPLY): ${p7Error.message}`);
+          }
+        }
       }
 
       // Remove os domínios para ficar apenas o número/ID limpo
