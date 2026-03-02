@@ -70,8 +70,8 @@ export function ModernVolumeBars({ data }: ModernVolumeBarsProps) {
         >
           <defs>
             <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10B981" stopOpacity={0.9} />
-              <stop offset="100%" stopColor="#059669" stopOpacity={0.7} />
+              <stop offset="0%" stopColor="#4ed479" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="#14522b" stopOpacity={0.7} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" opacity={0.5} />
@@ -121,8 +121,8 @@ export function ModernVolumeBars({ data }: ModernVolumeBarsProps) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-            <div className="h-4 w-4 bg-blue-500 rounded"></div>
+          <div className="p-2 bg-[#d6ffe4] dark:bg-[#0f311c]/30 rounded-lg">
+            <div className="h-4 w-4 bg-[#209849] rounded"></div>
           </div>
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400">Total período</p>

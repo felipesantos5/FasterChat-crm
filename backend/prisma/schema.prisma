@@ -117,6 +117,7 @@ model Customer {
   pipelineStageId String?  @map("pipeline_stage_id") // Estágio atual no funil de vendas
   zoneId          String?  @map("zone_id") // Zona de preço do cliente (opcional)
   address         String?  @db.Text // Endereço do cliente
+  state           String?  // Estado (UF) deduzido do DDD
   neighborhood    String? // Bairro do cliente (para cálculo automático de zona)
   lidPhone        String?  @map("lid_phone") // LID alternativo do WhatsApp Business (mapeamento LID↔phone)
   createdAt       DateTime @default(now()) @map("created_at")
@@ -125,10 +126,11 @@ model Customer {
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   pipelineStage PipelineStage? @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
   zone          ServiceZone?   @relation("CustomerZone", fields: [zoneId], references: [id], onDelete: SetNull)
-  messages      Message[]
-  conversations Conversation[]
-  appointments  Appointment[]
-  customerNotes CustomerNote[]
+  messages          Message[]
+  conversations     Conversation[]
+  appointments      Appointment[]
+  customerNotes     CustomerNote[]
+  customFieldValues CustomerCustomFieldValue[]
 
   @@unique([companyId, phone])
   @@index([companyId])
@@ -986,6 +988,40 @@ enum FlowExecutionStatus {
   COMPLETED
   FAILED
   FORCE_CANCELLED // Cancelado porque um novo fluxo foi iniciado para o mesmo contato
+}
+
+// ============================================
+// CUSTOM FIELDS - Campos personalizados para clientes
+// ============================================
+
+model CustomFieldDefinition {
+  id        String   @id @default(uuid())
+  label     String
+  name      String   @unique
+  type      String   // "text" | "number" | "date"
+  required  Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  values CustomerCustomFieldValue[]
+
+  @@map("custom_field_definitions")
+}
+
+model CustomerCustomFieldValue {
+  id         String   @id @default(uuid())
+  customerId String   @map("customer_id")
+  fieldId    String   @map("field_id")
+  value      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  customer Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  field    CustomFieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, fieldId])
+  @@map("customer_custom_field_values")
 }
 
 model FlowExecution {

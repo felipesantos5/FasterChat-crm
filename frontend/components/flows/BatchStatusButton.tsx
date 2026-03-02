@@ -30,6 +30,7 @@ import api from "@/lib/api";
 
 interface BatchStatusData {
   batchId: string;
+  flowId?: string;
   status: "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED" | "PAUSED";
   total: number;
   processed: number;
@@ -85,17 +86,37 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize from prop or localStorage
+  // Initialize from prop or localStorage or API
   useEffect(() => {
-    const stored = getStoredBatch(flowId);
-    if (activeBatchId) {
-      setBatchId(activeBatchId);
-      storeBatch(flowId, activeBatchId);
-      setVisible(true);
-    } else if (stored) {
-      setBatchId(stored);
-      setVisible(true);
+    async function initBatch() {
+      if (activeBatchId) {
+        setBatchId(activeBatchId);
+        storeBatch(flowId, activeBatchId);
+        setVisible(true);
+        return;
+      }
+      const stored = getStoredBatch(flowId);
+      if (stored) {
+        setBatchId(stored);
+        setVisible(true);
+        return;
+      }
+
+      // Procura disparos ativos do servidor (mesmo que tenham sido iniciados em outro PC)
+      try {
+        const res = await api.get<{ activeBatches: BatchStatusData[] }>('/flows/batches/active');
+        const activeForFlow = res.data.activeBatches.find(b => b.flowId === flowId);
+        if (activeForFlow) {
+          setBatchId(activeForFlow.batchId);
+          storeBatch(flowId, activeForFlow.batchId);
+          setVisible(true);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar disparos em lote ativos na nuvem:", err);
+      }
     }
+
+    initBatch();
   }, [activeBatchId, flowId]);
 
   // Poll for status

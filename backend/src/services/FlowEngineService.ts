@@ -3,6 +3,7 @@ import whatsappService from './whatsapp.service';
 import { FlowExecutionStatus, MessageDirection, MessageStatus } from '@prisma/client';
 import messageService from './message.service';
 import { websocketService } from './websocket.service';
+import { customerService } from './customer.service';
 
 // ==================================================================================
 // 🛡️ CIRCUIT BREAKER: Protege a Evolution API contra sobrecarga.
@@ -47,8 +48,6 @@ export class FlowEngineService {
 
     const now = Date.now();
     if (now >= circuitBreaker.cooldownUntil) {
-      // Cooldown expirou — entra em half-open (permite tentar novamente)
-      console.log(`[FlowEngine:CircuitBreaker] ⏰ Cooldown expirou. Tentando reabrir (half-open)...`);
       circuitBreaker.isOpen = false;
       circuitBreaker.consecutiveErrors = 0; // Reseta para dar chance
       return { blocked: false };
@@ -65,9 +64,6 @@ export class FlowEngineService {
    * 🛡️ Registra sucesso no circuit breaker (reseta erros consecutivos)
    */
   private recordSuccess() {
-    if (circuitBreaker.consecutiveErrors > 0) {
-      console.log(`[FlowEngine:CircuitBreaker] ✅ Envio bem-sucedido após ${circuitBreaker.consecutiveErrors} erro(s). Resetando contador.`);
-    }
     circuitBreaker.consecutiveErrors = 0;
     circuitBreaker.isOpen = false;
   }
@@ -188,11 +184,28 @@ export class FlowEngineService {
   }
 
   /**
+   * Normaliza telefone para formato brasileiro completo (55 + DDD + número).
+   * Garante que o número salvo no banco seja igual ao que o WhatsApp envia via webhook.
+   */
+  private normalizeBrazilianPhone(phone: string): string {
+    const digits = phone.replace(/\D/g, '');
+    // Já tem código do país (55) + DDD + número = 12-13 dígitos
+    if (digits.length >= 12 && digits.startsWith('55')) {
+      return digits;
+    }
+    // Tem DDD + número mas sem código do país = 10-11 dígitos → adiciona 55
+    if (digits.length >= 10 && digits.length <= 11) {
+      return `55${digits}`;
+    }
+    return digits;
+  }
+
+  /**
    * Starts a flow execution for a given contact
    */
   public async startFlow(flowId: string, contactPhone: string, variables: any) {
-    // Limpa o número de telefone (remove formatações)
-    const cleanPhone = contactPhone.replace(/\D/g, '');
+    // Normaliza para formato WhatsApp: 55 + DDD + número (mesma forma que o webhook recebe)
+    const cleanPhone = this.normalizeBrazilianPhone(contactPhone);
 
     // Find the flow and its nodes/edges
     const flow = await prisma.flow.findUnique({
@@ -212,16 +225,26 @@ export class FlowEngineService {
     }
 
 
-    // Add "automação" tag and flow autoTags to customer (creates customer if not present)
-    let customer = await prisma.customer.findFirst({
-      where: { phone: cleanPhone, companyId: flow.companyId }
-    });
+    // Busca pelo telefone normalizado usando índice único e cobrindo variantes do 9º dígito
+    let customer = await customerService.findByPhoneWithVariant(cleanPhone, flow.companyId);
+
+    // Se o cliente existe mas seu número salvo não é o 'cleanPhone' (ex: formato antigo sem 55),
+    // vamos tentar atualizá-lo e normalizá-lo para evitar duplicidade posterior
+    if (customer && customer.phone !== cleanPhone && !customer.isGroup) {
+      try {
+        customer = await prisma.customer.update({
+          where: { id: customer.id },
+          data: { phone: cleanPhone }
+        });
+      } catch (e: any) {
+        if (e.code === 'P2002') {
+          console.warn(`[FlowEngine] ⚠️ Conflito ao normalizar telefone ${customer.phone} para ${cleanPhone}`);
+        }
+      }
+    }
 
     if (!customer) {
-      // Try to extract name from variables if it's a new lead
-      const custName = variables.name || variables.nome || variables.customer?.name || variables.customer?.nome || variables.data?.customer?.name || variables.data?.nome || variables.lead?.name || cleanPhone;
-      
-      // Busca o primeiro estágio do pipeline para atribuir ao novo lead
+      // Usa o telefone como nome — o nome real vem do pushName quando o contato responder
       const firstStage = await prisma.pipelineStage.findFirst({
         where: { companyId: flow.companyId },
         orderBy: { order: 'asc' },
@@ -231,7 +254,7 @@ export class FlowEngineService {
         data: {
           companyId: flow.companyId,
           phone: cleanPhone,
-          name: String(custName),
+          name: cleanPhone,
           tags: [],
           pipelineStageId: firstStage?.id || null,
         }
@@ -326,7 +349,6 @@ export class FlowEngineService {
           replacedByFlowId: flowId,
         },
       });
-      console.log(`[FlowEngine] ⚡ ${activeExecs.length} execução(ões) cancelada(s) para ${cleanPhone} → substituída por ${execution.id}`);
     }
 
     // Start processing from the next node
@@ -663,8 +685,8 @@ export class FlowEngineService {
     const action = data.aiAction || 'enable';
     const turnOn = action === 'enable'; // 'enable' or 'disable'
     
-    const customer = await prisma.customer.findFirst({
-      where: { phone: execution.contactPhone, companyId: execution.flow.companyId }
+    const customer = await prisma.customer.findUnique({
+      where: { companyId_phone: { companyId: execution.flow.companyId, phone: execution.contactPhone } }
     });
 
     if (customer) {
@@ -693,8 +715,6 @@ export class FlowEngineService {
     const cleanPhone = contactPhone.replace(/\D/g, '');
     const rightDigits = cleanPhone.length > 8 ? cleanPhone.slice(-8) : cleanPhone;
 
-    console.log(`[FlowEngine:handleIncomingMessage] contactPhone="${contactPhone}" cleanPhone="${cleanPhone}" rightDigits="${rightDigits}" companyId="${companyId}" instanceId="${whatsappInstanceId}"`);
-
     // Find if there's any active execution waiting for a reply for this contact
     let executions = await prisma.flowExecution.findMany({
       where: {
@@ -707,9 +727,7 @@ export class FlowEngineService {
       }
     });
 
-    console.log(`[FlowEngine:handleIncomingMessage] Found ${executions.length} WAITING_REPLY executions for rightDigits="${rightDigits}"`);
     if (executions.length > 0) {
-      executions.forEach(e => console.log(`  -> execution id=${e.id} contactPhone="${e.contactPhone}" nodeType="${e.currentNode?.type}" resumesAt=${e.resumesAt}`));
     }
 
     // 🔗 FALLBACK POR LID: Se não encontrou pelo telefone, tenta pelo mapeamento LID.
@@ -729,7 +747,6 @@ export class FlowEngineService {
       });
 
       if (execsByLid.length > 0) {
-        console.log(`[FlowEngine:handleIncomingMessage] 🔗 Matched by contactLid: reply from "${cleanPhone}" matched ${execsByLid.length} execution(s)`);
         executions = execsByLid;
       }
     }
@@ -970,13 +987,8 @@ export class FlowEngineService {
 
       if (!flow) return;
 
-      // Busca o customer pelo telefone + companyId
-      const customer = await prisma.customer.findFirst({
-        where: {
-          phone: execution.contactPhone,
-          companyId: flow.companyId
-        }
-      });
+      // Busca o customer usando a busca por variantes, pois o número pode ter sido formatado diferentemente
+      const customer = await customerService.findByPhoneWithVariant(execution.contactPhone, flow.companyId);
 
       if (!customer) {
         console.warn(`[FlowEngine] ⚠️ Customer não encontrado para salvar mensagem na conversa: ${execution.contactPhone}`);

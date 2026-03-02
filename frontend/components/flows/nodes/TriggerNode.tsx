@@ -9,12 +9,16 @@ export const TriggerNode = memo(({ data }: any) => {
   const [loadingCsv, setLoadingCsv] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const flowId = data?.flowId;
+
   const preview = useBatchStore((s) => s.preview);
+  const storeFlowId = useBatchStore((s) => s.flowId);
   const setFile = useBatchStore((s) => s.setFile);
   const setPreview = useBatchStore((s) => s.setPreview);
+  const setFlowId = useBatchStore((s) => s.setFlowId);
   const resetBatch = useBatchStore((s) => s.reset);
 
-  const csvLoaded = !!preview;
+  const csvLoaded = !!preview && storeFlowId === flowId;
   const totalRows = preview?.totalRows || 0;
   const variableColumns = preview?.variableColumns || [];
 
@@ -25,7 +29,6 @@ export const TriggerNode = memo(({ data }: any) => {
 
   const currentPath = data?.description || '/api/webhooks/flow/meu-fluxo';
   const fullUrl = getFullUrl(currentPath);
-  const flowId = data?.flowId;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(fullUrl);
@@ -45,6 +48,7 @@ export const TriggerNode = memo(({ data }: any) => {
 
       setPreview(res.data);
       setFile(file);
+      setFlowId(flowId);
       toast.success(`${res.data.totalRows} contatos carregados!`);
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Erro ao ler planilha.');
@@ -168,7 +172,7 @@ export const TriggerNode = memo(({ data }: any) => {
         </p>
       </div>
 
-      <Handle type="source" position={Position.Right} id="a" className="w-5 h-5 bg-primary" />
+      <Handle type="source" position={Position.Right} id="a" className="w-8 h-8 bg-primary" />
     </div>
   );
 });

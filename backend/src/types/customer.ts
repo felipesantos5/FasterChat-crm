@@ -19,4 +19,6 @@ export interface CustomerFilters {
   tags?: string[];
   page?: number;
   limit?: number;
+  orderBy?: "recent" | "old" | "az" | "za";
+  type?: "all" | "individual" | "group";
 }

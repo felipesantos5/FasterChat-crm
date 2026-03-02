@@ -16,6 +16,7 @@ import * as XLSX from 'xlsx';
 interface BatchStatus {
   batchId: string;
   flowId: string;
+  companyId: string;
   status: 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'PAUSED';
   total: number;
   processed: number;
@@ -106,6 +107,7 @@ export class FlowBatchController {
     const batchStatus: BatchStatus = {
       batchId,
       flowId,
+      companyId,
       status: 'PROCESSING',
       total: validRows.length,
       processed: 0,
@@ -130,7 +132,7 @@ export class FlowBatchController {
     });
 
     // Processa em background (não bloqueia a resposta)
-    this.processRows(batchStatus, validRows, phoneColumn, flow).catch(err => {
+    this.processRows(batchStatus, validRows, phoneColumn, flow, file.originalname).catch(err => {
       console.error(`[FlowBatch] ❌ Erro fatal no batch ${batchId}:`, err);
       batchStatus.status = 'FAILED';
       batchStatus.completedAt = new Date();
@@ -158,7 +160,8 @@ export class FlowBatchController {
     batch: BatchStatus,
     rows: Record<string, any>[],
     phoneColumn: string,
-    flow: any
+    flow: any,
+    fileName: string
   ) {
     const flowEngine = new FlowEngineService();
 
@@ -246,6 +249,11 @@ export class FlowBatchController {
       }
       variables.phone = phone;
 
+      // Injeta metadados ocultos do batch para agrupar no frontend
+      variables._batchId = batch.batchId;
+      variables._batchName = fileName;
+      variables._batchTotal = batch.total;
+
       try {
         await flowEngine.startFlow(flow.id, phone, variables);
 
@@ -325,6 +333,24 @@ export class FlowBatchController {
     }
 
     return res.json(batch);
+  }
+
+  /**
+   * GET /flows/batches/active
+   * Retorna os disparos ativos e recentes da empresa logada
+   */
+  public async getActiveBatches(req: Request, res: Response): Promise<Response> {
+    const { companyId } = req.user!;
+
+    const activeBatches: BatchStatus[] = [];
+    for (const batch of batchStore.values()) {
+      if (batch.companyId === companyId) {
+        // Retornamos PROCESSING e os pausados ou recentemente terminados
+        activeBatches.push(batch);
+      }
+    }
+
+    return res.json({ activeBatches });
   }
 
   /**

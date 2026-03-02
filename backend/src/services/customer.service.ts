@@ -1,10 +1,12 @@
-import { Customer } from "@prisma/client";
 import { prisma } from "../utils/prisma";
+import { Customer } from "@prisma/client";
 import { CreateCustomerDTO, UpdateCustomerDTO, CustomerFilters } from "../types/customer";
 import tagService from "./tag.service";
+import { getStateFromPhone } from "../utils/phone.utils";
+import { customFieldService, FieldValueDTO } from "./custom-field.service";
 
 export class CustomerService {
-  async create(companyId: string, data: CreateCustomerDTO): Promise<Customer> {
+  async create(companyId: string, data: CreateCustomerDTO & { customFieldValues?: FieldValueDTO[] }): Promise<any> {
     // Check if phone already exists for this company
     const existingCustomer = await prisma.customer.findUnique({
       where: {
@@ -39,17 +41,29 @@ export class CustomerService {
       pipelineStageId = firstStage?.id || null;
     }
 
-    return prisma.customer.create({
+    // Deduz o estado através do DDD
+    const stateDeduced = getStateFromPhone(data.phone);
+
+    const { customFieldValues, ...customerData } = data;
+
+    const customer = await prisma.customer.create({
       data: {
-        ...data,
+        ...customerData,
         companyId,
         email: data.email || null,
         tags: data.tags || [],
         notes: data.notes || null,
+        state: stateDeduced,
         isGroup,
         pipelineStageId,
       },
     });
+
+    if (customFieldValues && customFieldValues.length > 0) {
+      await customFieldService.upsertCustomerValues(customer.id, customFieldValues);
+    }
+
+    return customer;
   }
 
   async findAll(companyId: string, filters: CustomerFilters): Promise<{ customers: Customer[]; total: number; page: number; limit: number }> {
@@ -74,12 +88,27 @@ export class CustomerService {
       };
     }
 
+    if (filters.type === 'individual') {
+      where.isGroup = false;
+    } else if (filters.type === 'group') {
+      where.isGroup = true;
+    }
+
+    let prismaOrderBy: any = { createdAt: "desc" };
+    if (filters.orderBy === "old") {
+      prismaOrderBy = { createdAt: "asc" };
+    } else if (filters.orderBy === "az") {
+      prismaOrderBy = { name: "asc" };
+    } else if (filters.orderBy === "za") {
+      prismaOrderBy = { name: "desc" };
+    }
+
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: prismaOrderBy,
       }),
       prisma.customer.count({ where }),
     ]);
@@ -92,16 +121,67 @@ export class CustomerService {
     };
   }
 
-  async findById(id: string, companyId: string): Promise<Customer | null> {
+  async findById(id: string, companyId: string): Promise<any> {
     return prisma.customer.findFirst({
-      where: {
-        id,
-        companyId,
+      where: { id, companyId },
+      include: {
+        customFieldValues: {
+          include: { field: true },
+        },
       },
     });
   }
 
-  async update(id: string, companyId: string, data: UpdateCustomerDTO): Promise<Customer> {
+  async findByPhoneWithVariant(phone: string, companyId: string): Promise<Customer | null> {
+    const cleanPhone = phone.replace(/\D/g, "");
+
+    // Busca exata primeiro
+    let customer = await prisma.customer.findUnique({
+      where: { companyId_phone: { companyId, phone: cleanPhone } },
+    });
+
+    if (customer) return customer;
+
+    // Se é do Brasil e não é grupo
+    if (!phone.includes("@g.us")) {
+      const variants = new Set<string>();
+      
+      let dddAndNumber = '';
+      if (cleanPhone.startsWith('55') && cleanPhone.length >= 12) {
+        dddAndNumber = cleanPhone.substring(2);
+      } else if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
+        dddAndNumber = cleanPhone;
+      }
+
+      if (dddAndNumber.length === 10 || dddAndNumber.length === 11) {
+        const ddd = dddAndNumber.substring(0, 2);
+        const isNineDigit = dddAndNumber.length === 11;
+        const number = isNineDigit ? dddAndNumber.substring(3) : dddAndNumber.substring(2);
+        
+        // As 4 variantes possíveis (DDI 55 ou sem, com 9 ou sem)
+        variants.add(`55${ddd}9${number}`);
+        variants.add(`55${ddd}${number}`);
+        variants.add(`${ddd}9${number}`);
+        variants.add(`${ddd}${number}`);
+      }
+
+      variants.delete(cleanPhone); // Remove a inicial
+
+      if (variants.size > 0) {
+        // Tenta achar entre as variantes (findFirst cobre os casos onde a formatação antiga persiste)
+        customer = await prisma.customer.findFirst({
+          where: {
+            companyId,
+            phone: { in: Array.from(variants) },
+          },
+        });
+      }
+    }
+
+    return customer;
+  }
+
+  async update(id: string, companyId: string, data: UpdateCustomerDTO & { customFieldValues?: FieldValueDTO[] }): Promise<any> {
     // Check if customer exists and belongs to company
     const customer = await this.findById(id, companyId);
     if (!customer) {
@@ -129,13 +209,21 @@ export class CustomerService {
       await tagService.createOrGetMany(companyId, data.tags);
     }
 
-    return prisma.customer.update({
+    const { customFieldValues, ...customerData } = data;
+
+    const updated = await prisma.customer.update({
       where: { id },
       data: {
-        ...data,
-        email: data.email === "" ? null : data.email,
+        ...customerData,
+        email: customerData.email === "" ? null : customerData.email,
       },
     });
+
+    if (customFieldValues && customFieldValues.length > 0) {
+      await customFieldService.upsertCustomerValues(id, customFieldValues);
+    }
+
+    return updated;
   }
 
   async delete(id: string, companyId: string): Promise<void> {

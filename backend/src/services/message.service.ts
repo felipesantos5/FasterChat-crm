@@ -8,6 +8,7 @@ import whatsappService from "./whatsapp.service";
 import { Errors, AppError } from "../utils/errors";
 import ragService from "./rag.service";
 import { AIProvider } from "../types/ai-provider";
+import { customerService } from "./customer.service";
 
 class MessageService {
   /**
@@ -184,7 +185,8 @@ class MessageService {
   async updateMessageStatusByWhatsAppId(
     whatsappInstanceId: string,
     messageId: string,
-    status: MessageStatus
+    status: MessageStatus,
+    remoteJid?: string
   ): Promise<{ message: any; companyId: string } | null> {
     try {
       // Busca a mensagem pelo índice composto
@@ -212,6 +214,21 @@ class MessageService {
 
       if (newOrder <= currentOrder) {
         // Status atual já é igual ou mais avançado, não atualiza
+        // Mas podemos ainda assim aproveitar para mapear o LID
+        if (remoteJid && !message.customer.isGroup) {
+          const rawPhone = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "");
+          if (rawPhone.length >= 14 && rawPhone !== message.customer.phone && message.customer.lidPhone !== rawPhone) {
+            try {
+              await prisma.customer.update({
+                where: { id: message.customer.id },
+                data: { lidPhone: rawPhone }
+              });
+              console.log(`[MessageService] 🔗 LID mapping salvo via Status Update: customer "${message.customer.phone}" → lidPhone "${rawPhone}"`);
+            } catch (e) {
+              console.warn(`[MessageService] ⚠️ Erro ao salvar lidPhone:`, e);
+            }
+          }
+        }
         return { message, companyId: message.customer.companyId };
       }
 
@@ -223,6 +240,22 @@ class MessageService {
           customer: true,
         },
       });
+
+      // Mapeamento LID também aqui caso precisasse atualizar
+      if (remoteJid && !updatedMessage.customer.isGroup) {
+        const rawPhone = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "");
+        if (rawPhone.length >= 14 && rawPhone !== updatedMessage.customer.phone && updatedMessage.customer.lidPhone !== rawPhone) {
+          try {
+            await prisma.customer.update({
+              where: { id: updatedMessage.customer.id },
+              data: { lidPhone: rawPhone }
+            });
+            console.log(`[MessageService] 🔗 LID mapping salvo via Status Update: customer "${updatedMessage.customer.phone}" → lidPhone "${rawPhone}"`);
+          } catch (e) {
+            console.warn(`[MessageService] ⚠️ Erro ao salvar lidPhone:`, e);
+          }
+        }
+      }
 
       // Emite via WebSocket
       if (websocketService.isInitialized()) {
@@ -412,7 +445,10 @@ class MessageService {
   ) {
     try {
       const instance = await prisma.whatsAppInstance.findFirst({ where: { instanceName } });
-      if (!instance) throw new Error(`Instance not found: ${instanceName}`);
+      if (!instance) {
+        console.warn(`[MessageService] Instance not found (ignoring webhook): ${instanceName}`);
+        return null;
+      }
 
       // ==================================================================================
       // 🕵️ RESOLUÇÃO DE NÚMERO REAL (LID vs PHONE)
@@ -595,13 +631,43 @@ class MessageService {
       // A detecção de isGroup já foi feita no início do método com sucesso
 
       // ==================================================================================
-      // 🔍 BUSCA INTELIGENTE DE CLIENTE (Previne duplicatas LID/Phone)
+      // 🔍 BUSCA INTELIGENTE DE CLIENTE (Previne duplicatas LID/Phone/9º dígito)
       // ==================================================================================
 
-      // Primeiro tenta buscar pelo phone exato
-      let customer = await prisma.customer.findUnique({
-        where: { companyId_phone: { companyId: instance.companyId, phone } },
-      });
+      let customer = null;
+
+      // 🌟 ANTI-DUPLICATA POR FLUXO ATIVO: Se o cliente tem um fluxo aguardando resposta para essa variação
+      // de número (com/sem 9º dígito), prioriza o número exato atrelado ao fluxo.
+      // Isso impede que `findByPhoneWithVariant` priorize um cliente duplicado ou crie um novo.
+      if (!isGroup) {
+        let rightDigits = phone.replace(/\D/g, "");
+        if (rightDigits.length > 8) rightDigits = rightDigits.slice(-8);
+
+        const activeFlow = await prisma.flowExecution.findFirst({
+          where: {
+            contactPhone: { endsWith: rightDigits },
+            status: "WAITING_REPLY",
+            flow: { companyId: instance.companyId }
+          }
+        });
+
+        if (activeFlow) {
+          customer = await prisma.customer.findFirst({
+            where: {
+              companyId: instance.companyId,
+              phone: activeFlow.contactPhone
+            }
+          });
+          if (customer) {
+            console.log(`[MessageService] 🔗 Customer encontrado via Flow Ativo: ${phone} -> ${customer.phone}`);
+          }
+        }
+      }
+
+      // Primeiro tenta buscar pelo phone original, abrangendo variações do 9º dígito, caso não haja fluxo
+      if (!customer) {
+        customer = await customerService.findByPhoneWithVariant(phone, instance.companyId);
+      }
 
       // 🔗 ANTI-DUPLICATA POR LID: Se não encontrou pelo phone exato,
       // busca pelo campo lidPhone (mapeamento LID↔telefone real).

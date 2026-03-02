@@ -37,8 +37,8 @@ export function ModernAgentStatsCard({ data }: ModernAgentStatsCardProps) {
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
       <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-orange-100 dark:bg-orange-900/30">
-            <Users className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <div className="p-1.5 rounded-lg bg-[#d6ffe4] dark:bg-[#0f311c]/30">
+            <Users className="h-4 w-4 text-[#1a753a] dark:text-[#4ed479]" />
           </div>
           <CardTitle className="text-sm font-semibold">Atendimentos por Agente</CardTitle>
         </div>
@@ -88,14 +88,14 @@ export function ModernAgentStatsCard({ data }: ModernAgentStatsCardProps) {
                 <Bar
                   dataKey="humano"
                   stackId="a"
-                  fill="hsl(var(--chart-1))"
+                  fill="#14522b"
                   radius={[0, 0, 0, 0]}
                   barSize={20}
                 />
                 <Bar
                   dataKey="ia"
                   stackId="a"
-                  fill="hsl(var(--chart-3))"
+                  fill="#4ed479"
                   radius={[0, 4, 4, 0]}
                   barSize={20}
                 />

@@ -11,7 +11,7 @@ interface ModernStatCardProps {
   gradient: string;
   description?: string;
   trend?: "up" | "down" | "neutral";
-  colorName?: "blue" | "green" | "orange" | "purple" | "default";
+  colorName?: "emerald" | "lime" | "teal" | "green" | "default";
 }
 
 // Generate smooth, deterministic SVG paths to prevent hydration errors but provide variety
@@ -33,11 +33,11 @@ function getSparklinePath(trend: "up" | "down" | "neutral", variant: number) {
 }
 
 const colorMap = {
-  blue: { stroke: "#3b82f6", from: "rgba(59, 130, 246, 0.4)", to: "rgba(59, 130, 246, 0)" },
+  emerald: { stroke: "#10b981", from: "rgba(16, 185, 129, 0.4)", to: "rgba(16, 185, 129, 0)" },
+  lime: { stroke: "#84cc16", from: "rgba(132, 204, 22, 0.4)", to: "rgba(132, 204, 22, 0)" },
+  teal: { stroke: "#14b8a6", from: "rgba(20, 184, 166, 0.4)", to: "rgba(20, 184, 166, 0)" },
   green: { stroke: "#22c55e", from: "rgba(34, 197, 94, 0.4)", to: "rgba(34, 197, 94, 0)" },
-  orange: { stroke: "#f97316", from: "rgba(249, 115, 22, 0.4)", to: "rgba(249, 115, 22, 0)" },
-  purple: { stroke: "#a855f7", from: "rgba(168, 85, 247, 0.4)", to: "rgba(168, 85, 247, 0)" },
-  default: { stroke: "#6b7280", from: "rgba(107, 114, 128, 0.4)", to: "rgba(107, 114, 128, 0)" },
+  default: { stroke: "#22c55e", from: "rgba(34, 197, 94, 0.4)", to: "rgba(34, 197, 94, 0)" },
 };
 
 export function ModernStatCard({

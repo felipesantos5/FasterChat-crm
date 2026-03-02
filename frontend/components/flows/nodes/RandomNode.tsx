@@ -76,7 +76,7 @@ export const RandomNode = memo(({ id, data }: any) => {
 
   return (
     <div className="bg-white border-2 border-teal-400 rounded-xl shadow-lg min-w-[300px] overflow-hidden transition-all hover:shadow-teal-100 hover:border-teal-500/50">
-      <Handle type="target" position={Position.Left} className="w-5 h-5 bg-teal-500 border-2 border-white" />
+      <Handle type="target" position={Position.Left} className="w-8 h-8 bg-teal-500 border-2 border-white" />
 
       {/* Header */}
       <div className="bg-teal-50 px-3 py-3 border-b border-teal-100 flex items-center justify-between gap-2">
@@ -120,8 +120,8 @@ export const RandomNode = memo(({ id, data }: any) => {
             <div
               key={path.id}
               className={`flex items-center justify-between p-2.5 rounded-lg border relative transition-all ${isEnabled
-                  ? `${colors.bg} ${colors.border} hover:opacity-90`
-                  : 'bg-gray-50 border-gray-100 opacity-50'
+                ? `${colors.bg} ${colors.border} hover:opacity-90`
+                : 'bg-gray-50 border-gray-100 opacity-50'
                 }`}
             >
               <div className="flex items-center gap-2 flex-1">
@@ -148,7 +148,7 @@ export const RandomNode = memo(({ id, data }: any) => {
                 type="source"
                 position={Position.Right}
                 id={path.id}
-                className={`w-5 h-5 border-2 border-white -mr-1 ${isEnabled ? colors.handle : 'bg-gray-300'}`}
+                className={`w-8 h-8 border-2 border-white -mr-1 ${isEnabled ? colors.handle : 'bg-gray-300'}`}
               />
             </div>
           );

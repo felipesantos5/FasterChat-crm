@@ -22,6 +22,7 @@ import customerNoteRoutes from "./customer-note.routes";
 import collaboratorRoutes from "./collaborator.routes";
 import adminRoutes from "./admin.routes";
 import serviceRoutes from "./service.routes";
+import customFieldRoutes from "./custom-field.routes";
 import conversationExampleController from "../controllers/conversation-example.controller";
 import { authenticate } from "../middlewares/auth";
 import { asyncHandler } from "../middlewares/errorHandler";
@@ -50,6 +51,7 @@ router.use("/customer-notes", customerNoteRoutes);
 router.use("/collaborators", collaboratorRoutes);
 router.use("/admin", adminRoutes);
 router.use("/services", serviceRoutes);
+router.use("/custom-fields", customFieldRoutes);
 router.use("/flows", flowRouter);
 
 // Rotas públicas (sem /api prefix) - devem ser registradas no server.ts

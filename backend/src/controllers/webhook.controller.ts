@@ -361,7 +361,8 @@ class WebhookController {
               const result = await messageService.updateMessageStatusByWhatsAppId(
                 instance.id,
                 messageId,
-                newStatus as any
+                newStatus as any,
+                update.key?.remoteJid
               );
             }
           }

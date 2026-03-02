@@ -1,3 +1,5 @@
+import { CustomerCustomFieldValue } from './custom-field';
+
 export interface Customer {
   id: string;
   companyId: string;
@@ -9,6 +11,7 @@ export interface Customer {
   profilePicUrl?: string | null; // URL da foto de perfil do WhatsApp
   isGroup: boolean; // Identifica se é um grupo do WhatsApp
   pipelineStageId?: string | null; // Estágio atual no pipeline
+  customFieldValues?: CustomerCustomFieldValue[];
   createdAt: string;
   updatedAt: string;
 }
@@ -34,6 +37,8 @@ export interface CustomerFilters {
   tags?: string[];
   page?: number;
   limit?: number;
+  orderBy?: "recent" | "old" | "az" | "za";
+  type?: "all" | "individual" | "group";
 }
 
 export interface CustomerListResponse {

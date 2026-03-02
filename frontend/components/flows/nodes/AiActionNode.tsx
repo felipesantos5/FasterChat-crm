@@ -13,7 +13,7 @@ export const AiActionNode = memo(({ id, data }: any) => {
 
   return (
     <div className="bg-white border-2 border-emerald-400 rounded-xl shadow-lg min-w-[240px] overflow-hidden transition-all hover:shadow-emerald-100 hover:border-emerald-500">
-      <Handle type="target" position={Position.Left} className="w-5 h-5 bg-emerald-500 border-2 border-white" />
+      <Handle type="target" position={Position.Left} className="w-8 h-8 bg-emerald-500 border-2 border-white" />
 
       <div className="bg-emerald-50 px-3 py-3 border-b border-emerald-100 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -49,7 +49,7 @@ export const AiActionNode = memo(({ id, data }: any) => {
         </div>
       </div>
 
-      <Handle type="source" position={Position.Right} className="w-5 h-5 bg-emerald-500 border-2 border-white" />
+      <Handle type="source" position={Position.Right} className="w-8 h-8 bg-emerald-500 border-2 border-white" />
     </div>
   );
 });

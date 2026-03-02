@@ -27,11 +27,14 @@ interface ModernFunnelDonutProps {
 }
 
 const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
+  "#86efac", // green-300
+  "#4ade80", // green-400
+  "#22c55e", // green-500
+  "#16a34a", // green-600
+  "#15803d", // green-700
+  "#166534", // green-800
+  "#14532d", // green-900
+  "#052e16", // green-950
 ];
 
 export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {

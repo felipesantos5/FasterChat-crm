@@ -31,7 +31,7 @@ interface ModernPeakHoursChartProps {
 const chartConfig = {
   count: {
     label: "Mensagens",
-    color: "hsl(var(--chart-1))", // We will override color directly with Cell if needed... actually we can just use the config color
+    color: "#14b8a6", // teal-500
   },
 } satisfies ChartConfig;
 
@@ -61,8 +61,8 @@ export function ModernPeakHoursChart({ data }: ModernPeakHoursChartProps) {
       <CardHeader className="items-start pb-2 pt-4 px-4">
         <div className="flex w-full justify-between items-start">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-violet-100 dark:bg-violet-900/30">
-              <TrendingUp className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+            <div className="p-1.5 rounded-lg bg-teal-100 dark:bg-teal-900/30">
+              <TrendingUp className="h-4 w-4 text-teal-600 dark:text-teal-400" />
             </div>
             <CardTitle className="text-sm font-semibold">Pico de Mensagens</CardTitle>
           </div>
@@ -112,8 +112,8 @@ export function ModernPeakHoursChart({ data }: ModernPeakHoursChartProps) {
                     key={`cell-${index}`}
                     fill={
                       entry.hour === peakHour?.hour
-                        ? "hsl(var(--chart-1))"
-                        : "hsl(var(--chart-1) / 0.4)"
+                        ? "#0f766e" // teal-700
+                        : "rgba(20, 184, 166, 0.4)" // teal-500 with opacity
                     }
                   />
                 ))}

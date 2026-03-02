@@ -82,9 +82,17 @@ export function FlowBatchUploadModal({
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
 
-  // Reset specific modal state when opens/closes, but KEEP file in store for the SAME flow
+  // Quando o flowId muda (navegou para outro fluxo), limpa o store imediatamente
+  useEffect(() => {
+    if (storeFlowId !== null && storeFlowId !== flowId) {
+      resetStore();
+    }
+  }, [flowId, storeFlowId, resetStore]);
+
+  // Gerencia estado do modal ao abrir/fechar
   useEffect(() => {
     if (open) {
+      // Garante que o store está vinculado a este fluxo
       if (storeFlowId !== null && storeFlowId !== flowId) {
         resetStore();
         setStep("upload");
@@ -95,17 +103,10 @@ export function FlowBatchUploadModal({
       }
       setStoreFlowId(flowId);
     } else {
-      const t = setTimeout(() => {
-        const currentFile = useBatchStore.getState().file;
-        const currentPreview = useBatchStore.getState().preview;
-        setStep(currentFile && currentPreview ? "preview" : "upload");
-        setBatchStatus(null);
-        setLoading(false);
-        if (pollRef.current) clearInterval(pollRef.current);
-      }, 200);
-      return () => { clearTimeout(t); };
+      setBatchStatus(null);
+      setLoading(false);
+      if (pollRef.current) clearInterval(pollRef.current);
     }
-    return undefined;
   }, [open, flowId, storeFile, storePreview, storeFlowId, resetStore, setStoreFlowId]);
 
   // Cleanup polling on unmount

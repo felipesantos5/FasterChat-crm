@@ -121,3 +121,8 @@
     overflow-wrap: anywhere;
   }
 }
+
+.react-flow__handle.connectionindicator {
+  width: 20px;
+  height: 20px;
+}
