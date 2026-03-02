@@ -313,6 +313,13 @@ export class FlowEngineService {
       throw new Error(`Nenhuma instância WhatsApp conectada para iniciar o fluxo`);
     }
 
+    // ✅ Valida se o número existe no WhatsApp antes de iniciar o fluxo
+    const numberOnWhatsApp = await whatsappService.numberExists(selectedInstance.instanceName, cleanPhone);
+    if (!numberOnWhatsApp) {
+      console.warn(`[FlowEngine] ⚠️ Número ${cleanPhone} NÃO está no WhatsApp. Pulando fluxo.`);
+      throw new Error(`Número ${cleanPhone} não está registrado no WhatsApp`);
+    }
+
     // Coleta execuções ativas para cancelar depois de criar a nova (precisamos do novo ID)
     const activeStatuses: FlowExecutionStatus[] = [
       FlowExecutionStatus.RUNNING,

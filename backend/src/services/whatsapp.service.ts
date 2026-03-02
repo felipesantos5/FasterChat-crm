@@ -425,16 +425,20 @@ class WhatsAppService {
         throw error;
       }
 
-      // Log detalhado para debug
+      // Log detalhado para debug — inclui body completo da Evolution API
+      const responseData = error.response?.data;
       console.error("[WhatsApp Service] Erro ao enviar mensagem:");
       console.error("  - Status:", error.response?.status);
-      console.error("  - Destino (JID):", this.formatJid(data.to)); // Debug do JID gerado
+      console.error("  - Destino (JID):", this.formatJid(data.to));
       console.error("  - Message:", error.message);
+      console.error("  - Response Body:", JSON.stringify(responseData, null, 2));
 
-      // Extrai a mensagem de erro da Evolution API
-      const evolutionError = error.response?.data?.message
-        || error.response?.data?.error
-        || error.response?.data?.response?.message
+      // Extrai a mensagem de erro da Evolution API (tenta múltiplos campos)
+      const evolutionError = (typeof responseData === 'string' ? responseData : null)
+        || responseData?.message
+        || responseData?.error
+        || responseData?.response?.message
+        || (Array.isArray(responseData?.message) ? responseData.message.join('; ') : null)
         || error.message
         || "";
 
@@ -866,6 +870,34 @@ class WhatsAppService {
       });
     } catch (error: any) {
       console.error("[WhatsApp Service] Error sending presence:", error.message);
+    }
+  }
+
+  /**
+   * ✅ Verifica se um número está registrado no WhatsApp via Evolution API
+   * Usa o endpoint onWhatsApp / chat/whatsappNumbers
+   * @returns true se registrado, false se não
+   */
+  async numberExists(instanceName: string, phone: string): Promise<boolean> {
+    try {
+      const jid = this.formatJid(phone);
+      const number = jid.replace("@s.whatsapp.net", "").replace("@lid", "");
+
+      const response = await this.axiosInstance.post(`/chat/whatsappNumbers/${instanceName}`, {
+        numbers: [number],
+      }, { timeout: 10000 });
+
+      // Evolution API retorna array com campo exists ou jid
+      const results = response.data;
+      if (Array.isArray(results) && results.length > 0) {
+        return results[0].exists === true || !!results[0].jid;
+      }
+
+      return false;
+    } catch (error: any) {
+      // Se o endpoint não existir (404) ou falhar, assume que existe para não bloquear envios
+      console.warn(`[WhatsApp Service] ⚠️ numberExists check failed for ${phone}:`, error.message);
+      return true;
     }
   }
 
