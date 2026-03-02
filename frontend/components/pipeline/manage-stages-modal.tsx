@@ -342,7 +342,7 @@ export function ManageStagesModal({
                 // Modo de visualização
                 <>
                   {stage.isFixed ? (
-                    <Lock className="h-4 w-4 text-gray-300 flex-shrink-0" title="Estágio fixo" />
+                    <Lock className="h-4 w-4 text-gray-300 flex-shrink-0" />
                   ) : (
                     <GripVertical className="h-4 w-4 text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0" />
                   )}
