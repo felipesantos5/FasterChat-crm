@@ -63,7 +63,7 @@ export function MessagesChart({ data }: MessagesChartProps) {
         </div>
       </CardHeader>
       <CardContent className="p-0 pr-4 pb-4">
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
+        <ChartContainer config={chartConfig} className="h-[270px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={formattedData}
