@@ -180,8 +180,8 @@ export class FlowBatchController {
   private static readonly BATCH_PAUSE_MAX_MS = 10 * 60_000;     // 10 min de pausa máxima
   private static readonly BATCH_TOTAL_ERROR_ABORT_RATIO = 0.5;  // Aborta se >50% falhou
   private static readonly BATCH_MIN_PROCESSED_FOR_ABORT = 10;   // Mínimo processados antes de checar ratio
-  private static readonly BATCH_ANTI_SPAM_MIN_MS = 30_000;      // 30s mínimo entre contatos
-  private static readonly BATCH_ANTI_SPAM_MAX_MS = 60_000;      // 60s máximo entre contatos
+  private static readonly BATCH_ANTI_SPAM_MIN_MS = 15_000;      // 15s mínimo entre contatos
+  private static readonly BATCH_ANTI_SPAM_MAX_MS = 25_000;      // 20s máximo entre contatos
   private static readonly BATCH_INSTANCE_CHECK_INTERVAL = 10;   // Verifica instância a cada N contatos
 
   /**
