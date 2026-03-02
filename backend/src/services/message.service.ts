@@ -1154,6 +1154,23 @@ class MessageService {
         text: content,
       });
 
+      // 🔗 CAPTURA NATIVA DE LID: Se a API retornou um LID (14+ dígitos), mapeia imediatamente.
+      // Isso é vital para mensagens de IA/Humano onde não há fluxo aguardando para mapear via Webhook.
+      if (result.remoteJid && !customer.isGroup) {
+        const rawPhone = result.remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "");
+        if (rawPhone.length >= 14 && rawPhone !== customer.phone && customer.lidPhone !== rawPhone) {
+          try {
+            await prisma.customer.update({
+              where: { id: customer.id },
+              data: { lidPhone: rawPhone }
+            });
+            console.log(`[MessageService:sendMessage] 🔗 LID mapping salvo via API Response: customer "${customer.phone}" → lidPhone "${rawPhone}"`);
+          } catch (e) {
+            console.warn(`[MessageService:sendMessage] ⚠️ Erro ao salvar lidPhone:`, e);
+          }
+        }
+      }
+
       // Salva a mensagem no banco com senderType
       const message = await prisma.message.create({
         data: {
@@ -1337,6 +1354,23 @@ class MessageService {
         caption,
         mediaType: mediaType as any, // Usa o tipo detectado (audio ou image)
       });
+
+      // 🔗 CAPTURA NATIVA DE LID: Se a API retornou um LID (14+ dígitos), mapeia imediatamente.
+      // Isso é vital para mensagens de IA/Humano onde não há fluxo aguardando para mapear via Webhook.
+      if (result.remoteJid && !customer.isGroup) {
+        const rawPhone = result.remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "");
+        if (rawPhone.length >= 14 && rawPhone !== customer.phone && customer.lidPhone !== rawPhone) {
+          try {
+            await prisma.customer.update({
+              where: { id: customer.id },
+              data: { lidPhone: rawPhone }
+            });
+            console.log(`[MessageService:sendMedia] 🔗 LID mapping salvo via API Response: customer "${customer.phone}" → lidPhone "${rawPhone}"`);
+          } catch (e) {
+            console.warn(`[MessageService:sendMedia] ⚠️ Erro ao salvar lidPhone:`, e);
+          }
+        }
+      }
 
       // Define conteúdo padrão baseado no tipo
       const defaultContent = isAudio ? "[Áudio enviado]" : "[Imagem enviada]";

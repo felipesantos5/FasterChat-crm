@@ -497,7 +497,7 @@ class WebhookController {
 
                   if (savedMsg) {
                     const realPhone = savedMsg.customer.phone.replace(/\D/g, '');
-                    // Encontra a execução deste phone para salvar o LID
+                    // Encontra a execução deste phone para salvar o LID (opcional)
                     const exec = await prisma.flowExecution.findFirst({
                       where: {
                         contactPhone: { endsWith: realPhone.slice(-(Math.min(realPhone.length, 11))) },
@@ -513,15 +513,17 @@ class WebhookController {
                         where: { id: exec.id },
                         data: { contactLid: sentToPhone },
                       });
-
-                      await prisma.customer.updateMany({
-                        where: { companyId: inst.companyId, phone: savedMsg.customer.phone, lidPhone: null },
-                        data: { lidPhone: sentToPhone },
-                      });
-
-                      console.log(`[Webhook:SendMessage] 🔗 LID mapping via messageId: "${savedMsg.customer.phone}" → LID "${sentToPhone}"`);
-                      mapped = true;
                     }
+
+                    // IMPORTANTE: Atualiza o mapeamento no Customer INDEPENDENTEMENTE de ter um FlowExecution!
+                    // Isso evita que mensagens enviadas fora de fluxo (ex: IA ou atendente) deixem de mapear o LID
+                    await prisma.customer.updateMany({
+                      where: { companyId: inst.companyId, phone: savedMsg.customer.phone, lidPhone: null },
+                      data: { lidPhone: sentToPhone },
+                    });
+
+                    console.log(`[Webhook:SendMessage] 🔗 LID mapping via messageId: "${savedMsg.customer.phone}" → LID "${sentToPhone}"`);
+                    mapped = true;
                   }
                 }
 
