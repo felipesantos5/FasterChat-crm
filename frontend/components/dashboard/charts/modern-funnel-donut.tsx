@@ -69,11 +69,11 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
           <div className="flex-1 flex flex-col items-center justify-center gap-4 py-6 px-4 text-center">
             {/* Funil ilustrativo */}
             <svg viewBox="0 0 120 130" className="w-28 h-28 opacity-30 dark:opacity-20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="8"  y="8"  width="104" height="20" rx="5" fill="currentColor" className="text-gray-400"/>
-              <rect x="20" y="34" width="80"  height="20" rx="5" fill="currentColor" className="text-gray-400"/>
-              <rect x="34" y="60" width="52"  height="20" rx="5" fill="currentColor" className="text-gray-400"/>
-              <rect x="46" y="86" width="28"  height="20" rx="5" fill="currentColor" className="text-gray-400"/>
-              <rect x="52" y="110" width="16" height="14" rx="4" fill="currentColor" className="text-gray-400"/>
+              <rect x="8" y="8" width="104" height="20" rx="5" fill="currentColor" className="text-gray-400" />
+              <rect x="20" y="34" width="80" height="20" rx="5" fill="currentColor" className="text-gray-400" />
+              <rect x="34" y="60" width="52" height="20" rx="5" fill="currentColor" className="text-gray-400" />
+              <rect x="46" y="86" width="28" height="20" rx="5" fill="currentColor" className="text-gray-400" />
+              <rect x="52" y="110" width="16" height="14" rx="4" fill="currentColor" className="text-gray-400" />
             </svg>
             <div className="space-y-1">
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -88,7 +88,7 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
           <>
             <ChartContainer
               config={chartConfig}
-              className="mx-auto aspect-square max-h-[200px]"
+              className="mx-auto h-[220px] w-full"
             >
               <PieChart>
                 <ChartTooltip
