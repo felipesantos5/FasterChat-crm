@@ -68,12 +68,14 @@ class CampaignSchedulerService {
           type: CampaignType.SCHEDULED,
           status: CampaignStatus.PENDING,
           scheduledAt: {
-            lte: now, // scheduledAt <= agora
+            lte: now,
           },
         },
         orderBy: {
-          scheduledAt: 'asc', // Processa as mais antigas primeiro
+          scheduledAt: 'asc',
         },
+        // Limita a 10 por ciclo — cada campanha é pesada; evita burst de CPU/RAM
+        take: 10,
       });
 
       if (pendingCampaigns.length > 0) {

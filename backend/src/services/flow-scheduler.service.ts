@@ -58,7 +58,10 @@ class FlowSchedulerService {
           resumesAt: { lte: now },
           status: { in: [FlowExecutionStatus.WAITING_REPLY, FlowExecutionStatus.DELAYED] }
         },
-        include: { currentNode: true }
+        include: { currentNode: true },
+        // Processa em lotes para evitar sobrecarregar memória e CPU de uma vez
+        take: 50,
+        orderBy: { resumesAt: 'asc' },
       });
 
       for (const execution of pendingExecutions) {
@@ -114,7 +117,9 @@ class FlowSchedulerService {
         include: {
           currentNode: true,
           flow: { select: { companyId: true } }
-        }
+        },
+        take: 100,
+        orderBy: { updatedAt: 'asc' },
       });
 
       if (waitingExecutions.length === 0) return;

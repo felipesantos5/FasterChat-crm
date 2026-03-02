@@ -15,6 +15,7 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    shm_size: '128mb'
     networks:
       - crm_network
     healthcheck:
@@ -23,6 +24,14 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 1280M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # ----------------------------------------------------------------
   # BANCO DE DADOS EVOLUTION API
@@ -45,6 +54,14 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
 
   # ----------------------------------------------------------------
   # REDIS (Compartilhado)
@@ -55,7 +72,8 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    # maxmemory evita crescimento ilimitado; lru descarta chaves menos usadas
+    command: redis-server --appendonly yes --maxmemory 220mb --maxmemory-policy allkeys-lru
     networks:
       - crm_network
     healthcheck:
@@ -63,18 +81,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
 
   # ----------------------------------------------------------------
   # SUA API (BACKEND)
   # ----------------------------------------------------------------
   api:
     build:
-      context: . # Aponta para a pasta onde está o Dockerfile
+      context: .
       dockerfile: Dockerfile
     container_name: crm_backend
     restart: unless-stopped
     ports:
-      - "3051:3051" # Coolify vai usar essa porta para expor o domínio
+      - "3051:3051"
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,31 +108,33 @@ services:
         condition: service_healthy
     networks:
       - crm_network
+    stop_grace_period: 30s
     environment:
       NODE_ENV: production
       PORT: 3051
-      # Conexão interna com o container 'postgres' na porta 5432
+      # Limita heap do Node.js — o container reinicia antes do OOM kill do kernel
+      NODE_OPTIONS: --max-old-space-size=1024
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-crm}?schema=public
-      # Conexão interna com o container 'redis'
-      REDIS_HOST: redis 
+      REDIS_HOST: redis
       REDIS_PORT: 6379
-      # Conexão interna com a Evolution API
       EVOLUTION_API_URL: ${EVOLUTION_API_URL}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
-      # AI_PROVIDER: ${AI_PROVIDER:-gemini}
-      
-      # 👇 ADICIONE ESTAS LINHAS AQUI 👇
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
-      # URL que a Evolution vai chamar (comunicação interna docker-to-docker)
       WEBHOOK_URL: http://api:3051
-      # Seus segredos (Configure no Coolify)
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      # Configurações de IA
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       AI_PROVIDER: ${AI_PROVIDER}
+    deploy:
+      resources:
+        limits:
+          cpus: '1.50'
+          memory: 1536M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # ----------------------------------------------------------------
   # EVOLUTION API
@@ -131,39 +159,33 @@ services:
       - net.ipv6.conf.default.disable_ipv6=1
     environment:
       - CONFIG_SESSION_PHONE_VERSION=2.3000.1030000000
-      - NODE_OPTIONS=--dns-result-order=ipv4first
+      - NODE_OPTIONS=--dns-result-order=ipv4first --max-old-space-size=1280
       - DEL_INSTANCE=false
       - DATABASE_SAVE_DATA_NEW_MESSAGE=true
       - DATABASE_SAVE_MESSAGE_UPDATE=true
-      
-      # Database config (Apontando para postgresql-evo)
       - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=postgresql
       - DATABASE_CONNECTION_URI=postgresql://${EVO_PG_USER:-evolution_user}:${EVO_PG_PASS:-evolution_password}@postgresql-evo:5432/${EVO_PG_DB:-evolution_db}
-      
-      # Redis config (Apontando para redis)
       - REDIS_ENABLED=true
       - REDIS_URI=redis://redis:6379
       - CACHE_REDIS_ENABLED=true
       - CACHE_REDIS_URI=redis://redis:6379
-
-      # Server config
       - SERVER_TYPE=http
       - SERVER_PORT=8080
-      # Importante: No Coolify/Produção, esta URL deve ser o seu domínio HTTPS público da Evolution
-      # Ex: https://evo.seu-dominio.com
       - SERVER_URL=${EVOLUTION_PUBLIC_URL:-http://evolution-api:8080}
-
-      # Authentication
       - AUTHENTICATION_TYPE=apikey
       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-crm-api-key-secure-2024}
       - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
-
-      # Webhook Global (Opcional, pois seu backend configura por instância)
       - WEBHOOK_GLOBAL_ENABLED=false
-      
-      # Logs
-      - LOG_LEVEL=ERROR,WARN,DEBUG,INFO,LOG,VERBOSE,DARK,WEBHOOKS
+      - LOG_LEVEL=ERROR,WARN
+    deploy:
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 1536M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
 volumes:
   postgres_data:

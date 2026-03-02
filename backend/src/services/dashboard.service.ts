@@ -597,6 +597,9 @@ class DashboardService {
         direction: true,
         senderType: true,
       },
+      // Limite de segurança: 10K mensagens é suficiente para renderizar tendências no gráfico
+      take: 10000,
+      orderBy: { timestamp: "asc" },
     });
 
 
@@ -753,7 +756,7 @@ class DashboardService {
     previousEnd: Date
   ): Promise<AvgResponseTimeData> {
     const calcAvg = async (start: Date, end: Date): Promise<number> => {
-      // Get inbound messages in the period
+      // Limita a 200 mensagens inbound mais recentes para evitar N+1 queries ilimitadas
       const inboundMessages = await prisma.message.findMany({
         where: {
           customer: { companyId },
@@ -761,29 +764,40 @@ class DashboardService {
           timestamp: { gte: start, lte: end },
         },
         select: { customerId: true, timestamp: true },
-        orderBy: { timestamp: "asc" },
+        orderBy: { timestamp: "desc" },
+        take: 200,
       });
 
       if (inboundMessages.length === 0) return 0;
 
-      // For each inbound, find the next outbound for same customer
+      // Busca todas as mensagens outbound do período em uma única query
+      const customerIds = [...new Set(inboundMessages.map((m) => m.customerId))];
+      const outboundMessages = await prisma.message.findMany({
+        where: {
+          customerId: { in: customerIds },
+          direction: MessageDirection.OUTBOUND,
+          timestamp: { gte: start, lte: end },
+        },
+        select: { customerId: true, timestamp: true },
+        orderBy: { timestamp: "asc" },
+      });
+
+      // Indexa outbound por customer para lookup O(1)
+      const outboundByCustomer = new Map<string, Date[]>();
+      for (const msg of outboundMessages) {
+        const arr = outboundByCustomer.get(msg.customerId) ?? [];
+        arr.push(msg.timestamp);
+        outboundByCustomer.set(msg.customerId, arr);
+      }
+
       let totalSeconds = 0;
       let count = 0;
 
       for (const inMsg of inboundMessages) {
-        const nextOutbound = await prisma.message.findFirst({
-          where: {
-            customerId: inMsg.customerId,
-            direction: MessageDirection.OUTBOUND,
-            timestamp: { gt: inMsg.timestamp },
-          },
-          select: { timestamp: true },
-          orderBy: { timestamp: "asc" },
-        });
-
+        const outbounds = outboundByCustomer.get(inMsg.customerId) ?? [];
+        const nextOutbound = outbounds.find((t) => t > inMsg.timestamp);
         if (nextOutbound) {
-          const diffSeconds = (nextOutbound.timestamp.getTime() - inMsg.timestamp.getTime()) / 1000;
-          // Only count if response was within 24h (ignore abandoned conversations)
+          const diffSeconds = (nextOutbound.getTime() - inMsg.timestamp.getTime()) / 1000;
           if (diffSeconds < 86400) {
             totalSeconds += diffSeconds;
             count++;
@@ -794,7 +808,6 @@ class DashboardService {
       return count > 0 ? Math.round(totalSeconds / count) : 0;
     };
 
-    // Limit to last 100 inbound messages for performance
     const currentAvg = await calcAvg(currentStart, currentEnd);
     const previousAvg = await calcAvg(previousStart, previousEnd);
 
@@ -880,33 +893,39 @@ class DashboardService {
       },
     });
 
-    // Get human messages grouped by assigned agent
-    const conversations = await prisma.conversation.findMany({
-      where: { companyId },
-      select: {
-        id: true,
-        customerId: true,
-        assignedTo: { select: { name: true } },
-      },
-    });
+    // Agrupa mensagens humanas por customerId em uma única query (sem N+1)
+    const [conversations, msgCountsByCustomer] = await Promise.all([
+      prisma.conversation.findMany({
+        where: { companyId, assignedToId: { not: null } },
+        select: {
+          customerId: true,
+          assignedTo: { select: { name: true } },
+        },
+      }),
+      prisma.message.groupBy({
+        by: ["customerId"],
+        where: {
+          customer: { companyId },
+          direction: MessageDirection.OUTBOUND,
+          senderType: "HUMAN",
+          timestamp: { gte: startDate, lte: endDate },
+        },
+        _count: { id: true },
+      }),
+    ]);
+
+    const countByCustomer = new Map(
+      msgCountsByCustomer.map((r) => [r.customerId, r._count.id])
+    );
 
     const agentMap = new Map<string, number>();
 
     for (const conv of conversations) {
       if (!conv.assignedTo) continue;
-
-      const msgCount = await prisma.message.count({
-        where: {
-          customerId: conv.customerId,
-          direction: MessageDirection.OUTBOUND,
-          senderType: "HUMAN",
-          timestamp: { gte: startDate, lte: endDate },
-        },
-      });
-
-      if (msgCount > 0) {
+      const msgs = countByCustomer.get(conv.customerId) ?? 0;
+      if (msgs > 0) {
         const current = agentMap.get(conv.assignedTo.name) || 0;
-        agentMap.set(conv.assignedTo.name, current + msgCount);
+        agentMap.set(conv.assignedTo.name, current + msgs);
       }
     }
 
