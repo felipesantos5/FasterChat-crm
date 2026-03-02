@@ -231,6 +231,32 @@ class MessageController {
   }
 
   /**
+   * PUT /api/messages/:id
+   * Edita o conteúdo de uma mensagem enviada (janela de 15 min)
+   */
+  async editMessage(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Não autenticado' });
+      }
+
+      const { id } = req.params;
+      const { content } = req.body;
+
+      if (!content || !content.trim()) {
+        return res.status(400).json({ success: false, message: 'Conteúdo não pode ser vazio' });
+      }
+
+      const message = await messageService.editMessage(id, content.trim(), req.user.companyId);
+
+      return res.status(200).json({ success: true, data: message });
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ success: false, message: error.message || 'Falha ao editar mensagem' });
+    }
+  }
+
+  /**
    * POST /api/messages/:id/feedback
    * Adiciona feedback a uma mensagem da IA
    */

@@ -27,6 +27,7 @@ interface UseWebSocketOptions {
   onTyping?: (data: { customerId: string; isTyping: boolean }) => void;
   onStatsUpdate?: (stats: any) => void;
   onMessageStatus?: (data: { messageId: string; status: MessageStatus; timestamp: Date }) => void;
+  onMessageEdited?: (data: { messageId: string; newContent: string; customerId: string }) => void;
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
@@ -37,6 +38,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     onTyping,
     onStatsUpdate,
     onMessageStatus,
+    onMessageEdited,
   } = options;
 
   const socketRef = useRef<Socket | null>(null);
@@ -116,8 +118,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       socket.on('message_status', onMessageStatus);
     }
 
+    if (onMessageEdited) {
+      socket.on('message_edited', onMessageEdited);
+    }
+
     socketRef.current = socket;
-  }, [onNewMessage, onConversationUpdate, onTyping, onStatsUpdate, onMessageStatus]);
+  }, [onNewMessage, onConversationUpdate, onTyping, onStatsUpdate, onMessageStatus, onMessageEdited]);
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {

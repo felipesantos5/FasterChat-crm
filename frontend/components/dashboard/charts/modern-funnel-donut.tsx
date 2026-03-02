@@ -27,14 +27,14 @@ interface ModernFunnelDonutProps {
 }
 
 const COLORS = [
-  "#86efac", // green-300
-  "#4ade80", // green-400
-  "#22c55e", // green-500
-  "#16a34a", // green-600
-  "#15803d", // green-700
-  "#166534", // green-800
-  "#14532d", // green-900
-  "#052e16", // green-950
+  "#c5ecda", // brand-100
+  "#7dd0a0", // brand-300
+  "#44ba6c", // brand (base)
+  "#2d9a53", // brand-600
+  "#1a6b38", // brand-700
+  "#0f4524", // brand-900
+  "#44ba6c", // brand (repeat)
+  "#2d9a53", // brand-600 (repeat)
 ];
 
 export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
@@ -56,13 +56,35 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
   }, {} as ChartConfig);
 
   const total = chartData.reduce((acc, curr) => acc + curr.value, 0);
+  const isEmpty = total === 0;
 
   return (
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
       <CardHeader className="items-start pb-0 pt-4 px-4">
         <CardTitle className="text-base">Funil de Vendas</CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 pb-0">
+      <CardContent className="flex-1 pb-0 flex flex-col">
+
+        {isEmpty ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-6 px-4 text-center">
+            {/* Funil ilustrativo */}
+            <svg viewBox="0 0 120 130" className="w-28 h-28 opacity-30 dark:opacity-20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="8"  y="8"  width="104" height="20" rx="5" fill="currentColor" className="text-gray-400"/>
+              <rect x="20" y="34" width="80"  height="20" rx="5" fill="currentColor" className="text-gray-400"/>
+              <rect x="34" y="60" width="52"  height="20" rx="5" fill="currentColor" className="text-gray-400"/>
+              <rect x="46" y="86" width="28"  height="20" rx="5" fill="currentColor" className="text-gray-400"/>
+              <rect x="52" y="110" width="16" height="14" rx="4" fill="currentColor" className="text-gray-400"/>
+            </svg>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                Funil vazio
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed max-w-[180px]">
+                Adicione clientes ao pipeline para visualizar as métricas do funil
+              </p>
+            </div>
+          </div>
+        ) : (
         <ChartContainer
           config={chartConfig}
           className="mx-auto aspect-square max-h-[200px]"
@@ -141,6 +163,7 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
             );
           })}
         </div>
+        )}
       </CardContent>
     </Card>
   );

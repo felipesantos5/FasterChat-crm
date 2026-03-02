@@ -425,6 +425,7 @@ model PipelineStage {
   description String? // Descrição opcional do estágio
   color       String   @default("#8B5CF6") // Cor do estágio no Kanban
   order       Int // Ordem de exibição (0, 1, 2, ...)
+  isFixed     Boolean  @default(false) @map("is_fixed") // Estágios fixos não podem ter nome alterado nem ser excluídos
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 

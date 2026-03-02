@@ -31,7 +31,7 @@ interface ModernPeakHoursChartProps {
 const chartConfig = {
   count: {
     label: "Mensagens",
-    color: "#14b8a6", // teal-500
+    color: "#44ba6c", // brand base
   },
 } satisfies ChartConfig;
 
@@ -61,8 +61,8 @@ export function ModernPeakHoursChart({ data }: ModernPeakHoursChartProps) {
       <CardHeader className="items-start pb-2 pt-4 px-4">
         <div className="flex w-full justify-between items-start">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-teal-100 dark:bg-teal-900/30">
-              <TrendingUp className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+            <div className="p-1.5 rounded-lg bg-[#c5ecda] dark:bg-[#1a6b38]/30">
+              <TrendingUp className="h-4 w-4 text-[#1a6b38] dark:text-[#7dd0a0]" />
             </div>
             <CardTitle className="text-sm font-semibold">Pico de Mensagens</CardTitle>
           </div>
@@ -112,8 +112,8 @@ export function ModernPeakHoursChart({ data }: ModernPeakHoursChartProps) {
                     key={`cell-${index}`}
                     fill={
                       entry.hour === peakHour?.hour
-                        ? "#0f766e" // teal-700
-                        : "rgba(20, 184, 166, 0.4)" // teal-500 with opacity
+                        ? "#1a6b38"                  // brand dark
+                        : "rgba(68, 186, 108, 0.4)"  // brand base with opacity
                     }
                   />
                 ))}

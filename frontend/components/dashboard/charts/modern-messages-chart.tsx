@@ -42,15 +42,15 @@ interface ModernMessagesChartProps {
 const chartConfig = {
   inbound: {
     label: "Recebidas",
-    color: "#209849",
+    color: "#44ba6c", // brand base
   },
   outbound: {
     label: "Enviadas",
-    color: "#14522b",
+    color: "#1a6b38", // brand dark
   },
   aiResponses: {
     label: "IA",
-    color: "#4ed479",
+    color: "#7dd0a0", // brand light
   },
 } satisfies ChartConfig;
 
@@ -85,7 +85,7 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
         <CardTitle className="text-base">Visão Geral de Mensagens</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 pb-0 px-4">
-        <ChartContainer config={chartConfig} className="h-[200px] w-full">
+        <ChartContainer config={chartConfig} className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={formattedData}

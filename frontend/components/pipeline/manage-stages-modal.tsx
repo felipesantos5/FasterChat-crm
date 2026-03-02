@@ -19,6 +19,7 @@ import {
   Plus,
   Check,
   X,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -165,12 +166,14 @@ export function ManageStagesModal({
   };
 
   const handleSaveEdit = async () => {
-    if (!editingId || !editName.trim()) return;
+    if (!editingId) return;
+    const editingStage = localStages.find((s) => s.id === editingId);
+    if (!editingStage?.isFixed && !editName.trim()) return;
 
     setLoading(true);
     try {
       await pipelineApi.updateStage(editingId, companyId, {
-        name: editName.trim(),
+        ...(editingStage?.isFixed ? {} : { name: editName.trim() }),
         color: editColor,
       });
       onStagesUpdated();
@@ -230,7 +233,7 @@ export function ManageStagesModal({
           {localStages.map((stage, index) => (
             <div
               key={stage.id}
-              draggable={editingId !== stage.id && deleteConfirmId !== stage.id}
+              draggable={editingId !== stage.id && deleteConfirmId !== stage.id && !stage.isFixed}
               onDragStart={(e) => handleDragStart(e, index)}
               onDragEnter={(e) => handleDragEnter(e, index)}
               onDragOver={handleDragOver}
@@ -250,13 +253,20 @@ export function ManageStagesModal({
               {editingId === stage.id ? (
                 // Modo de edição
                 <div className="flex-1 space-y-3">
-                  <Input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="Nome do estágio"
-                    className="h-9"
-                    autoFocus
-                  />
+                  {stage.isFixed ? (
+                    <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-gray-200 bg-gray-50">
+                      <Lock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-500">{stage.name}</span>
+                    </div>
+                  ) : (
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Nome do estágio"
+                      className="h-9"
+                      autoFocus
+                    />
+                  )}
                   <div className="flex items-center gap-2">
                     <Label className="text-xs text-gray-500">Cor:</Label>
                     <div className="flex gap-1">
@@ -331,7 +341,11 @@ export function ManageStagesModal({
               ) : (
                 // Modo de visualização
                 <>
-                  <GripVertical className="h-4 w-4 text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0" />
+                  {stage.isFixed ? (
+                    <Lock className="h-4 w-4 text-gray-300 flex-shrink-0" title="Estágio fixo" />
+                  ) : (
+                    <GripVertical className="h-4 w-4 text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0" />
+                  )}
                   <div
                     className="w-4 h-4 rounded-full flex-shrink-0"
                     style={{ backgroundColor: stage.color }}
@@ -339,20 +353,28 @@ export function ManageStagesModal({
                   <span className="flex-1 text-sm font-medium text-gray-700 truncate">
                     {stage.name}
                   </span>
+                  {stage.isFixed && (
+                    <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded mr-1">
+                      fixo
+                    </span>
+                  )}
                   <div className="flex items-center gap-1">
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => handleStartEdit(stage)}
                       className="h-8 w-8 p-0"
+                      title={stage.isFixed ? "Editar cor" : "Editar"}
                     >
                       <Pencil className="h-4 w-4 text-gray-500" />
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setDeleteConfirmId(stage.id)}
-                      className="h-8 w-8 p-0 hover:text-red-600"
+                      onClick={() => !stage.isFixed && setDeleteConfirmId(stage.id)}
+                      disabled={stage.isFixed}
+                      className="h-8 w-8 p-0 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                      title={stage.isFixed ? "Estágio fixo não pode ser excluído" : "Excluir"}
                     >
                       <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-600" />
                     </Button>

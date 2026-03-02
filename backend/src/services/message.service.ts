@@ -313,6 +313,22 @@ class MessageService {
         },
       });
 
+      // Conta mensagens INBOUND não lidas agrupadas por (customerId, whatsappInstanceId)
+      const unreadGroups = await prisma.message.groupBy({
+        by: ['customerId', 'whatsappInstanceId'],
+        where: {
+          customer: { companyId },
+          direction: MessageDirection.INBOUND,
+          status: { not: MessageStatus.READ },
+        },
+        _count: { id: true },
+      });
+
+      const unreadMap = new Map<string, number>();
+      for (const row of unreadGroups) {
+        unreadMap.set(`${row.customerId}-${row.whatsappInstanceId}`, row._count.id);
+      }
+
       // Cria um mapa de conversações para acesso rápido
       const conversationMap = new Map(conversations.map((c) => [c.customerId, c]));
 
@@ -333,7 +349,7 @@ class MessageService {
             customerProfilePic: message.customer.profilePicUrl ?? null,
             lastMessage: message.content,
             lastMessageTimestamp: message.timestamp,
-            unreadCount: 0, // TODO: implementar lógica de não lidas
+            unreadCount: unreadMap.get(conversationKey) ?? 0,
             direction: message.direction,
             aiEnabled: conversation?.aiEnabled ?? true, // Default para true se não houver conversa
             needsHelp: conversation?.needsHelp ?? false,
@@ -852,6 +868,33 @@ class MessageService {
       }
 
       // ==================================================================================
+      // 📈 AUTO-AVANÇAR PIPELINE: Se o cliente está em "Novo Lead" (isFixed, order=0)
+      // e enviou uma mensagem inbound, promover automaticamente para "Qualificado" (isFixed, order=1)
+      // ==================================================================================
+      if (customer && !isGroup && customer.pipelineStageId) {
+        try {
+          const currentStage = await prisma.pipelineStage.findUnique({
+            where: { id: customer.pipelineStageId },
+            select: { isFixed: true, order: true },
+          });
+          if (currentStage?.isFixed && currentStage.order === 0) {
+            const qualifiedStage = await prisma.pipelineStage.findFirst({
+              where: { companyId: instance.companyId, isFixed: true, order: 1 },
+              select: { id: true },
+            });
+            if (qualifiedStage) {
+              customer = await prisma.customer.update({
+                where: { id: customer.id },
+                data: { pipelineStageId: qualifiedStage.id },
+              });
+            }
+          }
+        } catch (pipelineErr: any) {
+          console.warn(`[MessageService] ⚠️ Falha ao avançar pipeline (não crítico):`, pipelineErr.message);
+        }
+      }
+
+      // ==================================================================================
       // PROCESSAMENTO DE MÍDIA E CONTEÚDO
       // ==================================================================================
       let content = "";
@@ -1157,6 +1200,53 @@ class MessageService {
       console.error("Error sending message:", error);
       throw new Error(`Failed to send message: ${error.message}`);
     }
+  }
+
+  /**
+   * Edita o conteúdo de uma mensagem OUTBOUND HUMAN já enviada (janela de 15 min)
+   */
+  async editMessage(messageDbId: string, newContent: string, companyId: string) {
+    const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
+    const message = await prisma.message.findUnique({
+      where: { id: messageDbId },
+      include: {
+        customer: true,
+      },
+    });
+
+    const badRequest = (msg: string) => Object.assign(new Error(msg), { statusCode: 400 });
+
+    if (!message) throw Object.assign(new Error("Mensagem não encontrada"), { statusCode: 404 });
+    if (message.customer.companyId !== companyId) throw Object.assign(new Error("Não autorizado"), { statusCode: 403 });
+    if (message.direction !== MessageDirection.OUTBOUND) throw badRequest("Só é possível editar mensagens enviadas");
+    if (message.senderType !== "HUMAN") throw badRequest("Só é possível editar mensagens humanas");
+    if (message.mediaType !== "text") throw badRequest("Só é possível editar mensagens de texto");
+    if (!message.messageId) throw badRequest("Mensagem sem ID do WhatsApp");
+
+    const age = Date.now() - new Date(message.timestamp).getTime();
+    if (age > EDIT_WINDOW_MS) throw badRequest("Prazo de 15 minutos para edição expirado");
+
+    // Chama a Evolution API para editar no WhatsApp
+    await whatsappService.editMessage({
+      instanceId: message.whatsappInstanceId,
+      remoteJid: message.customer.phone,
+      messageId: message.messageId,
+      newText: newContent,
+    });
+
+    // Atualiza no banco
+    const updated = await prisma.message.update({
+      where: { id: messageDbId },
+      data: { content: newContent },
+    });
+
+    // Emite evento WebSocket para atualizar o chat em tempo real
+    if (websocketService.isInitialized()) {
+      websocketService.emitMessageEdited(companyId, message.customerId, messageDbId, newContent);
+    }
+
+    return updated;
   }
 
   /**

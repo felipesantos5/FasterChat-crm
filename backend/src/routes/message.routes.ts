@@ -26,6 +26,9 @@ router.post('/send-media', asyncHandler(messageController.sendMedia));
 // POST /api/messages/mark-read - Marca mensagens como lidas
 router.post('/mark-read', asyncHandler(messageController.markAsRead));
 
+// PUT /api/messages/:id - Edita conteúdo de uma mensagem (janela de 15 min)
+router.put('/:id', asyncHandler(messageController.editMessage));
+
 // POST /api/messages/:id/feedback - Adiciona feedback a uma mensagem
 router.post('/:id/feedback', asyncHandler(messageController.addFeedback));
 

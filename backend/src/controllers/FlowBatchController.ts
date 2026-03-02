@@ -162,7 +162,8 @@ export class FlowBatchController {
     });
 
     // Processa em background (não bloqueia a resposta)
-    this.processRows(batchStatus, validRows, phoneColumn, flow, file.originalname).catch(err => {
+    const fileName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    this.processRows(batchStatus, validRows, phoneColumn, flow, fileName).catch(err => {
       console.error(`[FlowBatch] ❌ Erro fatal no batch ${batchId}:`, err);
       batchStatus.status = 'FAILED';
       batchStatus.completedAt = new Date();

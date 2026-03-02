@@ -444,6 +444,30 @@ class WhatsAppService {
   }
 
   /**
+   * Edita uma mensagem já enviada via WhatsApp (janela de 15 min do WhatsApp)
+   */
+  async editMessage(data: { instanceId: string; remoteJid: string; messageId: string; newText: string }) {
+    const { instanceId, remoteJid, messageId, newText } = data;
+
+    const instance = await prisma.whatsAppInstance.findUnique({ where: { id: instanceId } });
+    if (!instance) throw Errors.whatsappInstanceNotFound();
+
+    const formattedJid = this.formatJid(remoteJid);
+
+    await this.axiosInstance.put(`/chat/updateMessage/${instance.instanceName}`, {
+      number: formattedJid,
+      key: {
+        id: messageId,
+        fromMe: true,
+        remoteJid: formattedJid,
+      },
+      text: newText,
+    });
+
+    return { success: true };
+  }
+
+  /**
    * Obtém todas as instâncias de uma empresa
    */
   async getInstancesByCompany(companyId: string) {

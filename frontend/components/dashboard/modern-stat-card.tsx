@@ -33,11 +33,11 @@ function getSparklinePath(trend: "up" | "down" | "neutral", variant: number) {
 }
 
 const colorMap = {
-  emerald: { stroke: "#10b981", from: "rgba(16, 185, 129, 0.4)", to: "rgba(16, 185, 129, 0)" },
-  lime: { stroke: "#84cc16", from: "rgba(132, 204, 22, 0.4)", to: "rgba(132, 204, 22, 0)" },
-  teal: { stroke: "#14b8a6", from: "rgba(20, 184, 166, 0.4)", to: "rgba(20, 184, 166, 0)" },
-  green: { stroke: "#22c55e", from: "rgba(34, 197, 94, 0.4)", to: "rgba(34, 197, 94, 0)" },
-  default: { stroke: "#22c55e", from: "rgba(34, 197, 94, 0.4)", to: "rgba(34, 197, 94, 0)" },
+  emerald: { stroke: "#44ba6c", from: "rgba(68, 186, 108, 0.4)", to: "rgba(68, 186, 108, 0)" },
+  lime:    { stroke: "#7dd0a0", from: "rgba(125, 208, 160, 0.4)", to: "rgba(125, 208, 160, 0)" },
+  teal:    { stroke: "#2d9a53", from: "rgba(45, 154, 83, 0.4)",  to: "rgba(45, 154, 83, 0)" },
+  green:   { stroke: "#44ba6c", from: "rgba(68, 186, 108, 0.4)", to: "rgba(68, 186, 108, 0)" },
+  default: { stroke: "#44ba6c", from: "rgba(68, 186, 108, 0.4)", to: "rgba(68, 186, 108, 0)" },
 };
 
 export function ModernStatCard({

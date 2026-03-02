@@ -7,6 +7,7 @@ export interface PipelineStage {
   description?: string | null;
   color: string;
   order: number;
+  isFixed: boolean;
   createdAt: string;
   updatedAt: string;
 }

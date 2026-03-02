@@ -20,8 +20,8 @@ export class PipelineService {
    */
   async createDefaultStages(companyId: string): Promise<PipelineStage[]> {
     const defaultStages = [
-      { name: 'Novo Lead', color: '#86EFAC', order: 0, description: 'Novos contatos' },
-      { name: 'Qualificado', color: '#4ADE80', order: 1, description: 'Leads qualificados' },
+      { name: 'Novo Lead', color: '#86EFAC', order: 0, description: 'Novos contatos', isFixed: true },
+      { name: 'Qualificado', color: '#4ADE80', order: 1, description: 'Leads qualificados', isFixed: true },
       { name: 'Proposta Enviada', color: '#22C55E', order: 2, description: 'Aguardando resposta' },
       { name: 'Negociação', color: '#16A34A', order: 3, description: 'Em negociação' },
       { name: 'Fechado - Ganho', color: '#15803D', order: 4, description: 'Vendas concluídas' },
@@ -96,6 +96,11 @@ export class PipelineService {
       throw new Error('Estágio não encontrado');
     }
 
+    // Estágios fixos não permitem alterar o nome
+    if (stage.isFixed && data.name !== undefined && data.name !== stage.name) {
+      throw new Error('O nome deste estágio não pode ser alterado');
+    }
+
     return prisma.pipelineStage.update({
       where: { id },
       data,
@@ -109,6 +114,10 @@ export class PipelineService {
     const stage = await this.findById(id, companyId);
     if (!stage) {
       throw new Error('Estágio não encontrado');
+    }
+
+    if (stage.isFixed) {
+      throw new Error('Este estágio não pode ser excluído');
     }
 
     await prisma.pipelineStage.delete({

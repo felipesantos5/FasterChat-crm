@@ -109,6 +109,14 @@ export const messageApi = {
   },
 
   /**
+   * Edita o conteúdo de uma mensagem já enviada (janela de 15 min do WhatsApp)
+   */
+  async editMessage(messageId: string, content: string): Promise<{ success: boolean; data: Message }> {
+    const response = await api.put(`/messages/${messageId}`, { content });
+    return response.data;
+  },
+
+  /**
    * Obtém estatísticas de feedback
    */
   async getFeedbackStats(companyId: string): Promise<{

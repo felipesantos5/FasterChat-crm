@@ -154,6 +154,17 @@ class WebSocketService {
   }
 
   /**
+   * Emite edição de mensagem para atualizar o chat em tempo real
+   */
+  emitMessageEdited(companyId: string, customerId: string, messageId: string, newContent: string) {
+    if (!this.io) return;
+
+    const payload = { messageId, newContent, customerId };
+    this.io.to(`company:${companyId}`).emit('message_edited', payload);
+    this.io.to(`conversation:${customerId}`).emit('message_edited', payload);
+  }
+
+  /**
    * Emite atualização de status de mensagem
    */
   emitMessageStatusUpdate(companyId: string, messageId: string, status: string) {

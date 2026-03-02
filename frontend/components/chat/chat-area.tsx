@@ -16,7 +16,7 @@ import { whatsappApi } from "@/lib/whatsapp";
 import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -64,10 +64,17 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [isContactOnline, setIsContactOnline] = useState(false);
   const [whatsappInstanceId, setWhatsappInstanceId] = useState<string | null>(null);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(true);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [lightbox, setLightbox] = useState<{ url: string; type: "image" | "video" } | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Handler para novas mensagens via WebSocket
   const handleWebSocketMessage = useCallback(
@@ -141,6 +148,20 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     []
   );
 
+  // Handler para mensagem editada via WebSocket (outro tab ou outro usuário)
+  const handleWebSocketMessageEdited = useCallback(
+    (data: { messageId: string; newContent: string; customerId: string }) => {
+      if (data.customerId === customerId) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === data.messageId ? { ...msg, content: data.newContent } : msg
+          )
+        );
+      }
+    },
+    [customerId]
+  );
+
   // WebSocket - usa hook diretamente para ter controle dos eventos
   const { isConnected, isAuthenticated, subscribeToConversation, unsubscribeFromConversation } = useWebSocket({
     autoConnect: true,
@@ -148,6 +169,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     onConversationUpdate: handleWebSocketConversationUpdate,
     onTyping: handleWebSocketTyping,
     onMessageStatus: handleWebSocketMessageStatus,
+    onMessageEdited: handleWebSocketMessageEdited,
   });
 
   // Obtém companyId do usuário logado
@@ -287,6 +309,71 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   useEffect(() => {
     inputRef.current?.focus();
   }, [customerId]);
+
+  // Fecha lightbox com Escape
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setLightbox(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox]);
+
+  const handleDownload = async (url: string, type: "image" | "video") => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = type === "image" ? "imagem.jpg" : "video.mp4";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      window.open(url, "_blank");
+    }
+  };
+
+  const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
+  const canEditMessage = (message: Message) =>
+    message.direction === MessageDirection.OUTBOUND &&
+    message.senderType === SenderType.HUMAN &&
+    message.mediaType === "text" &&
+    !!message.messageId &&
+    Date.now() - new Date(message.timestamp).getTime() < EDIT_WINDOW_MS;
+
+  const startEdit = (message: Message) => {
+    setEditingMessageId(message.id);
+    setEditingContent(message.content);
+    setOpenMenuId(null);
+    setTimeout(() => {
+      editInputRef.current?.focus();
+      editInputRef.current?.select();
+    }, 0);
+  };
+
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent("");
+  };
+
+  const saveEdit = async (messageId: string) => {
+    if (!editingContent.trim() || savingEdit) return;
+    setSavingEdit(true);
+    try {
+      await messageApi.editMessage(messageId, editingContent.trim());
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, content: editingContent.trim() } : m))
+      );
+      cancelEdit();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Não foi possível editar a mensagem");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   // Envia mensagem
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -819,7 +906,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
             const showDateSeparator = shouldShowDateSeparator(message, previousMessage);
 
             return (
-              <div key={message.id}>
+              <div key={message.id} className="group">
                 {/* Separador de Data */}
                 {showDateSeparator && (
                   <div className="flex justify-center my-3">
@@ -828,7 +915,36 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                     </span>
                   </div>
                 )}
-                <div className={cn("flex", isInbound ? "justify-start" : "justify-end")}>
+                <div className={cn("flex items-end gap-1", isInbound ? "justify-start" : "justify-end")}>
+                  {/* Botão de menu — aparece ao hover, apenas para mensagens editáveis */}
+                  {!isInbound && canEditMessage(message) && (
+                    <div className="relative self-center opacity-0 group-hover:opacity-100 transition-opacity order-first">
+                      <button
+                        onClick={() => setOpenMenuId(openMenuId === message.id ? null : message.id)}
+                        onBlur={(e) => {
+                          if (!e.currentTarget.parentElement?.contains(e.relatedTarget as Node)) {
+                            setOpenMenuId(null);
+                          }
+                        }}
+                        className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        title="Opções da mensagem"
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </button>
+                      {openMenuId === message.id && (
+                        <div className="absolute bottom-full mb-1 right-0 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-100 dark:border-gray-700 z-20 min-w-[110px]">
+                          <button
+                            onClick={() => startEdit(message)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg w-full text-left"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Editar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div
                     className={cn(
                       "max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 shadow-sm",
@@ -858,12 +974,21 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                       {/* Imagem */}
                       {message.mediaType === "image" && message.mediaUrl && (
                         <div className="space-y-2">
-                          <img
-                            src={message.mediaUrl}
-                            alt="Imagem enviada"
-                            className="max-w-full max-h-[400px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-md"
-                            onClick={() => message.mediaUrl && window.open(message.mediaUrl, "_blank")}
-                          />
+                          <div
+                            className="relative group/img cursor-zoom-in"
+                            onClick={() => setLightbox({ url: message.mediaUrl!, type: "image" })}
+                          >
+                            <img
+                              src={message.mediaUrl}
+                              alt="Imagem enviada"
+                              className="max-w-full max-h-[400px] object-contain rounded-lg transition-opacity shadow-md group-hover/img:opacity-90"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity">
+                              <div className="bg-black/40 rounded-full p-2">
+                                <ZoomIn className="h-5 w-5 text-white" />
+                              </div>
+                            </div>
+                          </div>
                           {message.content && !message.content.startsWith("[Imagem") && (
                             <MessageText
                               content={message.content}
@@ -876,12 +1001,21 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                       {/* Vídeo */}
                       {message.mediaType === "video" && message.mediaUrl && (
                         <div className="space-y-2">
-                          <video
-                            src={message.mediaUrl}
-                            controls
-                            preload="metadata"
-                            className="max-w-full max-h-[400px] object-contain rounded-lg shadow-md bg-black/5"
-                          />
+                          <div
+                            className="relative group/vid cursor-pointer"
+                            onClick={() => setLightbox({ url: message.mediaUrl!, type: "video" })}
+                          >
+                            <video
+                              src={message.mediaUrl}
+                              preload="metadata"
+                              className="max-w-full max-h-[400px] object-contain rounded-lg shadow-md bg-black/5 group-hover/vid:opacity-90 transition-opacity"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/vid:opacity-100 transition-opacity">
+                              <div className="bg-black/40 rounded-full p-2">
+                                <ZoomIn className="h-5 w-5 text-white" />
+                              </div>
+                            </div>
+                          </div>
                           {message.content && !message.content.startsWith("[Vídeo") && (
                             <MessageText
                               content={message.content}
@@ -901,15 +1035,49 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                         </div>
                       ) : null}
 
-                      {/* Texto (apenas se não for áudio, imagem ou vídeo - mídias já mostram legenda no próprio bloco) */}
+                      {/* Texto — modo normal ou modo de edição */}
                       {message.mediaType !== "audio" && message.mediaType !== "image" && message.mediaType !== "video" && message.content && (
-                        <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
+                        editingMessageId === message.id ? (
+                          <div className="flex flex-col gap-2 min-w-[200px]">
+                            <textarea
+                              ref={editInputRef}
+                              value={editingContent}
+                              onChange={(e) => setEditingContent(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault();
+                                  saveEdit(message.id);
+                                }
+                                if (e.key === "Escape") cancelEdit();
+                              }}
+                              rows={Math.min(editingContent.split("\n").length + 1, 5)}
+                              className="w-full text-xs sm:text-sm bg-white/20 dark:bg-black/20 text-white placeholder-white/60 border border-white/30 rounded-md px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-white/50"
+                            />
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={cancelEdit}
+                                className="text-[10px] text-white/70 hover:text-white px-2 py-0.5 rounded"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                onClick={() => saveEdit(message.id)}
+                                disabled={savingEdit || !editingContent.trim()}
+                                className="text-[10px] bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded flex items-center gap-1 disabled:opacity-50"
+                              >
+                                {savingEdit ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
+                                Salvar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
+                        )
                       )}
                     </div>
                     <div className="flex items-center justify-end gap-2 mt-1">
                       <div className="flex items-center gap-1">
                         <p className={cn("text-xs", isInbound || isAi ? "text-gray-600" : "text-white")}>{formatMessageTime(message.timestamp)}</p>
-                        {/* Checkmarks para mensagens enviadas - baseado no status real */}
                         {!isInbound && (
                           <>
                             {message.status === "FAILED" ? (
@@ -924,7 +1092,6 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                           </>
                         )}
                       </div>
-                      {/* Mostra feedback apenas para mensagens da IA */}
                       {!isInbound && isAi && (
                         <MessageFeedbackComponent
                           messageId={message.id}
@@ -1286,6 +1453,57 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Lightbox — visualização ampliada de imagem ou vídeo */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          onClick={() => setLightbox(null)}
+        >
+          {/* Barra superior */}
+          <div
+            className="absolute top-0 left-0 right-0 flex items-center justify-end gap-2 p-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => handleDownload(lightbox.url, lightbox.type)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
+              title="Baixar"
+            >
+              <Download className="h-4 w-4" />
+              Baixar
+            </button>
+            <button
+              onClick={() => setLightbox(null)}
+              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+              title="Fechar"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Conteúdo */}
+          <div
+            className="flex items-center justify-center w-full h-full p-14"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {lightbox.type === "image" ? (
+              <img
+                src={lightbox.url}
+                alt="Visualização"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              />
+            ) : (
+              <video
+                src={lightbox.url}
+                controls
+                autoPlay
+                className="max-w-full max-h-full rounded-lg shadow-2xl"
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
