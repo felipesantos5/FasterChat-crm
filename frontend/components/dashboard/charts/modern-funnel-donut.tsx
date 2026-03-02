@@ -1,6 +1,6 @@
 "use client";
 
-import { PieChart, Pie, Label } from "recharts";
+import { PieChart, Pie, Label, Cell } from "recharts";
 import {
   Card,
   CardContent,
@@ -27,12 +27,12 @@ interface ModernFunnelDonutProps {
 }
 
 const COLORS = [
-  "#c5ecda", // brand-100
-  "#7dd0a0", // brand-300
   "#44ba6c", // brand (base)
+  "#7dd0a0", // brand-300
   "#2d9a53", // brand-600
   "#1a6b38", // brand-700
   "#0f4524", // brand-900
+  "#c5ecda", // brand-100
   "#44ba6c", // brand (repeat)
   "#2d9a53", // brand-600 (repeat)
 ];
@@ -104,6 +104,9 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
                   strokeWidth={2}
                   stroke="var(--background)"
                 >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
                   <Label
                     content={({ viewBox }) => {
                       if (viewBox && "cx" in viewBox && "cy" in viewBox) {

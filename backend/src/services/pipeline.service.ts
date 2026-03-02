@@ -24,8 +24,8 @@ export class PipelineService {
       { name: 'Qualificado', color: '#4ADE80', order: 1, description: 'Leads qualificados', isFixed: true },
       { name: 'Proposta Enviada', color: '#22C55E', order: 2, description: 'Aguardando resposta' },
       { name: 'Negociação', color: '#16A34A', order: 3, description: 'Em negociação' },
-      { name: 'Fechado - Ganho', color: '#15803D', order: 4, description: 'Vendas concluídas' },
-      { name: 'Fechado - Perdido', color: '#EF4444', order: 5, description: 'Vendas perdidas' },
+      { name: 'Fechado - Perdido', color: '#EF4444', order: 4, description: 'Vendas perdidas' },
+      { name: 'Fechado - Ganho', color: '#15803D', order: 5, description: 'Vendas concluídas' },
     ];
 
     const stages: PipelineStage[] = [];

@@ -113,10 +113,10 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
                     </Badge>
                   )}
                 </div>
-                <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
+                <div className="relative flex flex-col items-end flex-shrink-0">
                   <span className="text-[10px] text-muted-foreground">{formatTime(conversation.lastMessageTimestamp)}</span>
                   {conversation.unreadCount > 0 && (
-                    <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-[4px]" title="Conversa não aberta" />
+                    <span className="absolute top-full mt-[4px] right-0 w-2 h-2 rounded-full bg-primary" title="Conversa não aberta" />
                   )}
                 </div>
               </div>
