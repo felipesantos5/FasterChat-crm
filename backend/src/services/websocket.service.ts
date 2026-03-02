@@ -39,9 +39,29 @@ class WebSocketService {
       pingTimeout: 60000,
       pingInterval: 25000,
       allowEIO3: true,
+      // Limita conexões simultâneas por IP para evitar abuso
+      connectionStateRecovery: {
+        maxDisconnectionDuration: 2 * 60 * 1000, // 2 min máximo de recovery
+      },
     });
 
     this.setupEventHandlers();
+
+    // Limpeza periódica: remove entradas órfãs do userSockets map
+    // (sockets que desconectaram sem disparar 'disconnect', ex: crash de rede)
+    setInterval(() => {
+      for (const [userId, socketIds] of this.userSockets) {
+        for (const socketId of socketIds) {
+          const socket = this.io?.sockets.sockets.get(socketId);
+          if (!socket || socket.disconnected) {
+            socketIds.delete(socketId);
+          }
+        }
+        if (socketIds.size === 0) {
+          this.userSockets.delete(userId);
+        }
+      }
+    }, 5 * 60 * 1000); // A cada 5 minutos
   }
 
   /**

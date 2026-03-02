@@ -204,9 +204,10 @@ app.use("/api", apiLimiter);
 // BODY PARSERS
 // ===========================================
 
-// Aumentado limite para suportar envio de áudios (base64)
-// 10MB é suficiente para áudios de até 1-2 minutos
-app.use(express.json({ limit: "10mb" }));
+// Webhooks recebem payloads menores (1MB); rotas de API precisam de mais (10MB para áudios base64)
+app.use("/webhooks", express.json({ limit: "1mb" }));
+app.use("/api", express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "1mb" })); // fallback geral
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Servir arquivos estáticos (Uploads de Áudio/Imagem)

@@ -31,7 +31,21 @@ interface BatchStatus {
 }
 
 // Store em memória para rastrear progresso dos batches
+// Limite de 50 batches simultâneos para evitar memory leak
 const batchStore = new Map<string, BatchStatus>();
+const BATCH_STORE_MAX = 50;
+const BATCH_MAX_ROWS = 5000;
+const BATCH_CLEANUP_AFTER_MS = 60 * 60 * 1000; // 1 hora
+
+// Limpeza periódica: remove batches finalizados há mais de 1 hora
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, batch] of batchStore) {
+    if (batch.completedAt && now - batch.completedAt.getTime() > BATCH_CLEANUP_AFTER_MS) {
+      batchStore.delete(id);
+    }
+  }
+}, 5 * 60 * 1000); // Roda a cada 5 minutos
 
 export class FlowBatchController {
 
@@ -74,6 +88,22 @@ export class FlowBatchController {
 
     if (!rows || rows.length === 0) {
       return res.status(400).json({ error: 'A planilha está vazia.' });
+    }
+
+    if (rows.length > BATCH_MAX_ROWS) {
+      return res.status(400).json({
+        error: `A planilha tem ${rows.length} linhas, mas o máximo permitido é ${BATCH_MAX_ROWS}. Divida em arquivos menores.`,
+      });
+    }
+
+    // Verifica limite de batches simultâneos em memória
+    const activeBatchCount = Array.from(batchStore.values()).filter(
+      b => b.status === 'PROCESSING' || b.status === 'PAUSED'
+    ).length;
+    if (activeBatchCount >= BATCH_STORE_MAX) {
+      return res.status(429).json({
+        error: `Limite de ${BATCH_STORE_MAX} disparos simultâneos atingido. Aguarde a conclusão dos disparos em andamento.`,
+      });
     }
 
     // Detectar coluna de telefone
@@ -314,10 +344,11 @@ export class FlowBatchController {
     const duration = ((batch.completedAt.getTime() - batch.startedAt.getTime()) / 1000 / 60).toFixed(1);
     console.log(`[FlowBatch] 📊 Batch ${batch.batchId} finalizado em ${duration}min: ${batch.succeeded} OK, ${batch.failed} erros, ${batch.pauseCount} pausas`);
 
-    // Remove o batch da memória após 1 hora
-    setTimeout(() => {
-      batchStore.delete(batch.batchId);
-    }, 60 * 60 * 1000);
+    // Limita array de erros armazenados para evitar consumo excessivo de memória
+    if (batch.errors.length > 100) {
+      batch.errors = batch.errors.slice(-100);
+    }
+    // Cleanup automático é feito pelo setInterval global (a cada 5 min, remove batches finalizados há mais de 1h)
   }
 
   /**

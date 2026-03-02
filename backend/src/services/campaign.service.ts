@@ -233,8 +233,8 @@ class CampaignService {
 
           sentCount++;
 
-          // Delay artificial entre 2 e 5 segundos para evitar banimento
-          const delay = Math.floor(Math.random() * 3000) + 2000; // 2000-5000ms
+          // Delay anti-spam entre 25 e 35 segundos para evitar banimento
+          const delay = Math.floor(Math.random() * 10000) + 25000; // 25-35 segundos
           await new Promise((resolve) => setTimeout(resolve, delay));
         } catch (error: any) {
           failedCount++;

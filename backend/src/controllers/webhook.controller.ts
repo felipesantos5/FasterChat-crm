@@ -228,7 +228,7 @@ class WebhookController {
               const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
 
               // ⏱️ APLICA DELAY DE RESPOSTA (se configurado)
-              const replyDelay = (aiKnowledge?.replyDelay || 10) * 1000;
+              const replyDelay = (aiKnowledge?.replyDelay || 30) * 1000;
               if (replyDelay > 0) {
                 // Emite indicador de "digitando" enquanto espera
                 websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, true);

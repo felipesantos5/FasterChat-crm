@@ -26,6 +26,12 @@ const circuitBreaker: CircuitBreakerState = {
   totalErrors: 0,
 };
 
+// Configurações de delay entre mensagens (anti-spam)
+const MSG_TYPING_DELAY_MS = 20_000;      // 20s de "digitando..." antes de enviar
+const MSG_RECORDING_DELAY_MS = 20_000;   // 20s de "gravando áudio..." antes de enviar
+const MSG_SEND_DELAY_MIN_MS = 25_000;    // 25s mínimo de delay APÓS enviar cada mensagem
+const MSG_SEND_DELAY_MAX_MS = 35_000;    // 35s máximo de delay APÓS enviar cada mensagem
+
 // Configurações do circuit breaker
 const CB_MAX_CONSECUTIVE_ERRORS = 5;     // Abre o circuito após 5 erros seguidos
 const CB_INITIAL_COOLDOWN_MS = 30_000;   // 30s de pausa inicial
@@ -549,14 +555,13 @@ export class FlowEngineService {
       throw new Error(`Nenhuma instância WhatsApp associada à execução do fluxo (executionId: ${execution.id})`);
     }
 
-    // Typing presence for 2 seconds before sending message
-    const delayMs = 2000;
+    // Typing presence antes de enviar (simula digitação humana)
     try {
-      await whatsappService.sendPresence(instance.id, execution.contactPhone, delayMs, "composing");
+      await whatsappService.sendPresence(instance.id, execution.contactPhone, MSG_TYPING_DELAY_MS, "composing");
     } catch (presenceErr: any) {
       console.warn(`[FlowEngine] ⚠️ Falha ao enviar presença (não crítico):`, presenceErr.message);
     }
-    await new Promise(resolve => setTimeout(resolve, delayMs));
+    await new Promise(resolve => setTimeout(resolve, MSG_TYPING_DELAY_MS));
 
 
     const result = await this.sendWithRetry(
@@ -573,6 +578,10 @@ export class FlowEngineService {
 
     // 💾 Salvar a mensagem no banco para aparecer na aba de conversas
     await this.saveFlowMessageToConversation(execution, instance, text, result?.messageId, 'text');
+
+    // ⏱️ Delay anti-spam após envio
+    const sendDelay = Math.floor(Math.random() * (MSG_SEND_DELAY_MAX_MS - MSG_SEND_DELAY_MIN_MS)) + MSG_SEND_DELAY_MIN_MS;
+    await new Promise(resolve => setTimeout(resolve, sendDelay));
   }
 
   private async executeMediaNode(execution: any, node: any, data: any, variables: any) {
@@ -583,9 +592,13 @@ export class FlowEngineService {
       const isAudio = node.type === 'audio';
       // Manda status "gravando..." (recording) se for áudio, senão "digitando..."
       const presenceType = isAudio ? "recording" : "composing";
-      const delayMs = isAudio ? 4000 : 2000;
-      
-      await whatsappService.sendPresence(instance.id, execution.contactPhone, delayMs, presenceType);
+      const delayMs = isAudio ? MSG_RECORDING_DELAY_MS : MSG_TYPING_DELAY_MS;
+
+      try {
+        await whatsappService.sendPresence(instance.id, execution.contactPhone, delayMs, presenceType);
+      } catch (presenceErr: any) {
+        console.warn(`[FlowEngine] ⚠️ Falha ao enviar presença de mídia (não crítico):`, presenceErr.message);
+      }
       await new Promise(resolve => setTimeout(resolve, delayMs));
 
       // Aceita mediaUrl (link público para MP3/OGG/IMG) ou mediaBase64
@@ -619,6 +632,10 @@ export class FlowEngineService {
           node.type, // 'audio', 'image', 'video'
           mediaSource
         );
+
+        // ⏱️ Delay anti-spam após envio
+        const sendDelay = Math.floor(Math.random() * (MSG_SEND_DELAY_MAX_MS - MSG_SEND_DELAY_MIN_MS)) + MSG_SEND_DELAY_MIN_MS;
+    await new Promise(resolve => setTimeout(resolve, sendDelay));
       } else {
         console.warn(`[FlowEngine] Sem mídia informada no nó ${node.id} do fluxo.`);
       }

@@ -717,7 +717,10 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     <div className="flex flex-col h-full">
       {/* Header Compacto */}
       <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b bg-muted/30">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        <div
+          className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-1 -ml-1 rounded-md transition-colors"
+          onClick={() => router.push(`/dashboard/customers/${customerId}`)}
+        >
           <Avatar className="h-10 w-10 border border-muted">
             {customerProfilePic && (
               <AvatarImage src={customerProfilePic} alt={customerName} className="object-cover" />

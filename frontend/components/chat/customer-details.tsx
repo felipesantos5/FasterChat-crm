@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { formatPhoneNumber } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 interface CustomerDetailsProps {
   customerId: string;
@@ -22,6 +23,7 @@ interface CustomerDetailsProps {
 }
 
 export function CustomerDetails({ customerId, customerName, customerPhone, customerEmail, customerTags = [] }: CustomerDetailsProps) {
+  const router = useRouter();
   const [notes, setNotes] = useState<CustomerNote[]>([]);
   const [newNote, setNewNote] = useState("");
   const [loading, setLoading] = useState(false);
@@ -175,6 +177,14 @@ export function CustomerDetails({ customerId, customerName, customerPhone, custo
               </div>
             </div>
           )}
+
+          <Button
+            className="w-full mt-4 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20"
+            variant="outline"
+            onClick={() => router.push(`/dashboard/customers/${customerId}`)}
+          >
+            Ver Detalhes Completo
+          </Button>
         </CardContent>
       </Card>
 

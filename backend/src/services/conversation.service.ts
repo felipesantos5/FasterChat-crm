@@ -7,9 +7,21 @@ class ConversationService {
    */
   async getOrCreateConversation(customerId: string, companyId: string) {
     try {
-      // Busca conversa existente
-      let conversation = await prisma.conversation.findUnique({
+      // Usa upsert para evitar race condition quando 2 webhooks chegam ao mesmo tempo
+      // para o mesmo customer (check-then-act → duplicata)
+      const existedBefore = await prisma.conversation.findUnique({
         where: { customerId },
+        select: { id: true },
+      });
+
+      const conversation = await prisma.conversation.upsert({
+        where: { customerId },
+        update: {}, // Não altera nada se já existe
+        create: {
+          customerId,
+          companyId,
+          aiEnabled: true,
+        },
         include: {
           customer: true,
           assignedTo: {
@@ -22,29 +34,8 @@ class ConversationService {
         },
       });
 
-      // Se não existe, cria uma nova com IA ativada
-      const isNewConversation = !conversation;
-      if (!conversation) {
-        conversation = await prisma.conversation.create({
-          data: {
-            customerId,
-            companyId,
-            aiEnabled: true,
-          },
-          include: {
-            customer: true,
-            assignedTo: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        });
-
-
-        // 🔥 EMITE EVENTO VIA WEBSOCKET PARA ATUALIZAR LISTA DE CONVERSAS
+      // 🔥 EMITE EVENTO VIA WEBSOCKET PARA ATUALIZAR LISTA DE CONVERSAS
+      if (!existedBefore) {
         websocketService.emitNewConversation(companyId, conversation);
       }
 

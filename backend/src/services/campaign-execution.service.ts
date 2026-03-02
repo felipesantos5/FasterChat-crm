@@ -251,44 +251,53 @@ class CampaignExecutionService {
       });
 
       // Cria logs e jobs para cada destinatário
+      // try-catch individual para que falha em 1 customer não aborte os demais
+      let enqueued = 0;
       for (const customer of customers) {
-        // Personaliza mensagem (substitui variáveis)
-        const personalizedMessage = this.personalizeMessage(
-          campaign.messageTemplate,
-          customer
-        );
+        try {
+          // Personaliza mensagem (substitui variáveis)
+          const personalizedMessage = this.personalizeMessage(
+            campaign.messageTemplate,
+            customer
+          );
 
-        // Cria log no banco
-        await prisma.campaignLog.create({
-          data: {
-            campaignId,
-            customerId: customer.id,
-            customerName: customer.name,
-            customerPhone: customer.phone,
-            message: personalizedMessage,
-            status: CampaignLogStatus.PENDING,
-          },
-        });
+          // Cria log no banco
+          await prisma.campaignLog.create({
+            data: {
+              campaignId,
+              customerId: customer.id,
+              customerName: customer.name,
+              customerPhone: customer.phone,
+              message: personalizedMessage,
+              status: CampaignLogStatus.PENDING,
+            },
+          });
 
-        // Adiciona job na fila de mensagens com delay variável (throttling)
-        const randomDelay = this.getRandomDelay();
+          // Adiciona job na fila de mensagens com delay variável (throttling)
+          const randomDelay = this.getRandomDelay();
 
-        await this.messageQueue.add(
-          'send-message',
-          {
-            campaignId,
-            companyId,
-            customerId: customer.id,
-            customerName: customer.name,
-            customerPhone: customer.phone,
-            message: personalizedMessage,
-          },
-          {
-            jobId: `campaign-${campaignId}-customer-${customer.id}`,
-            delay: randomDelay,
-          }
-        );
+          await this.messageQueue.add(
+            'send-message',
+            {
+              campaignId,
+              companyId,
+              customerId: customer.id,
+              customerName: customer.name,
+              customerPhone: customer.phone,
+              message: personalizedMessage,
+            },
+            {
+              jobId: `campaign-${campaignId}-customer-${customer.id}`,
+              delay: randomDelay,
+            }
+          );
+          enqueued++;
+        } catch (customerError: any) {
+          console.error(`[Campaign] ⚠️ Falha ao enfileirar customer ${customer.phone} na campanha ${campaignId}:`, customerError.message);
+          // Continua para o próximo customer
+        }
       }
+      console.log(`[Campaign] Enfileirados ${enqueued}/${customers.length} jobs para campanha ${campaignId}`);
 
     } catch (error: any) {
       console.error(`❌ Error processing campaign ${campaignId}:`, error);
@@ -422,10 +431,10 @@ class CampaignExecutionService {
 
   /**
    * Retorna delay aleatório para throttling (evita ban)
-   * Varia entre 3 e 8 segundos
+   * Varia entre 25 e 35 segundos
    */
   private getRandomDelay(): number {
-    return Math.floor(Math.random() * 5000) + 3000; // 3-8 segundos
+    return Math.floor(Math.random() * 10000) + 25000; // 25-35 segundos
   }
 
   /**
