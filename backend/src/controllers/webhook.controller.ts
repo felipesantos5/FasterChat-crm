@@ -296,6 +296,9 @@ class WebhookController {
               console.error("Failed to send AI fallback message:", fallbackSendError.message);
             }
           }
+
+          // IA respondeu → marca mensagens inbound como lidas
+          messageService.markAsRead(result.customer.id, result.instance.id).catch(() => {});
         }
 
         return res.status(200).json({

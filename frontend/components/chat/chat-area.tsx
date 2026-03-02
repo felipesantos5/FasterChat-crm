@@ -37,9 +37,10 @@ interface ChatAreaProps {
   customerProfilePic?: string | null;
   onToggleDetails?: () => void;
   showDetailsButton?: boolean;
+  onMarkAsRead?: () => void;
 }
 
-export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, onToggleDetails, showDetailsButton }: ChatAreaProps) {
+export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, onToggleDetails, showDetailsButton, onMarkAsRead }: ChatAreaProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -63,7 +64,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isContactOnline, setIsContactOnline] = useState(false);
   const [whatsappInstanceId, setWhatsappInstanceId] = useState<string | null>(null);
-  const [autoReplyEnabled, setAutoReplyEnabled] = useState(true);
+  const [autoReplyEnabled, setAutoReplyEnabled] = useState(false); // começa false até confirmar config global
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -89,6 +90,13 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           if (exists) return prev;
           return [...prev, message];
         });
+
+        // Se o usuário está com a conversa aberta, marca mensagem inbound como lida imediatamente
+        if (message.direction === MessageDirection.INBOUND && message.whatsappInstanceId) {
+          messageApi.markAsRead({ customerId, whatsappInstanceId: message.whatsappInstanceId })
+            .then(() => onMarkAsRead?.())
+            .catch(() => {});
+        }
 
         // Se foi mensagem do cliente, marca IA como processando
         if (message.direction === MessageDirection.INBOUND && conversation?.aiEnabled && autoReplyEnabled) {
@@ -202,6 +210,14 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       // Backend já retorna ordenado por timestamp ascendente (cronologia correta)
       const messages = response.data.messages;
 
+      // Marca mensagens como lidas (fire-and-forget)
+      const msgWithInstance = messages.find((m) => m.whatsappInstanceId);
+      if (msgWithInstance?.whatsappInstanceId) {
+        messageApi.markAsRead({ customerId, whatsappInstanceId: msgWithInstance.whatsappInstanceId })
+          .then(() => onMarkAsRead?.())
+          .catch(() => {/* não crítico */});
+      }
+
       // Verifica se há mensagem recente do cliente sem resposta da IA
       const lastMessage = messages[messages.length - 1];
       if (conversation?.aiEnabled && autoReplyEnabled && lastMessage?.direction === MessageDirection.INBOUND) {
@@ -263,7 +279,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     if (!companyId) return;
     aiKnowledgeApi.getKnowledge(companyId)
       .then((data) => setAutoReplyEnabled(data.autoReplyEnabled ?? true))
-      .catch(() => {/* mantém true como fallback */ });
+      .catch(() => {/* mantém false — mais seguro que mostrar IA ativa por engano */});
   }, []);
 
   // Scroll para última mensagem

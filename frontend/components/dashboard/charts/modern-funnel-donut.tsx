@@ -85,84 +85,86 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
             </div>
           </div>
         ) : (
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto aspect-square max-h-[200px]"
-        >
-          <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="name"
-              innerRadius={60}
-              outerRadius={80}
-              strokeWidth={2}
-              stroke="var(--background)"
+          <>
+            <ChartContainer
+              config={chartConfig}
+              className="mx-auto aspect-square max-h-[200px]"
             >
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          className="fill-foreground text-3xl font-bold"
-                        >
-                          {total.toLocaleString()}
-                        </tspan>
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 24}
-                          className="fill-muted-foreground text-xs"
-                        >
-                          Total
-                        </tspan>
-                      </text>
-                    );
-                  }
-                  return null;
-                }}
-              />
-            </Pie>
-          </PieChart>
-        </ChartContainer>
+              <PieChart>
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={60}
+                  outerRadius={80}
+                  strokeWidth={2}
+                  stroke="var(--background)"
+                >
+                  <Label
+                    content={({ viewBox }) => {
+                      if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                        return (
+                          <text
+                            x={viewBox.cx}
+                            y={viewBox.cy}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                          >
+                            <tspan
+                              x={viewBox.cx}
+                              y={viewBox.cy}
+                              className="fill-foreground text-3xl font-bold"
+                            >
+                              {total.toLocaleString()}
+                            </tspan>
+                            <tspan
+                              x={viewBox.cx}
+                              y={(viewBox.cy || 0) + 24}
+                              className="fill-muted-foreground text-xs"
+                            >
+                              Total
+                            </tspan>
+                          </text>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                </Pie>
+              </PieChart>
+            </ChartContainer>
 
-        <div className="space-y-2 mt-2 mb-3 px-1">
-          {chartData.map((item, index) => {
-            const percentage = ((item.value / total) * 100).toFixed(1);
-            return (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: item.fill }}
-                  ></div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[120px]">
-                    {item.name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {item.value}
-                  </span>
-                  <span className="text-xs text-muted-foreground w-12 text-right">
-                    {percentage}%
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+            <div className="space-y-2 mt-2 mb-3 px-1">
+              {chartData.map((item, index) => {
+                const percentage = ((item.value / total) * 100).toFixed(1);
+                return (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: item.fill }}
+                      ></div>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[120px]">
+                        {item.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {item.value}
+                      </span>
+                      <span className="text-xs text-muted-foreground w-12 text-right">
+                        {percentage}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

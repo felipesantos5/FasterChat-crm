@@ -322,6 +322,13 @@ function ConversationsPageContent() {
   const handleSelectConversation = (customerId: string) => {
     setSelectedCustomerId(customerId);
     setMobileView("chat");
+    // Atualização otimista: zera dot imediatamente sem esperar API
+    mutate(
+      (current) => current?.map((c) =>
+        c.customerId === customerId ? { ...c, unreadCount: 0 } : c
+      ),
+      false
+    );
   };
 
   // Handler para voltar à lista no mobile
@@ -521,6 +528,7 @@ function ConversationsPageContent() {
               customerProfilePic={selectedConversation.customerProfilePic}
               onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
               showDetailsButton={true}
+              onMarkAsRead={() => mutate()}
             />
           </>
         ) : (
