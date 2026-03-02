@@ -745,9 +745,10 @@ export class FlowEngineService {
     });
 
     // 2) Fallback: match by last 10+ digits (DDD + number) to handle country code differences
+    //    SAFETY: Only accept if exactly 1 execution matches to prevent cross-contamination in batches
     if (executions.length === 0 && cleanPhone.length >= 10) {
       const suffixDigits = cleanPhone.slice(-(Math.min(cleanPhone.length, 11)));
-      executions = await prisma.flowExecution.findMany({
+      const suffixMatches = await prisma.flowExecution.findMany({
         where: {
           contactPhone: { endsWith: suffixDigits },
           status: FlowExecutionStatus.WAITING_REPLY,
@@ -757,6 +758,11 @@ export class FlowEngineService {
           currentNode: true
         }
       });
+      if (suffixMatches.length === 1) {
+        executions = suffixMatches;
+      } else if (suffixMatches.length > 1) {
+        console.warn(`[FlowEngine:handleIncomingMessage] ⚠️ Suffix "${suffixDigits}" matched ${suffixMatches.length} executions — skipping to prevent cross-contamination. IDs: ${suffixMatches.map(e => e.id).join(', ')}`);
+      }
     }
 
     if (executions.length > 0) {
@@ -808,7 +814,7 @@ export class FlowEngineService {
 
         if (execsByRealPhone.length === 0 && realCleanPhone.length >= 10) {
           const realSuffix = realCleanPhone.slice(-(Math.min(realCleanPhone.length, 11)));
-          execsByRealPhone = await prisma.flowExecution.findMany({
+          const realSuffixMatches = await prisma.flowExecution.findMany({
             where: {
               contactPhone: { endsWith: realSuffix },
               status: FlowExecutionStatus.WAITING_REPLY,
@@ -816,6 +822,12 @@ export class FlowEngineService {
             },
             include: { currentNode: true },
           });
+          // SAFETY: Only accept if exactly 1 match to prevent batch cross-contamination
+          if (realSuffixMatches.length === 1) {
+            execsByRealPhone = realSuffixMatches;
+          } else if (realSuffixMatches.length > 1) {
+            console.warn(`[FlowEngine:handleIncomingMessage] ⚠️ LID suffix "${realSuffix}" matched ${realSuffixMatches.length} executions — skipping.`);
+          }
         }
 
         if (execsByRealPhone.length > 0) {

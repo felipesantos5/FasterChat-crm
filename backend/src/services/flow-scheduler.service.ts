@@ -147,17 +147,27 @@ class FlowSchedulerService {
 
           if (!recentMessage && cleanPhone.length >= 10) {
             const suffixDigits = cleanPhone.slice(-(Math.min(cleanPhone.length, 11)));
-            recentMessage = await prisma.message.findFirst({
+            // SAFETY: Only accept suffix match if it resolves to exactly 1 customer
+            // to prevent batch cross-contamination between different contacts
+            const suffixCustomers = await prisma.customer.findMany({
               where: {
-                direction: MessageDirection.INBOUND,
-                timestamp: { gt: checkFrom },
-                customer: {
-                  companyId: execution.flow.companyId,
-                  phone: { endsWith: suffixDigits }
-                }
+                companyId: execution.flow.companyId,
+                phone: { endsWith: suffixDigits },
               },
-              orderBy: { timestamp: 'desc' }
+              select: { id: true },
+              take: 2, // Only need to know if there's more than 1
             });
+
+            if (suffixCustomers.length === 1) {
+              recentMessage = await prisma.message.findFirst({
+                where: {
+                  direction: MessageDirection.INBOUND,
+                  timestamp: { gt: checkFrom },
+                  customerId: suffixCustomers[0].id,
+                },
+                orderBy: { timestamp: 'desc' }
+              });
+            }
           }
 
           if (!recentMessage) continue;

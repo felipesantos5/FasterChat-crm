@@ -104,7 +104,7 @@ function ConversationsPageContent() {
   const companyId = getCompanyId();
 
   // Usa SWR para gerenciar conversas com cache automático
-  const { conversations, isLoading, isError, mutate } = useConversations(companyId);
+  const { conversations, isLoading, isError, mutate } = useConversations(companyId, selectedCustomerId);
 
   // Carrega os clientes para filtrar por tags
   const loadCustomers = async () => {
@@ -528,7 +528,12 @@ function ConversationsPageContent() {
               customerProfilePic={selectedConversation.customerProfilePic}
               onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
               showDetailsButton={true}
-              onMarkAsRead={() => mutate()}
+              onMarkAsRead={() => mutate(
+                (current) => current?.map((c) =>
+                  c.customerId === selectedConversation.customerId ? { ...c, unreadCount: 0 } : c
+                ),
+                false
+              )}
             />
           </>
         ) : (

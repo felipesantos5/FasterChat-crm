@@ -1,16 +1,32 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import useSWR from 'swr'
 import { messageApi } from '@/lib/message'
 import { useWebSocket } from './useWebSocket'
 import { toast } from 'sonner'
 import type { ConversationSummary } from '@/types/message'
 
-export function useConversations(companyId: string | null) {
+export function useConversations(companyId: string | null, selectedCustomerId?: string | null) {
+  // Ref para o fetcher ter acesso ao customerId selecionado sem recriar a key do SWR
+  const selectedRef = useRef(selectedCustomerId)
+  selectedRef.current = selectedCustomerId
+
   const { data, error, isLoading, mutate } = useSWR<ConversationSummary[]>(
     companyId ? `/messages/conversations/${companyId}` : null,
     async () => {
       const response = await messageApi.getConversations(companyId!)
-      return response.data
+      const conversations = response.data
+
+      // Preserva unreadCount=0 para a conversa que o usuário está visualizando.
+      // Isso evita que um refetch traga de volta o dot antes do markAsRead
+      // ter sido processado pelo servidor.
+      if (selectedRef.current) {
+        const selectedId = selectedRef.current
+        return conversations.map(conv =>
+          conv.customerId === selectedId ? { ...conv, unreadCount: 0 } : conv
+        )
+      }
+
+      return conversations
     },
     {
       refreshInterval: 0,
@@ -41,6 +57,7 @@ export function useConversations(companyId: string | null) {
     // Escuta nova mensagem para atualizar lastMessage
     const handleNewMessage = () => {
       // Revalida para atualizar a lista (ordenação, lastMessage, etc)
+      // O fetcher automaticamente preserva unreadCount=0 para a conversa aberta
       mutate()
     }
 
@@ -76,4 +93,3 @@ export function useConversations(companyId: string | null) {
     mutate,
   }
 }
-
