@@ -24,10 +24,6 @@ type ExecutionDrawerProps = {
   isOpen: boolean;
   onClose: () => void;
   executions: Execution[];
-  total: number;
-  hasMore: boolean;
-  loadingMore: boolean;
-  onLoadMore: () => void;
   onSelectExecution: (execution: Execution | null) => void;
   selectedExecutionId?: string;
   flowId: string;
@@ -36,14 +32,12 @@ type ExecutionDrawerProps = {
 
 const ACTIVE_STATUSES = ['RUNNING', 'WAITING_REPLY', 'DELAYED'];
 
+const BATCH_PAGE_SIZE = 5;
+
 export function ExecutionDrawer({
   isOpen,
   onClose,
   executions,
-  total,
-  hasMore,
-  loadingMore,
-  onLoadMore,
   onSelectExecution,
   selectedExecutionId,
   flowId,
@@ -51,12 +45,20 @@ export function ExecutionDrawer({
 }: ExecutionDrawerProps) {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [expandedBatches, setExpandedBatches] = useState<Record<string, boolean>>({});
+  const [batchVisibleCount, setBatchVisibleCount] = useState<Record<string, number>>({});
   const router = useRouter();
 
   if (!isOpen) return null;
 
   const toggleBatch = (batchId: string) => {
     setExpandedBatches((prev) => ({ ...prev, [batchId]: !prev[batchId] }));
+  };
+
+  const showMoreInBatch = (batchId: string) => {
+    setBatchVisibleCount((prev) => ({
+      ...prev,
+      [batchId]: (prev[batchId] || BATCH_PAGE_SIZE) + BATCH_PAGE_SIZE,
+    }));
   };
 
   // Agrupamento
@@ -213,9 +215,9 @@ export function ExecutionDrawer({
         <h2 className="font-bold text-gray-800 flex items-center gap-2">
           <Database size={18} className="text-primary" />
           Execuções Recentes
-          {total > 0 && (
+          {executions.length > 0 && (
             <span className="text-xs font-normal text-gray-500">
-              ({executions.length} / {total})
+              ({executions.length})
             </span>
           )}
         </h2>
@@ -235,7 +237,10 @@ export function ExecutionDrawer({
             {/* GRUPOS DE PLANILHA (BATCHES) */}
             {Object.values(batches).map((batch) => {
               const isExpanded = expandedBatches[batch.id] || false;
-              const downloadedCount = batch.executions.length;
+              const totalInBatch = batch.executions.length;
+              const visibleCount = batchVisibleCount[batch.id] || BATCH_PAGE_SIZE;
+              const visibleExecutions = isExpanded ? batch.executions.slice(0, visibleCount) : [];
+              const hasMoreInBatch = visibleCount < totalInBatch;
 
               return (
                 <div key={batch.id} className="border rounded-lg overflow-hidden flex flex-col mb-3 bg-white shadow-sm">
@@ -259,7 +264,7 @@ export function ExecutionDrawer({
                           </span>
                           <span>•</span>
                           <span className="font-medium">
-                            {downloadedCount} / {batch.total || '?'}
+                            {totalInBatch} execuções
                           </span>
                         </div>
                       </div>
@@ -271,7 +276,16 @@ export function ExecutionDrawer({
 
                   {isExpanded && (
                     <div className="p-3 bg-slate-50/50 flex flex-col gap-3 rounded-b-lg border-t border-slate-100">
-                      {batch.executions.map(renderExecutionCard)}
+                      {visibleExecutions.map(renderExecutionCard)}
+                      {hasMoreInBatch && (
+                        <button
+                          onClick={() => showMoreInBatch(batch.id)}
+                          className="w-full py-2 text-xs font-medium text-primary hover:bg-primary/5 border border-dashed border-primary/30 rounded-lg transition-colors flex items-center justify-center gap-1"
+                        >
+                          <ChevronDown size={12} />
+                          Ver mais ({totalInBatch - visibleCount} restantes)
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -287,27 +301,6 @@ export function ExecutionDrawer({
             )}
 
             {standaloneExecutions.map(renderExecutionCard)}
-
-            {/* Botão Ver Mais */}
-            {hasMore && (
-              <button
-                onClick={onLoadMore}
-                disabled={loadingMore}
-                className="w-full py-3 text-sm font-medium text-primary hover:bg-primary/5 border border-dashed border-primary/30 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loadingMore ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Carregando...
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown size={14} />
-                    Ver mais ({total - executions.length} restantes)
-                  </>
-                )}
-              </button>
-            )}
           </>
         )}
       </div>

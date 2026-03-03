@@ -335,9 +335,9 @@ class WebhookController {
             const messageId = update.key?.id;
             const statusValue = update.status;
 
-            console.log(`[Webhook:StatusUpdate] messageId=${messageId} status=${statusValue} remoteJid=${update.key?.remoteJid || 'N/A'}`);
-
             if (!messageId || statusValue === undefined) continue;
+
+            console.log(`[Webhook:StatusUpdate] messageId=${messageId} status=${statusValue} remoteJid=${update.key?.remoteJid || 'N/A'}`);
 
             // Mapeia o status da Evolution API para o nosso enum
             // Evolution API pode enviar números OU strings

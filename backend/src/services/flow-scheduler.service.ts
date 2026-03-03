@@ -18,6 +18,9 @@ class FlowSchedulerService {
       return;
     }
 
+    // Recupera execuções RUNNING órfãs de um restart/deploy anterior
+    this.recoverOrphanedExecutions();
+
     // Verifica timeouts expirados a cada 5 segundos (nao_respondeu + delays)
     this.checkPendingFlows();
     this.intervalId = setInterval(() => {
@@ -211,6 +214,70 @@ class FlowSchedulerService {
       console.error('[Flow Scheduler] Erro no polling de respostas:', error.message);
     } finally {
       this.isReplyChecking = false;
+    }
+  }
+
+  /**
+   * Recupera execuções que ficaram com status RUNNING após um restart/deploy.
+   * Uma execução RUNNING que não atualizou há mais de 5 minutos está "órfã" —
+   * o processo que a executava morreu no deploy.
+   *
+   * Estratégia: retoma do nó atual (currentNodeId) para continuar de onde parou.
+   */
+  private async recoverOrphanedExecutions() {
+    try {
+      const staleThreshold = new Date(Date.now() - 5 * 60 * 1000); // 5 minutos sem update
+
+      const orphaned = await prisma.flowExecution.findMany({
+        where: {
+          status: FlowExecutionStatus.RUNNING,
+          updatedAt: { lt: staleThreshold },
+        },
+        include: { currentNode: true },
+        take: 100,
+        orderBy: { updatedAt: 'asc' },
+      });
+
+      if (orphaned.length === 0) return;
+
+      console.log(`[Flow Scheduler] 🔄 Recuperando ${orphaned.length} execução(ões) RUNNING órfã(s) após restart...`);
+
+      for (const execution of orphaned) {
+        try {
+          if (!execution.currentNodeId) {
+            // Sem nó atual — não tem como retomar, marca como falha
+            await prisma.flowExecution.update({
+              where: { id: execution.id },
+              data: {
+                status: FlowExecutionStatus.FAILED,
+                error: 'Execução interrompida por restart do servidor (sem nó atual para retomar)',
+                completedAt: new Date(),
+              },
+            });
+            console.log(`[Flow Scheduler] ❌ Execução ${execution.id} sem currentNode — marcada como FAILED`);
+            continue;
+          }
+
+          // Retoma do nó atual
+          console.log(`[Flow Scheduler] ▶️ Retomando execução ${execution.id} (phone: ${execution.contactPhone}) do nó ${execution.currentNodeId}`);
+          await this.flowEngine.processNextNodes(execution.id, execution.currentNodeId);
+        } catch (error: any) {
+          console.error(`[Flow Scheduler] ❌ Falha ao recuperar execução ${execution.id}:`, error.message);
+          // Marca como falha para não tentar de novo infinitamente
+          await prisma.flowExecution.update({
+            where: { id: execution.id },
+            data: {
+              status: FlowExecutionStatus.FAILED,
+              error: `Falha ao recuperar após restart: ${error.message}`,
+              completedAt: new Date(),
+            },
+          }).catch(() => {});
+        }
+      }
+
+      console.log(`[Flow Scheduler] ✅ Recuperação de execuções órfãs concluída`);
+    } catch (error: any) {
+      console.error('[Flow Scheduler] Erro ao recuperar execuções órfãs:', error.message);
     }
   }
 }

@@ -236,22 +236,15 @@ export class FlowController {
   public async getFlowExecutions(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
     const { companyId } = req.user!;
-    const take = Math.min(parseInt(req.query.take as string) || 20, 100);
-    const skip = parseInt(req.query.skip as string) || 0;
 
     const where = { flowId: id, flow: { companyId } };
 
-    const [executions, total] = await Promise.all([
-      prisma.flowExecution.findMany({
-        where,
-        orderBy: { startedAt: 'desc' },
-        take,
-        skip,
-      }),
-      prisma.flowExecution.count({ where }),
-    ]);
+    const executions = await prisma.flowExecution.findMany({
+      where,
+      orderBy: { startedAt: 'desc' },
+    });
 
-    return res.json({ executions, total, take, skip });
+    return res.json({ executions, total: executions.length });
   }
 
   public async cancelExecution(req: Request, res: Response): Promise<Response> {

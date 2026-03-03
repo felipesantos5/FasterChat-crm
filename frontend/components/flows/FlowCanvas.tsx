@@ -78,8 +78,6 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [executions, setExecutions] = useState<any[]>([]);
-  const [executionsTotal, setExecutionsTotal] = useState(0);
-  const [loadingMoreExecutions, setLoadingMoreExecutions] = useState(false);
   const [selectedExecution, setSelectedExecution] = useState<any | null>(null);
   const [autoOpenExecutionId] = useState(() => searchParams.get('executionId'));
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
@@ -173,26 +171,12 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
 
   const fetchExecutions = useCallback(async () => {
     try {
-      const res = await api.get(`/flows/${flowId}/executions`, { params: { take: 20, skip: 0 } });
+      const res = await api.get(`/flows/${flowId}/executions`);
       setExecutions(res.data.executions);
-      setExecutionsTotal(res.data.total);
     } catch (error) {
       console.error('Error fetching executions', error);
     }
   }, [flowId]);
-
-  const fetchMoreExecutions = useCallback(async () => {
-    try {
-      setLoadingMoreExecutions(true);
-      const res = await api.get(`/flows/${flowId}/executions`, { params: { take: 20, skip: executions.length } });
-      setExecutions((prev) => [...prev, ...res.data.executions]);
-      setExecutionsTotal(res.data.total);
-    } catch (error) {
-      console.error('Error fetching more executions', error);
-    } finally {
-      setLoadingMoreExecutions(false);
-    }
-  }, [flowId, executions.length]);
 
   useEffect(() => {
     if (!isHistoryOpen) return;
@@ -208,10 +192,9 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
 
     const open = async () => {
       setIsHistoryOpen(true);
-      const res = await api.get(`/flows/${flowId}/executions`, { params: { take: 20, skip: 0 } }).catch(() => null);
+      const res = await api.get(`/flows/${flowId}/executions`).catch(() => null);
       if (!res) return;
       setExecutions(res.data.executions);
-      setExecutionsTotal(res.data.total);
       const target = res.data.executions.find((e: any) => e.id === autoOpenExecutionId);
       if (target) setSelectedExecution(target);
     };
@@ -494,10 +477,6 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
           setSelectedExecution(null);
         }}
         executions={executions}
-        total={executionsTotal}
-        hasMore={executions.length < executionsTotal}
-        loadingMore={loadingMoreExecutions}
-        onLoadMore={fetchMoreExecutions}
         onSelectExecution={setSelectedExecution}
         selectedExecutionId={selectedExecution?.id}
         flowId={flowId}

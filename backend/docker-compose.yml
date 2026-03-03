@@ -72,8 +72,8 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
-    # maxmemory evita crescimento ilimitado; lru descarta chaves menos usadas
-    command: redis-server --appendonly yes --maxmemory 220mb --maxmemory-policy allkeys-lru
+    # noeviction: recusa novas escritas quando memória cheia (exigido pelo BullMQ)
+    command: redis-server --appendonly yes --maxmemory 220mb --maxmemory-policy noeviction
     networks:
       - crm_network
     healthcheck:
