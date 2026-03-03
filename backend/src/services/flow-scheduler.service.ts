@@ -1,19 +1,17 @@
 import { prisma } from '../utils/prisma';
 import { FlowExecutionStatus, MessageDirection } from '@prisma/client';
-import { FlowEngineService } from './FlowEngineService';
+import flowQueueService from './flow-queue.service';
 
 class FlowSchedulerService {
   private intervalId: NodeJS.Timeout | null = null;
   private replyCheckIntervalId: NodeJS.Timeout | null = null;
   private isRunning: boolean = false;
   private isReplyChecking: boolean = false;
-  private flowEngine: FlowEngineService;
 
   constructor() {
-    this.flowEngine = new FlowEngineService();
   }
 
-  start() {
+  start(): void {
     if (this.intervalId) {
       return;
     }
@@ -21,11 +19,12 @@ class FlowSchedulerService {
     // Recupera execuções RUNNING órfãs de um restart/deploy anterior
     this.recoverOrphanedExecutions();
 
-    // Verifica timeouts expirados a cada 5 segundos (nao_respondeu + delays)
+    // Safety net: verifica timeouts expirados a cada 30 segundos
+    // (BullMQ é o mecanismo primário, este é apenas backup)
     this.checkPendingFlows();
     this.intervalId = setInterval(() => {
       this.checkPendingFlows();
-    }, 5000);
+    }, 30000);
 
     // Polling de respostas a cada 60 segundos — safety net para quando o webhook falha
     this.checkWaitingReplies();
@@ -34,7 +33,7 @@ class FlowSchedulerService {
     }, 60000);
   }
 
-  stop() {
+  stop(): void {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
@@ -46,10 +45,11 @@ class FlowSchedulerService {
   }
 
   /**
-   * Verifica execuções com timeout expirado (nao_respondeu) ou delays vencidos.
-   * Roda a cada 5 segundos.
+   * Safety net: verifica execuções com timeout expirado ou delays vencidos.
+   * BullMQ é o mecanismo primário — este polling é backup para jobs que falharam/perderam.
+   * Roda a cada 30 segundos.
    */
-  private async checkPendingFlows() {
+  private async checkPendingFlows(): Promise<void> {
     if (this.isRunning) return;
     this.isRunning = true;
 
@@ -62,7 +62,6 @@ class FlowSchedulerService {
           status: { in: [FlowExecutionStatus.WAITING_REPLY, FlowExecutionStatus.DELAYED] }
         },
         include: { currentNode: true },
-        // Processa em lotes para evitar sobrecarregar memória e CPU de uma vez
         take: 50,
         orderBy: { resumesAt: 'asc' },
       });
@@ -70,30 +69,45 @@ class FlowSchedulerService {
       for (const execution of pendingExecutions) {
         try {
           if (execution.status === FlowExecutionStatus.WAITING_REPLY) {
-            await prisma.flowExecution.update({
-              where: { id: execution.id },
+            // Check atômico para evitar execução dupla com o BullMQ timeout job
+            const updated = await prisma.flowExecution.updateMany({
+              where: { id: execution.id, status: FlowExecutionStatus.WAITING_REPLY },
               data: { status: FlowExecutionStatus.RUNNING, resumesAt: null }
             });
 
+            if (updated.count === 0) continue; // Já processado pelo BullMQ ou webhook
+
             if (execution.currentNodeId) {
-              await this.flowEngine.processNextNodes(execution.id, execution.currentNodeId, 'nao_respondeu');
+              await flowQueueService.enqueueFlowStep({
+                executionId: execution.id,
+                nodeId: execution.currentNodeId,
+                sourceHandle: 'nao_respondeu',
+              });
             }
           } else if (execution.status === FlowExecutionStatus.DELAYED) {
-            await prisma.flowExecution.update({
-              where: { id: execution.id },
+            // Check atômico para evitar execução dupla
+            const updated = await prisma.flowExecution.updateMany({
+              where: { id: execution.id, status: FlowExecutionStatus.DELAYED },
               data: { status: FlowExecutionStatus.RUNNING, resumesAt: null }
             });
 
+            if (updated.count === 0) continue; // Já processado pelo BullMQ
+
             if (execution.currentNodeId) {
-              await this.flowEngine.processNextNodes(execution.id, execution.currentNodeId);
+              await flowQueueService.enqueueFlowStep({
+                executionId: execution.id,
+                nodeId: execution.currentNodeId,
+              });
             }
           }
-        } catch (error: any) {
-          console.error(`[Flow Scheduler] ❌ Failed to resume flow ${execution.id}:`, error.message);
+        } catch (error: unknown) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          console.error(`[Flow Scheduler] ❌ Failed to resume flow ${execution.id}:`, err.message);
         }
       }
-    } catch (error: any) {
-      console.error('[Flow Scheduler] Error checking pending flows:', error.message);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('[Flow Scheduler] Error checking pending flows:', err.message);
     } finally {
       this.isRunning = false;
     }
@@ -104,7 +118,7 @@ class FlowSchedulerService {
    * mesmo que o webhook não tenha disparado corretamente.
    * Roda a cada 60 segundos.
    */
-  private async checkWaitingReplies() {
+  private async checkWaitingReplies(): Promise<void> {
     if (this.isReplyChecking) return;
     this.isReplyChecking = true;
 
@@ -151,14 +165,13 @@ class FlowSchedulerService {
           if (!recentMessage && cleanPhone.length >= 10) {
             const suffixDigits = cleanPhone.slice(-(Math.min(cleanPhone.length, 11)));
             // SAFETY: Only accept suffix match if it resolves to exactly 1 customer
-            // to prevent batch cross-contamination between different contacts
             const suffixCustomers = await prisma.customer.findMany({
               where: {
                 companyId: execution.flow.companyId,
                 phone: { endsWith: suffixDigits },
               },
               select: { id: true },
-              take: 2, // Only need to know if there's more than 1
+              take: 2,
             });
 
             if (suffixCustomers.length === 1) {
@@ -175,17 +188,21 @@ class FlowSchedulerService {
 
           if (!recentMessage) continue;
 
-          // Cliente respondeu! Retoma via "respondeu" (mesmo que o webhook já tenha tratado,
-          // a verificação de status garante que não processamos duas vezes)
+          // Remove timeout job do BullMQ antes de retomar
+          if (execution.currentNodeId) {
+            await flowQueueService.removeTimeoutJob(execution.id, execution.currentNodeId);
+          }
+
+          // Check atômico para evitar execução dupla
           const updated = await prisma.flowExecution.updateMany({
             where: {
               id: execution.id,
-              status: FlowExecutionStatus.WAITING_REPLY // garante idempotência
+              status: FlowExecutionStatus.WAITING_REPLY
             },
             data: { status: FlowExecutionStatus.RUNNING, resumesAt: null }
           });
 
-          if (updated.count === 0) continue; // Já foi tratado pelo webhook
+          if (updated.count === 0) continue; // Já foi tratado pelo webhook ou BullMQ
 
           // Determina qual handle seguir (mesmo comportamento do handleIncomingMessage)
           const text = (recentMessage.content || '').toLowerCase().trim();
@@ -195,7 +212,7 @@ class FlowSchedulerService {
             ? JSON.parse(execution.currentNode.data)
             : (execution.currentNode?.data || {});
 
-          const keyword = nodeData?.keyword as string | undefined;
+          const keyword = (nodeData as Record<string, unknown>)?.keyword as string | undefined;
           if (keyword) {
             const keywords = keyword.toLowerCase().split(',').map((k: string) => k.trim()).filter((k: string) => k.length > 0);
             if (keywords.some((k: string) => text.includes(k) || text === k)) {
@@ -204,14 +221,20 @@ class FlowSchedulerService {
           }
 
           if (execution.currentNodeId) {
-            await this.flowEngine.processNextNodes(execution.id, execution.currentNodeId, handle);
+            await flowQueueService.enqueueFlowStep({
+              executionId: execution.id,
+              nodeId: execution.currentNodeId,
+              sourceHandle: handle,
+            });
           }
-        } catch (error: any) {
-          console.error(`[Flow Scheduler] ❌ Erro ao verificar resposta para execução ${execution.id}:`, error.message);
+        } catch (error: unknown) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          console.error(`[Flow Scheduler] ❌ Erro ao verificar resposta para execução ${execution.id}:`, err.message);
         }
       }
-    } catch (error: any) {
-      console.error('[Flow Scheduler] Erro no polling de respostas:', error.message);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('[Flow Scheduler] Erro no polling de respostas:', err.message);
     } finally {
       this.isReplyChecking = false;
     }
@@ -222,9 +245,15 @@ class FlowSchedulerService {
    * Uma execução RUNNING que não atualizou há mais de 5 minutos está "órfã" —
    * o processo que a executava morreu no deploy.
    *
-   * Estratégia: retoma do nó atual (currentNodeId) para continuar de onde parou.
+   * Estratégia inteligente usando lastCompletedNodeId:
+   * - Se lastCompletedNodeId === currentNodeId → nó atual JÁ foi processado (msg enviada),
+   *   enfileira processNextNodes para ir ao PRÓXIMO nó (não re-envia a mensagem).
+   * - Se lastCompletedNodeId !== currentNodeId → nó atual NÃO terminou de processar,
+   *   enfileira processNextNodes a PARTIR DO lastCompletedNodeId (ou currentNodeId se não há lastCompleted).
+   *   Isso pode re-enviar uma mensagem em caso de crash no meio do envio — preferimos
+   *   at-least-once delivery a perder mensagens.
    */
-  private async recoverOrphanedExecutions() {
+  private async recoverOrphanedExecutions(): Promise<void> {
     try {
       const staleThreshold = new Date(Date.now() - 5 * 60 * 1000); // 5 minutos sem update
 
@@ -245,7 +274,6 @@ class FlowSchedulerService {
       for (const execution of orphaned) {
         try {
           if (!execution.currentNodeId) {
-            // Sem nó atual — não tem como retomar, marca como falha
             await prisma.flowExecution.update({
               where: { id: execution.id },
               data: {
@@ -258,17 +286,33 @@ class FlowSchedulerService {
             continue;
           }
 
-          // Retoma do nó atual
-          console.log(`[Flow Scheduler] ▶️ Retomando execução ${execution.id} (phone: ${execution.contactPhone}) do nó ${execution.currentNodeId}`);
-          await this.flowEngine.processNextNodes(execution.id, execution.currentNodeId);
-        } catch (error: any) {
-          console.error(`[Flow Scheduler] ❌ Falha ao recuperar execução ${execution.id}:`, error.message);
-          // Marca como falha para não tentar de novo infinitamente
+          // 🛡️ Determina de qual nó retomar usando lastCompletedNodeId
+          // Se o nó atual já foi completado (mensagem enviada + próximo enfileirado),
+          // o recovery vai para o PRÓXIMO nó. Caso contrário, re-processa o atual.
+          const resumeFromNodeId = (execution.lastCompletedNodeId === execution.currentNodeId)
+            ? execution.currentNodeId   // Nó completo → processNextNodes encontra o próximo
+            : (execution.lastCompletedNodeId || execution.currentNodeId); // Nó incompleto → tenta de onde o último completou
+
+          const wasCompleted = execution.lastCompletedNodeId === execution.currentNodeId;
+          console.log(
+            `[Flow Scheduler] ▶️ Re-enfileirando execução ${execution.id} (phone: ${execution.contactPhone}) ` +
+            `do nó ${resumeFromNodeId} (currentNode: ${execution.currentNodeId}, ` +
+            `lastCompleted: ${execution.lastCompletedNodeId || 'null'}, ` +
+            `strategy: ${wasCompleted ? 'NEXT_NODE' : 'RE_PROCESS'})`
+          );
+
+          await flowQueueService.enqueueFlowStep({
+            executionId: execution.id,
+            nodeId: resumeFromNodeId,
+          });
+        } catch (error: unknown) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          console.error(`[Flow Scheduler] ❌ Falha ao recuperar execução ${execution.id}:`, err.message);
           await prisma.flowExecution.update({
             where: { id: execution.id },
             data: {
               status: FlowExecutionStatus.FAILED,
-              error: `Falha ao recuperar após restart: ${error.message}`,
+              error: `Falha ao recuperar após restart: ${err.message}`,
               completedAt: new Date(),
             },
           }).catch(() => {});
@@ -276,8 +320,9 @@ class FlowSchedulerService {
       }
 
       console.log(`[Flow Scheduler] ✅ Recuperação de execuções órfãs concluída`);
-    } catch (error: any) {
-      console.error('[Flow Scheduler] Erro ao recuperar execuções órfãs:', error.message);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('[Flow Scheduler] Erro ao recuperar execuções órfãs:', err.message);
     }
   }
 }

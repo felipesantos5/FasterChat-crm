@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
-import { FlowEngineService } from '../services/FlowEngineService';
+import flowQueueService from '../services/flow-queue.service';
 import * as XLSX from 'xlsx';
 
 /**
@@ -173,148 +173,31 @@ export class FlowBatchController {
   }
 
   // ==================================================================================
-  // 🛡️ CONFIGURAÇÕES DE PROTEÇÃO DO BATCH
+  // 🚀 BATCH PROCESSING VIA BULLMQ
+  // Em vez de loop com setTimeout, enfileira todos os contatos como jobs BullMQ
+  // com delays escalonados. A concorrência e rate limiting são controlados pelo worker.
   // ==================================================================================
-  private static readonly BATCH_CONSECUTIVE_ERROR_LIMIT = 3;   // Pausa após 3 erros seguidos
-  private static readonly BATCH_PAUSE_BASE_MS = 60_000;         // 1 min de pausa base
-  private static readonly BATCH_PAUSE_MAX_MS = 10 * 60_000;     // 10 min de pausa máxima
-  private static readonly BATCH_TOTAL_ERROR_ABORT_RATIO = 0.5;  // Aborta se >50% falhou
-  private static readonly BATCH_MIN_PROCESSED_FOR_ABORT = 10;   // Mínimo processados antes de checar ratio
-  private static readonly BATCH_ANTI_SPAM_MIN_MS = 15_000;      // 15s mínimo entre contatos
-  private static readonly BATCH_ANTI_SPAM_MAX_MS = 25_000;      // 20s máximo entre contatos
-  private static readonly BATCH_INSTANCE_CHECK_INTERVAL = 10;   // Verifica instância a cada N contatos
+  private static readonly BATCH_STAGGER_MIN_MS = 15_000;  // 15s mínimo entre enfileiramentos
+  private static readonly BATCH_STAGGER_MAX_MS = 25_000;  // 25s máximo entre enfileiramentos
 
   /**
-   * Processa as linhas distribuindo entre todas as instâncias conectadas em paralelo.
-   * Com N instâncias, o tempo total é dividido por N (cada uma tem seu próprio delay).
+   * Enfileira todos os contatos como jobs BullMQ flow-orchestration com delays escalonados.
+   * Retorna imediatamente — o BullMQ cuida da execução real.
    */
   private async processRows(
     batch: BatchStatus,
-    rows: Record<string, any>[],
+    rows: Record<string, unknown>[],
     phoneColumn: string,
-    flow: any,
+    flow: Record<string, unknown>,
     fileName: string
-  ) {
-    // Busca TODAS as instâncias conectadas para determinar paralelismo
-    const connectedInstances = await prisma.whatsAppInstance.findMany({
-      where: { companyId: flow.companyId, status: { in: ['CONNECTED', 'CONNECTING'] } },
-      select: { id: true, instanceName: true },
-    });
-
-    if (connectedInstances.length === 0) {
-      console.error(`[FlowBatch] ❌ Nenhuma instância WhatsApp conectada. Abortando batch ${batch.batchId}`);
-      batch.status = 'FAILED';
-      batch.completedAt = new Date();
-      batch.errors.push({ row: 0, phone: '', error: 'Nenhuma instância WhatsApp conectada' });
-      return;
-    }
-
-    const N = connectedInstances.length;
-
-    if (N === 1) {
-      // Único número: fluxo sequencial normal
-      await this.processWorkerChunk(batch, rows, phoneColumn, flow, fileName, 0, 1);
-    } else {
-      // Múltiplos números: divide contatos igualmente e roda em paralelo
-      const chunks: Record<string, any>[][] = Array.from({ length: N }, () => []);
-      rows.forEach((row, idx) => chunks[idx % N].push(row));
-
-      const names = connectedInstances.map(i => i.instanceName).join(', ');
-      console.log(
-        `[FlowBatch] 🚀 ${N} instâncias ativas (${names}). ` +
-        `Dividindo ${rows.length} contatos em ${N} grupos de ~${Math.ceil(rows.length / N)} cada. ` +
-        `Tempo estimado: ${Math.ceil(rows.length / N * 45 / 60)}min (vs ${Math.ceil(rows.length * 45 / 60)}min sequencial).`
-      );
-
-      await Promise.all(
-        chunks.map((chunk, i) => this.processWorkerChunk(batch, chunk, phoneColumn, flow, fileName, i, N))
-      );
-    }
-
-    if (batch.status === 'PROCESSING') {
-      batch.status = 'COMPLETED';
-    }
-    batch.completedAt = new Date();
-
-    const duration = ((batch.completedAt.getTime() - batch.startedAt.getTime()) / 1000 / 60).toFixed(1);
-    console.log(`[FlowBatch] 📊 Batch ${batch.batchId} finalizado em ${duration}min: ${batch.succeeded} OK, ${batch.failed} erros`);
-
-    if (batch.errors.length > 100) {
-      batch.errors = batch.errors.slice(-100);
-    }
-  }
-
-  /**
-   * Worker individual: processa um subconjunto de contatos sequencialmente com delay próprio.
-   * Cada instância WhatsApp tem seu próprio worker, garantindo delay independente por número.
-   */
-  private async processWorkerChunk(
-    batch: BatchStatus,
-    rows: Record<string, any>[],
-    phoneColumn: string,
-    flow: any,
-    fileName: string,
-    workerIndex: number,
-    totalWorkers: number
-  ) {
-    const flowEngine = new FlowEngineService();
-    const tag = totalWorkers > 1 ? ` [Worker ${workerIndex + 1}/${totalWorkers}]` : '';
-    let consecutiveErrors = 0;
-    let pauseCount = 0;
+  ): Promise<void> {
+    let cumulativeDelay = 0;
 
     for (let i = 0; i < rows.length; i++) {
-      // 🛑 Verifica cancelamento
-      if (batch.status === 'CANCELLED') {
-        console.log(`[FlowBatch]${tag} 🛑 Batch cancelado pelo usuário.`);
-        break;
-      }
-
-      // 🛡️ Verifica taxa de erro global (soma de todos os workers)
-      if (batch.processed >= FlowBatchController.BATCH_MIN_PROCESSED_FOR_ABORT) {
-        const errorRatio = batch.failed / batch.processed;
-        if (errorRatio >= FlowBatchController.BATCH_TOTAL_ERROR_ABORT_RATIO) {
-          console.error(`[FlowBatch]${tag} 🔴 Taxa de erro muito alta (${(errorRatio * 100).toFixed(0)}%). Abortando.`);
-          batch.status = 'FAILED';
-          batch.completedAt = new Date();
-          batch.errors.push({
-            row: i + 1,
-            phone: '',
-            error: `Batch abortado: ${(errorRatio * 100).toFixed(0)}% dos envios falharam (${batch.failed}/${batch.processed}).`,
-          });
-          break;
-        }
-      }
-
-      // 🏥 Verifica saúde das instâncias a cada N contatos
-      if (i > 0 && i % FlowBatchController.BATCH_INSTANCE_CHECK_INTERVAL === 0) {
-        const instanceOk = await prisma.whatsAppInstance.findFirst({
-          where: { companyId: flow.companyId, status: 'CONNECTED' },
-          select: { id: true },
-        });
-
-        if (!instanceOk) {
-          console.error(`[FlowBatch]${tag} 🔴 Instância desconectada. Pausando ${(FlowBatchController.BATCH_PAUSE_MAX_MS / 1000).toFixed(0)}s...`);
-          await new Promise(resolve => setTimeout(resolve, FlowBatchController.BATCH_PAUSE_MAX_MS));
-
-          const reconnected = await prisma.whatsAppInstance.findFirst({
-            where: { companyId: flow.companyId, status: 'CONNECTED' },
-            select: { id: true },
-          });
-
-          if (!reconnected) {
-            console.error(`[FlowBatch]${tag} 🔴 Ainda desconectada após pausa. Encerrando worker.`);
-            batch.errors.push({ row: i + 1, phone: '', error: 'WhatsApp desconectado durante o envio' });
-            break;
-          }
-
-          console.log(`[FlowBatch]${tag} ▶️ Instância reconectada. Retomando...`);
-        }
-      }
-
       const row = rows[i];
       const phone = String(row[phoneColumn] || '').replace(/\D/g, '');
 
-      const variables: Record<string, any> = {};
+      const variables: Record<string, unknown> = {};
       for (const key of Object.keys(row)) {
         variables[key] = row[key];
       }
@@ -324,44 +207,45 @@ export class FlowBatchController {
       variables._batchTotal = batch.total;
 
       try {
-        await flowEngine.startFlow(flow.id, phone, variables);
+        await flowQueueService.enqueueFlowStart(
+          {
+            flowId: flow.id as string,
+            contactPhone: phone,
+            variables,
+            companyId: flow.companyId as string,
+          },
+          { delay: cumulativeDelay }
+        );
 
         batch.succeeded++;
-        consecutiveErrors = 0;
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
         batch.failed++;
-        consecutiveErrors++;
-        batch.errors.push({ row: i + 1, phone, error: err.message || 'Erro desconhecido' });
-        console.error(`[FlowBatch]${tag} ❌ [${i + 1}/${rows.length}] Erro para ${phone}:`, err.message);
-
-        // 🛡️ AUTO-PAUSE por worker: muitos erros seguidos neste número
-        if (consecutiveErrors >= FlowBatchController.BATCH_CONSECUTIVE_ERROR_LIMIT) {
-          const pauseFactor = Math.min(pauseCount + 1, 5);
-          const pauseMs = Math.min(
-            FlowBatchController.BATCH_PAUSE_BASE_MS * Math.pow(2, pauseFactor - 1),
-            FlowBatchController.BATCH_PAUSE_MAX_MS
-          );
-          pauseCount++;
-
-          console.warn(`[FlowBatch]${tag} ⏸️ ${consecutiveErrors} erros consecutivos. Pausando ${(pauseMs / 1000).toFixed(0)}s (pausa #${pauseCount})`);
-          await new Promise(resolve => setTimeout(resolve, pauseMs));
-
-          if ((batch.status as string) === 'CANCELLED') break;
-
-          consecutiveErrors = 0;
-          console.log(`[FlowBatch]${tag} ▶️ Retomando após pausa #${pauseCount}...`);
-        }
+        batch.errors.push({ row: i + 1, phone, error: error.message || 'Erro ao enfileirar' });
+        console.error(`[FlowBatch] ❌ [${i + 1}/${rows.length}] Erro ao enfileirar ${phone}:`, error.message);
       }
 
       batch.processed++;
 
-      // ⏳ Delay anti-spam INDEPENDENTE por worker (é isso que garante o paralelismo real)
-      if (i < rows.length - 1 && (batch.status as string) !== 'CANCELLED') {
-        const delayMs = Math.floor(Math.random() * (FlowBatchController.BATCH_ANTI_SPAM_MAX_MS - FlowBatchController.BATCH_ANTI_SPAM_MIN_MS))
-          + FlowBatchController.BATCH_ANTI_SPAM_MIN_MS;
-        console.log(`[FlowBatch]${tag} ⏳ Aguardando ${(delayMs / 1000).toFixed(1)}s antes do próximo contato (${i + 2}/${rows.length})`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+      // Delay escalonado para o próximo contato
+      if (i < rows.length - 1) {
+        const stagger = Math.floor(
+          Math.random() * (FlowBatchController.BATCH_STAGGER_MAX_MS - FlowBatchController.BATCH_STAGGER_MIN_MS)
+        ) + FlowBatchController.BATCH_STAGGER_MIN_MS;
+        cumulativeDelay += stagger;
       }
+    }
+
+    batch.status = 'COMPLETED';
+    batch.completedAt = new Date();
+
+    console.log(
+      `[FlowBatch] 📊 Batch ${batch.batchId} enfileirado: ${batch.succeeded} jobs criados, ` +
+      `${batch.failed} erros. Spread total: ${(cumulativeDelay / 1000 / 60).toFixed(1)}min`
+    );
+
+    if (batch.errors.length > 100) {
+      batch.errors = batch.errors.slice(-100);
     }
   }
 

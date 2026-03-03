@@ -13,6 +13,7 @@ import { websocketService } from "./services/websocket.service";
 import campaignExecutionService from "./services/campaign-execution.service";
 import campaignSchedulerService from "./services/campaign-scheduler.service";
 import flowSchedulerService from "./services/flow-scheduler.service";
+import flowQueueService from "./services/flow-queue.service";
 import { config } from "./config";
 import {
   initializeGlobalErrorHandlers,
@@ -80,9 +81,14 @@ registerServer(httpServer);
 // REGISTRA CALLBACKS DE CLEANUP
 // ============================================
 registerCleanup(async () => {
-  console.log("[Cleanup] Stopping campaign scheduler...");
+  console.log("[Cleanup] Stopping schedulers...");
   campaignSchedulerService.stop();
   flowSchedulerService.stop();
+});
+
+registerCleanup(async () => {
+  console.log("[Cleanup] Stopping flow queue workers...");
+  await flowQueueService.stopWorkers();
 });
 
 registerCleanup(async () => {
@@ -105,6 +111,9 @@ websocketService.initialize(httpServer);
 
 // Inicializa Workers de Campanha (BullMQ)
 campaignExecutionService.startWorkers();
+
+// Inicializa Workers de Fluxo (BullMQ)
+flowQueueService.startWorkers();
 
 // Inicializa Scheduler de Campanhas (backup para jobs agendados)
 campaignSchedulerService.start();
@@ -365,6 +374,7 @@ httpServer.listen(PORT, () => {
   console.log(`║ ❤️  Health: http://localhost:${PORT}/health`.padEnd(65) + " ║");
   console.log("╠════════════════════════════════════════════════════════════════╣");
   console.log("║ 📬 Campaign workers ready (BullMQ + Redis)                     ║");
+  console.log("║ 🔄 Flow queue workers ready (BullMQ + Redis)                   ║");
   console.log("║ 🕐 Campaign scheduler running (checks every minute)            ║");
   console.log("║ 🛡️  Global error handlers active                               ║");
   console.log("╚════════════════════════════════════════════════════════════════╝");

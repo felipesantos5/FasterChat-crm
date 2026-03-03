@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { AppError } from '../utils/errors';
 import { FlowExecutionStatus } from '@prisma/client';
+import flowQueueService from '../services/flow-queue.service';
 
 export class FlowController {
   public async getFlows(req: Request, res: Response): Promise<Response> {
@@ -123,40 +124,76 @@ export class FlowController {
       });
     }
 
-    // Using a transaction to clear existing nodes/edges and insert the new ones
     await prisma.$transaction(async (tx) => {
-      // 1. Delete all edges
-      await tx.flowEdge.deleteMany({ where: { flowId: id } });
-      
-      // 2. Delete all nodes
-      await tx.flowNode.deleteMany({ where: { flowId: id } });
+      // 1. Identificar nós e edges atuais
+      const currentNodes = await tx.flowNode.findMany({ where: { flowId: id }, select: { id: true } });
+      const currentEdges = await tx.flowEdge.findMany({ where: { flowId: id }, select: { id: true } });
 
-      // 3. Create nodes
-      if (nodes && nodes.length > 0) {
-        await tx.flowNode.createMany({
-          data: nodes.map((n: any) => ({
-            id: n.id,
-            flowId: id,
-            type: n.type,
-            data: n.data || {},
-            positionX: n.position?.x || 0,
-            positionY: n.position?.y || 0,
-          }))
+      const incomingNodeIds = (nodes || []).map((n: any) => n.id);
+      const incomingEdgeIds = (edges || []).map((e: any) => e.id);
+
+      const nodesToDelete = currentNodes.filter(n => !incomingNodeIds.includes(n.id)).map(n => n.id);
+      const edgesToDelete = currentEdges.filter(e => !incomingEdgeIds.includes(e.id)).map(e => e.id);
+
+      // 2. Apagar apenas edges excluídos na tela (precisamos deletar edges antes dos nós para evitar violação de FK)
+      if (edgesToDelete.length > 0) {
+        await tx.flowEdge.deleteMany({
+          where: { flowId: id, id: { in: edgesToDelete } },
         });
       }
 
-      // 4. Create edges
-      if (edges && edges.length > 0) {
-        await tx.flowEdge.createMany({
-          data: edges.map((e: any) => ({
-            id: e.id,
-            flowId: id,
-            sourceNodeId: e.source,
-            sourceHandle: e.sourceHandle,
-            targetNodeId: e.target,
-            targetHandle: e.targetHandle,
-          }))
+      // 3. Apagar apenas os nós que foram excluídos na tela
+      if (nodesToDelete.length > 0) {
+        await tx.flowNode.deleteMany({
+          where: { flowId: id, id: { in: nodesToDelete } },
         });
+      }
+
+      // 4. Inserir ou atualizar os nós (Upsert)
+      if (nodes && nodes.length > 0) {
+        for (const n of nodes) {
+          await tx.flowNode.upsert({
+            where: { id: n.id },
+            create: {
+              id: n.id,
+              flowId: id,
+              type: n.type,
+              data: n.data || {},
+              positionX: n.position?.x || 0,
+              positionY: n.position?.y || 0,
+            },
+            update: {
+              type: n.type,
+              data: n.data || {},
+              positionX: n.position?.x || 0,
+              positionY: n.position?.y || 0,
+              updatedAt: new Date(),
+            },
+          });
+        }
+      }
+
+      // 5. Inserir ou atualizar edges (Upsert)
+      if (edges && edges.length > 0) {
+        for (const e of edges) {
+          await tx.flowEdge.upsert({
+            where: { id: e.id },
+            create: {
+              id: e.id,
+              flowId: id,
+              sourceNodeId: e.source,
+              sourceHandle: e.sourceHandle,
+              targetNodeId: e.target,
+              targetHandle: e.targetHandle,
+            },
+            update: {
+              sourceNodeId: e.source,
+              sourceHandle: e.sourceHandle,
+              targetNodeId: e.target,
+              targetHandle: e.targetHandle,
+            },
+          });
+        }
       }
     });
 
@@ -279,6 +316,9 @@ export class FlowController {
       }
     });
 
+    // Remove jobs BullMQ pendentes para esta execução
+    await flowQueueService.removeJobsForExecution(executionId);
+
     return res.json({ success: true });
   }
 
@@ -360,6 +400,9 @@ export class FlowController {
         error: 'Cancelado pelo usuário',
       },
     });
+
+    // Remove jobs BullMQ pendentes para esta execução
+    await flowQueueService.removeJobsForExecution(executionId);
 
     return res.json({ success: true });
   }

@@ -1043,6 +1043,7 @@ model FlowExecution {
   completedAt        DateTime?           @map("completed_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
 
+  lastCompletedNodeId   String?  @map("last_completed_node_id")   // Último nó completamente processado (msg enviada + próximo enfileirado). Usado pelo recovery.
   replacedByExecutionId String?  @map("replaced_by_execution_id") // ID da execução que substituiu esta
   replacedByFlowId      String?  @map("replaced_by_flow_id")      // flowId da execução que substituiu esta
 

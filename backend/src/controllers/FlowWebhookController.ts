@@ -1,22 +1,22 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
-import { FlowEngineService } from '../services/FlowEngineService';
+import flowQueueService from '../services/flow-queue.service';
 
 export class FlowWebhookController {
   public async handleTrigger(req: Request, res: Response): Promise<void> {
     const { slug } = req.params;
-    
+
     // As variáveis podem vir do body ou da query
     const variables = { ...req.query, ...req.body };
-    
+
     // Busca exaustiva pelo telefone no payload (suporte a Cakto, Hotmart, Kiwify, etc)
-    let contactPhone = 
-      variables.phone || 
-      variables.telefone || 
-      variables.contact || 
-      variables.data?.phone || 
+    let contactPhone =
+      variables.phone ||
+      variables.telefone ||
+      variables.contact ||
+      variables.data?.phone ||
       variables.data?.telefone ||
-      variables.data?.customer?.phone || 
+      variables.data?.customer?.phone ||
       variables.data?.customer?.telefone ||
       variables.customer?.phone ||
       variables.customer?.telefone ||
@@ -27,11 +27,11 @@ export class FlowWebhookController {
     try {
       // Find the flow first - allow DRAFT or ACTIVE for variable mapping
       const flow = await prisma.flow.findFirst({
-        where: { 
+        where: {
           webhookSlug: slug,
           status: { in: ['ACTIVE', 'DRAFT'] }
         },
-        include: { nodes: true, edges: true } 
+        include: { nodes: true, edges: true }
       });
 
       if (!flow) {
@@ -59,21 +59,23 @@ export class FlowWebhookController {
         return;
       }
 
-      const flowEngine = new FlowEngineService();
-
-      // Responde imediatamente — o flow roda em background para não bloquear o request
+      // Responde imediatamente — o flow é enfileirado no BullMQ
       res.status(202).json({ message: 'Flow triggered successfully' });
 
-      // Fire-and-forget: executa o fluxo sem bloquear o request
-      flowEngine.startFlow(flow.id, String(contactPhone), variables).catch((err: any) => {
-        console.error('[FlowWebhook] ❌ Erro na execução do flow em background:', err?.message || err);
+      // Enfileira no BullMQ (non-blocking)
+      await flowQueueService.enqueueFlowStart({
+        flowId: flow.id,
+        contactPhone: String(contactPhone),
+        variables,
+        companyId: flow.companyId,
       });
-    } catch (error: any) {
-      console.error('[FlowWebhook] ❌ Erro ao disparar o flow:', error);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('[FlowWebhook] ❌ Erro ao disparar o flow:', err);
       if (!res.headersSent) {
         res.status(500).json({
           error: 'Internal server error',
-          details: error?.message || 'Unknown error'
+          details: err.message || 'Unknown error'
         });
       }
     }
