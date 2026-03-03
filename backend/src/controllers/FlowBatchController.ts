@@ -377,7 +377,50 @@ export class FlowBatchController {
       return res.status(404).json({ error: 'Batch não encontrado ou já expirou.' });
     }
 
-    return res.json(batch);
+    // Busca contadores reais das execuções no banco (status atualizado pelo FlowEngine)
+    try {
+      const executionCounts = await prisma.flowExecution.groupBy({
+        by: ['status'],
+        where: {
+          variables: { path: ['_batchId'], equals: batchId },
+        },
+        _count: true,
+      });
+
+      const realCounts: Record<string, number> = {};
+      let realTotal = 0;
+      for (const row of executionCounts) {
+        realCounts[row.status] = row._count;
+        realTotal += row._count;
+      }
+
+      const realFailed = (realCounts['FAILED'] || 0) + (realCounts['FORCE_CANCELLED'] || 0);
+      const realSucceeded = (realCounts['COMPLETED'] || 0);
+      const realActive = (realCounts['RUNNING'] || 0) + (realCounts['WAITING_REPLY'] || 0) + (realCounts['DELAYED'] || 0);
+      const realPaused = (realCounts['PAUSED'] || 0);
+
+      return res.json({
+        ...batch,
+        // Sobrescreve com contadores reais do banco
+        succeeded: realSucceeded + realActive, // ativos ainda estão "ok" (não falharam)
+        failed: realFailed + realPaused, // pausados pelo usuário + falhos
+        // Detalhe granular para o frontend usar se quiser
+        executionCounts: {
+          completed: realCounts['COMPLETED'] || 0,
+          running: realCounts['RUNNING'] || 0,
+          waitingReply: realCounts['WAITING_REPLY'] || 0,
+          delayed: realCounts['DELAYED'] || 0,
+          failed: realCounts['FAILED'] || 0,
+          paused: realCounts['PAUSED'] || 0,
+          forceCancelled: realCounts['FORCE_CANCELLED'] || 0,
+          total: realTotal,
+        },
+      });
+    } catch (err) {
+      // Se falhar a query no banco, retorna os dados em memória normalmente
+      console.warn(`[FlowBatch] ⚠️ Erro ao buscar contadores reais do batch ${batchId}:`, err);
+      return res.json(batch);
+    }
   }
 
   /**

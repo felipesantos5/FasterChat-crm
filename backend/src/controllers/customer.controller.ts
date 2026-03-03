@@ -257,6 +257,54 @@ export class CustomerController {
     }
   }
 
+  async archive(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, message: "Não autenticado" });
+        return;
+      }
+
+      const { id } = req.params;
+      const customer = await customerService.archive(id, req.user.companyId);
+
+      res.status(200).json({
+        success: true,
+        message: "Cliente arquivado com sucesso",
+        data: customer,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ success: false, message: error.message });
+        return;
+      }
+      res.status(500).json({ success: false, message: "Erro interno do servidor" });
+    }
+  }
+
+  async unarchive(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, message: "Não autenticado" });
+        return;
+      }
+
+      const { id } = req.params;
+      const customer = await customerService.unarchive(id, req.user.companyId);
+
+      res.status(200).json({
+        success: true,
+        message: "Cliente desarquivado com sucesso",
+        data: customer,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ success: false, message: error.message });
+        return;
+      }
+      res.status(500).json({ success: false, message: "Erro interno do servidor" });
+    }
+  }
+
   async import(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user) {

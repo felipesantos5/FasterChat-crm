@@ -183,8 +183,8 @@ app.use("/api/auth/signup", authLimiter);
 
 // Rate limiting geral para toda a API (previne scraping e DoS)
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 1000, // 1000 req por IP a cada 15 min
+  windowMs: 5 * 60 * 1000, // 5 minutos
+  max: 700, // 700 req por IP a cada 5 min
   message: {
     success: false,
     message: "Muitas requisições. Por favor, tente novamente em alguns minutos.",

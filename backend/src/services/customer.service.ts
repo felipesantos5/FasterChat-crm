@@ -299,6 +299,47 @@ export class CustomerService {
     return Array.from(allTags).sort();
   }
 
+  async archive(customerId: string, companyId: string): Promise<Customer> {
+    const customer = await this.findById(customerId, companyId);
+    if (!customer) {
+      throw new Error("Cliente não encontrado");
+    }
+
+    // Busca o stage "Fechado - Perdido" da empresa
+    const lostStage = await prisma.pipelineStage.findFirst({
+      where: { companyId, name: "Fechado - Perdido" },
+    });
+
+    return prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        isArchived: true,
+        pipelineStageId: lostStage?.id ?? customer.pipelineStageId,
+      },
+    });
+  }
+
+  async unarchive(customerId: string, companyId: string): Promise<Customer> {
+    const customer = await this.findById(customerId, companyId);
+    if (!customer) {
+      throw new Error("Cliente não encontrado");
+    }
+
+    // Busca o primeiro stage (Novo Lead) da empresa
+    const firstStage = await prisma.pipelineStage.findFirst({
+      where: { companyId },
+      orderBy: { order: "asc" },
+    });
+
+    return prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        isArchived: false,
+        pipelineStageId: firstStage?.id ?? customer.pipelineStageId,
+      },
+    });
+  }
+
   async import(companyId: string, customers: CreateCustomerDTO[]): Promise<{ success: number; failed: number; errors: any[] }> {
     let success = 0;
     let failed = 0;

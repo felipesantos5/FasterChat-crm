@@ -33,6 +33,8 @@ flowRouter.use(authenticate);
 flowRouter.get('/', asyncHandler(flowController.getFlows));
 flowRouter.post('/', asyncHandler(flowController.createFlow));
 flowRouter.get('/batches/active', asyncHandler(flowBatchController.getActiveBatches.bind(flowBatchController)));
+flowRouter.get('/customer/:customerId/active-execution', asyncHandler(flowController.getActiveExecutionByCustomer.bind(flowController)));
+flowRouter.delete('/executions/:executionId/cancel', asyncHandler(flowController.cancelExecutionById.bind(flowController)));
 flowRouter.get('/:id', asyncHandler(flowController.getFlowById));
 flowRouter.put('/:id', asyncHandler(flowController.updateFlow));
 flowRouter.get('/:id/variables', asyncHandler(flowController.getFlowVariables));

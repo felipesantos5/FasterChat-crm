@@ -43,4 +43,14 @@ export const customerApi = {
     const response = await api.post("/customers/import", data);
     return response.data.data;
   },
+
+  async archive(id: string): Promise<Customer> {
+    const response = await api.patch<{ data: Customer }>(`/customers/${id}/archive`);
+    return response.data.data;
+  },
+
+  async unarchive(id: string): Promise<Customer> {
+    const response = await api.patch<{ data: Customer }>(`/customers/${id}/unarchive`);
+    return response.data.data;
+  },
 };

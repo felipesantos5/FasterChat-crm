@@ -335,6 +335,7 @@ class WebhookController {
             const messageId = update.key?.id;
             const statusValue = update.status;
 
+            console.log(`[Webhook:StatusUpdate] messageId=${messageId} status=${statusValue} remoteJid=${update.key?.remoteJid || 'N/A'}`);
 
             if (!messageId || statusValue === undefined) continue;
 

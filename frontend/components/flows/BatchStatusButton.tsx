@@ -29,6 +29,17 @@ import {
 import api from "@/lib/api";
 import { formatPhoneNumber } from "@/lib/utils";
 
+interface ExecutionCounts {
+  completed: number;
+  running: number;
+  waitingReply: number;
+  delayed: number;
+  failed: number;
+  paused: number;
+  forceCancelled: number;
+  total: number;
+}
+
 interface BatchStatusData {
   batchId: string;
   flowId?: string;
@@ -43,6 +54,7 @@ interface BatchStatusData {
   pausedUntil: string | null;
   consecutiveErrors: number;
   pauseCount: number;
+  executionCounts?: ExecutionCounts;
 }
 
 interface BatchStatusButtonProps {
@@ -238,7 +250,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
             : isProcessing
               ? `Enviando ${status?.processed ?? 0}/${status?.total ?? "..."}`
               : isCompleted
-                ? `${status?.succeeded}/${status?.total} concluído`
+                ? `${status?.executionCounts?.completed ?? status?.succeeded}/${status?.total} concluído${(status?.failed ?? 0) > 0 ? ` (${status?.failed} falhas)` : ''}`
                 : isCancelled
                   ? `Cancelado`
                   : `Falha no disparo`}
@@ -301,7 +313,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                 </div>
                 <div className="bg-green-50 rounded-lg p-3 text-center">
                   <p className="text-lg font-bold text-green-800">
-                    {status.succeeded}
+                    {status.executionCounts?.completed ?? status.succeeded}
                   </p>
                   <p className="text-xs text-green-600">Sucesso</p>
                 </div>
@@ -312,6 +324,32 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                   <p className="text-xs text-red-600">Falhas</p>
                 </div>
               </div>
+
+              {/* Detalhamento de status das execuções */}
+              {status.executionCounts && (status.executionCounts.running > 0 || status.executionCounts.waitingReply > 0 || status.executionCounts.delayed > 0 || status.executionCounts.paused > 0) && (
+                <div className="flex flex-wrap gap-2 text-[11px]">
+                  {status.executionCounts.running > 0 && (
+                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                      {status.executionCounts.running} rodando
+                    </span>
+                  )}
+                  {status.executionCounts.waitingReply > 0 && (
+                    <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                      {status.executionCounts.waitingReply} aguardando resposta
+                    </span>
+                  )}
+                  {status.executionCounts.delayed > 0 && (
+                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                      {status.executionCounts.delayed} com delay
+                    </span>
+                  )}
+                  {status.executionCounts.paused > 0 && (
+                    <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+                      {status.executionCounts.paused} cancelados
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Time info */}
               <div className="bg-gray-50 rounded-lg p-3 space-y-2">
@@ -378,7 +416,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                       ? "Todos os disparos foram realizados com sucesso!"
                       : isCancelled
                         ? "Os disparos foram cancelados pelo usuário."
-                        : `${status.succeeded} disparos OK, ${status.failed} falhas`}
+                        : `${status.executionCounts?.completed ?? status.succeeded} disparos OK, ${status.failed} falhas`}
                   </p>
                 </div>
               )}

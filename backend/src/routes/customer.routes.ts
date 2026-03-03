@@ -17,6 +17,8 @@ router.get("/tags", checkPermission("CUSTOMERS", false), asyncHandler(customerCo
 router.get("/:id", checkPermission("CUSTOMERS", false), asyncHandler(customerController.findById.bind(customerController)));
 router.put("/:id", checkPermission("CUSTOMERS", true), asyncHandler(customerController.update.bind(customerController)));
 router.delete("/:id", checkPermission("CUSTOMERS", true), asyncHandler(customerController.delete.bind(customerController)));
+router.patch("/:id/archive", checkPermission("CUSTOMERS", true), asyncHandler(customerController.archive.bind(customerController)));
+router.patch("/:id/unarchive", checkPermission("CUSTOMERS", true), asyncHandler(customerController.unarchive.bind(customerController)));
 router.post("/import", checkPermission("CUSTOMERS", true), asyncHandler(customerController.import.bind(customerController)));
 
 export default router;

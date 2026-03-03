@@ -10,13 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { api } from "@/lib/api";
 import { messageApi } from "@/lib/message";
 import { conversationApi } from "@/lib/conversation";
 import { whatsappApi } from "@/lib/whatsapp";
 import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -38,9 +39,12 @@ interface ChatAreaProps {
   onToggleDetails?: () => void;
   showDetailsButton?: boolean;
   onMarkAsRead?: () => void;
+  isArchived?: boolean;
+  onArchive?: () => void;
+  onUnarchive?: () => void;
 }
 
-export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, onToggleDetails, showDetailsButton, onMarkAsRead }: ChatAreaProps) {
+export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, onToggleDetails, showDetailsButton, onMarkAsRead, isArchived, onArchive, onUnarchive }: ChatAreaProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -70,6 +74,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; type: "image" | "video" } | null>(null);
+  const [activeFlowExecution, setActiveFlowExecution] = useState<{ id: string; flow: { id: string; name: string }; status: string } | null>(null);
+  const [cancellingFlow, setCancellingFlow] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -272,6 +278,19 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       checkIsExample();
     }
   }, [conversation?.id]);
+
+  // Carrega execução de fluxo ativa para o customer
+  useEffect(() => {
+    const fetchActiveExecution = async () => {
+      try {
+        const res = await api.get(`/flows/customer/${customerId}/active-execution`);
+        setActiveFlowExecution(res.data.execution || null);
+      } catch {
+        setActiveFlowExecution(null);
+      }
+    };
+    fetchActiveExecution();
+  }, [customerId]);
 
   // Carrega configuração global de resposta automática
   useEffect(() => {
@@ -694,6 +713,20 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     }
   };
 
+  const handleCancelFlow = async () => {
+    if (!activeFlowExecution) return;
+    try {
+      setCancellingFlow(true);
+      await api.delete(`/flows/executions/${activeFlowExecution.id}/cancel`);
+      setActiveFlowExecution(null);
+      toast.success("Fluxo cancelado com sucesso!");
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Erro ao cancelar fluxo");
+    } finally {
+      setCancellingFlow(false);
+    }
+  };
+
   // Abre modal para marcar como exemplo
   const handleOpenExampleModal = () => {
     setShowExampleModal(true);
@@ -846,24 +879,64 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         {/* Ações */}
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {/* Toggle IA */}
-          <div className="flex items-center gap-2 border-r pr-3 mr-1">
-            <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={handleToggleAi} disabled={togglingAi} className="scale-75 sm:scale-90" />
-            <Label htmlFor="ai-toggle" className="text-xs cursor-pointer whitespace-nowrap">
-              {togglingAi ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : isAiEnabled ? (
-                <span className="flex items-center gap-1 text-green-600">
-                  <Bot className="h-3 w-3" />
-                  IA
-                </span>
-              ) : (
-                <span className="flex items-center gap-1">
-                  <UserIcon className="h-3 w-3" />
-                  Manual
-                </span>
-              )}
-            </Label>
+          <div className="flex flex-col items-center border-r pr-3 mr-1">
+            <span className="text-[10px] text-muted-foreground mb-0.5">Ativação IA</span>
+            <div className="flex items-center gap-2">
+              <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={handleToggleAi} disabled={togglingAi} className="scale-75 sm:scale-90" />
+              <Label htmlFor="ai-toggle" className="text-xs cursor-pointer whitespace-nowrap">
+                {togglingAi ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : isAiEnabled ? (
+                  <span className="flex items-center gap-1 text-green-600">
+                    <Bot className="h-3 w-3" />
+                    IA
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <UserIcon className="h-3 w-3" />
+                    Manual
+                  </span>
+                )}
+              </Label>
+            </div>
           </div>
+
+          {/* Botão Fluxo Ativo */}
+          {activeFlowExecution && (
+            <Button
+              onClick={handleCancelFlow}
+              disabled={cancellingFlow}
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-orange-600 border-orange-300 hover:bg-orange-50 hover:text-orange-700 gap-1"
+              title={`Fluxo ativo: ${activeFlowExecution.flow.name} — Clique para cancelar`}
+            >
+              {cancellingFlow ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <>
+                  <Zap className="h-3 w-3" />
+                  <span className="hidden sm:inline text-[11px]">Parar Fluxo</span>
+                  <Square className="h-2.5 w-2.5" />
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* Botão Arquivar/Desarquivar */}
+          {isArchived ? (
+            onUnarchive && (
+              <Button onClick={onUnarchive} size="sm" variant="outline" className="h-7 px-2 text-green-600 hover:text-green-700" title="Desarquivar">
+                <ArchiveRestore className="h-3 w-3" />
+              </Button>
+            )
+          ) : (
+            onArchive && (
+              <Button onClick={onArchive} size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-destructive" title="Arquivar">
+                <Archive className="h-3 w-3" />
+              </Button>
+            )
+          )}
 
           {/* Botão Marcar como Exemplo */}
           <Button

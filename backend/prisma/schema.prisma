@@ -120,6 +120,7 @@ model Customer {
   state           String?  // Estado (UF) deduzido do DDD
   neighborhood    String? // Bairro do cliente (para cálculo automático de zona)
   lidPhone        String?  @map("lid_phone") // LID alternativo do WhatsApp Business (mapeamento LID↔phone)
+  isArchived      Boolean  @default(false) @map("is_archived") // Contato arquivado (não aparece na lista de conversas)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -140,6 +141,7 @@ model Customer {
   @@index([pipelineStageId])
   @@index([zoneId])
   @@index([lidPhone])
+  @@index([isArchived])
   @@map("customers")
 }
 

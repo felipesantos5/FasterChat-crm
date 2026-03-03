@@ -236,14 +236,22 @@ export class FlowController {
   public async getFlowExecutions(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
     const { companyId } = req.user!;
+    const take = Math.min(parseInt(req.query.take as string) || 20, 100);
+    const skip = parseInt(req.query.skip as string) || 0;
 
-    const executions = await prisma.flowExecution.findMany({
-      where: { flowId: id, flow: { companyId } },
-      orderBy: { startedAt: 'desc' },
-      take: 20
-    });
+    const where = { flowId: id, flow: { companyId } };
 
-    return res.json(executions);
+    const [executions, total] = await Promise.all([
+      prisma.flowExecution.findMany({
+        where,
+        orderBy: { startedAt: 'desc' },
+        take,
+        skip,
+      }),
+      prisma.flowExecution.count({ where }),
+    ]);
+
+    return res.json({ executions, total, take, skip });
   }
 
   public async cancelExecution(req: Request, res: Response): Promise<Response> {
@@ -276,6 +284,88 @@ export class FlowController {
         completedAt: new Date(),
         error: 'Cancelado pelo usuário',
       }
+    });
+
+    return res.json({ success: true });
+  }
+
+  /**
+   * GET /api/flows/customer/:customerId/active-execution
+   * Retorna a execução ativa de fluxo para um customer (se existir)
+   */
+  public async getActiveExecutionByCustomer(req: Request, res: Response): Promise<Response> {
+    const { customerId } = req.params;
+    const { companyId } = req.user!;
+
+    // Busca o customer para pegar o telefone
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, companyId },
+      select: { phone: true, lidPhone: true },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Cliente não encontrado.' });
+    }
+
+    // Busca execução ativa pelo telefone do customer
+    const activeStatuses: FlowExecutionStatus[] = [
+      FlowExecutionStatus.RUNNING,
+      FlowExecutionStatus.WAITING_REPLY,
+      FlowExecutionStatus.DELAYED,
+    ];
+
+    const phoneVariants = [customer.phone];
+    if (customer.lidPhone) phoneVariants.push(customer.lidPhone);
+
+    const execution = await prisma.flowExecution.findFirst({
+      where: {
+        contactPhone: { in: phoneVariants },
+        status: { in: activeStatuses },
+        flow: { companyId },
+      },
+      include: {
+        flow: { select: { id: true, name: true } },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    return res.json({ execution });
+  }
+
+  /**
+   * DELETE /api/flows/executions/:executionId/cancel
+   * Cancela uma execução por ID (sem precisar do flowId)
+   */
+  public async cancelExecutionById(req: Request, res: Response): Promise<Response> {
+    const { executionId } = req.params;
+    const { companyId } = req.user!;
+
+    const execution = await prisma.flowExecution.findFirst({
+      where: { id: executionId, flow: { companyId } },
+    });
+
+    if (!execution) {
+      return res.status(404).json({ error: 'Execução não encontrada.' });
+    }
+
+    const cancellable: FlowExecutionStatus[] = [
+      FlowExecutionStatus.RUNNING,
+      FlowExecutionStatus.WAITING_REPLY,
+      FlowExecutionStatus.DELAYED,
+    ];
+
+    if (!cancellable.includes(execution.status)) {
+      return res.status(400).json({ error: 'Esta execução já foi concluída ou cancelada.' });
+    }
+
+    await prisma.flowExecution.update({
+      where: { id: executionId },
+      data: {
+        status: FlowExecutionStatus.PAUSED,
+        resumesAt: null,
+        completedAt: new Date(),
+        error: 'Cancelado pelo usuário',
+      },
     });
 
     return res.json({ success: true });

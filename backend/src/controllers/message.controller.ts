@@ -50,7 +50,8 @@ class MessageController {
         });
       }
 
-      const conversations = await messageService.getConversations(companyId);
+      const archived = req.query.archived === 'true';
+      const conversations = await messageService.getConversations(companyId, archived ? true : undefined);
 
       return res.status(200).json({
         success: true,

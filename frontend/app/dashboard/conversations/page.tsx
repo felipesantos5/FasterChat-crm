@@ -9,10 +9,11 @@ import { AdvancedFilters, AdvancedFilters as AdvancedFiltersType } from "@/compo
 import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
 import { useConversations } from "@/hooks/use-conversations";
 import { customerApi } from "@/lib/customer";
+import { toast } from "sonner";
 import { whatsappApi } from "@/lib/whatsapp";
 import { Customer } from "@/types/customer";
 import { WhatsAppInstance } from "@/types/whatsapp";
-import { MessageSquare, Search, X, Bot, User, ChevronRight, ArrowLeft, Clock } from "lucide-react";
+import { MessageSquare, Search, X, Bot, User, ChevronRight, ArrowLeft, Clock, Archive } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +22,7 @@ import { ConversationListSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
 
-type FilterType = "all" | "ai" | "human" | "unread" | "needsHelp";
+type FilterType = "all" | "ai" | "human" | "unread" | "needsHelp" | "archived";
 type SortType = "recent" | "oldest" | "name";
 
 // Tipo para conversa pendente (cliente sem mensagens ainda)
@@ -104,7 +105,8 @@ function ConversationsPageContent() {
   const companyId = getCompanyId();
 
   // Usa SWR para gerenciar conversas com cache automático
-  const { conversations, isLoading, isError, mutate } = useConversations(companyId, selectedCustomerId);
+  const isArchivedView = filterType === "archived";
+  const { conversations, isLoading, isError, mutate } = useConversations(companyId, selectedCustomerId, isArchivedView ? true : undefined);
 
   // Carrega os clientes para filtrar por tags
   const loadCustomers = async () => {
@@ -307,6 +309,7 @@ function ConversationsPageContent() {
     assignedToName: null,
     whatsappInstanceId: instances[0]?.id || "",
     whatsappInstanceName: instances[0]?.instanceName || "",
+    isArchived: false,
   } : null);
 
   // Estatísticas
@@ -374,7 +377,7 @@ function ConversationsPageContent() {
           // Mobile: tela cheia quando em view de lista, esconde quando em chat
           "fixed inset-0 z-20 lg:relative lg:z-auto",
           mobileView === "list" ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-          showSidebar ? "lg:w-[360px]" : "lg:w-0",
+          showSidebar ? "lg:w-[365px]" : "lg:w-0",
           "w-full"
         )}
       >
@@ -464,6 +467,10 @@ function ConversationsPageContent() {
                     <Badge variant="destructive" className="text-[10px] h-4 px-1">{stats.unread}</Badge>
                   </Button>
                 )}
+                <Button variant={filterType === "archived" ? "default" : "outline"} size="sm" onClick={() => setFilterType(filterType === "archived" ? "all" : "archived")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
+                  <Archive className="h-3 w-3 mr-1" />
+                  Arquivados
+                </Button>
               </div>
 
             </div>
@@ -528,6 +535,25 @@ function ConversationsPageContent() {
               customerProfilePic={selectedConversation.customerProfilePic}
               onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
               showDetailsButton={true}
+              isArchived={selectedConversation.isArchived ?? false}
+              onArchive={async () => {
+                try {
+                  await customerApi.archive(selectedConversation.customerId);
+                  toast.success("Contato arquivado");
+                  mutate();
+                } catch {
+                  toast.error("Erro ao arquivar contato");
+                }
+              }}
+              onUnarchive={async () => {
+                try {
+                  await customerApi.unarchive(selectedConversation.customerId);
+                  toast.success("Contato desarquivado");
+                  mutate();
+                } catch {
+                  toast.error("Erro ao desarquivar contato");
+                }
+              }}
               onMarkAsRead={() => mutate(
                 (current) => current?.map((c) =>
                   c.customerId === selectedConversation.customerId ? { ...c, unreadCount: 0 } : c

@@ -203,6 +203,7 @@ class MessageService {
       });
 
       if (!message) {
+        console.warn(`[MessageService:StatusUpdate] ⚠️ Mensagem não encontrada: instanceId=${whatsappInstanceId} messageId=${messageId}`);
         return null;
       }
 
@@ -257,8 +258,9 @@ class MessageService {
         }
       }
 
-      // Emite via WebSocket
+      // Emite via WebSocket para atualizar checkmarks em tempo real
       if (websocketService.isInitialized()) {
+        console.log(`[MessageService:StatusUpdate] ✅ ${message.status} → ${status} | msgId=${updatedMessage.id} customer=${updatedMessage.customer.phone}`);
         websocketService.emitMessageStatusUpdate(
           updatedMessage.customer.companyId,
           updatedMessage.id,
@@ -276,13 +278,14 @@ class MessageService {
   /**
    * Obtém resumo de conversas (última mensagem por customer)
    */
-  async getConversations(companyId: string): Promise<ConversationSummary[]> {
+  async getConversations(companyId: string, includeArchived?: boolean): Promise<ConversationSummary[]> {
     try {
       // Busca todas as mensagens da empresa ordenadas por timestamp e createdAt
       const messages = await prisma.message.findMany({
         where: {
           customer: {
             companyId,
+            ...(includeArchived === true ? { isArchived: true } : includeArchived === false || includeArchived === undefined ? { isArchived: false } : {}),
           },
         },
         include: {
@@ -358,6 +361,7 @@ class MessageService {
             assignedToName: conversation?.assignedTo?.name ?? null,
             whatsappInstanceId: message.whatsappInstanceId,
             whatsappInstanceName: message.whatsappInstance.instanceName,
+            isArchived: message.customer.isArchived ?? false,
           });
         }
       }
@@ -386,8 +390,10 @@ class MessageService {
 
     if (!cleanPhone) return { valid: false, reason: 'Número vazio' };
 
-    if (cleanPhone.length < 8) {
-      return { valid: false, reason: `Número muito curto (${cleanPhone.length} dígitos)` };
+    // Mínimo 10 dígitos: telefone real com DDI tem no mínimo 10 dígitos (ex: +1XXXXXXXXX)
+    // Números com 8-9 dígitos (sem DDI) não são válidos como JID do WhatsApp
+    if (cleanPhone.length < 10) {
+      return { valid: false, reason: `Número muito curto para ser telefone real (${cleanPhone.length} dígitos): ${cleanPhone}` };
     }
 
     // 🚨 DETECÇÃO DE LID: Números com 14+ dígitos são quase certamente LIDs, não telefones reais.
@@ -484,8 +490,14 @@ class MessageService {
       // Isso é crítico para não processar grupos como LIDs (já que grupos têm muitos dígitos)
       const isGroup = remoteJid.includes("@g.us");
 
-      // Grupos de WhatsApp não são salvos como clientes — ignora silenciosamente
+      // Ignora JIDs que não são conversas individuais reais
       if (isGroup) {
+        return null;
+      }
+
+      // Filtra broadcast lists, newsletters, status e outros JIDs não-individuais
+      if (remoteJid.includes("@broadcast") || remoteJid.includes("@newsletter") || remoteJid === "status@broadcast") {
+        console.warn(`[MessageService] ⚠️ Ignorando JID não-individual: ${remoteJid}`);
         return null;
       }
 
@@ -505,12 +517,19 @@ class MessageService {
         // TENTATIVAS DE RESOLUÇÃO (em ordem de prioridade)
         // =====================================================
 
+        // Helper: verifica se o número resolvido NÃO é o número da própria instância
+        const instancePhoneClean = instance.phoneNumber?.replace(/\D/g, "") || "";
+        const isNotSelfPhone = (resolved: string): boolean => {
+          if (!instancePhoneClean || !resolved) return true;
+          return !(instancePhoneClean.endsWith(resolved) || resolved.endsWith(instancePhoneClean));
+        };
+
         // 🔑 PRIORIDADE 1: Campo 'senderPn' (sender Phone Number)
         // Este é o campo OFICIAL que a Evolution API fornece para resolver LIDs → telefone real
         // Formato: "5548999999999" ou "5548999999999@s.whatsapp.net"
         if (data.senderPn) {
           const senderPhone = String(data.senderPn).replace("@s.whatsapp.net", "").replace(/\D/g, "");
-          if (senderPhone && senderPhone.length >= 8 && senderPhone.length <= 13) {
+          if (senderPhone && senderPhone.length >= 10 && senderPhone.length <= 13 && isNotSelfPhone(senderPhone)) {
             realJid = `${senderPhone}@s.whatsapp.net`;
             resolvedFromLid = true;
           }
@@ -521,7 +540,7 @@ class MessageService {
           const altJid = String(data.remoteJidAlt);
           if (altJid.includes("@s.whatsapp.net")) {
             const altPhone = altJid.replace("@s.whatsapp.net", "").replace(/\D/g, "");
-            if (altPhone && altPhone.length >= 8 && altPhone.length <= 13) {
+            if (altPhone && altPhone.length >= 10 && altPhone.length <= 13 && isNotSelfPhone(altPhone)) {
               realJid = `${altPhone}@s.whatsapp.net`;
               resolvedFromLid = true;
             }
@@ -533,7 +552,7 @@ class MessageService {
           const participant = String(data.key.participant);
           if (participant.includes("@s.whatsapp.net")) {
             const participantPhone = participant.replace("@s.whatsapp.net", "").replace(/\D/g, "");
-            if (participantPhone && participantPhone.length >= 8 && participantPhone.length <= 13) {
+            if (participantPhone && participantPhone.length >= 10 && participantPhone.length <= 13 && isNotSelfPhone(participantPhone)) {
               realJid = participant;
               resolvedFromLid = true;
             }
@@ -546,7 +565,7 @@ class MessageService {
             const paramStr = String(param);
             if (paramStr.includes("@s.whatsapp.net")) {
               const paramPhone = paramStr.replace("@s.whatsapp.net", "").replace(/\D/g, "");
-              if (paramPhone && paramPhone.length >= 8 && paramPhone.length <= 13) {
+              if (paramPhone && paramPhone.length >= 10 && paramPhone.length <= 13 && isNotSelfPhone(paramPhone)) {
                 realJid = `${paramPhone}@s.whatsapp.net`;
                 resolvedFromLid = true;
                 break;
@@ -561,11 +580,8 @@ class MessageService {
           // Ignora se owner for igual ao nosso próprio número de instância
           if (ownerStr.includes("@s.whatsapp.net")) {
             const ownerPhone = ownerStr.replace("@s.whatsapp.net", "").replace(/\D/g, "");
-            const instancePhone = instance.phoneNumber?.replace(/\D/g, "") || "";
             // Só usa owner se não for o número da instância (owner geralmente é "nós mesmos")
-            // Verifica com endsWith para evitar que variações sem DDI ou DDD escapem
-            if (ownerPhone && ownerPhone.length >= 8 && ownerPhone.length <= 13
-              && (!instancePhone || !instancePhone.endsWith(ownerPhone) && !ownerPhone.endsWith(instancePhone))) {
+            if (ownerPhone && ownerPhone.length >= 10 && ownerPhone.length <= 13 && isNotSelfPhone(ownerPhone)) {
               realJid = `${ownerPhone}@s.whatsapp.net`;
               resolvedFromLid = true;
             }
@@ -638,9 +654,8 @@ class MessageService {
       // Validação final — segurança extra caso algo tenha passado
       const phoneValidation = this.isValidPhoneNumber(phone);
       if (!phoneValidation.valid) {
-        if (phoneValidation.isLid) {
-          console.error(`[MessageService] ❌ Número rejeitado na validação final (LID): ${phone}`);
-        }
+        console.error(`[MessageService] ❌ Número rejeitado na validação final: ${phone} (razão: ${phoneValidation.reason})`);
+        console.error(`[MessageService] 🔍 Debug: remoteJid="${remoteJid}" isLid=${isLid} resolvedFromLid=${resolvedFromLid} senderPn="${data.senderPn || ''}" participant="${data.key?.participant || ''}" owner="${data.owner || ''}"`);
         return null;
       }
 
@@ -761,6 +776,9 @@ class MessageService {
       }
 
       if (!customer) {
+        // 🔍 LOG: Novo customer sendo criado — registra dados para debug
+        console.log(`[MessageService] 🆕 Criando novo customer: phone="${phone}" remoteJid="${remoteJid}" isLid=${isLid} resolvedFromLid=${resolvedFromLid} pushName="${data.pushName || ''}" senderPn="${data.senderPn || ''}" participant="${data.key?.participant || ''}"`);
+
         // 🔧 PREPARA O NOME
         let sanitizedName: string;
 

@@ -42,8 +42,10 @@ export const messageApi = {
   /**
    * Obtém resumo de todas as conversas de uma empresa
    */
-  async getConversations(companyId: string): Promise<GetConversationsResponse> {
-    const response = await api.get(`/messages/conversations/${companyId}`);
+  async getConversations(companyId: string, archived?: boolean): Promise<GetConversationsResponse> {
+    const response = await api.get(`/messages/conversations/${companyId}`, {
+      params: archived ? { archived: 'true' } : undefined,
+    });
     return response.data;
   },
 

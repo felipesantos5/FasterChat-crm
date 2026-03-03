@@ -5,7 +5,7 @@ import { ConversationSummary } from "@/types/message";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, AlertCircle, Users } from "lucide-react";
+import { MessageSquare, AlertCircle, Users, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConversationListProps {
@@ -56,6 +56,7 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
       {conversations.map((conversation) => {
         const needsHelp = conversation.needsHelp;
         const isGroup = conversation.isGroup;
+        const isArchived = conversation.isArchived;
 
         return (
           <div
@@ -65,7 +66,8 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
               "flex items-center gap-2.5 px-3 py-2 border-b cursor-pointer transition-colors hover:bg-accent",
               selectedCustomerId === conversation.customerId && "bg-accent",
               needsHelp && "bg-yellow-50 dark:bg-yellow-900/10 border-l-2 border-l-yellow-500",
-              isGroup && "bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-l-blue-500"
+              isGroup && "bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-l-blue-500",
+              isArchived && "opacity-60"
             )}
           >
             {/* Avatar Compacto */}
@@ -110,6 +112,11 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
                   {needsHelp && (
                     <Badge className="bg-yellow-500 text-white text-[10px] h-4 w-4 px-1 flex-shrink-0 items-center justify-center">
                       !
+                    </Badge>
+                  )}
+                  {isArchived && (
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1 flex-shrink-0">
+                      <Archive className="h-2.5 w-2.5" />
                     </Badge>
                   )}
                 </div>

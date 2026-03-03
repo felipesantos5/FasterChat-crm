@@ -101,4 +101,5 @@ export interface ConversationSummary {
   assignedToName: string | null;
   whatsappInstanceId: string; // ID da instância do WhatsApp
   whatsappInstanceName: string; // Nome da instância
+  isArchived: boolean; // Contato arquivado
 }

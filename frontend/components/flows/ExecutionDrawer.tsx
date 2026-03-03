@@ -24,6 +24,10 @@ type ExecutionDrawerProps = {
   isOpen: boolean;
   onClose: () => void;
   executions: Execution[];
+  total: number;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
   onSelectExecution: (execution: Execution | null) => void;
   selectedExecutionId?: string;
   flowId: string;
@@ -36,6 +40,10 @@ export function ExecutionDrawer({
   isOpen,
   onClose,
   executions,
+  total,
+  hasMore,
+  loadingMore,
+  onLoadMore,
   onSelectExecution,
   selectedExecutionId,
   flowId,
@@ -205,6 +213,11 @@ export function ExecutionDrawer({
         <h2 className="font-bold text-gray-800 flex items-center gap-2">
           <Database size={18} className="text-primary" />
           Execuções Recentes
+          {total > 0 && (
+            <span className="text-xs font-normal text-gray-500">
+              ({executions.length} / {total})
+            </span>
+          )}
         </h2>
         <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
           <X size={20} />
@@ -274,6 +287,27 @@ export function ExecutionDrawer({
             )}
 
             {standaloneExecutions.map(renderExecutionCard)}
+
+            {/* Botão Ver Mais */}
+            {hasMore && (
+              <button
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className="w-full py-3 text-sm font-medium text-primary hover:bg-primary/5 border border-dashed border-primary/30 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Carregando...
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={14} />
+                    Ver mais ({total - executions.length} restantes)
+                  </>
+                )}
+              </button>
+            )}
           </>
         )}
       </div>

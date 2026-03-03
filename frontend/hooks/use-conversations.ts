@@ -5,15 +5,15 @@ import { useWebSocket } from './useWebSocket'
 import { toast } from 'sonner'
 import type { ConversationSummary } from '@/types/message'
 
-export function useConversations(companyId: string | null, selectedCustomerId?: string | null) {
+export function useConversations(companyId: string | null, selectedCustomerId?: string | null, archived?: boolean) {
   // Ref para o fetcher ter acesso ao customerId selecionado sem recriar a key do SWR
   const selectedRef = useRef(selectedCustomerId)
   selectedRef.current = selectedCustomerId
 
   const { data, error, isLoading, mutate } = useSWR<ConversationSummary[]>(
-    companyId ? `/messages/conversations/${companyId}` : null,
+    companyId ? `/messages/conversations/${companyId}${archived ? '?archived=true' : ''}` : null,
     async () => {
-      const response = await messageApi.getConversations(companyId!)
+      const response = await messageApi.getConversations(companyId!, archived)
       const conversations = response.data
 
       // Preserva unreadCount=0 para a conversa que o usuário está visualizando.
