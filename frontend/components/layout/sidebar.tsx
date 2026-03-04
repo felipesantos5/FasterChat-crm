@@ -29,6 +29,7 @@ import { useSidebar } from "@/contexts/SidebarContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useHandoffsCount } from "@/hooks/use-handoffs-count";
+import { useUnreadCount } from "@/hooks/use-unread-count";
 
 // Tipo para os itens de menu
 interface MenuItem {
@@ -149,6 +150,7 @@ export function Sidebar() {
   const { hasPermission, loading } = usePermissions();
   const { user } = useAuthStore();
   const { count: handoffsCount, isError } = useHandoffsCount();
+  const { count: unreadCount } = useUnreadCount(user?.companyId);
 
   useEffect(() => {
     if (isError) {
@@ -296,7 +298,8 @@ export function Sidebar() {
     }
 
     // Item sem submenu (link direto)
-    const showBadge = item.label === "Conversas" && handoffsCount > 0;
+    const showHandoffBadge = item.label === "Conversas" && handoffsCount > 0;
+    const showUnreadBadge = item.label === "Conversas" && unreadCount > 0;
     const isConversas = item.label === "Conversas";
 
     return (
@@ -321,11 +324,22 @@ export function Sidebar() {
           )} />
           <span className={cn("truncate", !isActive && isConversas && "font-semibold")}>{item.label}</span>
         </div>
-        {showBadge && (
-          <div className="flex-shrink-0 flex items-center justify-center w-5 h-5 px-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-full shadow-lg animate-pulse">
-            {handoffsCount}
-          </div>
-        )}
+
+        <div className="flex items-center space-x-1">
+          {/* Badge Laranja para Handoffs (Transbordo Humano) */}
+          {showHandoffBadge && (
+            <div className="flex-shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold rounded-full shadow-lg animate-pulse" title="Transbordos não lidos">
+              {handoffsCount}
+            </div>
+          )}
+
+          {/* Badge Verde para Notificações Gerais (Não Lidas) */}
+          {showUnreadBadge && (
+            <div className="flex-shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-full shadow-lg" title="Mensagens não lidas">
+              {unreadCount}
+            </div>
+          )}
+        </div>
       </Link>
     );
   };

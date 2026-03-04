@@ -222,10 +222,7 @@ export function CustomerDetails({ customerId, customerName, customerPhone, custo
             </div>
           )}
 
-          <div className="flex items-start gap-2 pt-2">
-            <div className="h-4 w-4 text-muted-foreground mt-1.5 flex justify-center items-center">
-              <div className="h-2 w-2 rounded-full border border-current opacity-70"></div>
-            </div>
+          <div className="flex items-start gap-2 pt-1">
             <div className="flex-1 min-w-0">
               <p className="text-xs text-muted-foreground mb-1">Estágio do Funil</p>
               <Select value={currentStageId} onValueChange={handleStageChange} disabled={updatingStage || stages.length === 0}>

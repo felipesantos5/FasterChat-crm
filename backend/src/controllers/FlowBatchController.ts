@@ -177,8 +177,8 @@ export class FlowBatchController {
   // Em vez de loop com setTimeout, enfileira todos os contatos como jobs BullMQ
   // com delays escalonados. A concorrência e rate limiting são controlados pelo worker.
   // ==================================================================================
-  private static readonly BATCH_STAGGER_MIN_MS = 20_000;  // 20s mínimo entre enfileiramentos
-  private static readonly BATCH_STAGGER_MAX_MS = 35_000;  // 35s máximo entre enfileiramentos
+  private static readonly BATCH_STAGGER_MIN_MS = 45_000;  // 45s mínimo entre enfileiramentos
+  private static readonly BATCH_STAGGER_MAX_MS = 90_000;  // 90s máximo entre enfileiramentos
 
   /**
    * Enfileira todos os contatos como jobs BullMQ flow-orchestration com delays escalonados.

@@ -67,6 +67,36 @@ class MessageController {
   }
 
   /**
+   * GET /api/messages/unread-count/:companyId
+   * Obtém quantidade de conversas com mensagens não lidas
+   */
+  async getUnreadConversationsCount(req: Request, res: Response) {
+    try {
+      const { companyId } = req.params;
+
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Company ID is required',
+        });
+      }
+
+      const count = await messageService.getUnreadConversationsCount(companyId);
+
+      return res.status(200).json({
+        success: true,
+        data: { count },
+      });
+    } catch (error: any) {
+      console.error('Error in getUnreadConversationsCount controller:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to get unread conversations count',
+      });
+    }
+  }
+
+  /**
    * POST /api/messages/mark-read
    * Marca mensagens como lidas
    */

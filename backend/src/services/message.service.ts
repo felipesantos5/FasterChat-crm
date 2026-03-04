@@ -377,6 +377,31 @@ class MessageService {
   }
 
   /**
+   * Obtém a quantidade de conversas com mensagens não lidas
+   */
+  async getUnreadConversationsCount(companyId: string): Promise<number> {
+    try {
+      const result = await prisma.message.groupBy({
+        by: ['customerId', 'whatsappInstanceId'],
+        where: {
+          customer: {
+            companyId,
+            isArchived: false,
+          },
+          direction: MessageDirection.INBOUND,
+          status: { not: MessageStatus.READ },
+        },
+        _count: { id: true },
+      });
+
+      return result.length;
+    } catch (error: any) {
+      console.error("Error getting unread conversations count:", error);
+      throw new Error(`Failed to get unread conversations count: ${error.message}`);
+    }
+  }
+
+  /**
    * Valida se um número extraído do remoteJid é um número de telefone válido
    * Detecta e rejeita WABA IDs / LIDs (WhatsApp Business Account IDs)
    *

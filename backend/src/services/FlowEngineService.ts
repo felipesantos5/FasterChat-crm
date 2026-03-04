@@ -198,8 +198,15 @@ export class FlowEngineService {
    * Normaliza telefone para formato brasileiro completo (55 + DDD + número).
    * Garante que o número salvo no banco seja igual ao que o WhatsApp envia via webhook.
    */
-  private normalizeBrazilianPhone(phone: string): string {
+  private normalizePhone(phone: string): string {
+    const hasPlus = phone.trim().startsWith('+');
     const digits = phone.replace(/\D/g, '');
+    
+    // Se digitou com '+', respeita o código do país que o usuário colocou (ex: +1 415 555-2671)
+    if (hasPlus) {
+      return digits;
+    }
+
     // Já tem código do país (55) + DDD + número = 12-13 dígitos
     if (digits.length >= 12 && digits.startsWith('55')) {
       return digits;
@@ -245,8 +252,8 @@ export class FlowEngineService {
   public async startFlowDirect(data: FlowStartJobData): Promise<void> {
     const { flowId, contactPhone, variables } = data;
 
-    // Normaliza para formato WhatsApp: 55 + DDD + número (mesma forma que o webhook recebe)
-    const cleanPhone = this.normalizeBrazilianPhone(contactPhone);
+    // Normaliza para formato WhatsApp, preservando códigos internacionais se tiver '+'
+    const cleanPhone = this.normalizePhone(contactPhone);
 
     // Find the flow and its nodes/edges
     const flow = await prisma.flow.findUnique({

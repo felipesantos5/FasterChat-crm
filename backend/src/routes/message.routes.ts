@@ -17,6 +17,9 @@ router.get('/customer/:customerId', asyncHandler(messageController.getCustomerMe
 // GET /api/messages/conversations/:companyId - Obtém resumo de conversas
 router.get('/conversations/:companyId', asyncHandler(messageController.getConversations));
 
+// GET /api/messages/unread-count/:companyId - Obtém quantidade de conversas com mensagens não lidas
+router.get('/unread-count/:companyId', asyncHandler(messageController.getUnreadConversationsCount));
+
 // POST /api/messages/send - Envia mensagem
 router.post('/send', asyncHandler(messageController.sendMessage));
 

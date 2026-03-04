@@ -7,6 +7,7 @@ import { Customer } from "@/types/customer";
 import { Tag, tagApi } from "@/lib/tag";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ManageStagesModal } from "@/components/pipeline/manage-stages-modal";
 import { Settings2, GripVertical, Phone, Calendar, Users, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -406,8 +407,20 @@ function PipelinePageContent() {
                   >
                     {/* Customer Name */}
                     <div className="flex items-start justify-between mb-1">
-                      <p className="font-bold text-xs text-gray-900 truncate flex-1">{customer.name}</p>
-                      <GripVertical className="h-3.5 w-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab flex-shrink-0" />
+                      <div className="flex items-center gap-2 min-w-0 pr-2 flex-1">
+                        <Avatar className="h-5 w-5 flex-shrink-0 border">
+                          <AvatarImage src={customer.profilePicUrl || undefined} alt={customer.name} />
+                          <AvatarFallback className="bg-primary/5 text-primary text-[9px] font-medium">
+                            {customer.isGroup ? (
+                              <Users className="h-3 w-3" />
+                            ) : (
+                              customer.name?.charAt(0).toUpperCase() || "C"
+                            )}
+                          </AvatarFallback>
+                        </Avatar>
+                        <p className="font-bold text-xs text-gray-900 truncate">{customer.name}</p>
+                      </div>
+                      <GripVertical className="h-3.5 w-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab flex-shrink-0 mt-0.5" />
                     </div>
 
                     <div className="flex items-center gap-3">
