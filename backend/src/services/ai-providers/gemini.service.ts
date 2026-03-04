@@ -986,12 +986,14 @@ class GeminiService {
           }
 
           // Procura a parte que contém a imagem gerada
-          const imagePart = responseParts.find((p: any) => p.inline_data);
-          if (imagePart?.inline_data?.data) {
+          // REST API retorna camelCase (inlineData), não snake_case (inline_data)
+          const imagePart = responseParts.find((p: any) => p.inlineData || p.inline_data);
+          const imageData = imagePart?.inlineData || imagePart?.inline_data;
+          if (imageData?.data) {
             logger.info(`🎨 Image generated successfully with ${model}!`);
             return {
-              base64: imagePart.inline_data.data,
-              mimeType: imagePart.inline_data.mime_type || 'image/png',
+              base64: imageData.data,
+              mimeType: imageData.mimeType || imageData.mime_type || 'image/png',
             };
           }
 
