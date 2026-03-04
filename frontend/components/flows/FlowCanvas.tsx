@@ -30,6 +30,7 @@ import { DelayNode } from './nodes/DelayNode';
 import { AudioNode } from './nodes/AudioNode';
 import { MediaNode } from './nodes/MediaNode';
 import { AiActionNode } from './nodes/AiActionNode';
+import { AiImageNode } from './nodes/AiImageNode';
 import { ValidationNode } from './nodes/ValidationNode';
 import { RandomNode } from './nodes/RandomNode';
 import { NodeSidebar } from './NodeSidebar';
@@ -45,6 +46,7 @@ const nodeTypes = {
   image: MediaNode,
   video: MediaNode,
   ai_action: AiActionNode,
+  ai_image: AiImageNode,
   validation: ValidationNode,
   random: RandomNode,
 };
@@ -303,6 +305,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
     image: 200,
     video: 200,
     ai_action: 160,
+    ai_image: 520,
     validation: 300,
     random: 220,
   };

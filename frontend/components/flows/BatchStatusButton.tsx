@@ -194,12 +194,13 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
 
   if (!visible || !batchId) return null;
 
-  const isProcessing = !status || status.status === "PROCESSING";
+  const isProcessing = !status || (status.status === "PROCESSING" && status.processed < status.total);
   const isPaused = status?.status === "PAUSED";
-  const isCompleted = status?.status === "COMPLETED";
+  const isCompleted = status?.status === "COMPLETED" || (status && status.processed >= status.total && status.status !== "CANCELLED" && status.status !== "FAILED");
   const isFailed = status?.status === "FAILED";
   const isCancelled = status?.status === "CANCELLED";
   const isActive = isProcessing || isPaused;
+  const showCancelButton = !status || (status.processed < status.total && !isCancelled);
   const progressPercent = status
     ? Math.round((status.processed / status.total) * 100)
     : 0;
@@ -250,7 +251,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
             : isProcessing
               ? `Enviando ${status?.processed ?? 0}/${status?.total ?? "..."}`
               : isCompleted
-                ? `${status?.executionCounts?.completed ?? status?.succeeded}/${status?.total} concluído${(status?.failed ?? 0) > 0 ? ` (${status?.failed} falhas)` : ''}`
+                ? `Disparo concluído (${status?.total})`
                 : isCancelled
                   ? `Cancelado`
                   : `Falha no disparo`}
@@ -395,8 +396,8 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
               {isProcessing && (
                 <div className="flex items-center justify-center gap-2 py-1">
                   <Loader2 size={16} className="animate-spin text-primary" />
-                  <span className="text-sm text-gray-500">
-                    Disparando contato {Math.min(status.processed + 1, status.total)} de {status.total}...
+                  <span className="text-sm text-gray-400">
+                    {status.processed === status.total ? "Todos os contatos iniciados." : `Disparando contato ${Math.min(status.processed + 1, status.total)} de ${status.total}...`}
                   </span>
                 </div>
               )}
@@ -445,7 +446,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
               )}
 
               {/* Cancel Button */}
-              {isActive && (
+              {showCancelButton && (
                 <div className="mt-4 flex justify-center border-t pt-4">
                   <button
                     onClick={() => setIsCancelModalOpen(true)}

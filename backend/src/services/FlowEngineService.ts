@@ -6,6 +6,7 @@ import { websocketService } from './websocket.service';
 import { customerService } from './customer.service';
 import flowQueueService from './flow-queue.service';
 import type { FlowStartJobData } from './flow-queue.service';
+import geminiService from './ai-providers/gemini.service';
 
 // ==================================================================================
 // 🛡️ CIRCUIT BREAKER: Protege a Evolution API contra sobrecarga.
@@ -634,6 +635,13 @@ export class FlowEngineService {
           await this.markNodeCompleted(execution.id as string, node.id as string);
           break;
 
+        case 'ai_image':
+          await this.executeAiImageNode(execution, node, data, variables);
+          // Enfileira próximo step com delay anti-spam (envia imagem via WhatsApp)
+          await this.enqueueNextStepWithDelay(execution.id as string, node.id as string);
+          await this.markNodeCompleted(execution.id as string, node.id as string);
+          break;
+
         default:
           console.warn(`[FlowEngine] Unknown node type: ${node.type}`);
           await flowQueueService.enqueueFlowStep({
@@ -814,6 +822,105 @@ export class FlowEngineService {
     } else {
       console.warn(`[FlowEngine] Sem mídia informada no nó ${node.id} do fluxo.`);
     }
+  }
+
+  /**
+   * 🎨 Executa nó de geração de imagem com IA (Gemini).
+   * Combina: imagens de referência (upload) + imagem do CSV (link) + prompt
+   * Gera a imagem via Gemini e envia pelo WhatsApp.
+   */
+  private async executeAiImageNode(
+    execution: Record<string, unknown>,
+    node: Record<string, unknown>,
+    data: Record<string, unknown>,
+    variables: Record<string, unknown>
+  ): Promise<void> {
+    const instance = execution.whatsappInstance as Record<string, unknown> | null;
+    if (!instance) {
+      throw new Error('Nenhuma instância do WhatsApp conectada para enviar imagem IA');
+    }
+
+    const contactPhone = execution.contactPhone as string;
+
+    // 1. Resolve o prompt com variáveis do CSV
+    let prompt = (data.aiPrompt || data.prompt || '') as string;
+    prompt = this.replaceVariables(prompt, variables);
+
+    if (!prompt || prompt.trim() === '') {
+      console.warn(`[FlowEngine] ⚠️ Prompt de geração de imagem está vazio no nó ${(node as any).id}`);
+      throw new Error('Prompt de geração de imagem não pode estar vazio');
+    }
+
+    // 2. Coleta imagens de referência (uploads estáticos do nó)
+    const referenceImages: Array<{ data: string; mimeType?: string }> = [];
+
+    const staticRefs = (data.referenceImages || []) as Array<{ url: string; mimeType?: string }>;
+    for (const ref of staticRefs) {
+      if (ref.url) {
+        referenceImages.push({ data: ref.url, mimeType: ref.mimeType });
+      }
+    }
+
+    // 3. Resolve imagem do CSV (variável com link)
+    const csvImageVar = (data.csvImageVariable || '') as string;
+    if (csvImageVar) {
+      const resolvedUrl = this.replaceVariables(csvImageVar, variables);
+      // Só adiciona se a variável foi resolvida para uma URL válida
+      if (resolvedUrl && (resolvedUrl.startsWith('http://') || resolvedUrl.startsWith('https://'))) {
+        referenceImages.push({ data: resolvedUrl });
+      } else if (resolvedUrl && resolvedUrl !== csvImageVar) {
+        // Pode ser base64 direto
+        referenceImages.push({ data: resolvedUrl });
+      }
+    }
+
+    console.log(`[FlowEngine] 🎨 Gerando imagem IA | prompt="${prompt.substring(0, 80)}..." | refs=${referenceImages.length}`);
+
+    // 4. Presence (composing) enquanto gera
+    try {
+      await whatsappService.sendPresence(instance.id as string, contactPhone, 5000, 'composing');
+    } catch (presenceErr: unknown) {
+      const error = presenceErr instanceof Error ? presenceErr : new Error(String(presenceErr));
+      console.warn(`[FlowEngine] ⚠️ Falha ao enviar presença (não crítico):`, error.message);
+    }
+
+    // 5. Gera a imagem via Gemini
+    const generated = await geminiService.generateImage(prompt, referenceImages);
+
+    // 6. Converte para o formato base64 que a Evolution API aceita
+    const mediaBase64 = `data:${generated.mimeType};base64,${generated.base64}`;
+
+    // 7. Resolve caption opcional
+    let caption = (data.aiCaption || undefined) as string | undefined;
+    if (caption) {
+      caption = this.replaceVariables(caption, variables);
+    }
+
+    // 8. Envia pelo WhatsApp
+    const result = await this.sendWithRetry(
+      () => whatsappService.sendMedia({
+        instanceId: instance.id as string,
+        to: contactPhone,
+        mediaBase64: mediaBase64,
+        mediaType: 'image',
+        caption: caption,
+      }),
+      `sendAiImage(${contactPhone})`
+    );
+
+    // 🔗 Captura LID
+    await this.storeLidMapping(execution, result?.remoteJid as string | undefined);
+
+    // 💾 Salvar na conversa
+    await this.saveFlowMessageToConversation(
+      execution, instance,
+      caption || '[Imagem gerada por IA]',
+      result?.messageId as string | undefined,
+      'image',
+      mediaBase64
+    );
+
+    console.log(`[FlowEngine] 🎨 Imagem IA enviada com sucesso para ${contactPhone}`);
   }
 
   private async executeConditionNode(execution: Record<string, unknown>, node: Record<string, unknown>, data: Record<string, unknown>): Promise<void> {

@@ -32,11 +32,19 @@ export function ImportCustomersDialog({ isOpen, onClose, onSuccess }: ImportCust
 
   const parseCSV = (text: string) => {
     const lines = text.split("\n");
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+    const rawHeaders = lines[0].split(",").map((h) => h.trim().toLowerCase());
 
-    // Validação básica de headers
-    if (!headers.includes("name") || !headers.includes("phone")) {
-      throw new Error('O CSV deve conter colunas "name" e "phone"');
+    // Mapeamento de aliases PT → campo interno
+    const aliasMap: Record<string, string> = {
+      telefone: "phone",
+      nome: "name",
+      notas: "notes",
+    };
+    const headers = rawHeaders.map((h) => aliasMap[h] || h);
+
+    // Apenas "phone" (ou "telefone") é obrigatório
+    if (!headers.includes("phone")) {
+      throw new Error('O CSV deve conter a coluna "telefone" (ou "phone")');
     }
 
     return lines
@@ -58,7 +66,7 @@ export function ImportCustomersDialog({ isOpen, onClose, onSuccess }: ImportCust
         });
 
         return {
-          name: entry.name,
+          name: entry.name || "",
           phone: entry.phone?.replace(/\D/g, ""), // Limpa o telefone
           email: entry.email,
           tags: entry.tags || [],
@@ -128,9 +136,9 @@ export function ImportCustomersDialog({ isOpen, onClose, onSuccess }: ImportCust
         <DialogHeader>
           <DialogTitle>Importar Clientes</DialogTitle>
           <DialogDescription>
-            Selecione um arquivo CSV para importar. O arquivo deve ter as colunas: <code className="bg-muted px-1">name</code>,{" "}
-            <code className="bg-muted px-1">phone</code>, <code className="bg-muted px-1">email</code>, <code className="bg-muted px-1">tags</code>{" "}
-            (separadas por ;).
+            Selecione um arquivo CSV para importar. A coluna obrigatória é: <code className="bg-muted px-1">telefone</code>.{" "}
+            Colunas opcionais: <code className="bg-muted px-1">nome</code>, <code className="bg-muted px-1">email</code>, <code className="bg-muted px-1">tags</code>{" "}
+            (separadas por ;), <code className="bg-muted px-1">notas</code>.
           </DialogDescription>
         </DialogHeader>
 
@@ -158,11 +166,11 @@ export function ImportCustomersDialog({ isOpen, onClose, onSuccess }: ImportCust
           <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded">
             <strong>Exemplo de formato (CSV):</strong>
             <pre className="mt-1">
-              name,phone,email,tags,notes
+              telefone,nome,email,tags,notas
               <br />
-              João Silva,551199999999,joao@email.com,VIP;Lead,Cliente antigo
+              551199999999,João Silva,joao@email.com,VIP;Lead,Cliente antigo
               <br />
-              Maria Santos,552198888888,,Novo,Interessada em Instalação
+              552198888888,Maria Santos,,Novo,Interessada em Instalação
             </pre>
           </div>
         </div>

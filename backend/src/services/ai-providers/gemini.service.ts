@@ -844,6 +844,138 @@ class GeminiService {
     logger.info(`Generated ${results.length} embeddings successfully`);
     return results;
   }
+
+  /**
+   * 🎨 Gera imagem usando Gemini com suporte a imagens de referência.
+   * 
+   * Usa o modelo gemini-2.0-flash-exp-image-generation via REST API,
+   * que suporta geração de imagem a partir de prompt + imagens de contexto.
+   * 
+   * @param prompt - Instrução descrevendo a imagem a ser gerada
+   * @param referenceImages - Array de imagens de referência (base64 ou URL)
+   * @returns Base64 da imagem gerada (JPEG)
+   */
+  async generateImage(
+    prompt: string,
+    referenceImages: Array<{ data: string; mimeType?: string }> = []
+  ): Promise<{ base64: string; mimeType: string }> {
+    const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('GOOGLE_AI_API_KEY não configurada para geração de imagem');
+    }
+
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= GEMINI_CONFIG.MAX_RETRIES; attempt++) {
+      try {
+        logger.info(`🎨 Generating image (attempt ${attempt}/${GEMINI_CONFIG.MAX_RETRIES})`);
+
+        // Monta as parts: prompt + imagens de referência
+        const parts: any[] = [];
+
+        // Adiciona prompt de texto
+        parts.push({ text: prompt });
+
+        // Baixa e adiciona imagens de referência
+        for (const ref of referenceImages) {
+          let imageBase64 = ref.data;
+          let mimeType = ref.mimeType || 'image/jpeg';
+
+          // Se for URL, faz download
+          if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
+            logger.debug('Downloading reference image from URL...');
+            try {
+              const response = await axios.get(imageBase64, {
+                responseType: 'arraybuffer',
+                timeout: GEMINI_CONFIG.MEDIA_DOWNLOAD_TIMEOUT,
+              });
+              imageBase64 = Buffer.from(response.data).toString('base64');
+
+              // Detecta mimeType do response
+              const contentType = response.headers['content-type'];
+              if (contentType && contentType.startsWith('image/')) {
+                mimeType = contentType.split(';')[0].trim();
+              }
+              logger.debug(`Reference image downloaded: ${(response.data.byteLength / 1024).toFixed(2)} KB`);
+            } catch (dlErr: any) {
+              logger.warn(`Failed to download reference image: ${dlErr.message}`);
+              continue; // Pula esta imagem e continua com as outras
+            }
+          } else {
+            // Remove prefixo data:image/... se presente
+            const match = imageBase64.match(/^data:(image\/[^;]+);base64,(.+)$/);
+            if (match) {
+              mimeType = match[1];
+              imageBase64 = match[2];
+            }
+          }
+
+          parts.push({
+            inline_data: {
+              mime_type: mimeType,
+              data: imageBase64,
+            },
+          });
+        }
+
+        // Chama a REST API diretamente (SDK não suporta responseModalities: image)
+        const model = 'gemini-2.0-flash-exp-image-generation';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+        const response = await axios.post(
+          url,
+          {
+            contents: [{ parts }],
+            generationConfig: {
+              responseModalities: ['TEXT', 'IMAGE'],
+            },
+          },
+          {
+            timeout: 60000, // 60s — geração de imagem é mais lenta
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+
+        // Extrai imagem do response
+        const candidates = response.data?.candidates;
+        if (!candidates || candidates.length === 0) {
+          throw new Error('Nenhum candidato retornado pela API de geração de imagem');
+        }
+
+        const responseParts = candidates[0]?.content?.parts;
+        if (!responseParts || responseParts.length === 0) {
+          throw new Error('Resposta vazia da API de geração de imagem');
+        }
+
+        // Procura a parte que contém a imagem gerada
+        const imagePart = responseParts.find((p: any) => p.inline_data);
+        if (!imagePart?.inline_data?.data) {
+          // Pode ter retornado apenas texto (ex: bloqueio de segurança)
+          const textPart = responseParts.find((p: any) => p.text);
+          const reason = textPart?.text || 'Motivo desconhecido';
+          throw new Error(`API não retornou imagem. Resposta: ${reason.substring(0, 200)}`);
+        }
+
+        logger.info('🎨 Image generated successfully');
+        return {
+          base64: imagePart.inline_data.data,
+          mimeType: imagePart.inline_data.mime_type || 'image/png',
+        };
+      } catch (error: any) {
+        lastError = error;
+        logger.warn(`Image generation attempt ${attempt} failed: ${error.message}`);
+
+        if (attempt < GEMINI_CONFIG.MAX_RETRIES && this.isRetryableError(error)) {
+          const delay = GEMINI_CONFIG.RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          logger.debug(`Waiting ${delay}ms before retry...`);
+          await sleep(delay);
+        }
+      }
+    }
+
+    logger.error('All image generation attempts failed');
+    throw new Error(`Falha ao gerar imagem: ${lastError?.message}`);
+  }
 }
 
 export default new GeminiService();
