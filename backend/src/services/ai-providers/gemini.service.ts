@@ -864,11 +864,12 @@ class GeminiService {
       throw new Error('GOOGLE_AI_API_KEY não configurada para geração de imagem');
     }
 
-    // Modelos com suporte a geração de imagem, em ordem de prioridade
+    // Modelos com suporte a geração de imagem (oficial Google AI docs)
+    // Ordem: melhor custo-benefício → mais barato → pro
     const IMAGE_MODELS = [
-      'gemini-2.0-flash-exp',
-      'gemini-2.0-flash-preview-image-generation',
-      'gemini-2.0-flash',
+      'gemini-3.1-flash-image-preview',  // Nano Banana 2 — melhor custo-benefício
+      'gemini-2.5-flash-image',           // Nano Banana — mais rápido/barato
+      'gemini-3-pro-image-preview',       // Nano Banana Pro — qualidade profissional
     ];
 
     // Monta as parts: prompt + imagens de referência
