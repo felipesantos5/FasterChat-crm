@@ -45,6 +45,7 @@ import {
   StickyNote,
 } from "lucide-react";
 import { TagBadge } from "@/components/ui/tag-badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tag } from "@/lib/tag";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -299,11 +300,31 @@ export default function CustomerDetailPage() {
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
+          {/* Avatar do cliente */}
+          <Avatar className="h-14 w-14 border-2 border-primary/20 shadow-sm">
+            <AvatarImage src={customer.profilePicUrl || undefined} alt={customer.name} />
+            <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
+              {customer.name.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
               {customer.isGroup && (
                 <Badge variant="secondary">Grupo</Badge>
+              )}
+              {customer.pipelineStage && (
+                <Badge
+                  variant="outline"
+                  className="text-xs font-semibold px-2.5 py-0.5"
+                  style={{
+                    backgroundColor: `${customer.pipelineStage.color}18`,
+                    borderColor: customer.pipelineStage.color,
+                    color: customer.pipelineStage.color,
+                  }}
+                >
+                  {customer.pipelineStage.name}
+                </Badge>
               )}
             </div>
             <p className="text-muted-foreground">Detalhes do cliente</p>
@@ -599,8 +620,8 @@ export default function CustomerDetailPage() {
                                   <Star
                                     key={i}
                                     className={`h-3 w-3 ${i < card.rating!
-                                        ? "fill-yellow-400 text-yellow-400"
-                                        : "text-gray-300"
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-gray-300"
                                       }`}
                                   />
                                 ))}

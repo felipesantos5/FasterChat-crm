@@ -42,37 +42,34 @@ import {
 type PhaseType = "trigger" | "question" | "action" | "output";
 type View = "list" | "editor";
 
+// Cores simplificadas usando o sistema de design do site (verde)
 const STEP_COLORS: Record<
   PhaseType,
-  { accent: string; bg: string; border: string; badge: string; glow: string }
+  { accent: string; bg: string; border: string; badge: string }
 > = {
   trigger: {
-    accent: "text-violet-400",
-    bg: "bg-violet-500/10",
-    border: "border-violet-500/25",
-    badge: "bg-violet-500/20 text-violet-300",
-    glow: "shadow-violet-500/10",
+    accent: "text-primary",
+    bg: "bg-accent",
+    border: "border-primary/20",
+    badge: "bg-primary/10 text-primary",
   },
   question: {
-    accent: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/25",
-    badge: "bg-blue-500/20 text-blue-300",
-    glow: "shadow-blue-500/10",
+    accent: "text-blue-600",
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+    badge: "bg-blue-100 text-blue-700",
   },
   action: {
-    accent: "text-amber-400",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/25",
-    badge: "bg-amber-500/20 text-amber-300",
-    glow: "shadow-amber-500/10",
+    accent: "text-amber-600",
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    badge: "bg-amber-100 text-amber-700",
   },
   output: {
-    accent: "text-emerald-400",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/25",
-    badge: "bg-emerald-500/20 text-emerald-300",
-    glow: "shadow-emerald-500/10",
+    accent: "text-primary",
+    bg: "bg-accent",
+    border: "border-primary/20",
+    badge: "bg-primary/10 text-primary",
   },
 };
 
@@ -108,13 +105,13 @@ function TagBadge({
   onRemove?: () => void;
 }) {
   return (
-    <span className="group/tag inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-violet-500/15 text-violet-300 border border-violet-500/20 transition-all hover:bg-violet-500/25">
-      <Tag size={10} className="opacity-50" />
+    <span className="group/tag inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-accent text-accent-foreground border border-primary/20 transition-all hover:bg-primary/15">
+      <Tag size={10} className="opacity-60" />
       {text}
       {onRemove && (
         <button
           onClick={onRemove}
-          className="ml-0.5 opacity-0 group-hover/tag:opacity-100 hover:text-red-400 transition-all"
+          className="ml-0.5 opacity-0 group-hover/tag:opacity-100 hover:text-red-500 transition-all"
           type="button"
         >
           <X size={11} />
@@ -149,8 +146,8 @@ function TagInput({
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-white/70">{label}</label>
-      <div className="flex flex-wrap gap-2 p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] min-h-[52px] focus-within:border-violet-500/40 transition-colors">
+      <label className="text-sm font-medium text-zinc-700">{label}</label>
+      <div className="flex flex-wrap gap-2 p-3 bg-white rounded-xl border border-zinc-200 min-h-[52px] focus-within:border-primary/40 transition-colors">
         {values.map((v) => (
           <TagBadge
             key={v}
@@ -168,11 +165,11 @@ function TagInput({
             }
           }}
           placeholder={values.length === 0 ? placeholder : "Adicionar..."}
-          className="flex-1 min-w-[140px] bg-transparent text-sm text-white placeholder:text-white/25 outline-none"
+          className="flex-1 min-w-[140px] bg-transparent text-sm text-zinc-800 placeholder:text-zinc-400 outline-none"
         />
       </div>
       {helperText && (
-        <p className="text-xs text-white/30 flex items-center gap-1.5">
+        <p className="text-xs text-zinc-500 flex items-center gap-1.5">
           <Info size={10} />
           {helperText}
         </p>
@@ -194,20 +191,20 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-start gap-3 mb-4">
-      <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-        <Icon size={16} className="text-violet-400" />
+      <div className="w-9 h-9 rounded-xl bg-accent border border-primary/20 flex items-center justify-center flex-shrink-0">
+        <Icon size={16} className="text-primary" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-white">{title}</h3>
+          <h3 className="text-sm font-semibold text-zinc-800">{title}</h3>
           {badge && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-violet-500/15 text-violet-400 border border-violet-500/20">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-accent text-primary border border-primary/20">
               {badge}
             </span>
           )}
         </div>
         {description && (
-          <p className="text-xs text-white/40 mt-0.5">{description}</p>
+          <p className="text-xs text-zinc-500 mt-0.5">{description}</p>
         )}
       </div>
     </div>
@@ -241,11 +238,11 @@ function StepCard({
 
   return (
     <div
-      className={`group rounded-2xl border ${colors.border} ${colors.bg} overflow-hidden transition-all duration-200 hover:shadow-lg ${colors.glow}`}
+      className={`group rounded-xl border ${colors.border} ${colors.bg} overflow-hidden transition-all duration-200 hover:shadow-md`}
     >
       {/* Collapsed header */}
       <div
-        className="flex items-center gap-3 px-4 py-3.5 cursor-pointer"
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
         {/* Step number + reorder */}
@@ -256,7 +253,7 @@ function StepCard({
               onMoveUp();
             }}
             disabled={index === 0}
-            className="text-white/15 hover:text-white/50 disabled:opacity-0 transition-all p-0.5"
+            className="text-zinc-400 hover:text-zinc-600 disabled:opacity-0 transition-all p-0.5"
           >
             <ChevronUp size={12} />
           </button>
@@ -271,7 +268,7 @@ function StepCard({
               onMoveDown();
             }}
             disabled={index === total - 1}
-            className="text-white/15 hover:text-white/50 disabled:opacity-0 transition-all p-0.5"
+            className="text-zinc-400 hover:text-zinc-600 disabled:opacity-0 transition-all p-0.5"
           >
             <ChevronDown size={12} />
           </button>
@@ -290,7 +287,7 @@ function StepCard({
                 {STEP_LABELS[phase.type]}
               </span>
             </div>
-            <p className="text-sm font-medium text-white truncate">
+            <p className="text-sm font-medium text-zinc-800 truncate">
               {phase.title || "Passo sem título"}
             </p>
           </div>
@@ -303,27 +300,27 @@ function StepCard({
               e.stopPropagation();
               onDelete();
             }}
-            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-white/30 hover:text-red-400 transition-all"
+            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-100 text-zinc-400 hover:text-red-500 transition-all"
           >
             <Trash2 size={13} />
           </button>
           <div
             className={`p-1.5 rounded-lg transition-transform ${expanded ? "rotate-180" : ""}`}
           >
-            <ChevronDown size={14} className="text-white/30" />
+            <ChevronDown size={14} className="text-zinc-400" />
           </div>
         </div>
       </div>
 
       {/* Expanded editor */}
       {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-white/[0.06] space-y-4 animate-in slide-in-from-top-2 duration-200">
+        <div className="px-4 pb-4 pt-1 border-t border-zinc-100 space-y-4 animate-in slide-in-from-top-2 duration-200">
           {/* Type selector */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-white/40">
+            <label className="text-xs font-medium text-zinc-500">
               Tipo do passo
             </label>
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 flex-wrap">
               {(Object.keys(STEP_LABELS) as PhaseType[]).map((t) => {
                 const c = STEP_COLORS[t];
                 return (
@@ -331,8 +328,8 @@ function StepCard({
                     key={t}
                     onClick={() => onChange({ ...phase, type: t })}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${phase.type === t
-                      ? `${c.bg} ${c.border} ${c.accent}`
-                      : "bg-white/[0.03] border-white/[0.06] text-white/30 hover:bg-white/[0.06] hover:text-white/50"
+                        ? `${c.bg} ${c.border} ${c.accent}`
+                        : "bg-white border-zinc-200 text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600"
                       }`}
                   >
                     {STEP_ICONS_DEFAULT[t]} {STEP_LABELS[t]}
@@ -345,17 +342,17 @@ function StepCard({
           {/* Emoji + Title */}
           <div className="flex gap-3">
             <div className="relative">
-              <label className="text-xs font-medium text-white/40 block mb-1.5">
+              <label className="text-xs font-medium text-zinc-500 block mb-1.5">
                 Ícone
               </label>
               <button
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="w-12 h-10 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-lg hover:bg-white/[0.08] transition-colors"
+                className="w-12 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center text-lg hover:bg-zinc-50 transition-colors"
               >
                 {phase.icon || STEP_ICONS_DEFAULT[phase.type]}
               </button>
               {showEmojiPicker && (
-                <div className="absolute top-full left-0 mt-1 z-20 p-2 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-2xl shadow-black/40 w-[220px]">
+                <div className="absolute top-full left-0 mt-1 z-20 p-2 bg-white border border-zinc-200 rounded-xl shadow-xl w-[220px]">
                   <div className="grid grid-cols-6 gap-1">
                     {EMOJI_SUGGESTIONS.map((emoji) => (
                       <button
@@ -364,7 +361,7 @@ function StepCard({
                           onChange({ ...phase, icon: emoji });
                           setShowEmojiPicker(false);
                         }}
-                        className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-base transition-colors"
+                        className="w-8 h-8 rounded-lg hover:bg-zinc-100 flex items-center justify-center text-base transition-colors"
                       >
                         {emoji}
                       </button>
@@ -374,13 +371,13 @@ function StepCard({
               )}
             </div>
             <div className="flex-1">
-              <label className="text-xs font-medium text-white/40 block mb-1.5">
+              <label className="text-xs font-medium text-zinc-500 block mb-1.5">
                 Título do passo
               </label>
               <input
                 value={phase.title}
                 onChange={(e) => onChange({ ...phase, title: e.target.value })}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 outline-none focus:border-violet-500/40 transition-colors"
+                className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-primary/40 transition-colors"
                 placeholder="Ex: Verificar se já comprou o equipamento"
               />
             </div>
@@ -388,7 +385,7 @@ function StepCard({
 
           {/* Description / AI instruction */}
           <div>
-            <label className="text-xs font-medium text-white/40 block mb-1.5">
+            <label className="text-xs font-medium text-zinc-500 block mb-1.5">
               Instrução para a IA
             </label>
             <textarea
@@ -397,7 +394,7 @@ function StepCard({
                 onChange({ ...phase, description: e.target.value })
               }
               rows={3}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 outline-none focus:border-violet-500/40 resize-none transition-colors leading-relaxed"
+              className="w-full bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-sm text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-primary/40 resize-none transition-colors leading-relaxed"
               placeholder="Descreva detalhadamente o que a IA deve fazer ou perguntar neste passo. Exemplo: Pergunte se o cliente já comprou o equipamento. Se não comprou, ofereça ajuda na escolha de marca e envie os valores disponíveis."
             />
           </div>
@@ -428,34 +425,34 @@ function ScriptCard({
 
   return (
     <div
-      className={`group relative rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${script.enabled
-        ? "bg-white/[0.03] border-white/[0.08] hover:border-violet-500/30 hover:bg-white/[0.05] hover:shadow-lg hover:shadow-violet-500/5"
-        : "bg-white/[0.015] border-white/[0.05] opacity-50 hover:opacity-70"
+      className={`group relative rounded-xl border transition-all duration-200 cursor-pointer overflow-hidden ${script.enabled
+          ? "bg-white border-zinc-200 hover:border-primary/30 hover:shadow-md hover:shadow-primary/5"
+          : "bg-zinc-50 border-zinc-200 opacity-50 hover:opacity-70"
         }`}
       onClick={onSelect}
     >
       {/* Active indicator bar */}
       {script.enabled && (
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500/0 via-violet-500/60 to-violet-500/0" />
+        <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-primary/70 rounded-t-xl" />
       )}
 
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2.5 mb-2">
-              <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                <Bot size={14} className="text-violet-400" />
+              <div className="w-8 h-8 rounded-xl bg-accent border border-primary/20 flex items-center justify-center flex-shrink-0">
+                <Bot size={14} className="text-primary" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-semibold text-white truncate">
+                <h3 className="text-sm font-semibold text-zinc-800 truncate">
                   {script.label}
                 </h3>
                 <div className="flex items-center gap-3 mt-0.5">
-                  <span className="flex items-center gap-1 text-xs text-white/30">
+                  <span className="flex items-center gap-1 text-xs text-zinc-400">
                     <ClipboardList size={10} />
                     {phaseCount} {phaseCount === 1 ? "passo" : "passos"}
                   </span>
-                  <span className="flex items-center gap-1 text-xs text-white/30">
+                  <span className="flex items-center gap-1 text-xs text-zinc-400">
                     <Tag size={10} />
                     {triggerCount}{" "}
                     {triggerCount === 1 ? "gatilho" : "gatilhos"}
@@ -480,13 +477,13 @@ function ScriptCard({
                         </span>
                       </span>
                       {i < Math.min(script.phases.length - 1, 3) && (
-                        <ArrowRight size={10} className="text-white/15" />
+                        <ArrowRight size={10} className="text-zinc-300" />
                       )}
                     </div>
                   );
                 })}
                 {script.phases.length > 4 && (
-                  <span className="text-[11px] text-white/25 ml-1">
+                  <span className="text-[11px] text-zinc-400 ml-1">
                     +{script.phases.length - 4} mais
                   </span>
                 )}
@@ -501,7 +498,7 @@ function ScriptCard({
                 e.stopPropagation();
                 onToggle();
               }}
-              className={`flex items-center gap-1 transition-all ${script.enabled ? "text-violet-400" : "text-white/20"
+              className={`flex items-center gap-1 transition-all ${script.enabled ? "text-primary" : "text-zinc-300"
                 }`}
               title={script.enabled ? "Desativar script" : "Ativar script"}
             >
@@ -516,7 +513,7 @@ function ScriptCard({
                 e.stopPropagation();
                 onDuplicate();
               }}
-              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-white/10 text-white/25 hover:text-white/60 transition-all"
+              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-all"
               title="Duplicar script"
             >
               <Copy size={13} />
@@ -573,7 +570,6 @@ function ScriptEditor({
       description: "",
     };
     setPhases([...phases, newPhase]);
-    // Scroll to bottom after adding
     setTimeout(() => {
       stepsEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 100);
@@ -622,15 +618,15 @@ function ScriptEditor({
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={onBack}
-          className="p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/50 hover:text-white transition-all border border-white/[0.06]"
+          className="p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-zinc-500 hover:text-zinc-900 transition-all border border-zinc-200"
         >
           <ChevronLeft size={18} />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] text-white/30 uppercase tracking-widest font-semibold">
+          <p className="text-[11px] text-zinc-400 uppercase tracking-widest font-semibold">
             {isCreating ? "Novo Script" : "Editando Script"}
           </p>
-          <h2 className="text-lg font-bold text-white truncate">
+          <h2 className="text-lg font-bold text-zinc-800 truncate">
             {label || "Script sem nome"}
           </h2>
         </div>
@@ -639,8 +635,8 @@ function ScriptEditor({
             <button
               onClick={() => setEnabled(!enabled)}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${enabled
-                ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
-                : "bg-white/[0.03] border-white/[0.06] text-white/30"
+                  ? "bg-accent border-primary/20 text-primary"
+                  : "bg-white border-zinc-200 text-zinc-400"
                 }`}
             >
               {enabled ? <Eye size={13} /> : <EyeOff size={13} />}
@@ -650,7 +646,7 @@ function ScriptEditor({
           {!isCreating && onDelete && (
             <button
               onClick={onDelete}
-              className="p-2.5 rounded-xl hover:bg-red-500/15 text-white/25 hover:text-red-400 transition-all border border-transparent hover:border-red-500/20"
+              className="p-2.5 rounded-xl hover:bg-red-50 text-zinc-400 hover:text-red-500 transition-all border border-transparent hover:border-red-200"
             >
               <Trash2 size={15} />
             </button>
@@ -658,7 +654,7 @@ function ScriptEditor({
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-all disabled:opacity-50 shadow-lg shadow-violet-600/20"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-all disabled:opacity-50 shadow-md shadow-primary/20"
           >
             {isSaving ? (
               <Loader2 size={15} className="animate-spin" />
@@ -671,9 +667,9 @@ function ScriptEditor({
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto space-y-8 pb-8">
+      <div className="flex-1 overflow-y-auto space-y-5 pb-8">
         {/* ── Section 1: Basic Info ── */}
-        <section className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
+        <section className="bg-white border border-zinc-200 rounded-xl p-5">
           <SectionHeader
             icon={FileText}
             title="Informações do Script"
@@ -683,12 +679,12 @@ function ScriptEditor({
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Ex: Instalação de Ar Condicionado"
-            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-base font-medium placeholder:text-white/20 outline-none focus:border-violet-500/40 transition-colors"
+            className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 text-zinc-800 text-base font-medium placeholder:text-zinc-400 outline-none focus:border-primary/40 transition-colors"
           />
         </section>
 
         {/* ── Section 2: Triggers ── */}
-        <section className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
+        <section className="bg-white border border-zinc-200 rounded-xl p-5">
           <SectionHeader
             icon={Zap}
             title="Gatilhos de Ativação"
@@ -696,11 +692,11 @@ function ScriptEditor({
             badge={`${triggers.length} gatilho${triggers.length !== 1 ? "s" : ""}`}
           />
 
-          <div className="mb-4 p-3.5 bg-blue-500/[0.06] border border-blue-500/15 rounded-xl">
-            <p className="text-xs text-blue-300/70 leading-relaxed flex items-start gap-2">
+          <div className="mb-4 p-3.5 bg-accent/60 border border-primary/15 rounded-xl">
+            <p className="text-xs text-zinc-600 leading-relaxed flex items-start gap-2">
               <Sparkles
                 size={14}
-                className="text-blue-400 mt-0.5 flex-shrink-0"
+                className="text-primary mt-0.5 flex-shrink-0"
               />
               Quando o cliente enviar uma mensagem contendo qualquer uma dessas
               palavras, a IA entrará automaticamente neste script de
@@ -718,7 +714,7 @@ function ScriptEditor({
         </section>
 
         {/* ── Section 3: Steps/Phases ── */}
-        <section className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
+        <section className="bg-white border border-zinc-200 rounded-xl p-5">
           <SectionHeader
             icon={ClipboardList}
             title="Roteiro de Atendimento"
@@ -728,24 +724,23 @@ function ScriptEditor({
 
           {phases.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-3">
-                <MessageSquare size={22} className="text-white/15" />
+              <div className="w-14 h-14 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-3">
+                <MessageSquare size={22} className="text-zinc-300" />
               </div>
-              <p className="text-sm font-medium text-white/40 mb-1">
+              <p className="text-sm font-medium text-zinc-500 mb-1">
                 Nenhum passo adicionado
               </p>
-              <p className="text-xs text-white/25 max-w-[280px] mb-5">
+              <p className="text-xs text-zinc-400 max-w-[280px] mb-5">
                 Adicione passos para criar o roteiro que a IA vai seguir durante
                 o atendimento
               </p>
             </div>
           ) : (
-            <div className="space-y-3 mb-4">
-              {/* Connection line visual */}
+            <div className="space-y-2.5 mb-4">
               {phases.map((phase, i) => (
                 <div key={phase.id} className="relative">
                   {i > 0 && (
-                    <div className="absolute -top-1.5 left-[34px] w-px h-1.5 bg-white/10" />
+                    <div className="absolute -top-1.5 left-[34px] w-px h-1.5 bg-zinc-100" />
                   )}
                   <StepCard
                     phase={phase}
@@ -765,25 +760,25 @@ function ScriptEditor({
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => addPhase("question")}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-blue-500/25 bg-blue-500/[0.05] text-blue-400 text-xs font-medium hover:bg-blue-500/10 hover:border-blue-500/40 transition-all"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-blue-200 bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition-all"
             >
               <Plus size={13} /> Pergunta
             </button>
             <button
               onClick={() => addPhase("action")}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-amber-500/25 bg-amber-500/[0.05] text-amber-400 text-xs font-medium hover:bg-amber-500/10 hover:border-amber-500/40 transition-all"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-amber-200 bg-amber-50 text-amber-600 text-xs font-medium hover:bg-amber-100 transition-all"
             >
               <Plus size={13} /> Ação
             </button>
             <button
               onClick={() => addPhase("trigger")}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-violet-500/25 bg-violet-500/[0.05] text-violet-400 text-xs font-medium hover:bg-violet-500/10 hover:border-violet-500/40 transition-all"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-primary/25 bg-accent text-primary text-xs font-medium hover:bg-primary/15 transition-all"
             >
               <Plus size={13} /> Gatilho
             </button>
             <button
               onClick={() => addPhase("output")}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-emerald-500/25 bg-emerald-500/[0.05] text-emerald-400 text-xs font-medium hover:bg-emerald-500/10 hover:border-emerald-500/40 transition-all"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-primary/25 bg-accent text-primary text-xs font-medium hover:bg-primary/15 transition-all"
             >
               <Plus size={13} /> Saída
             </button>
@@ -792,7 +787,7 @@ function ScriptEditor({
         </section>
 
         {/* ── Section 4: Required Data ── */}
-        <section className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
+        <section className="bg-white border border-zinc-200 rounded-xl p-5">
           <SectionHeader
             icon={CheckCheck}
             title="Dados Obrigatórios"
@@ -808,7 +803,7 @@ function ScriptEditor({
         </section>
 
         {/* ── Section 5: Custom Instructions ── */}
-        <section className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
+        <section className="bg-white border border-zinc-200 rounded-xl p-5">
           <SectionHeader
             icon={Sparkles}
             title="Instruções Adicionais"
@@ -819,9 +814,9 @@ function ScriptEditor({
             onChange={(e) => setCustomInstructions(e.target.value)}
             rows={5}
             placeholder="Ex: Sempre ofereça desconto para pacotes de 2 ou mais aparelhos. O valor da visita técnica é R$ 290,00 e pode ser abatido no orçamento final..."
-            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 outline-none focus:border-violet-500/40 resize-none transition-colors leading-relaxed"
+            className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 text-sm text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-primary/40 resize-none transition-colors leading-relaxed"
           />
-          <p className="text-xs text-white/25 mt-2 flex items-center gap-1.5">
+          <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1.5">
             <Info size={10} />
             Estas instruções são adicionadas ao roteiro e guiam o comportamento
             da IA durante o script
@@ -908,7 +903,10 @@ export default function IntentScriptsPage() {
         label: `${script.label} (cópia)`,
         triggers: [...script.triggers],
         requiredData: [...script.requiredData],
-        phases: script.phases.map((p) => ({ ...p, id: `phase_${Date.now()}_${Math.random().toString(36).substr(2, 4)}` })),
+        phases: script.phases.map((p) => ({
+          ...p,
+          id: `phase_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        })),
         customInstructions: script.customInstructions,
       });
       setScripts((prev) => [...prev, res.data]);
@@ -983,22 +981,22 @@ export default function IntentScriptsPage() {
   const activeCount = scripts.filter((s) => s.enabled).length;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-8">
         {view === "list" ? (
           <>
             {/* Page header */}
             <div className="flex items-start justify-between mb-6">
               <div>
-                <div className="flex items-center gap-3 mb-1.5">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500/25 to-violet-600/15 border border-violet-500/20 flex items-center justify-center">
-                    <Bot size={18} className="text-violet-400" />
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-10 h-10 rounded-xl bg-accent border border-primary/20 flex items-center justify-center">
+                    <Bot size={18} className="text-primary" />
                   </div>
                   <div>
-                    <h1 className="text-xl font-bold text-white">
+                    <h1 className="text-xl font-bold text-zinc-800">
                       Scripts de Atendimento
                     </h1>
-                    <p className="text-xs text-white/35">
+                    <p className="text-xs text-zinc-500">
                       {scripts.length}{" "}
                       {scripts.length === 1 ? "script" : "scripts"} •{" "}
                       {activeCount}{" "}
@@ -1010,7 +1008,7 @@ export default function IntentScriptsPage() {
 
               <button
                 onClick={handleCreateNew}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-all shadow-lg shadow-violet-600/20"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-all shadow-md shadow-primary/20"
               >
                 <Plus size={16} />
                 Novo Script
@@ -1018,16 +1016,16 @@ export default function IntentScriptsPage() {
             </div>
 
             {/* Info banner */}
-            <div className="mb-5 p-4 bg-gradient-to-r from-blue-500/[0.06] to-violet-500/[0.04] border border-blue-500/12 rounded-2xl">
+            <div className="mb-5 p-4 bg-accent/60 border border-primary/15 rounded-xl">
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
-                  <HelpCircle size={14} className="text-blue-400" />
+                <div className="w-8 h-8 rounded-xl bg-white border border-primary/20 flex items-center justify-center flex-shrink-0">
+                  <HelpCircle size={14} className="text-primary" />
                 </div>
                 <div className="text-sm">
-                  <p className="font-semibold text-white/80 mb-1">
+                  <p className="font-semibold text-zinc-700 mb-1">
                     Como funciona?
                   </p>
-                  <p className="text-white/40 leading-relaxed text-xs">
+                  <p className="text-zinc-500 leading-relaxed text-xs">
                     Quando um cliente mencionar palavras-chave configuradas
                     em um script, a IA entra automaticamente no roteiro de
                     atendimento, seguindo os passos e coletando as
@@ -1043,13 +1041,13 @@ export default function IntentScriptsPage() {
               <div className="mb-4 relative">
                 <Search
                   size={15}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/20"
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"
                 />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar scripts..."
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/25 outline-none focus:border-violet-500/30 transition-colors"
+                  className="w-full bg-white border border-zinc-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-primary/30 transition-colors"
                 />
               </div>
             )}
@@ -1057,31 +1055,31 @@ export default function IntentScriptsPage() {
             {/* Script list */}
             {loading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 size={28} className="animate-spin text-white/20" />
+                <Loader2 size={28} className="animate-spin text-primary/50" />
               </div>
             ) : filteredScripts.length === 0 && searchQuery ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <Search size={28} className="text-white/15 mb-3" />
-                <p className="text-sm text-white/40">
+                <Search size={28} className="text-zinc-300 mb-3" />
+                <p className="text-sm text-zinc-500">
                   Nenhum script encontrado para &ldquo;{searchQuery}&rdquo;
                 </p>
               </div>
             ) : scripts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-500/10 to-blue-500/10 border border-white/[0.06] flex items-center justify-center mb-5">
-                  <MessageSquare size={32} className="text-white/15" />
+                <div className="w-20 h-20 rounded-2xl bg-accent border border-primary/15 flex items-center justify-center mb-5">
+                  <MessageSquare size={32} className="text-primary/50" />
                 </div>
-                <h3 className="text-base font-semibold text-white/60 mb-1.5">
+                <h3 className="text-base font-semibold text-zinc-700 mb-1.5">
                   Nenhum script criado
                 </h3>
-                <p className="text-sm text-white/30 max-w-[320px] mb-6 leading-relaxed">
+                <p className="text-sm text-zinc-400 max-w-[320px] mb-6 leading-relaxed">
                   Crie seu primeiro script para que a IA siga um roteiro
                   estruturado quando detectar uma intenção específica do
                   cliente.
                 </p>
                 <button
                   onClick={handleCreateNew}
-                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-all shadow-lg shadow-violet-600/20"
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-semibold transition-all shadow-md shadow-primary/20"
                 >
                   <Plus size={16} />
                   Criar primeiro script
