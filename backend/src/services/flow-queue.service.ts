@@ -84,7 +84,7 @@ class FlowQueueService {
    * O worker de orchestration vai chamar flowEngine.startFlowDirect().
    */
   async enqueueFlowStart(data: FlowStartJobData, options?: { delay?: number }): Promise<void> {
-    const jobId = `start:${data.flowId}:${data.contactPhone}:${Date.now()}`;
+    const jobId = `start_${data.flowId}_${data.contactPhone}_${Date.now()}`;
     await this.orchestrationQueue.add('start-flow', data, {
       jobId,
       delay: options?.delay || 0,
@@ -99,7 +99,7 @@ class FlowQueueService {
     data: FlowStepJobData,
     options?: { delay?: number; jobId?: string }
   ): Promise<void> {
-    const jobId = options?.jobId || `step:${data.executionId}:${data.nodeId}:${Date.now()}`;
+    const jobId = options?.jobId || `step_${data.executionId}_${data.nodeId}_${Date.now()}`;
     await this.stepQueue.add('execute-step', data, {
       jobId,
       delay: options?.delay || 0,
@@ -114,7 +114,7 @@ class FlowQueueService {
    * Remove o job de timeout de um nó condition (quando o cliente responde antes do timeout).
    */
   async removeTimeoutJob(executionId: string, nodeId: string): Promise<void> {
-    const jobId = `timeout:${executionId}:${nodeId}`;
+    const jobId = `timeout_${executionId}_${nodeId}`;
     try {
       const job = await this.stepQueue.getJob(jobId);
       if (job) {

@@ -265,6 +265,7 @@ export class FlowController {
     let variables: { key: string, value: any }[] = [];
     if (flow.lastWebhookPayload && typeof flow.lastWebhookPayload === 'object') {
       variables = FlowController.flattenObjectWithValues(flow.lastWebhookPayload);
+      variables = variables.filter(v => v.key !== 'phone');
     }
 
     return res.json({ variables });

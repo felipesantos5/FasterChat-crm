@@ -847,7 +847,7 @@ export class FlowEngineService {
 
     await flowQueueService.enqueueFlowStep(
       { executionId, nodeId, sourceHandle: 'nao_respondeu' },
-      { delay: timeoutMs, jobId: `timeout:${executionId}:${nodeId}` }
+      { delay: timeoutMs, jobId: `timeout_${executionId}_${nodeId}` }
     );
   }
 
