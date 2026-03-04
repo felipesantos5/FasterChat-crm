@@ -292,6 +292,7 @@ export class FlowBatchController {
       return res.json({
         ...batch,
         status: derivedStatus,
+        processed: realTotal + batch.failed,
         // Sobrescreve com contadores reais do banco e adiciona as falhas de enfileiramento que ficaram só na memória
         succeeded: realSucceeded + realActive, // ativos ainda estão "ok" (não falharam)
         failed: realFailed + realPaused + batch.failed, // pausados pelo usuário + falhos + falhas de enqueue

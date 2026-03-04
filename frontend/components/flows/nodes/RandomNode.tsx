@@ -29,6 +29,10 @@ export const RandomNode = memo(({ id, data }: any) => {
 
   const handleEnabledChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const count = Number(e.target.value);
+    togglePathCount(count);
+  };
+
+  const togglePathCount = useCallback((count: number) => {
     const equalPercent = Math.floor(100 / count);
     const remainder = 100 - equalPercent * count;
 
@@ -37,7 +41,7 @@ export const RandomNode = memo(({ id, data }: any) => {
       percent: i < count ? (i === 0 ? equalPercent + remainder : equalPercent) : 0,
     }));
     updatePaths(newPaths, count);
-  };
+  }, [paths, updatePaths]);
 
   const handlePercentChange = (index: number, value: number) => {
     const clamped = Math.max(0, Math.min(100, value));
@@ -119,9 +123,14 @@ export const RandomNode = memo(({ id, data }: any) => {
           return (
             <div
               key={path.id}
+              onClick={() => {
+                if (index === 2) {
+                  togglePathCount(isEnabled ? 2 : 3);
+                }
+              }}
               className={`flex items-center justify-between p-2.5 rounded-lg border relative transition-all ${isEnabled
-                ? `${colors.bg} ${colors.border} hover:opacity-90`
-                : 'bg-gray-50 border-gray-100 opacity-50'
+                ? `${colors.bg} ${colors.border} ${index === 2 ? 'hover:opacity-90 cursor-pointer' : ''}`
+                : 'bg-gray-50 border-gray-100 opacity-50 hover:opacity-100 cursor-pointer'
                 }`}
             >
               <div className="flex items-center gap-2 flex-1">
@@ -129,7 +138,7 @@ export const RandomNode = memo(({ id, data }: any) => {
                   Caminho {colors.label}
                 </span>
                 {isEnabled ? (
-                  <div className="flex items-center gap-1 ml-auto mr-2">
+                  <div className="flex items-center gap-1 ml-auto mr-2" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="number"
                       min={0}
@@ -141,7 +150,7 @@ export const RandomNode = memo(({ id, data }: any) => {
                     <span className={`text-xs font-bold ${colors.text}`}>%</span>
                   </div>
                 ) : (
-                  <span className="text-[10px] text-gray-400 ml-auto mr-2">desabilitado</span>
+                  <span className="text-[10px] text-gray-400 ml-auto mr-2">clique para ativar</span>
                 )}
               </div>
               <Handle

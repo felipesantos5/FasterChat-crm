@@ -474,7 +474,7 @@ export function FlowBatchUploadModal({
                   <div className="flex items-center gap-2">
                     <Loader2 size={18} className="animate-spin text-primary" />
                     <span className="text-sm text-gray-500">
-                      Disparando contato {batchStatus.processed + 1} de{" "}
+                      Disparando contato {Math.min(batchStatus.processed + 1, batchStatus.total)} de{" "}
                       {batchStatus.total}...
                     </span>
                   </div>

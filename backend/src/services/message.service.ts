@@ -419,6 +419,49 @@ class MessageService {
   }
 
   /**
+   * Valida se um número resolvido de um LID parece um telefone real.
+   * Rejeita IDs internos do WhatsApp Business que a Evolution API retorna
+   * como se fossem telefones (ex: "2500068408", "1555XXXXXXX").
+   *
+   * Telefones válidos aceitos:
+   * - Brasil: 55 + DDD(11-99) + 8-9 dígitos → 12-13 dígitos
+   * - Internacional: qualquer DDI reconhecido + número local
+   *
+   * Rejeita:
+   * - Números que começam com DDIs inexistentes ou suspeitos
+   * - Números com menos de 10 ou mais de 13 dígitos
+   */
+  private isValidResolvedPhone(phone: string): boolean {
+    const clean = phone.replace(/\D/g, '');
+
+    // Muito curto ou muito longo para ser telefone real
+    if (clean.length < 10 || clean.length > 15) return false;
+
+    // Brasil: deve começar com 55 + DDD válido (11-99, sendo que DDDs reais são 11-99 exceto faixas inválidas)
+    if (clean.startsWith('55')) {
+      const ddd = parseInt(clean.substring(2, 4), 10);
+      // DDDs brasileiros válidos: 11-99 (na prática 11-99, com alguns vazios, mas sempre >= 11)
+      if (ddd >= 11 && ddd <= 99) return true;
+      // 55 + DDD inválido (ex: 5500, 5501, etc.)
+      return false;
+    }
+
+    // DDIs internacionais comuns (1=EUA/CA, 44=UK, 34=ES, 351=PT, 54=AR, 56=CL, 57=CO, 58=VE, 593=EC, 595=PY, 598=UY)
+    const validInternationalPrefixes = ['1', '44', '34', '351', '54', '56', '57', '58', '593', '595', '598', '49', '33', '39', '81', '86', '91'];
+    for (const prefix of validInternationalPrefixes) {
+      if (clean.startsWith(prefix) && clean.length >= 10) return true;
+    }
+
+    // Números que começam com 25, 15, ou outros prefixos que NÃO são DDIs reais
+    // e que a Evolution API retorna como "resolução" de LIDs → rejeitar
+    // DDI 25 não existe, DDI 15 não existe
+    // Se não bateu nenhum DDI reconhecido e tem 10-11 dígitos, pode ser telefone local sem DDI
+    // Mas após resolução de LID, esperamos o formato completo com DDI → rejeitar
+    console.warn(`[MessageService] 🔍 isValidResolvedPhone: "${clean}" não corresponde a nenhum DDI reconhecido. Rejeitando.`);
+    return false;
+  }
+
+  /**
    * Valida e sanitiza o pushName recebido do webhook
    * Detecta quando pushName contém IDs numéricos ao invés de nomes reais
    *
@@ -670,6 +713,28 @@ class MessageService {
       // Log do resultado da resolução LID
       if (isLid) {
         console.log(`[MessageService] 🔍 LID RESOLUÇÃO | original="${remoteJid}" → realJid="${realJid}" resolved=${resolvedFromLid}`);
+      }
+
+      // ==================================================================================
+      // 🛡️ VALIDAÇÃO PÓS-RESOLUÇÃO DE LID
+      // Quando a Evolution API resolve um LID, pode retornar um número inválido
+      // (ex: IDs internos do WhatsApp Business como "2500068408" que não são telefones reais).
+      // Se o LID foi resolvido mas o resultado não parece um telefone brasileiro válido,
+      // rejeitamos para não criar customers fantasma.
+      // ==================================================================================
+      if (isLid && resolvedFromLid) {
+        const resolvedPhone = realJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "");
+        if (!this.isValidResolvedPhone(resolvedPhone)) {
+          console.warn(`[MessageService] 🚫 LID resolvido para número inválido: LID="${remoteJid}" → resolved="${resolvedPhone}". Descartando mensagem (provavelmente auto-reply de WhatsApp Business).`);
+          console.warn(`[MessageService] 🔍 Payload descartado: pushName="${data.pushName || ''}" msgPreview="${String(data.message?.conversation || data.message?.extendedTextMessage?.text || '').substring(0, 100)}"`);
+          return null;
+        }
+      }
+
+      // Se o LID não foi resolvido por nenhuma prioridade, descarta — não criar customer com LID bruto
+      if (isLid && !resolvedFromLid) {
+        console.warn(`[MessageService] 🚫 LID não resolvido por nenhuma prioridade. Descartando: remoteJid="${remoteJid}" pushName="${data.pushName || ''}"`);
+        return null;
       }
 
       // Remove os domínios para ficar apenas o número/ID limpo

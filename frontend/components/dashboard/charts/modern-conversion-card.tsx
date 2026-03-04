@@ -1,6 +1,6 @@
 "use client";
 
-import { Target, Users, CheckCircle2 } from "lucide-react";
+import { Target, Users, CheckCircle2, XCircle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -43,11 +43,33 @@ export function ModernConversionCard({ data }: ModernConversionCardProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground">Fechamentos (Última Etapa)</p>
-              <span className="text-sm font-bold">{data.convertedLeads}</span>
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/30">
+            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <div className="flex-1 flex justify-between items-center">
+              <div>
+                <p className="text-xs text-green-700 dark:text-green-300 font-medium">Fechamentos / Vendas</p>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-sm font-bold text-green-800 dark:text-green-200">{data.convertedLeads}</span>
+                </div>
+              </div>
+              <div className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-800/50 px-2 py-0.5 rounded-full">
+                {data.conversionRate}%
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30">
+            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <div className="flex-1 flex justify-between items-center">
+              <div>
+                <p className="text-xs text-red-700 dark:text-red-300 font-medium">Clientes Perdidos</p>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-sm font-bold text-red-800 dark:text-red-200">{data.lostLeads || 0}</span>
+                </div>
+              </div>
+              <div className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-800/50 px-2 py-0.5 rounded-full">
+                {data.lostRate || 0}%
+              </div>
             </div>
           </div>
         </div>

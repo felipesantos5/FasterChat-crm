@@ -396,7 +396,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                 <div className="flex items-center justify-center gap-2 py-1">
                   <Loader2 size={16} className="animate-spin text-primary" />
                   <span className="text-sm text-gray-500">
-                    Disparando contato {status.processed + 1} de {status.total}...
+                    Disparando contato {Math.min(status.processed + 1, status.total)} de {status.total}...
                   </span>
                 </div>
               )}

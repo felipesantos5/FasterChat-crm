@@ -82,6 +82,8 @@ interface OverallConversionData {
   totalLeads: number;
   convertedLeads: number;
   conversionRate: number;
+  lostLeads: number;
+  lostRate: number;
 }
 
 interface BatchEngagementData {
@@ -998,6 +1000,15 @@ class DashboardService {
       select: { id: true }
     });
 
+    // Busca também o estágio de "perdido" ou que seja marcado como perdas/cancelados
+    const lostStage = await prisma.pipelineStage.findFirst({
+      where: { 
+        companyId, 
+        name: { contains: "perdid", mode: "insensitive" }
+      },
+      select: { id: true }
+    });
+
     const totalLeads = await prisma.customer.count({
       where: { companyId, createdAt: { gte: startDate, lte: endDate } }
     });
@@ -1009,12 +1020,22 @@ class DashboardService {
       });
     }
 
+    let lostLeads = 0;
+    if (lostStage && lostStage.id !== lastStage?.id) {
+      lostLeads = await prisma.customer.count({
+        where: { companyId, pipelineStageId: lostStage.id, createdAt: { gte: startDate, lte: endDate } }
+      });
+    }
+
     const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+    const lostRate = totalLeads > 0 ? (lostLeads / totalLeads) * 100 : 0;
     
     return {
       totalLeads,
       convertedLeads,
-      conversionRate: Math.round(conversionRate * 10) / 10
+      conversionRate: Math.round(conversionRate * 10) / 10,
+      lostLeads,
+      lostRate: Math.round(lostRate * 10) / 10
     };
   }
 

@@ -90,6 +90,8 @@ export interface OverallConversionData {
   totalLeads: number;
   convertedLeads: number;
   conversionRate: number;
+  lostLeads: number;
+  lostRate: number;
 }
 
 export interface BatchEngagementData {
