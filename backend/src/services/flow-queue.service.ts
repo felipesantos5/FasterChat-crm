@@ -155,6 +155,30 @@ class FlowQueueService {
     }
   }
 
+  /**
+   * Remove todos os jobs de disparo em massa de um batch pendente (usado no cancelamento).
+   */
+  async removeOrchestrationJobsForBatch(batchId: string): Promise<void> {
+    try {
+      const delayed = await this.orchestrationQueue.getDelayed();
+      for (const job of delayed) {
+        if (job.data.variables?._batchId === batchId) {
+          await job.remove();
+        }
+      }
+
+      const waiting = await this.orchestrationQueue.getWaiting();
+      for (const job of waiting) {
+        if (job.data.variables?._batchId === batchId) {
+          await job.remove();
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      console.warn(`[FlowQueue] ⚠️ Falha ao remover jobs orchestration do batch ${batchId}: ${message}`);
+    }
+  }
+
   // ==================================================================================
   // WORKERS
   // ==================================================================================

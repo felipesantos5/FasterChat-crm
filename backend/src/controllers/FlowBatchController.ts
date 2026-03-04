@@ -283,21 +283,28 @@ export class FlowBatchController {
       const realActive = (realCounts['RUNNING'] || 0) + (realCounts['WAITING_REPLY'] || 0) + (realCounts['DELAYED'] || 0);
       const realPaused = (realCounts['PAUSED'] || 0);
 
+      let derivedStatus = batch.status;
+      // Se terminou de enfileirar mas ainda tem execuções rodando/agendadas, mantemos como PROCESSING para o frontend
+      if (batch.status === 'COMPLETED' && realActive > 0) {
+        derivedStatus = 'PROCESSING';
+      }
+
       return res.json({
         ...batch,
-        // Sobrescreve com contadores reais do banco
+        status: derivedStatus,
+        // Sobrescreve com contadores reais do banco e adiciona as falhas de enfileiramento que ficaram só na memória
         succeeded: realSucceeded + realActive, // ativos ainda estão "ok" (não falharam)
-        failed: realFailed + realPaused, // pausados pelo usuário + falhos
+        failed: realFailed + realPaused + batch.failed, // pausados pelo usuário + falhos + falhas de enqueue
         // Detalhe granular para o frontend usar se quiser
         executionCounts: {
           completed: realCounts['COMPLETED'] || 0,
           running: realCounts['RUNNING'] || 0,
           waitingReply: realCounts['WAITING_REPLY'] || 0,
           delayed: realCounts['DELAYED'] || 0,
-          failed: realCounts['FAILED'] || 0,
+          failed: (realCounts['FAILED'] || 0) + batch.failed, // Falhas do DB + Erros ao colocar na fila
           paused: realCounts['PAUSED'] || 0,
           forceCancelled: realCounts['FORCE_CANCELLED'] || 0,
-          total: realTotal,
+          total: realTotal + batch.failed,
         },
       });
     } catch (err) {
@@ -337,10 +344,29 @@ export class FlowBatchController {
       return res.status(404).json({ error: 'Batch não encontrado.' });
     }
 
-    if (batch.status === 'PROCESSING' || batch.status === 'PAUSED') {
+    // Permitir cancelamento se estiver processando/pausado OU se já "completou" de enfileirar
+    // mas o usuário clicou em cancelar porque percebeu que as mensagens estão na fila
+    if (batch.status === 'PROCESSING' || batch.status === 'PAUSED' || batch.status === 'COMPLETED') {
       batch.status = 'CANCELLED';
       batch.completedAt = new Date();
       batch.pausedUntil = null;
+
+      // 1. Cancelar execuções ativas já registradas no banco de dados para este lote
+      await prisma.flowExecution.updateMany({
+        where: {
+          variables: { path: ['_batchId'], equals: batchId },
+          status: { in: ['RUNNING', 'WAITING_REPLY', 'DELAYED'] }
+        },
+        data: {
+          status: 'PAUSED', // Marcamos como paused (falha manual)
+          resumesAt: null,
+          error: 'Cancelado pelo usuário no disparo em massa.',
+        }
+      });
+
+      // 2. Remover os disparos pendentes (escalonados) que ainda nem começaram no BullMQ
+      await flowQueueService.removeOrchestrationJobsForBatch(batchId);
+
       return res.json({ message: 'Disparo cancelado com sucesso.', batch });
     }
 

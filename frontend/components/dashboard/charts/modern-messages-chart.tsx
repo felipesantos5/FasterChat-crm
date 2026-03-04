@@ -85,7 +85,7 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
         <CardTitle className="text-base">Visão Geral de Mensagens</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 pb-0 px-4">
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
+        <ChartContainer config={chartConfig} className="h-[270px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={formattedData}

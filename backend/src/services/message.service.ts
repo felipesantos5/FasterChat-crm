@@ -482,6 +482,17 @@ class MessageService {
       // ao invés de @lid, fazendo o número parecer um telefone válido mas com 14+ dígitos.
       // Precisamos detectar isso e resolver o número real.
       // ==================================================================================
+      // ==================================================================================
+      // 📋 LOG DE ENTRADA: Dados brutos do webhook para debug de routing
+      // ==================================================================================
+      const msgText = data.message?.conversation
+        || data.message?.extendedTextMessage?.text
+        || data.message?.imageMessage?.caption
+        || '[mídia sem texto]';
+      const msgPreview = String(msgText).substring(0, 80);
+      console.log(`[MessageService] 📩 INBOUND | instance="${instanceName}" remoteJid="${remoteJid}" fromMe=${data.key?.fromMe} pushName="${data.pushName || ''}" msgType="${data.messageType || ''}" preview="${msgPreview}"`);
+      console.log(`[MessageService] 📩 INBOUND EXTRA | senderPn="${data.senderPn || ''}" participant="${data.key?.participant || ''}" remoteJidAlt="${data.remoteJidAlt || ''}" owner="${data.owner || ''}" messageStubParams=${JSON.stringify(data.messageStubParameters || [])}`);
+
       let realJid = remoteJid;
       let isLid = false;
       let resolvedFromLid = false;
@@ -606,9 +617,12 @@ class MessageService {
         // Mas quando o WA Business responde, o remoteJid vem como LID. Como nenhum mapeamento foi criado,
         // todas as prioridades anteriores falham. Aqui buscamos uma execução de fluxo aguardando resposta
         // na mesma instância e sem contactLid mapeado.
+        //
+        // ⚠️ SEGURANÇA: Só usa esta heurística se houver EXATAMENTE 1 execução WAITING_REPLY sem LID.
+        // Se houver múltiplas (ex: disparo em massa), NÃO podemos adivinhar qual é — seria routing errado.
         if (!resolvedFromLid) {
           try {
-            const waitingExec = await prisma.flowExecution.findFirst({
+            const waitingExecs = await prisma.flowExecution.findMany({
               where: {
                 status: 'WAITING_REPLY',
                 flow: { companyId: instance.companyId },
@@ -618,12 +632,14 @@ class MessageService {
               },
               orderBy: { updatedAt: 'desc' },
               select: { id: true, contactPhone: true },
+              take: 2, // Só precisa saber se tem 1 ou mais
             });
 
-            if (waitingExec) {
+            if (waitingExecs.length === 1) {
+              const waitingExec = waitingExecs[0];
               realJid = `${waitingExec.contactPhone}@s.whatsapp.net`;
               resolvedFromLid = true;
-              console.log(`[MessageService] 🔗 PRIORIDADE 7: LID "${lidId}" resolvido via FlowExecution WAITING_REPLY → phone "${waitingExec.contactPhone}"`);
+              console.log(`[MessageService] 🔗 PRIORIDADE 7: LID "${lidId}" resolvido via FlowExecution WAITING_REPLY (única) → phone "${waitingExec.contactPhone}"`);
 
               // Armazena o mapeamento LID para futuras resoluções
               await prisma.flowExecution.update({
@@ -641,11 +657,19 @@ class MessageService {
               });
 
               console.log(`[MessageService] 🔗 LID mapping criado: phone "${waitingExec.contactPhone}" → LID "${lidId}"`);
+            } else if (waitingExecs.length > 1) {
+              console.warn(`[MessageService] ⚠️ PRIORIDADE 7 IGNORADA: ${waitingExecs.length} execuções WAITING_REPLY sem LID na mesma instância. Não é possível adivinhar qual contato respondeu. LID="${lidId}"`);
             }
-          } catch (p7Error: any) {
-            console.warn(`[MessageService] ⚠️ Falha na PRIORIDADE 7 (FlowExecution WAITING_REPLY): ${p7Error.message}`);
+          } catch (p7Error: unknown) {
+            const msg = p7Error instanceof Error ? p7Error.message : String(p7Error);
+            console.warn(`[MessageService] ⚠️ Falha na PRIORIDADE 7 (FlowExecution WAITING_REPLY): ${msg}`);
           }
         }
+      }
+
+      // Log do resultado da resolução LID
+      if (isLid) {
+        console.log(`[MessageService] 🔍 LID RESOLUÇÃO | original="${remoteJid}" → realJid="${realJid}" resolved=${resolvedFromLid}`);
       }
 
       // Remove os domínios para ficar apenas o número/ID limpo
@@ -686,23 +710,44 @@ class MessageService {
       // ==================================================================================
 
       let customer = null;
+      let customerSource = 'NEW'; // Rastreia qual caminho encontrou o customer
 
-      // 🌟 ANTI-DUPLICATA POR FLUXO ATIVO: Se o cliente tem um fluxo aguardando resposta para essa variação
-      // de número (com/sem 9º dígito), prioriza o número exato atrelado ao fluxo.
+      console.log(`[MessageService] 🔍 CUSTOMER LOOKUP | phone="${phone}" isLid=${isLid} resolvedFromLid=${resolvedFromLid} companyId="${instance.companyId}"`);
+
+      // 🌟 ANTI-DUPLICATA POR FLUXO ATIVO: Se o cliente tem um fluxo aguardando resposta,
+      // prioriza o número exato atrelado ao fluxo usando variantes do 9º dígito.
       // Isso impede que `findByPhoneWithVariant` priorize um cliente duplicado ou crie um novo.
+      //
+      // ⚠️ Usa busca exata com variantes (não endsWith) para evitar match cruzado em batch.
       if (!isGroup) {
-        let rightDigits = phone.replace(/\D/g, "");
-        if (rightDigits.length > 8) rightDigits = rightDigits.slice(-8);
+        const cleanPhoneForFlow = phone.replace(/\D/g, "");
+        const phoneVariants: string[] = [cleanPhoneForFlow];
+
+        // Gera variantes do 9º dígito para busca precisa
+        if (cleanPhoneForFlow.startsWith('55') && cleanPhoneForFlow.length >= 12) {
+          const dddAndNum = cleanPhoneForFlow.substring(2);
+          const ddd = dddAndNum.substring(0, 2);
+          if (dddAndNum.length === 11) {
+            // Com 9: 55489XXXXXXXX → sem 9: 5548XXXXXXXX
+            phoneVariants.push(`55${ddd}${dddAndNum.substring(3)}`);
+          } else if (dddAndNum.length === 10) {
+            // Sem 9: 5548XXXXXXXX → com 9: 55489XXXXXXXX
+            phoneVariants.push(`55${ddd}9${dddAndNum.substring(2)}`);
+          }
+        }
+
+        console.log(`[MessageService] 🔍 FLOW ATIVO CHECK | phoneVariants=${JSON.stringify(phoneVariants)}`);
 
         const activeFlow = await prisma.flowExecution.findFirst({
           where: {
-            contactPhone: { endsWith: rightDigits },
+            contactPhone: { in: phoneVariants },
             status: "WAITING_REPLY",
             flow: { companyId: instance.companyId }
           }
         });
 
         if (activeFlow) {
+          console.log(`[MessageService] 🔍 FLOW ATIVO FOUND | execId="${activeFlow.id}" contactPhone="${activeFlow.contactPhone}" flowId="${activeFlow.flowId}"`);
           customer = await prisma.customer.findFirst({
             where: {
               companyId: instance.companyId,
@@ -710,14 +755,23 @@ class MessageService {
             }
           });
           if (customer) {
-            console.log(`[MessageService] 🔗 Customer encontrado via Flow Ativo: ${phone} -> ${customer.phone}`);
+            customerSource = 'FLOW_ATIVO';
+            console.log(`[MessageService] ✅ Customer via Flow Ativo: phone="${phone}" → customer.id="${customer.id}" customer.phone="${customer.phone}" customer.name="${customer.name}"`);
+          } else {
+            console.warn(`[MessageService] ⚠️ Flow ativo encontrado mas customer NÃO existe no DB: contactPhone="${activeFlow.contactPhone}"`);
           }
+        } else {
+          console.log(`[MessageService] 🔍 FLOW ATIVO CHECK | Nenhum flow WAITING_REPLY para variantes ${JSON.stringify(phoneVariants)}`);
         }
       }
 
       // Primeiro tenta buscar pelo phone original, abrangendo variações do 9º dígito, caso não haja fluxo
       if (!customer) {
         customer = await customerService.findByPhoneWithVariant(phone, instance.companyId);
+        if (customer) {
+          customerSource = 'PHONE_VARIANT';
+          console.log(`[MessageService] ✅ Customer via findByPhoneWithVariant: phone="${phone}" → customer.id="${customer.id}" customer.phone="${customer.phone}" customer.name="${customer.name}" customer.lidPhone="${customer.lidPhone || ''}"`);
+        }
       }
 
       // 🔗 ANTI-DUPLICATA POR LID: Se não encontrou pelo phone exato,
@@ -734,7 +788,8 @@ class MessageService {
         });
 
         if (customerByLid) {
-          console.log(`[MessageService] 🔗 Customer encontrado por lidPhone: LID "${phone}" → customer "${customerByLid.phone}" (${customerByLid.name})`);
+          customerSource = 'LID_PHONE';
+          console.log(`[MessageService] ✅ Customer via lidPhone: LID "${phone}" → customer.id="${customerByLid.id}" customer.phone="${customerByLid.phone}" customer.name="${customerByLid.name}"`);
           customer = customerByLid;
         }
       }
@@ -761,7 +816,8 @@ class MessageService {
           });
 
           if (flowCustomer) {
-            console.log(`[MessageService] 🔗 Customer encontrado via FlowExecution.contactLid: LID "${phone}" → flow customer "${flowCustomer.phone}" (${flowCustomer.name})`);
+            customerSource = 'FLOW_EXEC_LID';
+            console.log(`[MessageService] ✅ Customer via FlowExecution.contactLid: LID "${phone}" → customer.id="${flowCustomer.id}" customer.phone="${flowCustomer.phone}" customer.name="${flowCustomer.name}"`);
             // Armazena o LID no customer para buscas futuras diretas
             try {
               customer = await prisma.customer.update({
@@ -771,8 +827,16 @@ class MessageService {
             } catch {
               customer = flowCustomer;
             }
+          } else {
+            console.warn(`[MessageService] ⚠️ FlowExecution.contactLid="${phone}" encontrado mas customer NÃO existe: contactPhone="${execByLid.contactPhone}"`);
           }
         }
+      }
+
+      if (!customer) {
+        console.log(`[MessageService] 🔍 CUSTOMER LOOKUP FALHOU | Nenhuma das 4 buscas encontrou customer para phone="${phone}". Será criado um novo.`);
+      } else {
+        console.log(`[MessageService] 📋 CUSTOMER FINAL | source="${customerSource}" id="${customer.id}" phone="${customer.phone}" name="${customer.name}" lidPhone="${customer.lidPhone || ''}" remoteJid="${remoteJid}"`);
       }
 
       if (!customer) {

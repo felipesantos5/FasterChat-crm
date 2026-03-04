@@ -154,7 +154,7 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
           </div>
 
           {/* Filtro de Instância */}
-          {instances.length > 0 && (
+          {instances.length > 1 && (
             <div className="space-y-2">
               <Label className="text-xs font-medium text-muted-foreground">
                 NÚMEROS DO WHATSAPP
