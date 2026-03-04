@@ -194,7 +194,15 @@ export function ExecutionDrawer({
         <div className="mt-3 pt-3 border-t border-green-200">
           <p className="text-[10px] font-bold text-green-700 uppercase mb-2">Payload / Variáveis:</p>
           <pre className="text-[10px] bg-zinc-900 text-green-400 p-2 rounded overflow-x-auto font-mono max-h-40">
-            {JSON.stringify(exe.variables, null, 2)}
+            {JSON.stringify(
+              Object.fromEntries(
+                Object.entries(exe.variables || {}).filter(
+                  ([key]) => !['_batchId', '_batchName', '_batchTotal'].includes(key)
+                )
+              ),
+              null,
+              2
+            )}
           </pre>
           {exe.error && (
             <div className="mt-2 p-2 bg-red-50 text-red-600 text-[10px] rounded border border-red-100">

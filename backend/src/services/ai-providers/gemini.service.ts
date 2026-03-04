@@ -848,12 +848,12 @@ class GeminiService {
   /**
    * 🎨 Gera imagem usando Gemini com suporte a imagens de referência.
    * 
-   * Usa o modelo gemini-2.0-flash-exp-image-generation via REST API,
-   * que suporta geração de imagem a partir de prompt + imagens de contexto.
+   * Usa modelos Gemini com suporte a geração de imagem via REST API.
+   * Tenta múltiplos modelos em ordem de prioridade.
    * 
    * @param prompt - Instrução descrevendo a imagem a ser gerada
    * @param referenceImages - Array de imagens de referência (base64 ou URL)
-   * @returns Base64 da imagem gerada (JPEG)
+   * @returns Base64 da imagem gerada
    */
   async generateImage(
     prompt: string,
@@ -864,116 +864,164 @@ class GeminiService {
       throw new Error('GOOGLE_AI_API_KEY não configurada para geração de imagem');
     }
 
+    // Modelos com suporte a geração de imagem, em ordem de prioridade
+    const IMAGE_MODELS = [
+      'gemini-2.0-flash-exp',
+      'gemini-2.0-flash-preview-image-generation',
+      'gemini-2.0-flash',
+    ];
+
+    // Monta as parts: prompt + imagens de referência
+    const parts: any[] = [];
+    parts.push({ text: prompt });
+
+    // Baixa e adiciona imagens de referência
+    for (const ref of referenceImages) {
+      let imageBase64 = ref.data;
+      let mimeType = ref.mimeType || 'image/jpeg';
+
+      if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
+        logger.debug('Downloading reference image from URL...');
+        try {
+          const response = await axios.get(imageBase64, {
+            responseType: 'arraybuffer',
+            timeout: GEMINI_CONFIG.MEDIA_DOWNLOAD_TIMEOUT,
+          });
+          imageBase64 = Buffer.from(response.data).toString('base64');
+          const contentType = response.headers['content-type'];
+          if (contentType && contentType.startsWith('image/')) {
+            mimeType = contentType.split(';')[0].trim();
+          }
+          logger.debug(`Reference image downloaded: ${(response.data.byteLength / 1024).toFixed(2)} KB`);
+        } catch (dlErr: any) {
+          logger.warn(`Failed to download reference image: ${dlErr.message}`);
+          continue;
+        }
+      } else {
+        const match = imageBase64.match(/^data:(image\/[^;]+);base64,(.+)$/);
+        if (match) {
+          mimeType = match[1];
+          imageBase64 = match[2];
+        }
+      }
+
+      parts.push({
+        inline_data: {
+          mime_type: mimeType,
+          data: imageBase64,
+        },
+      });
+    }
+
     let lastError: Error | null = null;
 
-    for (let attempt = 1; attempt <= GEMINI_CONFIG.MAX_RETRIES; attempt++) {
-      try {
-        logger.info(`🎨 Generating image (attempt ${attempt}/${GEMINI_CONFIG.MAX_RETRIES})`);
+    for (const model of IMAGE_MODELS) {
+      logger.info(`🎨 Trying image generation with model: ${model}`);
 
-        // Monta as parts: prompt + imagens de referência
-        const parts: any[] = [];
+      for (let attempt = 1; attempt <= GEMINI_CONFIG.MAX_RETRIES; attempt++) {
+        try {
+          logger.info(`🎨 Attempt ${attempt}/${GEMINI_CONFIG.MAX_RETRIES} with ${model}`);
 
-        // Adiciona prompt de texto
-        parts.push({ text: prompt });
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-        // Baixa e adiciona imagens de referência
-        for (const ref of referenceImages) {
-          let imageBase64 = ref.data;
-          let mimeType = ref.mimeType || 'image/jpeg';
-
-          // Se for URL, faz download
-          if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
-            logger.debug('Downloading reference image from URL...');
-            try {
-              const response = await axios.get(imageBase64, {
-                responseType: 'arraybuffer',
-                timeout: GEMINI_CONFIG.MEDIA_DOWNLOAD_TIMEOUT,
-              });
-              imageBase64 = Buffer.from(response.data).toString('base64');
-
-              // Detecta mimeType do response
-              const contentType = response.headers['content-type'];
-              if (contentType && contentType.startsWith('image/')) {
-                mimeType = contentType.split(';')[0].trim();
-              }
-              logger.debug(`Reference image downloaded: ${(response.data.byteLength / 1024).toFixed(2)} KB`);
-            } catch (dlErr: any) {
-              logger.warn(`Failed to download reference image: ${dlErr.message}`);
-              continue; // Pula esta imagem e continua com as outras
-            }
-          } else {
-            // Remove prefixo data:image/... se presente
-            const match = imageBase64.match(/^data:(image\/[^;]+);base64,(.+)$/);
-            if (match) {
-              mimeType = match[1];
-              imageBase64 = match[2];
-            }
-          }
-
-          parts.push({
-            inline_data: {
-              mime_type: mimeType,
-              data: imageBase64,
-            },
-          });
-        }
-
-        // Chama a REST API diretamente (SDK não suporta responseModalities: image)
-        const model = 'gemini-2.0-flash-exp-image-generation';
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-        const response = await axios.post(
-          url,
-          {
+          const requestBody: any = {
             contents: [{ parts }],
             generationConfig: {
-              responseModalities: ['TEXT', 'IMAGE'],
+              responseModalities: ['IMAGE', 'TEXT'],
             },
-          },
-          {
-            timeout: 60000, // 60s — geração de imagem é mais lenta
+            safetySettings: [
+              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+            ],
+          };
+
+          const response = await axios.post(url, requestBody, {
+            timeout: 120000, // 120s — geração de imagem pode ser lenta
             headers: { 'Content-Type': 'application/json' },
+            validateStatus: (status) => status < 500, // Não lançar erro para 4xx
+          });
+
+          // Log detalhado do response para debug
+          if (response.status !== 200) {
+            const errMsg = JSON.stringify(response.data).substring(0, 500);
+            logger.warn(`🎨 API returned ${response.status}: ${errMsg}`);
+
+            // Se for 404, modelo não existe — tenta o próximo
+            if (response.status === 404) {
+              logger.warn(`🎨 Model ${model} not found, trying next...`);
+              break; // Sai do loop de retry, vai pro próximo modelo
+            }
+
+            throw new Error(`API retornou status ${response.status}: ${errMsg}`);
           }
-        );
 
-        // Extrai imagem do response
-        const candidates = response.data?.candidates;
-        if (!candidates || candidates.length === 0) {
-          throw new Error('Nenhum candidato retornado pela API de geração de imagem');
-        }
+          // Verifica se a resposta foi bloqueada por segurança
+          const blockReason = response.data?.promptFeedback?.blockReason;
+          if (blockReason) {
+            throw new Error(`Prompt bloqueado por segurança: ${blockReason}`);
+          }
 
-        const responseParts = candidates[0]?.content?.parts;
-        if (!responseParts || responseParts.length === 0) {
-          throw new Error('Resposta vazia da API de geração de imagem');
-        }
+          const candidates = response.data?.candidates;
+          if (!candidates || candidates.length === 0) {
+            const finishReason = response.data?.candidates?.[0]?.finishReason;
+            logger.warn(`🎨 No candidates. Full response: ${JSON.stringify(response.data).substring(0, 1000)}`);
+            throw new Error(`Nenhum candidato retornado. finishReason: ${finishReason || 'unknown'}`);
+          }
 
-        // Procura a parte que contém a imagem gerada
-        const imagePart = responseParts.find((p: any) => p.inline_data);
-        if (!imagePart?.inline_data?.data) {
-          // Pode ter retornado apenas texto (ex: bloqueio de segurança)
-          const textPart = responseParts.find((p: any) => p.text);
-          const reason = textPart?.text || 'Motivo desconhecido';
-          throw new Error(`API não retornou imagem. Resposta: ${reason.substring(0, 200)}`);
-        }
+          const candidate = candidates[0];
+          const finishReason = candidate.finishReason;
 
-        logger.info('🎨 Image generated successfully');
-        return {
-          base64: imagePart.inline_data.data,
-          mimeType: imagePart.inline_data.mime_type || 'image/png',
-        };
-      } catch (error: any) {
-        lastError = error;
-        logger.warn(`Image generation attempt ${attempt} failed: ${error.message}`);
+          if (finishReason === 'SAFETY') {
+            const safetyRatings = JSON.stringify(candidate.safetyRatings || []);
+            throw new Error(`Imagem bloqueada por filtro de segurança. Ratings: ${safetyRatings.substring(0, 200)}`);
+          }
 
-        if (attempt < GEMINI_CONFIG.MAX_RETRIES && this.isRetryableError(error)) {
-          const delay = GEMINI_CONFIG.RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
-          logger.debug(`Waiting ${delay}ms before retry...`);
-          await sleep(delay);
+          const responseParts = candidate?.content?.parts;
+          if (!responseParts || responseParts.length === 0) {
+            logger.warn(`🎨 Empty parts. Candidate: ${JSON.stringify(candidate).substring(0, 500)}`);
+            throw new Error(`Resposta vazia do modelo. finishReason: ${finishReason}`);
+          }
+
+          // Procura a parte que contém a imagem gerada
+          const imagePart = responseParts.find((p: any) => p.inline_data);
+          if (imagePart?.inline_data?.data) {
+            logger.info(`🎨 Image generated successfully with ${model}!`);
+            return {
+              base64: imagePart.inline_data.data,
+              mimeType: imagePart.inline_data.mime_type || 'image/png',
+            };
+          }
+
+          // Se só retornou texto, extrai a razão
+          const textParts = responseParts
+            .filter((p: any) => p.text)
+            .map((p: any) => p.text)
+            .join(' ');
+          
+          logger.warn(`🎨 No image in response. Parts types: ${responseParts.map((p: any) => Object.keys(p).join(',')).join(' | ')}. Text: ${textParts.substring(0, 300)}`);
+          throw new Error(`Modelo retornou texto sem imagem: ${textParts.substring(0, 200) || 'sem conteúdo'}`);
+
+        } catch (error: any) {
+          lastError = error;
+          logger.warn(`🎨 Attempt ${attempt} with ${model} failed: ${error.message}`);
+
+          // Se é 404 (modelo não existe), sai do retry loop
+          if (error.message?.includes('404') || error.message?.includes('not found')) {
+            break;
+          }
+
+          if (attempt < GEMINI_CONFIG.MAX_RETRIES) {
+            const delay = GEMINI_CONFIG.RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+            logger.debug(`Waiting ${delay}ms before retry...`);
+            await sleep(delay);
+          }
         }
       }
     }
 
-    logger.error('All image generation attempts failed');
+    logger.error(`🎨 All image generation attempts failed across all models`);
     throw new Error(`Falha ao gerar imagem: ${lastError?.message}`);
   }
 }
