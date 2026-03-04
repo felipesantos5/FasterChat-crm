@@ -285,7 +285,7 @@ class MessageService {
         where: {
           customer: {
             companyId,
-            ...(includeArchived === true ? { isArchived: true } : includeArchived === false || includeArchived === undefined ? { isArchived: false } : {}),
+            ...(includeArchived !== undefined ? { isArchived: includeArchived } : {}),
           },
         },
         include: {
@@ -320,7 +320,10 @@ class MessageService {
       const unreadGroups = await prisma.message.groupBy({
         by: ['customerId', 'whatsappInstanceId'],
         where: {
-          customer: { companyId },
+          customer: { 
+            companyId,
+            isArchived: false, // Só conta não lidas de conversas ATIVAS
+          },
           direction: MessageDirection.INBOUND,
           status: { not: MessageStatus.READ },
         },

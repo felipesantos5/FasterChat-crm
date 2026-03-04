@@ -118,18 +118,22 @@ function PipelinePageContent() {
 
     const totalLeads = board.stages.reduce((acc, stage) => acc + stage.customers.length, board.customersWithoutStage.length);
 
-    // Taxa de conversão: clientes no estágio "Fechado - Ganho" / total
+    // Taxa de conversão: clientes no estágio "Fechado - Ganho" (identificado por isFixed e descrição)
     const wonStage = board.stages.find(
       (s) =>
-        s.stage.name.toLowerCase().includes("ganho") ||
-        (s.stage.name.toLowerCase().includes("fechado") && !s.stage.name.toLowerCase().includes("perdido"))
+        s.stage.isFixed &&
+        (s.stage.description?.toLowerCase().includes("concluída") ||
+          s.stage.name.toLowerCase().includes("ganho"))
     );
     const wonCount = wonStage?.customers.length || 0;
     const responseRate = totalLeads > 0 ? Math.round((wonCount / totalLeads) * 100) : 0;
 
-    // Taxa de perda: clientes no estágio "Fechado - Perdido" ou similar / total
+    // Taxa de perda: clientes no estágio "Fechado - Perdido" (identificado por isFixed e descrição)
     const lostStage = board.stages.find(
-      (s) => s.stage.name.toLowerCase().includes("perdido")
+      (s) =>
+        s.stage.isFixed &&
+        (s.stage.description?.toLowerCase().includes("perdida") ||
+          s.stage.name.toLowerCase().includes("perdido"))
     );
     const lostCount = lostStage?.customers.length || 0;
     const lossRate = totalLeads > 0 ? Math.round((lostCount / totalLeads) * 100) : 0;

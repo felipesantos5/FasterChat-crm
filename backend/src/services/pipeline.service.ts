@@ -21,11 +21,10 @@ export class PipelineService {
   async createDefaultStages(companyId: string): Promise<PipelineStage[]> {
     const defaultStages = [
       { name: 'Novo Lead', color: '#86EFAC', order: 0, description: 'Novos contatos', isFixed: true },
-      { name: 'Qualificado', color: '#4ADE80', order: 1, description: 'Leads qualificados', isFixed: true },
-      { name: 'Proposta Enviada', color: '#22C55E', order: 2, description: 'Aguardando resposta' },
-      { name: 'Negociação', color: '#16A34A', order: 3, description: 'Em negociação' },
-      { name: 'Fechado - Perdido', color: '#EF4444', order: 4, description: 'Vendas perdidas', isFixed: true },
-      { name: 'Fechado - Ganho', color: '#15803D', order: 5, description: 'Vendas concluídas', isFixed: true },
+      { name: 'Qualificado', color: '#22C55E', order: 1, description: 'Leads qualificados', isFixed: true },
+      { name: 'Negociação', color: '#16A34A', order: 2, description: 'Em negociação' },
+      { name: 'Fechado - Perdido', color: '#EF4444', order: 3, description: 'Vendas perdidas', isFixed: true },
+      { name: 'Fechado - Ganho', color: '#15803D', order: 4, description: 'Vendas concluídas', isFixed: true },
     ];
 
     const stages: PipelineStage[] = [];
@@ -96,10 +95,8 @@ export class PipelineService {
       throw new Error('Estágio não encontrado');
     }
 
-    // Estágios fixos não permitem alterar o nome
-    if (stage.isFixed && data.name !== undefined && data.name !== stage.name) {
-      throw new Error('O nome deste estágio não pode ser alterado');
-    }
+    // Estágios fixos permitem alterar o nome agora, mas mantêm sua funcionalidade base no sistema
+
 
     return prisma.pipelineStage.update({
       where: { id },

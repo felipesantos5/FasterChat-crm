@@ -23,7 +23,7 @@ import {
   Zap,
   Network,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import logo from "@/assets/logo2.webp";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -156,6 +156,38 @@ export function Sidebar() {
     }
   }, [isError]);
 
+  // Lista de todos os hrefs no menu para resolver conflitos de prefixo
+  const allHrefs = useMemo(() => {
+    const hrefs: string[] = [];
+    const collect = (items: MenuItem[]) => {
+      items.forEach((item) => {
+        if (item.href) hrefs.push(item.href);
+        if (item.children) collect(item.children);
+      });
+    };
+    collect(menuItems);
+    return hrefs;
+  }, []);
+
+  const checkActive = (href: string | undefined): boolean => {
+    if (!href) return false;
+    if (pathname === href) return true;
+    if (href === "/dashboard") return pathname === "/dashboard";
+
+    // Verifica se é um match de prefixo (ex: /clientes/123 -> /clientes)
+    // MAS apenas se não existir outro item no menu com um match mais longo/específico
+    const isPrefixMatch = pathname.startsWith(href + "/");
+    if (!isPrefixMatch) return false;
+
+    // Se existe outro href no menu que também é prefixo deste pathname e é mais longo que o atual,
+    // então este atual (mais curto) não deve ser o "active".
+    const hasMoreSpecificMatch = allHrefs.some(
+      (h) => h !== href && pathname.startsWith(h) && h.length > href.length
+    );
+
+    return !hasMoreSpecificMatch;
+  };
+
   // Fecha a sidebar ao navegar no mobile
   useEffect(() => {
     close();
@@ -167,7 +199,7 @@ export function Sidebar() {
       items.forEach((item) => {
         if (item.children) {
           const isChildActive = item.children.some((child) =>
-            child.href ? pathname.startsWith(child.href) : false
+            child.href ? checkActive(child.href) : false
           );
 
           if (isChildActive && !openMenus.includes(item.label)) {
@@ -226,11 +258,9 @@ export function Sidebar() {
     const hasChildren = item.children && item.children.length > 0;
     const isOpen = openMenus.includes(item.label);
     // Dashboard usa match exato; demais rotas usam startsWith para marcar subrotas também
-    const isActive = item.href === '/dashboard'
-      ? pathname === '/dashboard'
-      : item.href ? pathname.startsWith(item.href) : false;
+    const isActive = checkActive(item.href);
     const isParentActive = item.children?.some((child) =>
-      child.href ? pathname.startsWith(child.href) : false
+      child.href ? checkActive(child.href) : false
     );
 
     // Item com submenu

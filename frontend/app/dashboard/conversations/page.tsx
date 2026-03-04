@@ -109,8 +109,16 @@ function ConversationsPageContent() {
   const companyId = getCompanyId();
 
   // Usa SWR para gerenciar conversas com cache automático
-  const isArchivedView = filterType === "archived";
-  const { conversations, isLoading, isError, mutate } = useConversations(companyId, selectedCustomerId, isArchivedView ? true : undefined);
+  // Buscamos sempre todas as conversas para as estatísticas globais estarem corretas
+  const { conversations: allConversations, isLoading, isError, mutate } = useConversations(companyId, selectedCustomerId);
+
+  // As conversas exibidas na lista (se arquivados ou não)
+  const conversations = useMemo(() => {
+    if (filterType === "archived") {
+      return allConversations.filter(c => c.isArchived);
+    }
+    return allConversations.filter(c => !c.isArchived);
+  }, [allConversations, filterType]);
 
   // Carrega os clientes para filtrar por tags
   const loadCustomers = async () => {
@@ -313,14 +321,17 @@ function ConversationsPageContent() {
     isArchived: false,
   } : null);
 
-  // Estatísticas
-  const stats = {
-    total: conversations.length,
-    ai: conversations.filter((c) => c.aiEnabled).length,
-    human: conversations.filter((c) => !c.aiEnabled).length,
-    unread: conversations.filter((c) => (c.unreadCount || 0) > 0).length,
-    needsHelp: conversations.filter((c) => c.needsHelp).length,
-  };
+  // Estatísticas globais baseadas em TODAS as conversas NÃO arquivadas
+  const stats = useMemo(() => {
+    const activeConvs = allConversations.filter(c => !c.isArchived);
+    return {
+      total: activeConvs.length,
+      ai: activeConvs.filter((c) => c.aiEnabled).length,
+      human: activeConvs.filter((c) => !c.aiEnabled).length,
+      unread: activeConvs.filter((c) => (c.unreadCount || 0) > 0).length,
+      needsHelp: activeConvs.filter((c) => c.needsHelp).length,
+    };
+  }, [allConversations]);
 
   // Handler para selecionar conversa (muda view no mobile)
   const handleSelectConversation = (customerId: string) => {

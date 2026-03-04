@@ -173,7 +173,7 @@ export function ManageStagesModal({
     setLoading(true);
     try {
       await pipelineApi.updateStage(editingId, companyId, {
-        ...(editingStage?.isFixed ? {} : { name: editName.trim() }),
+        name: editName.trim(),
         color: editColor,
       });
       onStagesUpdated();
@@ -253,20 +253,25 @@ export function ManageStagesModal({
               {editingId === stage.id ? (
                 // Modo de edição
                 <div className="flex-1 space-y-3">
-                  {stage.isFixed ? (
-                    <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-gray-200 bg-gray-50">
-                      <Lock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                      <span className="text-sm text-gray-500">{stage.name}</span>
+                  <div className="space-y-1">
+                    <div className="relative">
+                      {stage.isFixed && (
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 z-10" />
+                      )}
+                      <Input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="Nome do estágio"
+                        className={cn("h-9", stage.isFixed && "pl-9")}
+                        autoFocus
+                      />
                     </div>
-                  ) : (
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Nome do estágio"
-                      className="h-9"
-                      autoFocus
-                    />
-                  )}
+                    {stage.isFixed && (
+                      <p className="text-[10px] text-gray-400 italic px-1">
+                        * Este é um estágio fixo do sistema ({stage.description}). Você pode alterar o nome, mas sua funcionalidade permanece a mesma.
+                      </p>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <Label className="text-xs text-gray-500">Cor:</Label>
                     <div className="flex gap-1">

@@ -101,7 +101,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         if (message.direction === MessageDirection.INBOUND && message.whatsappInstanceId) {
           messageApi.markAsRead({ customerId, whatsappInstanceId: message.whatsappInstanceId })
             .then(() => onMarkAsRead?.())
-            .catch(() => {});
+            .catch(() => { });
         }
 
         // Se foi mensagem do cliente, marca IA como processando
@@ -221,7 +221,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       if (msgWithInstance?.whatsappInstanceId) {
         messageApi.markAsRead({ customerId, whatsappInstanceId: msgWithInstance.whatsappInstanceId })
           .then(() => onMarkAsRead?.())
-          .catch(() => {/* não crítico */});
+          .catch(() => {/* não crítico */ });
       }
 
       // Verifica se há mensagem recente do cliente sem resposta da IA
@@ -298,7 +298,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     if (!companyId) return;
     aiKnowledgeApi.getKnowledge(companyId)
       .then((data) => setAutoReplyEnabled(data.autoReplyEnabled ?? true))
-      .catch(() => {/* mantém false — mais seguro que mostrar IA ativa por engano */});
+      .catch(() => {/* mantém false — mais seguro que mostrar IA ativa por engano */ });
   }, []);
 
   // Scroll para última mensagem
@@ -728,10 +728,10 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   };
 
   // Abre modal para marcar como exemplo
-  const handleOpenExampleModal = () => {
-    setShowExampleModal(true);
-    setExampleNotes("");
-  };
+  // const handleOpenExampleModal = () => {
+  //   setShowExampleModal(true);
+  //   setExampleNotes("");
+  // };
 
   // Marca/desmarca conversa como exemplo
   const handleMarkAsExample = async () => {
@@ -932,14 +932,15 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
             )
           ) : (
             onArchive && (
-              <Button onClick={onArchive} size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-destructive" title="Arquivar">
+              <Button onClick={onArchive} size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-destructive gap-1" title="Arquivar">
                 <Archive className="h-3 w-3" />
+                arquivar
               </Button>
             )
           )}
 
           {/* Botão Marcar como Exemplo */}
-          <Button
+          {/* <Button
             onClick={isExample ? handleMarkAsExample : handleOpenExampleModal}
             disabled={markingExample}
             size="sm"
@@ -951,7 +952,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
             ) : (
               <Star className={cn("h-3 w-3", isExample && "fill-current")} />
             )}
-          </Button>
+          </Button> */}
 
           {/* Botão Mostrar Detalhes */}
           {showDetailsButton && onToggleDetails && (
