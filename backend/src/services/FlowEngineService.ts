@@ -1157,7 +1157,12 @@ export class FlowEngineService {
    * 🔗 Captura o LID retornado pela Evolution API e armazena no FlowExecution e no Customer.
    */
   private async storeLidMapping(execution: Record<string, unknown>, responseRemoteJid?: string): Promise<void> {
-    if (!responseRemoteJid) return;
+    console.log(`[FlowEngine] 🔗 storeLidMapping chamado | execId="${execution.id}" contactPhone="${execution.contactPhone}" responseRemoteJid="${responseRemoteJid || 'UNDEFINED'}"`);
+
+    if (!responseRemoteJid) {
+      console.warn(`[FlowEngine] ⚠️ storeLidMapping: responseRemoteJid é undefined/null — Evolution API não retornou o JID na resposta do envio`);
+      return;
+    }
 
     try {
       const responsePhone = responseRemoteJid
@@ -1167,16 +1172,22 @@ export class FlowEngineService {
 
       const cleanContactPhone = (execution.contactPhone as string).replace(/\D/g, "");
 
+      console.log(`[FlowEngine] 🔗 storeLidMapping | responsePhone="${responsePhone}" (${responsePhone.length} dígitos) cleanContactPhone="${cleanContactPhone}" (${cleanContactPhone.length} dígitos) match=${responsePhone === cleanContactPhone}`);
+
       // Se o JID retornado é diferente do telefone que enviamos, é um LID
       if (responsePhone && responsePhone !== cleanContactPhone) {
         // Determina qual é o LID e qual é o phone real
         const responseLooksLikeLid = responsePhone.length >= 14;
         const contactLooksLikeLid = cleanContactPhone.length >= 14;
 
+        console.log(`[FlowEngine] 🔗 storeLidMapping | responseLooksLikeLid=${responseLooksLikeLid} contactLooksLikeLid=${contactLooksLikeLid}`);
+
         // Só armazena se um deles parece LID e o outro parece phone real
         if (responseLooksLikeLid || contactLooksLikeLid) {
           const lidValue = responseLooksLikeLid ? responsePhone : cleanContactPhone;
           const realPhone = responseLooksLikeLid ? cleanContactPhone : responsePhone;
+
+          console.log(`[FlowEngine] ✅ storeLidMapping SALVANDO | lidValue="${lidValue}" realPhone="${realPhone}" execId="${execution.id}"`);
 
           // Salva no FlowExecution para matching de respostas
           await prisma.flowExecution.update({
@@ -1191,12 +1202,20 @@ export class FlowEngineService {
           });
 
           if (flow) {
-            await prisma.customer.updateMany({
+            const updateResult = await prisma.customer.updateMany({
               where: { companyId: flow.companyId, phone: realPhone, lidPhone: null },
               data: { lidPhone: lidValue },
             });
+            console.log(`[FlowEngine] 🔗 storeLidMapping | Customer.lidPhone atualizado: ${updateResult.count} registro(s) para phone="${realPhone}"`);
           }
+        } else {
+          // Ambos parecem telefones normais (< 14 dígitos) mas são diferentes
+          // Isso pode acontecer quando a Evolution API retorna um número diferente
+          // (ex: 2500068408 para o nosso 5548996917435)
+          console.warn(`[FlowEngine] ⚠️ storeLidMapping | Números diferentes mas nenhum parece LID: response="${responsePhone}" contact="${cleanContactPhone}". Possível número interno do WhatsApp Business.`);
         }
+      } else {
+        console.log(`[FlowEngine] 🔗 storeLidMapping | responsePhone === contactPhone — sem LID para mapear (mesmo número retornado)`);
       }
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err));

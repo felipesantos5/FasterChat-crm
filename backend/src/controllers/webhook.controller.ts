@@ -470,6 +470,17 @@ class WebhookController {
         try {
           const sendData = payload.data;
           const sendKey = sendData?.key;
+
+          // 📋 LOG DETALHADO do evento send.message para debug de LID mapping
+          const sendRaw = sendData as unknown as Record<string, unknown>;
+          const sendKeyRaw = sendKey as Record<string, unknown>;
+          console.log(`[Webhook:SendMessage] 📩 SEND EVENT | instance="${payload.instance}" remoteJid="${sendKeyRaw?.remoteJid || ''}" fromMe=${sendKeyRaw?.fromMe} messageId="${sendKeyRaw?.id || ''}" participant="${sendKeyRaw?.participant || ''}"`);
+          console.log(`[Webhook:SendMessage] 📩 SEND EXTRA | pushName="${sendRaw?.pushName || ''}" senderPn="${sendRaw?.senderPn || ''}" messageType="${sendRaw?.messageType || ''}" status="${sendRaw?.status || ''}" owner="${sendRaw?.owner || ''}"`);
+          // Log de campos extras que podem conter o LID real
+          if (sendData?.message) {
+            const msgKeys = Object.keys(sendData.message).join(', ');
+            console.log(`[Webhook:SendMessage] 📩 SEND MSG KEYS | ${msgKeys}`);
+          }
           if (sendKey?.remoteJid && payload.instance) {
             const sentToJid = sendKey.remoteJid;
             const sentToPhone = sentToJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "");
