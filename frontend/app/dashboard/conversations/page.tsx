@@ -318,7 +318,7 @@ function ConversationsPageContent() {
     total: conversations.length,
     ai: conversations.filter((c) => c.aiEnabled).length,
     human: conversations.filter((c) => !c.aiEnabled).length,
-    unread: conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0),
+    unread: conversations.filter((c) => (c.unreadCount || 0) > 0).length,
     needsHelp: conversations.filter((c) => c.needsHelp).length,
   };
 
@@ -448,18 +448,22 @@ function ConversationsPageContent() {
 
               {/* Filtros Rápidos */}
               <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-hide no-scrollbar">
-                <Button variant={filterType === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterType("all")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
-                  Todas {stats.total}
-                </Button>
-                <Button variant={filterType === "needsHelp" ? "default" : "outline"} size="sm" onClick={() => setFilterType("needsHelp")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
-                  <Clock className="h-3 w-3 mr-1" />
-                  Aguardando {stats.needsHelp}
-                </Button>
-                {stats.unread > 0 && (
-                  <Button variant={filterType === "unread" ? "default" : "outline"} size="sm" onClick={() => setFilterType("unread")} className="h-7 text-[11px] px-2 shrink-0 gap-1.5">
-                    Notificações
-                    <Badge variant="destructive" className="text-[10px] h-4 px-1 min-w-4 flex items-center justify-center rounded-full">{stats.unread}</Badge>
-                  </Button>
+                {filterType !== "archived" && (
+                  <>
+                    <Button variant={filterType === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterType("all")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
+                      Todas {stats.total}
+                    </Button>
+                    <Button variant={filterType === "needsHelp" ? "default" : "outline"} size="sm" onClick={() => setFilterType("needsHelp")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
+                      <Clock className="h-3 w-3 mr-1" />
+                      Aguardando {stats.needsHelp}
+                    </Button>
+                    {stats.unread > 0 && (
+                      <Button variant={filterType === "unread" ? "default" : "outline"} size="sm" onClick={() => setFilterType("unread")} className="h-7 text-[11px] px-2 shrink-0 gap-1.5">
+                        Notificações
+                        <Badge variant="destructive" className="text-[10px] h-4 px-1 min-w-4 flex items-center justify-center rounded-full">{stats.unread}</Badge>
+                      </Button>
+                    )}
+                  </>
                 )}
                 <Button variant={filterType === "archived" ? "default" : "outline"} size="sm" onClick={() => setFilterType(filterType === "archived" ? "all" : "archived")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
                   <Archive className="h-3 w-3 mr-1" />

@@ -64,7 +64,7 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
               selectedCustomerId === conversation.customerId && "bg-accent",
               needsHelp && "bg-yellow-50 dark:bg-yellow-900/10 border-l-2 border-l-yellow-500",
               isGroup && "bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-l-blue-500",
-              isArchived && "opacity-60"
+              isArchived && "opacity-95"
             )}
           >
             {/* Avatar Compacto */}
@@ -119,8 +119,13 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
                 </div>
                 <div className="relative flex flex-col items-end flex-shrink-0">
                   <span className="text-[10px] text-muted-foreground">{formatTime(conversation.lastMessageTimestamp)}</span>
-                  {conversation.unreadCount > 0 && (
-                    <span className="absolute top-full mt-[4px] right-0 w-2 h-2 rounded-full bg-primary" title="Conversa não aberta" />
+                  {conversation.unreadCount > 0 && !isArchived && (
+                    <span
+                      className="absolute top-full mt-[4px] right-0 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground"
+                      title="Mensagens não lidas"
+                    >
+                      {conversation.unreadCount}
+                    </span>
                   )}
                 </div>
               </div>

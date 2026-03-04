@@ -12,6 +12,7 @@ import { Settings2, GripVertical, Phone, Calendar, Users, TrendingUp } from "luc
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { createPortal } from "react-dom";
 import { ptBR } from "date-fns/locale";
 import { toast } from "react-hot-toast";
 import { PipelineSkeleton } from "@/components/ui/skeletons";
@@ -39,6 +40,14 @@ function PipelinePageContent() {
   const [manageStagesOpen, setManageStagesOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
+
+  const [titlePortalNode, setTitlePortalNode] = useState<HTMLElement | null>(null);
+  const [actionsPortalNode, setActionsPortalNode] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setTitlePortalNode(document.getElementById("header-title-portal"));
+    setActionsPortalNode(document.getElementById("header-actions-portal"));
+  }, []);
 
   const getCompanyId = () => {
     const user = localStorage.getItem("user");
@@ -118,7 +127,14 @@ function PipelinePageContent() {
     const wonCount = wonStage?.customers.length || 0;
     const responseRate = totalLeads > 0 ? Math.round((wonCount / totalLeads) * 100) : 0;
 
-    return { totalLeads, responseRate };
+    // Taxa de perda: clientes no estágio "Fechado - Perdido" ou similar / total
+    const lostStage = board.stages.find(
+      (s) => s.stage.name.toLowerCase().includes("perdido")
+    );
+    const lostCount = lostStage?.customers.length || 0;
+    const lossRate = totalLeads > 0 ? Math.round((lostCount / totalLeads) * 100) : 0;
+
+    return { totalLeads, responseRate, lossRate };
   }, [board]);
 
   // Lista de stages para o modal
@@ -292,44 +308,58 @@ function PipelinePageContent() {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 overflow-hidden">
       <div className="flex-1 flex flex-col p-3 sm:p-4 overflow-hidden">
-        {/* Header Compacto com Stats */}
-        <div className="flex items-center justify-between gap-4 mb-4 bg-white p-2.5 px-4 rounded-xl shadow-sm border border-gray-100">
-
-          <div className="flex items-center gap-4 sm:gap-8">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-blue-50 rounded-lg">
+        {/* Renderiza as estatísticas e os botões no Header principal usando Portals */}
+        {titlePortalNode && createPortal(
+          <div className="flex items-center gap-4 sm:gap-6 ml-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-50/50 rounded-lg">
                 <Users className="h-4 w-4 text-blue-600" />
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 leading-none mb-1">Total Leads</p>
-                <p className="text-lg font-bold text-gray-900 leading-none">{stats.totalLeads}</p>
+                <p className="text-[9px] uppercase tracking-wider font-bold text-gray-500 leading-none mb-0.5">Total Leads</p>
+                <p className="text-sm font-bold text-gray-900 leading-none">{stats.totalLeads}</p>
               </div>
             </div>
 
-            <div className="hidden sm:block w-px h-8 bg-gray-100" />
+            <div className="hidden sm:block w-px h-6 bg-gray-200" />
 
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-green-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-green-50/50 rounded-lg">
                 <TrendingUp className="h-4 w-4 text-green-600" />
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 leading-none mb-1">Conversão</p>
-                <p className="text-lg font-bold text-green-600 leading-none">{stats.responseRate}%</p>
+                <p className="text-[9px] uppercase tracking-wider font-bold text-gray-500 leading-none mb-0.5">Conversão</p>
+                <p className="text-sm font-bold text-green-600 leading-none">{stats.responseRate}%</p>
               </div>
             </div>
-          </div>
 
+            <div className="hidden sm:block w-px h-6 bg-gray-200" />
+
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-red-50/50 rounded-lg">
+                <TrendingUp className="h-4 w-4 text-red-600 rotate-180" />
+              </div>
+              <div>
+                <p className="text-[9px] uppercase tracking-wider font-bold text-gray-500 leading-none mb-0.5">Perda</p>
+                <p className="text-sm font-bold text-red-600 leading-none">{stats.lossRate}%</p>
+              </div>
+            </div>
+          </div>,
+          titlePortalNode
+        )}
+
+        {actionsPortalNode && createPortal(
           <Button
             onClick={() => setManageStagesOpen(true)}
             variant="outline"
             size="sm"
-            className="h-9 text-xs font-bold border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg"
+            className="h-8 text-xs font-bold border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg"
           >
-            <Settings2 className="h-3.5 w-3.5 mr-1.5" />
+            <Settings2 className="h-3.5 w-3.5 sm:mr-1.5" />
             <span className="hidden sm:inline">Gerenciar Estágios</span>
-            <span className="sm:hidden">Estágios</span>
-          </Button>
-        </div>
+          </Button>,
+          actionsPortalNode
+        )}
 
         {/* Kanban Board - Scroll Horizontal */}
         <div className="flex-1 flex gap-4 overflow-x-auto pb-4 overflow-y-hidden min-h-0">

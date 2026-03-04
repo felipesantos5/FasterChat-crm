@@ -109,8 +109,21 @@ function CustomersPageContent() {
 
   // Load pipeline stages
   const loadPipelineStages = async () => {
+    let companyId = "";
+    if (typeof window !== "undefined") {
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          companyId = user.companyId || "";
+        } catch (e) { }
+      }
+    }
+
+    if (!companyId) return;
+
     try {
-      const stages = await pipelineApi.getStages("");
+      const stages = await pipelineApi.getStages(companyId);
       setPipelineStages(stages);
     } catch (error) {
       console.error("Error loading pipeline stages:", error);
@@ -203,20 +216,51 @@ function CustomersPageContent() {
     <div className="flex flex-col h-full">
       {/* Header compacto */}
       <div className="flex-shrink-0 border-b bg-background p-3 sm:p-4">
-        <div className="flex items-center justify-between gap-2 sm:gap-4">
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            {total} cliente{total !== 1 ? "s" : ""}
-            {hasActiveFilters && " (filtrado)"}
-          </p>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+          {/* Barra de busca e filtros */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
+            <div className="relative flex-1 sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Buscar nome, telefone ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
 
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)} className="h-8 px-2 sm:px-3">
+            <div className="flex items-center gap-2">
+              <Button variant={showFilters ? "secondary" : "outline"} size="sm" onClick={() => setShowFilters(!showFilters)} className="h-9">
+                <Filter className="h-4 w-4 mr-1" />
+                Filtros
+                {selectedTags.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                    {selectedTags.length}
+                  </Badge>
+                )}
+              </Button>
+
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 mb-0">
+                  Limpar
+                </Button>
+              )}
+
+              <p className="text-xs sm:text-sm text-muted-foreground ml-1 sm:ml-2 whitespace-nowrap">
+                {total} cliente{total !== 1 ? "s" : ""}
+                {hasActiveFilters && " (filtrado)"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 self-end sm:self-auto">
+            <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)} className="h-9 px-2 sm:px-3">
               <Upload className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">Importar</span>
             </Button>
             <Button
               size="sm"
-              className="h-8 px-2 sm:px-3"
+              className="h-9 px-2 sm:px-3"
               onClick={() => {
                 setEditingCustomer(undefined);
                 setModalOpen(true);
@@ -226,35 +270,6 @@ function CustomersPageContent() {
               <span className="hidden sm:inline">Novo</span>
             </Button>
           </div>
-        </div>
-
-        {/* Barra de busca e filtros */}
-        <div className="flex items-center gap-2 mt-3 sm:mt-4">
-          <div className="relative flex-1 sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Buscar nome, telefone ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
-            {search && (
-              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          <Button variant={showFilters ? "secondary" : "outline"} size="sm" onClick={() => setShowFilters(!showFilters)} className="h-9">
-            <Filter className="h-4 w-4 mr-1" />
-            Filtros
-            {selectedTags.length > 0 && (
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                {selectedTags.length}
-              </Badge>
-            )}
-          </Button>
-
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
-              Limpar
-            </Button>
-          )}
         </div>
 
         {/* Filtros e Ordenação Avançados */}

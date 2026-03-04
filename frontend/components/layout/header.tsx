@@ -202,7 +202,12 @@ export function Header() {
               />
             </div>
           )}
+          {/* Portal: Espaço dinâmico ao lado do título da página */}
+          <div id="header-title-portal" className="hidden lg:flex items-center flex-1" />
         </div>
+
+        {/* Portal: Espaço dinâmico próximo ao avatar do usuário */}
+        <div id="header-actions-portal" className="flex items-center gap-2 mr-2" />
 
         {/* User Menu */}
         <DropdownMenu>
