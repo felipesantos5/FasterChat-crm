@@ -5,7 +5,7 @@ import { ConversationSummary } from "@/types/message";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, AlertCircle, Users, Archive } from "lucide-react";
+import { MessageSquare, AlertCircle, Users, Archive, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConversationListProps {
@@ -26,10 +26,7 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
     return () => clearInterval(interval);
   }, []);
 
-  const truncate = (text: string, maxLength = 30) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
+
 
   const formatTime = (timestamp: string) => {
     try {
@@ -128,11 +125,25 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground truncate mt-0.5">
+              <p className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1">
                 {conversation.direction === "OUTBOUND" && (
                   <span className="text-teal-600 dark:text-teal-400 font-medium">Você: </span>
                 )}
-                {truncate(conversation.lastMessage, 40)}
+                {conversation.lastMessage.toLowerCase().startsWith("[audio") ? (
+                  <span className="flex items-center gap-1">
+                    <Mic className="h-3.5 w-3.5 text-green-500" />
+                    {(() => {
+                      const msg = conversation.lastMessage.toLowerCase();
+                      if (msg === "[audio]") return "Áudio";
+
+                      // Tenta extrair a duração, ex: [audio: 0:04]
+                      const match = msg.match(/\[audio:\s*(.+?)\]/);
+                      return match && match[1] ? match[1] : "Áudio";
+                    })()}
+                  </span>
+                ) : (
+                  <span className="truncate">{conversation.lastMessage}</span>
+                )}
               </p>
             </div>
           </div>

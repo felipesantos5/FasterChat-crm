@@ -21,4 +21,5 @@ export interface CustomerFilters {
   limit?: number;
   orderBy?: "recent" | "old" | "az" | "za";
   type?: "all" | "individual" | "group";
+  pipelineStageId?: string;
 }

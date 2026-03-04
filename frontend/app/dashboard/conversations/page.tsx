@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { whatsappApi } from "@/lib/whatsapp";
 import { Customer } from "@/types/customer";
 import { WhatsAppInstance } from "@/types/whatsapp";
-import { MessageSquare, Search, X, Bot, User, ChevronRight, ArrowLeft, Clock, Archive } from "lucide-react";
+import { MessageSquare, Search, X, ChevronRight, ArrowLeft, Clock, Archive } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,7 @@ import { ConversationListSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
 
-type FilterType = "all" | "ai" | "human" | "unread" | "needsHelp" | "archived";
+type FilterType = "all" | "unread" | "needsHelp" | "archived";
 type SortType = "recent" | "oldest" | "name";
 
 // Tipo para conversa pendente (cliente sem mensagens ainda)
@@ -57,7 +57,10 @@ function ConversationsPageContent() {
   });
   const [filterType, setFilterType] = useState<FilterType>(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("conversations_filter_type") as FilterType) || "all";
+      const stored = localStorage.getItem("conversations_filter_type") as FilterType;
+      // Trata valores antigos caso existam para evitar crash da UI
+      if ((stored as string) === "ai" || (stored as string) === "human") return "all";
+      return stored || "all";
     }
     return "all";
   });
@@ -83,6 +86,7 @@ function ConversationsPageContent() {
       selectedTags: [],
       onlyNeedsHelp: false,
       onlyAiEnabled: false,
+      onlyHumanEnabled: false,
       selectedInstanceId: null,
     };
   });
@@ -216,13 +220,7 @@ function ConversationsPageContent() {
           return true;
         })
         .filter((conv) => {
-          // Filtro por tipo
-          if (filterType === "ai") {
-            return conv.aiEnabled;
-          }
-          if (filterType === "human") {
-            return !conv.aiEnabled;
-          }
+          // Filtro por tipo rápido
           if (filterType === "unread") {
             return conv.unreadCount && conv.unreadCount > 0;
           }
@@ -261,9 +259,12 @@ function ConversationsPageContent() {
           return true;
         })
         .filter((conv) => {
-          // Filtro avançado: Apenas conversas com IA ativa
-          if (advancedFilters.onlyAiEnabled) {
+          // Filtro avançado: IA vs Humano
+          if (advancedFilters.onlyAiEnabled && !advancedFilters.onlyHumanEnabled) {
             return conv.aiEnabled === true;
+          }
+          if (advancedFilters.onlyHumanEnabled && !advancedFilters.onlyAiEnabled) {
+            return conv.aiEnabled === false;
           }
           return true;
         })
@@ -450,21 +451,14 @@ function ConversationsPageContent() {
                 <Button variant={filterType === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterType("all")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
                   Todas {stats.total}
                 </Button>
-                <Button variant={filterType === "ai" ? "default" : "outline"} size="sm" onClick={() => setFilterType("ai")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
-                  <Bot className="h-3 w-3 mr-1" />
-                  IA {stats.ai}
-                </Button>
-                <Button variant={filterType === "human" ? "default" : "outline"} size="sm" onClick={() => setFilterType("human")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
-                  <User className="h-3 w-3 mr-1" />
-                  Humano {stats.human}
-                </Button>
                 <Button variant={filterType === "needsHelp" ? "default" : "outline"} size="sm" onClick={() => setFilterType("needsHelp")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
                   <Clock className="h-3 w-3 mr-1" />
                   Aguardando {stats.needsHelp}
                 </Button>
                 {stats.unread > 0 && (
-                  <Button variant={filterType === "unread" ? "default" : "outline"} size="sm" onClick={() => setFilterType("unread")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1!">
-                    <Badge variant="destructive" className="text-[10px] h-4 px-1">{stats.unread}</Badge>
+                  <Button variant={filterType === "unread" ? "default" : "outline"} size="sm" onClick={() => setFilterType("unread")} className="h-7 text-[11px] px-2 shrink-0 gap-1.5">
+                    Notificações
+                    <Badge variant="destructive" className="text-[10px] h-4 px-1 min-w-4 flex items-center justify-center rounded-full">{stats.unread}</Badge>
                   </Button>
                 )}
                 <Button variant={filterType === "archived" ? "default" : "outline"} size="sm" onClick={() => setFilterType(filterType === "archived" ? "all" : "archived")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">

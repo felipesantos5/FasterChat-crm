@@ -94,6 +94,10 @@ export class CustomerService {
       where.isGroup = true;
     }
 
+    if (filters.pipelineStageId && filters.pipelineStageId !== "all") {
+      where.pipelineStageId = filters.pipelineStageId;
+    }
+
     let prismaOrderBy: any = { createdAt: "desc" };
     if (filters.orderBy === "old") {
       prismaOrderBy = { createdAt: "asc" };
@@ -109,6 +113,11 @@ export class CustomerService {
         skip,
         take: limit,
         orderBy: prismaOrderBy,
+        include: {
+          pipelineStage: {
+            select: { id: true, name: true, color: true }
+          }
+        }
       }),
       prisma.customer.count({ where }),
     ]);

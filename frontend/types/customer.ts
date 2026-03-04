@@ -11,6 +11,11 @@ export interface Customer {
   profilePicUrl?: string | null; // URL da foto de perfil do WhatsApp
   isGroup: boolean; // Identifica se é um grupo do WhatsApp
   pipelineStageId?: string | null; // Estágio atual no pipeline
+  pipelineStage?: {
+    id: string;
+    name: string;
+    color: string;
+  } | null;
   customFieldValues?: CustomerCustomFieldValue[];
   createdAt: string;
   updatedAt: string;
@@ -39,6 +44,7 @@ export interface CustomerFilters {
   limit?: number;
   orderBy?: "recent" | "old" | "az" | "za";
   type?: "all" | "individual" | "group";
+  pipelineStageId?: string;
 }
 
 export interface CustomerListResponse {

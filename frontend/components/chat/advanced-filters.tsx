@@ -11,13 +11,14 @@ import { tagApi, Tag } from "@/lib/tag";
 import { cn } from "@/lib/utils";
 import { WhatsAppInstance } from "@/types/whatsapp";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Smartphone } from "lucide-react";
+import { Smartphone, Bot, User } from "lucide-react";
 
 export interface AdvancedFilters {
   excludeGroups: boolean;
   selectedTags: string[];
   onlyNeedsHelp: boolean; // Mostra apenas conversas que precisam de ajuda
   onlyAiEnabled: boolean; // Mostra apenas conversas com IA ativa
+  onlyHumanEnabled: boolean; // Mostra apenas conversas humanas (sem IA)
   selectedInstanceId: string | null; // Filtro por instância do WhatsApp
 }
 
@@ -61,7 +62,7 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
   }, [open]);
 
   // Verifica se há filtros ativos
-  const hasActiveFilters = filters.excludeGroups || filters.selectedTags.length > 0 || filters.onlyNeedsHelp || filters.onlyAiEnabled || filters.selectedInstanceId !== null;
+  const hasActiveFilters = filters.excludeGroups || filters.selectedTags.length > 0 || filters.onlyNeedsHelp || filters.onlyAiEnabled || filters.onlyHumanEnabled || filters.selectedInstanceId !== null;
 
   const handleToggleGroup = () => {
     onFiltersChange({
@@ -81,6 +82,15 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
     onFiltersChange({
       ...filters,
       onlyAiEnabled: !filters.onlyAiEnabled,
+      onlyHumanEnabled: !filters.onlyAiEnabled ? false : filters.onlyHumanEnabled, // Desliga o outro
+    });
+  };
+
+  const handleToggleHumanEnabled = () => {
+    onFiltersChange({
+      ...filters,
+      onlyHumanEnabled: !filters.onlyHumanEnabled,
+      onlyAiEnabled: !filters.onlyHumanEnabled ? false : filters.onlyAiEnabled, // Desliga o outro
     });
   };
 
@@ -109,6 +119,7 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
       selectedTags: [],
       onlyNeedsHelp: false,
       onlyAiEnabled: false,
+      onlyHumanEnabled: false,
       selectedInstanceId: null,
     });
   };
@@ -226,8 +237,9 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
             {/* Apenas conversas com IA ativa */}
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div className="space-y-0.5">
-                <Label htmlFor="only-ai-enabled" className="text-sm font-medium cursor-pointer">
-                  IA ativa
+                <Label htmlFor="only-ai-enabled" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                  <Bot className="h-4 w-4" />
+                  Apenas IA
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   Conversas sendo atendidas pela IA
@@ -237,6 +249,24 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
                 id="only-ai-enabled"
                 checked={filters.onlyAiEnabled}
                 onCheckedChange={handleToggleAiEnabled}
+              />
+            </div>
+
+            {/* Apenas conversas Humanas */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="only-human-enabled" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Apenas Humano
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Conversas com a IA desativada
+                </p>
+              </div>
+              <Switch
+                id="only-human-enabled"
+                checked={filters.onlyHumanEnabled}
+                onCheckedChange={handleToggleHumanEnabled}
               />
             </div>
           </div>

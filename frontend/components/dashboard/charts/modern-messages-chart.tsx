@@ -24,8 +24,6 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
 } from "@/components/ui/chart";
 
 interface MessagesOverTimeData {
@@ -125,7 +123,7 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
                 cursor={false}
                 content={<ChartTooltipContent indicator="dot" />}
               />
-              <ChartLegend content={<ChartLegendContent />} />
+              {/* <ChartLegend content={<ChartLegendContent />} /> */}
               <Area
                 type="monotone"
                 dataKey="inbound"
@@ -178,7 +176,7 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
             <Calendar className="h-3.5 w-3.5 text-gray-700 dark:text-gray-300" />
             <div>
               <p className="text-xs text-muted-foreground">Maior volume</p>
-              <p className="text-sm font-semibold">{miniStats.peakDayLabel} ({miniStats.peakDayTotal})</p>
+              <p className="text-sm font-semibold">{miniStats.peakDayLabel} ({miniStats.peakDayTotal} mensagens)</p>
             </div>
           </div>
         </div>

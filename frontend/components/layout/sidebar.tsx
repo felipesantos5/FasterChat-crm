@@ -161,6 +161,28 @@ export function Sidebar() {
     close();
   }, [pathname, close]);
 
+  // Auto-expandir menus baseados na rota atual
+  useEffect(() => {
+    const expandParents = (items: MenuItem[]) => {
+      items.forEach((item) => {
+        if (item.children) {
+          const isChildActive = item.children.some((child) =>
+            child.href ? pathname.startsWith(child.href) : false
+          );
+
+          if (isChildActive && !openMenus.includes(item.label)) {
+            setOpenMenus((prev) => [...prev, item.label]);
+          }
+
+          // Verifica recursivamente
+          expandParents(item.children);
+        }
+      });
+    };
+
+    expandParents(menuItems);
+  }, [pathname]);
+
   // Filtra itens do menu baseado nas permissões do usuário
   const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
     return items
@@ -257,8 +279,8 @@ export function Sidebar() {
           isActive
             ? "bg-primary text-primary-foreground"
             : isConversas
-            ? "bg-primary/8 text-foreground border-l-2 border-primary hover:bg-primary/15"
-            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              ? "bg-primary/8 text-foreground border-l-2 border-primary hover:bg-primary/15"
+              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         )}
         style={{ paddingLeft: isConversas && !isActive ? `${depth * 12 + 10}px` : `${depth * 12 + 12}px` }}
       >

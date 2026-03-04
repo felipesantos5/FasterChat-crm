@@ -26,6 +26,7 @@ export const customerFiltersSchema = z.object({
   limit: z.coerce.number().min(1).max(100).optional().default(10),
   orderBy: z.enum(["recent", "old", "az", "za"]).optional(),
   type: z.enum(["all", "individual", "group"]).optional(),
+  pipelineStageId: z.string().optional(),
 });
 
 export const validateCreateCustomer = (data: unknown) => {

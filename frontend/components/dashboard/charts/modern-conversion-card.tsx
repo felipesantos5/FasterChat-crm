@@ -25,12 +25,9 @@ export function ModernConversionCard({ data }: ModernConversionCardProps) {
         </div>
       </CardHeader>
       <CardContent className="flex-1 px-4 pb-3">
-        <div className="flex items-baseline gap-2 mb-1">
+        {/* <div className="flex items-baseline gap-2 mb-1">
           <span className="text-3xl font-bold tracking-tight">{data.conversionRate}%</span>
-        </div>
-        <p className="text-[11px] text-muted-foreground mb-4">
-          Baseado nos leads criados no período
-        </p>
+        </div> */}
 
         <div className="space-y-3">
           <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">

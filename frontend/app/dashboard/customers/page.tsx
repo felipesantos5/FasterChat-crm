@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { customerApi } from "@/lib/customer";
 import { Customer, CustomerListResponse } from "@/types/customer";
+import { pipelineApi } from "@/lib/pipeline";
+import { PipelineStage } from "@/types/pipeline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +69,7 @@ function CustomersPageContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [orderBy, setOrderBy] = useState<"recent" | "old" | "az" | "za">("recent");
   const [typeFilter, setTypeFilter] = useState<"all" | "individual" | "group">("all");
+  const [pipelineStageFilter, setPipelineStageFilter] = useState<string>("all");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const { hasError, handleError, clearError } = useErrorHandler();
@@ -78,6 +81,7 @@ function CustomersPageContent() {
   // Data
   const [data, setData] = useState<CustomerListResponse | null>(null);
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Debounce search
@@ -103,6 +107,20 @@ function CustomersPageContent() {
     loadTags();
   }, []);
 
+  // Load pipeline stages
+  const loadPipelineStages = async () => {
+    try {
+      const stages = await pipelineApi.getStages("");
+      setPipelineStages(stages);
+    } catch (error) {
+      console.error("Error loading pipeline stages:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadPipelineStages();
+  }, []);
+
   // Load customers
   const loadCustomers = async () => {
     setIsLoading(true);
@@ -113,6 +131,7 @@ function CustomersPageContent() {
         tags: selectedTags.length > 0 ? selectedTags : undefined,
         orderBy,
         type: typeFilter,
+        pipelineStageId: pipelineStageFilter !== "all" ? pipelineStageFilter : undefined,
         page,
         limit,
       });
@@ -127,7 +146,7 @@ function CustomersPageContent() {
 
   useEffect(() => {
     loadCustomers();
-  }, [debouncedSearch, selectedTags, orderBy, typeFilter, page, limit]);
+  }, [debouncedSearch, selectedTags, orderBy, typeFilter, pipelineStageFilter, page, limit]);
 
   const handleCreate = async (customerData: any) => {
     await customerApi.create(customerData);
@@ -169,6 +188,7 @@ function CustomersPageContent() {
     setSelectedTags([]);
     setOrderBy("recent");
     setTypeFilter("all");
+    setPipelineStageFilter("all");
     setPage(1);
   };
 
@@ -177,7 +197,7 @@ function CustomersPageContent() {
   const customers = data?.customers || [];
   const total = data?.total || 0;
 
-  const hasActiveFilters = search || selectedTags.length > 0 || orderBy !== "recent" || typeFilter !== "all";
+  const hasActiveFilters = search || selectedTags.length > 0 || orderBy !== "recent" || typeFilter !== "all" || pipelineStageFilter !== "all";
 
   return (
     <div className="flex flex-col h-full">
@@ -265,6 +285,22 @@ function CustomersPageContent() {
                   <option value="all">Todos</option>
                   <option value="individual">Individuais</option>
                   <option value="group">Grupos</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5 flex-1 max-w-[200px]">
+                <label className="text-xs font-medium text-muted-foreground">Estágio do Funil</label>
+                <select
+                  className="w-full flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  value={pipelineStageFilter}
+                  onChange={(e) => setPipelineStageFilter(e.target.value)}
+                >
+                  <option value="all">Todos</option>
+                  {pipelineStages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -367,6 +403,23 @@ function CustomersPageContent() {
                       <div className="flex items-center gap-1.5 text-muted-foreground mb-2">
                         <Mail className="h-3.5 w-3.5 flex-shrink-0" />
                         <span className="text-sm truncate">{customer.email}</span>
+                      </div>
+                    )}
+
+                    {/* Estágio do Funil */}
+                    {customer.pipelineStage && (
+                      <div className="mb-2">
+                        <Badge
+                          variant="outline"
+                          className="text-xs"
+                          style={{
+                            backgroundColor: `${customer.pipelineStage.color}15`,
+                            borderColor: customer.pipelineStage.color,
+                            color: customer.pipelineStage.color
+                          }}
+                        >
+                          {customer.pipelineStage.name}
+                        </Badge>
                       </div>
                     )}
 

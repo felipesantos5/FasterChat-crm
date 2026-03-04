@@ -150,7 +150,7 @@ export function ExecutionDrawer({
         <div className="flex items-center gap-4 text-xs text-gray-500">
           <div className="flex items-center gap-1">
             <Clock size={12} />
-            {format(new Date(exe.startedAt), "dd/MM HH:mm", { locale: ptBR })}
+            {format(new Date(exe.startedAt), "dd/MM HH:mm:ss", { locale: ptBR })}
           </div>
           {exe.history && (
             <span className="bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 text-[10px]">
@@ -260,7 +260,7 @@ export function ExecutionDrawer({
                         <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                           <span className="flex items-center gap-1">
                             <Clock size={11} />
-                            {format(new Date(batch.startedAt), "dd/MM HH:mm", { locale: ptBR })}
+                            {format(new Date(batch.startedAt), "dd/MM HH:mm:ss", { locale: ptBR })}
                           </span>
                           <span>•</span>
                           <span className="font-medium">
