@@ -460,6 +460,8 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
                 defaultEdgeOptions={{ type: 'button-edge' }}
                 deleteKeyCode={['Backspace', 'Delete']}
                 fitView
+                minZoom={0.1}
+                maxZoom={2}
                 proOptions={{ hideAttribution: true }}
               >
                 <Controls />

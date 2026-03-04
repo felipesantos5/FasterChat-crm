@@ -255,7 +255,7 @@ export function FlowBatchUploadModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
+        <DialogContent className={`max-h-[85vh] overflow-y-auto transition-all duration-300 ${(storePreview?.columns?.length ?? 0) > 4 ? 'sm:max-w-[1100px]' : 'sm:max-w-[560px]'}`}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet size={20} className="text-primary" />
