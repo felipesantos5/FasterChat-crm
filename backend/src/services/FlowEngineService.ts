@@ -29,8 +29,8 @@ const circuitBreaker: CircuitBreakerState = {
 };
 
 // Delay anti-spam entre nós de mensagem (aplicado via BullMQ delay no próximo job)
-const MSG_SEND_DELAY_MIN_MS = 25_000;    // 25s mínimo
-const MSG_SEND_DELAY_MAX_MS = 35_000;    // 35s máximo
+const MSG_SEND_DELAY_MIN_MS = 35_000;    // 35s mínimo
+const MSG_SEND_DELAY_MAX_MS = 60_000;    // 60s máximo
 
 // Configurações do circuit breaker
 const CB_MAX_CONSECUTIVE_ERRORS = 5;     // Abre o circuito após 5 erros seguidos

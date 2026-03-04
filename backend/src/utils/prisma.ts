@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 // Connection pool: ajustado para suportar múltiplos serviços concorrentes
 // (webhooks, flow scheduler, campaign workers, WebSocket, etc.)
 // Configurável via env para ambientes com mais/menos recursos.
-const connectionLimit = parseInt(process.env.PRISMA_CONNECTION_LIMIT || '20', 10);
+const connectionLimit = parseInt(process.env.PRISMA_CONNECTION_LIMIT || '35', 10);
 const poolTimeout = parseInt(process.env.PRISMA_POOL_TIMEOUT || '15', 10);
 
 const databaseUrl = process.env.DATABASE_URL || '';

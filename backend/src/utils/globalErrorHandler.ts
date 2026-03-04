@@ -18,11 +18,10 @@ import { Server } from "http";
 const CONFIG = {
   // Tempo máximo para graceful shutdown (ms)
   SHUTDOWN_TIMEOUT: 30000,
-  // Se deve reiniciar em erros fatais (false = apenas log, true = process.exit)
-  EXIT_ON_FATAL: false,
-  // Máximo de erros não tratados antes de considerar reinício
-  // Em produção, tolera mais erros para evitar restarts desnecessários
-  MAX_UNCAUGHT_ERRORS: process.env.NODE_ENV === 'production' ? 50 : 10,
+  // Em produção com Docker, é mais seguro morrer e reiniciar limpo
+  EXIT_ON_FATAL: process.env.NODE_ENV === 'production',
+  // Máximo de erros não tratados antes de forçar reinício
+  MAX_UNCAUGHT_ERRORS: process.env.NODE_ENV === 'production' ? 15 : 10,
   // Janela de tempo para contar erros (ms)
   // Em produção, janela maior (5 min) para detectar crash loops reais
   ERROR_WINDOW_MS: process.env.NODE_ENV === 'production' ? 300000 : 60000,

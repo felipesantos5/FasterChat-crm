@@ -41,11 +41,32 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
   // Filtra apenas estágios com contagem > 0
   const filteredData = data.filter((item) => item.count > 0);
 
-  const chartData = filteredData.map((item, index) => ({
-    name: item.stageName,
-    value: item.count,
-    fill: COLORS[index % COLORS.length],
-  }));
+  const chartData = filteredData.map((item, index) => {
+    let fill = COLORS[index % COLORS.length];
+    let isLost = false;
+    let isWon = false;
+
+    const lowerName = item.stageName.toLowerCase();
+
+    // Regras de cores específicas baseadas no nome do estágio e ordem
+    if (lowerName.includes("perdido")) {
+      fill = "#ef4444"; // red-500
+      isLost = true;
+    } else if (lowerName.includes("vendido") || lowerName.includes("ganho") || lowerName.includes("fechado")) {
+      fill = "#15803d"; // green-700 (um verde mais escuro)
+      isWon = true;
+    } else if (index === 0) {
+      fill = "#bbf7d0"; // green-200 (primeiro estágio, verde clarinho)
+    }
+
+    return {
+      name: item.stageName,
+      value: item.count,
+      fill,
+      isLost,
+      isWon,
+    };
+  });
 
   const chartConfig = chartData.reduce((acc, curr, index) => {
     acc[`stage_${index}`] = {
@@ -144,6 +165,18 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
             <div className="space-y-2 mt-2 mb-3 px-1">
               {chartData.map((item, index) => {
                 const percentage = ((item.value / total) * 100).toFixed(1);
+
+                // Define a cor da porcentagem
+                const isLostColor = "text-red-500 font-bold";
+                const isWonColor = "text-green-700 font-bold dark:text-green-500";
+                const defaultColor = "text-muted-foreground";
+
+                const percentageColorClass = item.isLost
+                  ? isLostColor
+                  : item.isWon
+                    ? isWonColor
+                    : defaultColor;
+
                 return (
                   <div key={index} className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1">
@@ -159,7 +192,7 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
                       <span className="text-sm font-semibold text-gray-900 dark:text-white">
                         {item.value}
                       </span>
-                      <span className="text-xs text-muted-foreground w-12 text-right">
+                      <span className={`text-xs w-12 text-right ${percentageColorClass}`}>
                         {percentage}%
                       </span>
                     </div>

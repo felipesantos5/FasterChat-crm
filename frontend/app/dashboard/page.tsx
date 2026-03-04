@@ -45,8 +45,8 @@ function DashboardPageContent() {
         value: stats.totalCustomers?.current || 0,
         percentageChange: stats.totalCustomers?.percentageChange || 0,
         icon: UserPlus,
-        gradient: "bg-gradient-to-br from-[#5dc97e] to-[#44ba6c]",
-        colorName: "emerald" as const,
+        gradient: "bg-gradient-to-br from-[#7dd0a0] to-[#5dc97e]",
+        colorName: "lime" as const,
         description: "",
       },
       {
@@ -54,8 +54,8 @@ function DashboardPageContent() {
         value: stats.activeConversations?.current || 0,
         percentageChange: stats.activeConversations?.percentageChange || 0,
         icon: MessageCircle,
-        gradient: "bg-gradient-to-br from-[#7dd0a0] to-[#44ba6c]",
-        colorName: "lime" as const,
+        gradient: "bg-gradient-to-br from-[#5dc97e] to-[#44ba6c]",
+        colorName: "emerald" as const,
         description: "",
       },
       {
@@ -63,7 +63,7 @@ function DashboardPageContent() {
         value: stats.messagesReceived?.current || 0,
         percentageChange: stats.messagesReceived?.percentageChange || 0,
         icon: MessageSquare,
-        gradient: "bg-gradient-to-br from-[#44ba6c] to-[#2d9a53]",
+        gradient: "bg-gradient-to-br from-[#2d9a53] to-[#1e713b]",
         colorName: "teal" as const,
         description: "",
       },
@@ -119,18 +119,18 @@ function DashboardPageContent() {
   // Coleta os cards de baixo dinamicamente, máximo 4
   const bottomCards = chartsData
     ? [
-        <ModernConversionCard key="conversion" data={chartsData.overallConversion} />,
-        <ModernPeakHoursChart key="peak" data={chartsData.messagesByHour} />,
-        ...(chartsData.activeAppointments?.active > 0
-          ? [<ModernAppointmentsCard key="appointments" data={chartsData.activeAppointments} />]
-          : []),
-        ...(chartsData.clientsByState && chartsData.clientsByState.length > 1
-          ? [<ModernRegionChart key="region" data={chartsData.clientsByState} />]
-          : []),
-        ...(chartsData.batchEngagement?.hasBatchExecutions
-          ? [<ModernBatchEngagementCard key="batch" data={chartsData.batchEngagement} />]
-          : []),
-      ].slice(0, 4)
+      <ModernConversionCard key="conversion" data={chartsData.overallConversion} />,
+      <ModernPeakHoursChart key="peak" data={chartsData.messagesByHour} />,
+      ...(chartsData.activeAppointments?.active > 0
+        ? [<ModernAppointmentsCard key="appointments" data={chartsData.activeAppointments} />]
+        : []),
+      ...(chartsData.clientsByState && chartsData.clientsByState.length > 1
+        ? [<ModernRegionChart key="region" data={chartsData.clientsByState} />]
+        : []),
+      ...(chartsData.batchEngagement?.hasBatchExecutions
+        ? [<ModernBatchEngagementCard key="batch" data={chartsData.batchEngagement} />]
+        : []),
+    ].slice(0, 4)
     : [];
 
   // Classe de colunas para desktop — sempre preenche a linha inteira

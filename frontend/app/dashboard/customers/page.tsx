@@ -421,33 +421,38 @@ function CustomersPageContent() {
                       </div>
                     )}
 
-                    {/* Estágio do Funil */}
-                    {customer.pipelineStage && (
-                      <div className="mb-2">
-                        <Badge
-                          variant="outline"
-                          className="text-xs"
-                          style={{
-                            backgroundColor: `${customer.pipelineStage.color}15`,
-                            borderColor: customer.pipelineStage.color,
-                            color: customer.pipelineStage.color
-                          }}
-                        >
-                          {customer.pipelineStage.name}
-                        </Badge>
-                      </div>
-                    )}
-
-                    {/* Tags */}
-                    {customer.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {customer.tags.slice(0, 3).map((tag) => (
-                          <TagBadge key={tag} tag={tag} tags={availableTags} className="text-xs" />
-                        ))}
-                        {customer.tags.length > 3 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{customer.tags.length - 3}
+                    {/* Estágio do Funil e Tags combinados */}
+                    {(customer.pipelineStage || customer.tags.length > 0) && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        {customer.pipelineStage && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs"
+                            style={{
+                              backgroundColor: `${customer.pipelineStage.color}15`,
+                              borderColor: customer.pipelineStage.color,
+                              color: customer.pipelineStage.color
+                            }}
+                          >
+                            {customer.pipelineStage.name}
                           </Badge>
+                        )}
+
+                        {customer.pipelineStage && customer.tags.length > 0 && (
+                          <span className="text-muted-foreground font-medium text-xs mx-0.5">-</span>
+                        )}
+
+                        {customer.tags.length > 0 && (
+                          <>
+                            {customer.tags.slice(0, 3).map((tag) => (
+                              <TagBadge key={tag} tag={tag} tags={availableTags} className="text-xs" />
+                            ))}
+                            {customer.tags.length > 3 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{customer.tags.length - 3}
+                              </Badge>
+                            )}
+                          </>
                         )}
                       </div>
                     )}

@@ -28,9 +28,6 @@ export function ModernBatchEngagementCard({ data }: ModernBatchEngagementCardPro
         <div className="flex items-baseline gap-2 mb-1">
           <span className="text-3xl font-bold tracking-tight">{data.responseRate}%</span>
         </div>
-        <p className="text-[11px] text-muted-foreground mb-4">
-          Taxa de Resposta a Disparos em Lote
-        </p>
 
         <div className="space-y-3">
           <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">

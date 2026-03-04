@@ -335,9 +335,24 @@ export default function CustomerDetailPage() {
         <div className="space-y-6 lg:col-span-2">
           {/* Contact Info */}
           <Card>
-            <CardHeader>
-              <CardTitle>Informações de Contato</CardTitle>
-              <CardDescription>Dados de contato do cliente</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <CardTitle>Informações de Contato</CardTitle>
+                <CardDescription>Dados de contato do cliente</CardDescription>
+              </div>
+              {customer.pipelineStage && (
+                <Badge
+                  variant="outline"
+                  className="text-xs"
+                  style={{
+                    backgroundColor: `${customer.pipelineStage.color}15`,
+                    borderColor: customer.pipelineStage.color,
+                    color: customer.pipelineStage.color
+                  }}
+                >
+                  {customer.pipelineStage.name}
+                </Badge>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -583,11 +598,10 @@ export default function CustomerDetailPage() {
                                 {[...Array(5)].map((_, i) => (
                                   <Star
                                     key={i}
-                                    className={`h-3 w-3 ${
-                                      i < card.rating!
+                                    className={`h-3 w-3 ${i < card.rating!
                                         ? "fill-yellow-400 text-yellow-400"
                                         : "text-gray-300"
-                                    }`}
+                                      }`}
                                   />
                                 ))}
                               </div>

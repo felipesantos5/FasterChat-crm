@@ -99,7 +99,7 @@ class CampaignExecutionService {
       },
       {
         connection: redisConnection,
-        concurrency: 5, // Envia até 5 mensagens simultaneamente
+        concurrency: 3, // Envia até 3 mensagens simultaneamente
         limiter: {
           max: 20, // Máximo 20 mensagens
           duration: 60000, // Por minuto (evita ban do WhatsApp)

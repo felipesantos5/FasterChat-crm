@@ -13,6 +13,10 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { formatPhoneNumber } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { pipelineApi } from "@/lib/pipeline";
+import { PipelineStage } from "@/types/pipeline";
+import { customerApi } from "@/lib/customer";
 
 interface CustomerDetailsProps {
   customerId: string;
@@ -31,6 +35,23 @@ export function CustomerDetails({ customerId, customerName, customerPhone, custo
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState("");
 
+  const [stages, setStages] = useState<PipelineStage[]>([]);
+  const [currentStageId, setCurrentStageId] = useState<string | "none">("none");
+  const [updatingStage, setUpdatingStage] = useState(false);
+
+  // Obtém ID do usuário logado e companyId
+  const getUserData = () => {
+    const user = localStorage.getItem("user");
+    if (user) {
+      return JSON.parse(user);
+    }
+    return null;
+  };
+
+  const userData = getUserData();
+  const currentUserId = userData?.id || null;
+  const companyId = userData?.companyId || null;
+
   // Carrega as notas do cliente
   const loadNotes = async () => {
     try {
@@ -44,9 +65,43 @@ export function CustomerDetails({ customerId, customerName, customerPhone, custo
     }
   };
 
+  const loadCustomerAndStages = async () => {
+    try {
+      if (!companyId) return;
+
+      const [customer, loadedStages] = await Promise.all([
+        customerApi.getById(customerId),
+        pipelineApi.getStages(companyId)
+      ]);
+
+      setCurrentStageId(customer.pipelineStageId || "none");
+      setStages(loadedStages.sort((a, b) => a.order - b.order));
+    } catch (e) {
+      console.error("Error loading customer or stages", e);
+    }
+  };
+
   useEffect(() => {
     loadNotes();
+    loadCustomerAndStages();
   }, [customerId]);
+
+  const handleStageChange = async (value: string) => {
+    if (!companyId) return;
+
+    try {
+      setUpdatingStage(true);
+      const stageId = value === "none" ? null : value;
+      await pipelineApi.moveCustomer(customerId, companyId, { stageId });
+      setCurrentStageId(value);
+      toast.success("Estágio do funil atualizado");
+    } catch (error) {
+      console.error("Error updating stage:", error);
+      toast.error("Erro ao atualizar o estágio");
+    } finally {
+      setUpdatingStage(false);
+    }
+  };
 
   // Adiciona nova nota
   const handleAddNote = async () => {
@@ -117,17 +172,6 @@ export function CustomerDetails({ customerId, customerName, customerPhone, custo
     );
   };
 
-  // Obtém ID do usuário logado
-  const getUserId = () => {
-    const user = localStorage.getItem("user");
-    if (user) {
-      return JSON.parse(user).id;
-    }
-    return null;
-  };
-
-  const currentUserId = getUserId();
-
   return (
     <div className="flex flex-col h-full p-4 space-y-4 overflow-y-auto overflow-x-hidden">
       {/* Customer Info */}
@@ -177,6 +221,36 @@ export function CustomerDetails({ customerId, customerName, customerPhone, custo
               </div>
             </div>
           )}
+
+          <div className="flex items-start gap-2 pt-2">
+            <div className="h-4 w-4 text-muted-foreground mt-1.5 flex justify-center items-center">
+              <div className="h-2 w-2 rounded-full border border-current opacity-70"></div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground mb-1">Estágio do Funil</p>
+              <Select value={currentStageId} onValueChange={handleStageChange} disabled={updatingStage || stages.length === 0}>
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue placeholder="Sem estágio definido" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" className="text-xs text-muted-foreground">
+                    Sem estágio definido
+                  </SelectItem>
+                  {stages.map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id} className="text-xs">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: stage.color }}
+                        />
+                        {stage.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           <Button
             className="w-full mt-4 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20"
