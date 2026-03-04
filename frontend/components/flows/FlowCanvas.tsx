@@ -31,6 +31,7 @@ import { AudioNode } from './nodes/AudioNode';
 import { MediaNode } from './nodes/MediaNode';
 import { AiActionNode } from './nodes/AiActionNode';
 import { AiImageNode } from './nodes/AiImageNode';
+import { AiConditionNode } from './nodes/AiConditionNode';
 import { ValidationNode } from './nodes/ValidationNode';
 import { RandomNode } from './nodes/RandomNode';
 import { NodeSidebar } from './NodeSidebar';
@@ -47,6 +48,7 @@ const nodeTypes = {
   video: MediaNode,
   ai_action: AiActionNode,
   ai_image: AiImageNode,
+  ai_condition: AiConditionNode,
   validation: ValidationNode,
   random: RandomNode,
 };
@@ -306,6 +308,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
     video: 200,
     ai_action: 160,
     ai_image: 520,
+    ai_condition: 420,
     validation: 300,
     random: 220,
   };
@@ -328,6 +331,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
           flowId,
           ...(type === 'audio' ? { mediaUrl: '', fileName: '' } : {}),
           ...(type === 'ai_action' ? { aiAction: 'enable' } : {}),
+          ...(type === 'ai_condition' ? { aiPrompt: 'O cliente quer saber mais sobre nossos serviços e está interessado.', waitValue: 24, waitUnit: 'hours' } : {}),
           ...(type === 'random' ? {
             paths: [
               { id: 'path_a', label: 'A', percent: 50 },
@@ -343,7 +347,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         setEdges((eds) => eds.concat({
           id: `e-${lastNode.id}-${newNodeId}`,
           source: lastNode.id,
-          sourceHandle: lastNode.type === 'trigger' ? 'a' : (lastNode.type === 'condition' ? 'respondeu' : (lastNode.type === 'validation' ? 'true' : undefined)),
+          sourceHandle: lastNode.type === 'trigger' ? 'a' : (lastNode.type === 'condition' ? 'respondeu' : (lastNode.type === 'ai_condition' ? 'interested' : (lastNode.type === 'validation' ? 'true' : undefined))),
           target: newNodeId,
           type: 'button-edge',
         }));

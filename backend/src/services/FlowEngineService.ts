@@ -603,8 +603,9 @@ export class FlowEngineService {
           break;
 
         case 'condition':
+        case 'ai_condition':
           await this.executeConditionNode(execution, node, data);
-          // condition muda status para WAITING_REPLY — não precisa de markNodeCompleted
+          // condition/ai_condition muda status para WAITING_REPLY — não precisa de markNodeCompleted
           break;
 
         case 'delay':
@@ -1165,6 +1166,73 @@ export class FlowEngineService {
         }
 
         // Enfileira próximo step via BullMQ (sem delay — resposta humana deve ser processada rápido)
+        await flowQueueService.enqueueFlowStep({
+          executionId: execution.id,
+          nodeId: execution.currentNode.id,
+          sourceHandle: handle,
+        });
+      } else if (execution.currentNode?.type === 'ai_condition') {
+        // AI condition processing
+        await flowQueueService.removeTimeoutJob(execution.id, execution.currentNode.id);
+
+        const updated = await prisma.flowExecution.updateMany({
+          where: { id: execution.id, status: FlowExecutionStatus.WAITING_REPLY },
+          data: { status: FlowExecutionStatus.RUNNING, resumesAt: null }
+        });
+
+        if (updated.count === 0) {
+          continue;
+        }
+
+        const nodeData = typeof execution.currentNode.data === 'string'
+          ? JSON.parse(execution.currentNode.data)
+          : (execution.currentNode.data || {});
+          
+        const aiPrompt = (nodeData as Record<string, unknown>)?.aiPrompt as string || 'Classifique a intenção do usuário.';
+        
+        let handle = 'other'; // Default se a IA falhar ou não souber
+        
+        try {
+          const { default: geminiService } = await import('./ai-providers/gemini.service');
+          
+          const systemPrompt = `Você é um classificador de intenções para um fluxo de automação de WhatsApp.
+A instrução primária de classificação é: "${aiPrompt}"
+
+Classifique a mensagem do usuário APENAS com uma destas palavras (exatamente como escrito, em minúsculas):
+- "interested" se o cliente estiver interessado, quer saber mais, gostou da proposta, etc.
+- "not_interested" se o cliente não gostou, não quer saber, não tem interesse no momento, achou caro, etc.
+- "already_has" se o cliente informou que já possui o produto ou serviço, ou já é cliente de outra forma que inviabilize.
+- "other" se for uma dúvida não relacionada, se estiver indeciso ou se não se encaixar em nenhuma das lógicas acima.
+
+MENSAGEM DO CLIENTE: "${messageText}"`;
+
+          // Vamos chamar uma prompt normal para classificação simples
+          const classification = await geminiService.generateResponse({
+            systemPrompt,
+            userPrompt: "Responda apenas com a classificação correspondente.",
+            temperature: 0.1, // muito baixa para forçar formato exato
+            maxTokens: 10,
+            enableTools: false,
+          });
+          
+          const cleanClassification = classification.toLowerCase().trim();
+          
+          if (cleanClassification.includes('interested') && !cleanClassification.includes('not_')) {
+             handle = 'interested';
+          } else if (cleanClassification.includes('not_interested')) {
+             handle = 'not_interested';
+          } else if (cleanClassification.includes('already_has')) {
+             handle = 'already_has';
+          } else if (cleanClassification.includes('other')) {
+             handle = 'other';
+          }
+          
+          console.log(`[FlowEngine] 🧠 AI Condition classificou mensagem "${messageText}" como: ${handle} (Raw: ${cleanClassification})`);
+          
+        } catch (error) {
+           console.error(`[FlowEngine] ❌ Erro ao classificar resposta na AI Condition. Fallback para 'other'.`, error);
+        }
+
         await flowQueueService.enqueueFlowStep({
           executionId: execution.id,
           nodeId: execution.currentNode.id,

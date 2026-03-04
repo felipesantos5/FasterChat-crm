@@ -114,6 +114,17 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
+            onClick={() => addNode('ai_condition', 'Validação IA')}
+            className="flex items-center gap-3 p-3 bg-white border rounded-md shadow-sm hover:border-indigo-400 hover:shadow-md transition-all text-left group"
+          >
+            <div className="bg-indigo-100 p-2 rounded-md text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors">🧠</div>
+            <div>
+              <p className="font-medium text-sm text-gray-900 font-sans">Validação IA</p>
+              <p className="text-xs text-gray-500">Classificar com AI</p>
+            </div>
+          </button>
+
+          <button
             onClick={() => addNode('random', 'Randomização')}
             className="flex items-center gap-3 p-3 bg-white border rounded-md shadow-sm hover:border-teal-400 hover:shadow-md transition-all text-left group"
           >
