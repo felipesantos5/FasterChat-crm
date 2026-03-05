@@ -377,7 +377,7 @@ class WhatsAppController {
 
       const company = await prisma.company.findUnique({
         where: { id: companyId },
-        select: { whatsappStrategy: true, defaultWhatsappInstanceId: true },
+        select: { whatsappStrategy: true, defaultWhatsappInstanceId: true, plan: true },
       });
 
       return res.status(200).json({

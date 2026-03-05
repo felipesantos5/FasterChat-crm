@@ -1,11 +1,12 @@
 // import { PlanTier } from "@prisma/client";
 // Definindo localmente para evitar erros de lint até o Prisma Client sincronizar
 const PlanTier = {
+  FREE: "FREE",
   INICIAL: "INICIAL",
   NEGOCIOS: "NEGOCIOS",
   ESCALA_TOTAL: "ESCALA_TOTAL",
 } as any;
-type PlanTier = "INICIAL" | "NEGOCIOS" | "ESCALA_TOTAL";
+type PlanTier = "FREE" | "INICIAL" | "NEGOCIOS" | "ESCALA_TOTAL";
 import { prisma } from "../utils/prisma";
 import openaiService from "./ai-providers/openai.service";
 import geminiService from "./ai-providers/gemini.service";
@@ -640,6 +641,12 @@ Total: R$ 505,00"
 
       if (aiKnowledge && aiKnowledge.autoReplyEnabled === false) {
         throw new Error("Auto-reply is disabled for this company");
+      }
+
+      // Verifica restrição do plano FREE para IA
+      const currentPlan = ((customer.company as any)?.plan || PlanTier.FREE) as PlanTier;
+      if (currentPlan === PlanTier.FREE) {
+        throw new Error("AI auto-reply is not available for companies on the FREE plan");
       }
 
       // Preparação dos dados do contexto - incluindo nome, segmento e descrição

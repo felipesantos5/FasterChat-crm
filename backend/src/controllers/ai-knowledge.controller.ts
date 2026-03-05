@@ -119,6 +119,17 @@ class AIKnowledgeController {
         });
       }
 
+      // Verifica o plano da empresa se tentar ativar o autoReply
+      if (autoReplyEnabled) {
+        const company = await aiKnowledgeService.getCompanyPlan(companyId);
+        if (!company || company.plan === 'FREE') {
+          return res.status(403).json({
+            success: false,
+            message: 'O recurso de resposta automática de IA não está disponível no plano gratuito. Faça um upgrade para ativar.',
+          });
+        }
+      }
+
       const knowledge = await aiKnowledgeService.upsertKnowledge(companyId, {
         companyName,
         companySegment,

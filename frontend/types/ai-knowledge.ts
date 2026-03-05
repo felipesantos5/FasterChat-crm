@@ -27,6 +27,7 @@ export interface ObjectivePreset {
 export interface AIKnowledge {
   id: string;
   companyId: string;
+  plan?: 'FREE' | 'INICIAL' | 'NEGOCIOS' | 'ESCALA_TOTAL';
 
   // Informações da empresa
   companyName?: string | null;

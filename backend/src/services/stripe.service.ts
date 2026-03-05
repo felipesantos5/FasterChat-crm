@@ -31,7 +31,7 @@ export class StripeService {
     const priceId = this.getPriceIdForPlan(plan);
     if (!priceId) throw new Error(`Preço não configurado para o plano ${plan}`);
 
-    let stripeCustomerId = company.stripeCustomerId;
+    let stripeCustomerId = (company as any).stripeCustomerId;
     if (!stripeCustomerId) {
       const admin = await prisma.user.findFirst({ where: { companyId, role: 'ADMIN' } });
       const customer = await stripe.customers.create({
@@ -146,13 +146,13 @@ export class StripeService {
         subscriptionStatus: 'active',
       });
 
-      if (company && company.plan !== (plan as PlanTier)) {
+      if (company && (company as any).plan !== (plan as PlanTier)) {
         const admin = await prisma.user.findFirst({ where: { companyId, role: 'ADMIN' } });
         if (admin) {
           await emailService.sendUpgradeEmail({
             to: admin.email,
             name: admin.name,
-            oldPlan: company.plan,
+            oldPlan: (company as any).plan,
             newPlan: plan,
           });
         }
@@ -201,13 +201,13 @@ export class StripeService {
       ...(newPlan !== undefined && { plan: newPlan }),
     });
 
-    if (newPlan && newPlan !== company.plan) {
+    if (newPlan && newPlan !== (company as any).plan) {
       const admin = await prisma.user.findFirst({ where: { companyId: company.id, role: 'ADMIN' } });
       if (admin) {
         await emailService.sendUpgradeEmail({
           to: admin.email,
           name: admin.name,
-          oldPlan: company.plan,
+          oldPlan: (company as any).plan,
           newPlan,
         });
       }
@@ -220,7 +220,7 @@ export class StripeService {
     if (!company) return;
 
     await this.updateCompanySubscription(company.id, {
-      plan: PlanTier.INICIAL,
+      plan: PlanTier.FREE,
       stripeSubscriptionId: null,
       subscriptionStatus: 'canceled',
     });
@@ -240,7 +240,7 @@ export class StripeService {
     if (!company) return;
 
     // Só reativa se estava inadimplente
-    if (company.subscriptionStatus === 'past_due') {
+    if ((company as any).subscriptionStatus === 'past_due') {
       await this.updateCompanySubscription(company.id, { subscriptionStatus: 'active' });
     }
   }
@@ -250,12 +250,12 @@ export class StripeService {
    */
   async createPortalSession(companyId: string, returnUrl: string): Promise<Stripe.BillingPortal.Session> {
     const company = await prisma.company.findUnique({ where: { id: companyId } });
-    if (!company?.stripeCustomerId) {
+    if (!(company as any).stripeCustomerId) {
       throw new Error('Empresa não tem registro no Stripe para acessar o portal.');
     }
 
     return stripe.billingPortal.sessions.create({
-      customer: company.stripeCustomerId,
+      customer: (company as any).stripeCustomerId,
       return_url: returnUrl,
     });
   }

@@ -40,6 +40,7 @@ function WhatsAppSettingsPageContent() {
   // Estados de estratégia de envio
   const [strategy, setStrategy] = useState<"RANDOM" | "SPECIFIC">("RANDOM");
   const [defaultInstanceId, setDefaultInstanceId] = useState<string | null>(null);
+  const [companyPlan, setCompanyPlan] = useState<string>("INICIAL");
   const [savingStrategy, setSavingStrategy] = useState(false);
 
   // Obtém o companyId do usuário logado (você pode ajustar conforme sua implementação)
@@ -70,6 +71,7 @@ function WhatsAppSettingsPageContent() {
         if (strategyResponse.data) {
           setStrategy(strategyResponse.data.whatsappStrategy || "RANDOM");
           setDefaultInstanceId(strategyResponse.data.defaultWhatsappInstanceId || null);
+          setCompanyPlan(strategyResponse.data.plan || "INICIAL");
         }
       } catch (err) {
         console.error("Error loading strategy:", err);
@@ -107,6 +109,20 @@ function WhatsAppSettingsPageContent() {
       setCreating(true);
       setOperationError(null);
 
+      // Limites por plano
+      const limits: { [key: string]: number } = {
+        'INICIAL': 1,
+        'NEGOCIOS': 3,
+        'ESCALA_TOTAL': 999
+      };
+
+      const limit = limits[companyPlan] || 1;
+      if (instances.length >= limit) {
+        toast.error(`Sua conta atingiu o limite de ${limit} ${limit === 1 ? 'instância' : 'instâncias'} para o plano ${companyPlan}.`);
+        setOperationError(`Sua conta atingiu o limite de ${limit} ${limit === 1 ? 'instância' : 'instâncias'} para o plano ${companyPlan}.`);
+        return;
+      }
+
       const companyId = getCompanyId();
       if (!companyId) {
         setOperationError("Empresa não encontrada");
@@ -119,9 +135,12 @@ function WhatsAppSettingsPageContent() {
 
       // Recarrega a lista
       await loadInstances();
+      toast.success("Instância criada com sucesso!");
     } catch (err: any) {
       console.error("Error creating instance:", err);
-      setOperationError(err.response?.data?.message || "Erro ao criar instância");
+      const message = err.response?.data?.message || "Erro ao criar instância";
+      setOperationError(message);
+      toast.error(message);
     } finally {
       setCreating(false);
     }
@@ -254,10 +273,34 @@ function WhatsAppSettingsPageContent() {
           <CardDescription>Conecte sua conta do WhatsApp para enviar e receber mensagens através do CRM</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={handleCreateInstance} disabled={creating}>
-            {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Adicionar WhatsApp
-          </Button>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Uso do Plano: {companyPlan}</p>
+                <p className="text-2xl font-bold">
+                  {instances.length} / {companyPlan === 'ESCALA_TOTAL' ? '∞' : (companyPlan === 'NEGOCIOS' ? '3' : '1')}
+                </p>
+                <p className="text-xs text-muted-foreground">Instâncias de WhatsApp conectadas</p>
+              </div>
+              <Badge variant={instances.length >= (companyPlan === 'NEGOCIOS' ? 3 : (companyPlan === 'ESCALA_TOTAL' ? 999 : 1)) ? "destructive" : "secondary"}>
+                {instances.length >= (companyPlan === 'NEGOCIOS' ? 3 : (companyPlan === 'ESCALA_TOTAL' ? 999 : 1)) ? "Limite Atingido" : "Disponível"}
+              </Badge>
+            </div>
+            <Button
+              onClick={handleCreateInstance}
+              disabled={creating || instances.length >= (companyPlan === 'NEGOCIOS' ? 3 : (companyPlan === 'ESCALA_TOTAL' ? 999 : 1))}
+              className="w-full sm:w-auto"
+            >
+              {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Adicionar WhatsApp
+            </Button>
+            {instances.length >= (companyPlan === 'NEGOCIOS' ? 3 : (companyPlan === 'ESCALA_TOTAL' ? 999 : 1)) && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Aumente seu plano para conectar mais instâncias.
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
 

@@ -70,17 +70,37 @@ class WhatsAppService {
    * Cria uma nova instância do WhatsApp na Evolution API
    */
   async createInstance(data: CreateInstanceRequest) {
-    const INSTANCE_LIMIT = 5;
-
     try {
       const { companyId, instanceName } = data;
+
+      // Busca a empresa e seu plano
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { plan: true }
+      });
+
+      if (!company) {
+        throw new Error("Empresa não encontrada.");
+      }
+
+      // Define o limite com base no plano
+      let instanceLimit = 1; // Default FREE/INICIAL
+      if ((company as any).plan === "NEGOCIOS") {
+        instanceLimit = 3;
+      } else if ((company as any).plan === "ESCALA_TOTAL") {
+        instanceLimit = 999; // Praticamente ilimitado
+      }
 
       const currentInstances = await prisma.whatsAppInstance.count({
         where: { companyId },
       });
 
-      if (currentInstances >= INSTANCE_LIMIT) {
-        throw new Error("Limite atingido: Sua empresa já possui o máximo de 5 conexões de WhatsApp.");
+      if (currentInstances >= instanceLimit) {
+        let message = `Limite atingido: Seu plano atual permite no máximo ${instanceLimit} conexão de WhatsApp.`;
+        if (instanceLimit > 1) {
+          message = `Limite atingido: Seu plano atual permite no máximo ${instanceLimit} conexões de WhatsApp.`;
+        }
+        throw new Error(message);
       }
 
       // Gera um nome único para a instância se não foi fornecido

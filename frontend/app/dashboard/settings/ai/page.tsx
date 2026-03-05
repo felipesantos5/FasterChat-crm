@@ -2068,6 +2068,7 @@ function AISettingsPageContent() {
 
 // Componente de visão completa após setup
 function CompletedView({
+  knowledge,
   companyName,
   companySegment,
   companyDescription,
@@ -2125,17 +2126,30 @@ function CompletedView({
             <div className="space-y-0.5">
               <Label className="text-base">Resposta Automática</Label>
               <p className="text-sm text-muted-foreground">
-                pode permitir que a IA responda automaticamente mensagens dos clientes
+                Permite que a IA responda automaticamente mensagens dos clientes
               </p>
             </div>
             <div className="flex flex-col gap-1 items-end">
-              <Switch
-                checked={autoReplyEnabled}
-                onCheckedChange={(checked) => {
-                  setAutoReplyEnabled(checked);
-                  saveKnowledge(undefined, { autoReplyEnabled: checked });
-                }}
-              />
+              <div className="flex items-center gap-2">
+                {knowledge?.plan === 'FREE' && (
+                  <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                    <Shield className="h-3 w-3 mr-1" />
+                    Plano Pago
+                  </Badge>
+                )}
+                <Switch
+                  checked={knowledge?.plan === 'FREE' ? false : autoReplyEnabled}
+                  onCheckedChange={(checked) => {
+                    if (knowledge?.plan === 'FREE') {
+                      toast.error("O auto-reply requer um plano pago.");
+                      return;
+                    }
+                    setAutoReplyEnabled(checked);
+                    saveKnowledge(undefined, { autoReplyEnabled: checked });
+                  }}
+                  disabled={knowledge?.plan === 'FREE'}
+                />
+              </div>
               <span className="text-[10px] text-muted-foreground">
                 Delay: {replyDelay}s
               </span>

@@ -57,12 +57,27 @@ class AIKnowledgeService {
   }
 
   /**
+   * Obtém o plano da empresa
+   */
+  async getCompanyPlan(companyId: string) {
+    return prisma.company.findUnique({
+      where: { id: companyId },
+      select: { plan: true },
+    });
+  }
+
+  /**
    * Obtém a base de conhecimento
    */
   async getKnowledge(companyId: string) {
     try {
       const knowledge = await prisma.aIKnowledge.findUnique({
         where: { companyId },
+        include: {
+          company: {
+            select: { plan: true }
+          }
+        }
       });
 
       if (!knowledge) return null;
@@ -71,6 +86,7 @@ class AIKnowledgeService {
       // O Prisma já retorna campos Json como objetos/arrays
       return {
         ...knowledge,
+        plan: (knowledge as any).company?.plan || 'FREE',
         products: knowledge.products || [],
         faq: knowledge.faq || [],
       };

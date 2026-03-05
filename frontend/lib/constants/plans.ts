@@ -1,8 +1,8 @@
 export const PLANS = [
   {
     id: "INICIAL",
-    name: "Inicial",
-    subtitle: "Primeiros passos de automatizar seu negócio.",
+    name: "Essencial",
+    subtitle: "Centralize todos os seus leads e pare de perder vendas por falta de acompanhamento. Com nosso CRM, você tem a visão clara de onde cada cliente está na sua jornada, mantendo o controle total da sua base de dados.",
     price: "R$ 197",
     period: "/mês",
     features: [
@@ -21,8 +21,8 @@ export const PLANS = [
   },
   {
     id: "NEGOCIOS",
-    name: "Negócios 100% Automáticos",
-    subtitle: "A solução completa para o seu negócio rodar sozinho.",
+    name: "Growth",
+    subtitle: "Deixe de ser escravo do teclado. Nossos agentes assumem o atendimento inicial, qualificam leads e respondem dúvidas 24/7, garantindo que o toque humano apareça apenas na hora de fechar negócio.",
     price: "R$ 297",
     period: "/mês",
     features: [
@@ -41,8 +41,8 @@ export const PLANS = [
   },
   {
     id: "ESCALA_TOTAL",
-    name: "Escala Total",
-    subtitle: "A potência máxima para grandes operações.",
+    name: "Performance Máxima",
+    subtitle: "Domine sua estratégia com disparos em massa seguros e dashboards analíticos em tempo real. Identifique gargalos no seu funil e use dados concretos para escalar seu volume de mensagens sem risco de banimento.",
     price: "R$ 397",
     period: "/mês",
     features: [

@@ -16,6 +16,7 @@ enum UserRole {
 }
 
 enum PlanTier {
+  FREE
   INICIAL
   NEGOCIOS
   ESCALA_TOTAL
@@ -68,7 +69,7 @@ model Company {
   defaultWhatsappInstanceId String? @map("default_whatsapp_instance_id")
 
   // Subscription fields
-  plan              PlanTier @default(INICIAL)
+  plan              PlanTier @default(FREE)
   stripeCustomerId  String?  @unique @map("stripe_customer_id")
   stripeSubscriptionId String? @unique @map("stripe_subscription_id")
   subscriptionStatus String?  @default("active") @map("subscription_status")
