@@ -205,8 +205,13 @@ const apiLimiter = rateLimit({
   },
 });
 
-// --- REGISTRA WEBHOOK STRIPE ANTES DO BODY PARSER ---
-app.use("/api/stripe/webhook", stripeRoutes);
+// --- REGISTRA APENAS O WEBHOOK ANTES DO BODY PARSER ---
+import { Router, raw } from "express";
+import stripeController from "./controllers/stripe.controller";
+import { asyncHandler } from "./middlewares/errorHandler";
+const stripeWebhookRouter = Router();
+stripeWebhookRouter.post("/webhook", raw({ type: "application/json" }), asyncHandler(stripeController.webhook));
+app.use("/api/stripe", stripeWebhookRouter);
 
 app.use("/api", apiLimiter);
 

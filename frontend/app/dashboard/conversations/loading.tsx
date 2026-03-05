@@ -4,7 +4,7 @@ export default function ConversationsLoading() {
   return (
     <div className="flex h-full">
       {/* Lista de conversas */}
-      <div className="w-80 border-r">
+      <div className="w-64 border-r">
         <div className="p-4 border-b">
           <Skeleton className="h-10 w-full" />
         </div>
