@@ -288,13 +288,12 @@ export class FlowBatchController {
         realTotal += row._count;
       }
 
-      const realFailed = (realCounts['FAILED'] || 0) + (realCounts['FORCE_CANCELLED'] || 0);
-      const realSucceeded = (realCounts['COMPLETED'] || 0);
-      const realActive = (realCounts['RUNNING'] || 0) + (realCounts['WAITING_REPLY'] || 0) + (realCounts['DELAYED'] || 0);
-      const realPaused = (realCounts['PAUSED'] || 0);
+      const realFailed = (realCounts['FAILED'] || 0) + (realCounts['FORCE_CANCELLED'] || 0) + (realCounts['PAUSED'] || 0);
+      const realSucceeded = (realCounts['COMPLETED'] || 0) + (realCounts['WAITING_REPLY'] || 0);
+      const realActive = (realCounts['RUNNING'] || 0) + (realCounts['DELAYED'] || 0);
 
       let derivedStatus = batch.status;
-      // Se terminou de enfileirar mas ainda tem execuções rodando/agendadas, mantemos como PROCESSING para o frontend
+      // Se terminou de enfileirar mas ainda tem execuções ativas (rodando ou no metrônomo), mantemos como PROCESSING
       if (batch.status === 'COMPLETED' && realActive > 0) {
         derivedStatus = 'PROCESSING';
       }
@@ -302,20 +301,19 @@ export class FlowBatchController {
       return res.json({
         ...batch,
         status: derivedStatus,
-        processed: realTotal + batch.failed,
-        // Sobrescreve com contadores reais do banco e adiciona as falhas de enfileiramento que ficaram só na memória
-        succeeded: realSucceeded + realActive, // ativos ainda estão "ok" (não falharam)
-        failed: realFailed + realPaused + batch.failed, // pausados pelo usuário + falhos + falhas de enqueue
+        processed: realSucceeded + realFailed + batch.failed, // Processados = Sucessos + Falhas Reais + Falhas de Enfileiramento
+        succeeded: realSucceeded,
+        failed: realFailed + batch.failed,
         // Detalhe granular para o frontend usar se quiser
         executionCounts: {
           completed: realCounts['COMPLETED'] || 0,
           running: realCounts['RUNNING'] || 0,
           waitingReply: realCounts['WAITING_REPLY'] || 0,
           delayed: realCounts['DELAYED'] || 0,
-          failed: (realCounts['FAILED'] || 0) + batch.failed, // Falhas do DB + Erros ao colocar na fila
+          failed: (realCounts['FAILED'] || 0) + batch.failed,
           paused: realCounts['PAUSED'] || 0,
           forceCancelled: realCounts['FORCE_CANCELLED'] || 0,
-          total: realTotal + batch.failed,
+          total: batch.total,
         },
       });
     } catch (err) {

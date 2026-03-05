@@ -88,10 +88,10 @@ export interface AgentStatsData {
 
 export interface OverallConversionData {
   totalLeads: number;
-  convertedLeads: number;
   conversionRate: number;
-  lostLeads: number;
-  lostRate: number;
+  stalledLeads: number;
+  stalledRate: number;
+  avgTimeToFirstResponse: number;
 }
 
 export interface BatchEngagementData {

@@ -277,6 +277,41 @@ export class FlowEngineService {
   // ==================================================================================
 
   /**
+   * 📉 Executa nó de alteração de estágio no funil.
+   * Muda o pipelineStageId do cliente de forma instantânea.
+   */
+  private async executeUpdateStageNode(
+    execution: Record<string, unknown>,
+    node: Record<string, unknown>,
+    data: Record<string, unknown>
+  ): Promise<void> {
+    const stageId = data.stageId as string;
+    const customerId = execution.customerId as string;
+
+    if (!stageId) {
+      console.warn(`[FlowEngine] ⚠️ Nó ${node.id} de alterar estágio sem ID de destino.`);
+      return;
+    }
+
+    if (!customerId) {
+      console.warn(`[FlowEngine] ⚠️ Execução ${execution.id} sem customerId associado.`);
+      return;
+    }
+
+    try {
+      await prisma.customer.update({
+        where: { id: customerId },
+        data: { pipelineStageId: stageId }
+      });
+
+      console.log(`[FlowEngine] ✅ Cliente ${customerId} movido para estágio ${stageId} pelo fluxo.`);
+    } catch (err: any) {
+      console.error(`[FlowEngine] ❌ Erro ao mover cliente ${customerId} para estágio ${stageId}:`, err.message);
+      throw new Error(`Falha ao alterar estágio no funil: ${err.message}`);
+    }
+  }
+
+  /**
    * Enfileira o início de um fluxo para um contato.
    * Este é o ponto de entrada público — apenas enfileira, não executa.
    */
@@ -785,6 +820,12 @@ export class FlowEngineService {
 
         case 'ai_image':
           await this.executeAiImageNode(execution, node, data, variables);
+          await this.markNodeCompleted(execution.id as string, node.id as string);
+          await this.processNextNodes(execution.id as string, node.id as string);
+          break;
+
+        case 'update_stage':
+          await this.executeUpdateStageNode(execution, node, data);
           await this.markNodeCompleted(execution.id as string, node.id as string);
           await this.processNextNodes(execution.id as string, node.id as string);
           break;

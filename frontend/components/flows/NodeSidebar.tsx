@@ -135,6 +135,17 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
             </div>
           </button>
 
+          <button
+            onClick={() => addNode('update_stage', 'Alterar Status')}
+            className="flex items-center gap-3 p-3 bg-white border rounded-md shadow-sm hover:border-indigo-400 hover:shadow-md transition-all text-left group"
+          >
+            <div className="bg-indigo-100 p-2 rounded-md text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors">📉</div>
+            <div>
+              <p className="font-medium text-sm text-gray-900 font-sans">Alterar Status</p>
+              <p className="text-xs text-gray-500">Mudar fase do funil</p>
+            </div>
+          </button>
+
         </div>
       </div>
     </div>

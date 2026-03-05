@@ -80,10 +80,10 @@ interface AgentStatsData {
 
 interface OverallConversionData {
   totalLeads: number;
-  convertedLeads: number;
   conversionRate: number;
-  lostLeads: number;
-  lostRate: number;
+  stalledLeads: number;      // Leads parados há mais de 24h em estágios ativos
+  stalledRate: number;       // % de leads estagnados em relação aos ativos
+  avgTimeToFirstResponse: number; // Tempo médio para o primeiro contato (em segundos)
 }
 
 interface BatchEngagementData {
@@ -994,48 +994,97 @@ class DashboardService {
   }
 
   private async getOverallConversionData(companyId: string, startDate: Date, endDate: Date): Promise<OverallConversionData> {
-    const lastStage = await prisma.pipelineStage.findFirst({
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    // 1. Busca os estágios "finais" (Ganhos/Perdidos) para saber quem está "ativo" no meio
+    const stages = await prisma.pipelineStage.findMany({
       where: { companyId },
-      orderBy: { order: "desc" },
-      select: { id: true }
+      orderBy: { order: "asc" },
+      select: { id: true, name: true }
     });
 
-    // Busca também o estágio de "perdido" ou que seja marcado como perdas/cancelados
-    const lostStage = await prisma.pipelineStage.findFirst({
+    const lastStageId = stages[stages.length - 1]?.id;
+    const lostStage = stages.find(s => s.name.toLowerCase().includes('perdid') || s.name.toLowerCase().includes('cancel'));
+    const finalStageIds = [lastStageId, lostStage?.id].filter(Boolean) as string[];
+
+    // 2. Calcula Leads Estagnados (ativos no funil há > 24h sem atualização)
+    const [totalLeads, convertedLeads, activeLeads, stalledLeads] = await Promise.all([
+      prisma.customer.count({
+        where: { companyId, createdAt: { gte: startDate, lte: endDate } }
+      }),
+      lastStageId ? prisma.customer.count({
+        where: { companyId, pipelineStageId: lastStageId, createdAt: { gte: startDate, lte: endDate } }
+      }) : 0,
+      prisma.customer.count({
+        where: { 
+          companyId, 
+          pipelineStageId: { notIn: finalStageIds },
+          isArchived: false
+        }
+      }),
+      prisma.customer.count({
+        where: { 
+          companyId, 
+          pipelineStageId: { notIn: finalStageIds },
+          isArchived: false,
+          updatedAt: { lt: oneDayAgo }
+        }
+      })
+    ]);
+
+    // 3. Calcula Tempo Médio para Primeiro Contato (lead creation -> first outbound)
+    // Pegamos os 100 leads mais recentes criados no período que já receberam alguma mensagem
+    const sampleLeads = await prisma.customer.findMany({
       where: { 
         companyId, 
-        name: { contains: "perdid", mode: "insensitive" }
+        createdAt: { gte: startDate, lte: endDate },
+        messages: { some: { direction: 'OUTBOUND' } }
       },
-      select: { id: true }
+      select: { id: true, createdAt: true },
+      take: 100,
+      orderBy: { createdAt: 'desc' }
     });
 
-    const totalLeads = await prisma.customer.count({
-      where: { companyId, createdAt: { gte: startDate, lte: endDate } }
-    });
+    let totalWaitTime = 0;
+    let countsWithContact = 0;
 
-    let convertedLeads = 0;
-    if (lastStage) {
-      convertedLeads = await prisma.customer.count({
-        where: { companyId, pipelineStageId: lastStage.id, createdAt: { gte: startDate, lte: endDate } }
+    if (sampleLeads.length > 0) {
+      const leadIds = sampleLeads.map(l => l.id);
+      const firstOutboundMessages = await prisma.message.findMany({
+        where: { 
+          customerId: { in: leadIds },
+          direction: 'OUTBOUND'
+        },
+        orderBy: { timestamp: 'asc' },
+        distinct: ['customerId'], // Pega só a primeira de cada
+        select: { customerId: true, timestamp: true }
       });
+
+      const messageMap = new Map(firstOutboundMessages.map(m => [m.customerId, m.timestamp]));
+      
+      for (const lead of sampleLeads) {
+        const contactTime = messageMap.get(lead.id);
+        if (contactTime) {
+          const diff = (contactTime.getTime() - lead.createdAt.getTime()) / 1000;
+          if (diff > 0 && diff < 172800) { // Ignora outliers > 48h
+            totalWaitTime += diff;
+            countsWithContact++;
+          }
+        }
+      }
     }
 
-    let lostLeads = 0;
-    if (lostStage && lostStage.id !== lastStage?.id) {
-      lostLeads = await prisma.customer.count({
-        where: { companyId, pipelineStageId: lostStage.id, createdAt: { gte: startDate, lte: endDate } }
-      });
-    }
-
+    const avgTimeToFirstResponse = countsWithContact > 0 ? Math.round(totalWaitTime / countsWithContact) : 0;
     const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
-    const lostRate = totalLeads > 0 ? (lostLeads / totalLeads) * 100 : 0;
+    const stalledRate = activeLeads > 0 ? (stalledLeads / activeLeads) * 100 : 0;
     
     return {
       totalLeads,
-      convertedLeads,
       conversionRate: Math.round(conversionRate * 10) / 10,
-      lostLeads,
-      lostRate: Math.round(lostRate * 10) / 10
+      stalledLeads,
+      stalledRate: Math.round(stalledRate * 10) / 10,
+      avgTimeToFirstResponse
     };
   }
 

@@ -34,6 +34,7 @@ import { AiImageNode } from './nodes/AiImageNode';
 import { AiConditionNode } from './nodes/AiConditionNode';
 import { ValidationNode } from './nodes/ValidationNode';
 import { RandomNode } from './nodes/RandomNode';
+import { UpdateStageNode } from './nodes/UpdateStageNode';
 import { NodeSidebar } from './NodeSidebar';
 import ButtonEdge from './edges/ButtonEdge';
 import { FlowIdContext } from './FlowIdContext';
@@ -51,6 +52,7 @@ const nodeTypes = {
   ai_condition: AiConditionNode,
   validation: ValidationNode,
   random: RandomNode,
+  update_stage: UpdateStageNode,
 };
 
 const edgeTypes = {
