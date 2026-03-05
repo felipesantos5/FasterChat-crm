@@ -21,7 +21,7 @@ export default function AdminLoginPage() {
     try {
       await login(username, password);
       toast.success("Login realizado com sucesso!");
-      router.push("/admin");
+      router.push("/master-panel");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao fazer login");
     } finally {

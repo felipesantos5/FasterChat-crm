@@ -1,6 +1,6 @@
 import { prisma } from '../utils/prisma';
 import whatsappService from './whatsapp.service';
-import { FlowExecutionStatus, MessageDirection, MessageStatus } from '@prisma/client';
+import { FlowExecutionStatus, MessageDirection, MessageStatus, PlanTier } from '@prisma/client';
 import messageService from './message.service';
 import { websocketService } from './websocket.service';
 import { customerService } from './customer.service';
@@ -540,7 +540,7 @@ export class FlowEngineService {
     const execution = await prisma.flowExecution.findUnique({
       where: { id: executionId },
       include: {
-        flow: { include: { nodes: true, edges: true } },
+        flow: { include: { nodes: true, edges: true, company: true } },
         whatsappInstance: true,
         currentNode: true,
       }
@@ -770,6 +770,22 @@ export class FlowEngineService {
     execution.history = newHistory;
 
     try {
+      const company = (execution.flow as any).company;
+      if (!company) {
+        throw new Error('Empresa associada ao fluxo não encontrada.');
+      }
+
+      // 1. Verificar status da assinatura
+      if (company.subscriptionStatus !== 'active' && company.subscriptionStatus !== 'trailing') {
+        throw new Error(`Assinatura da empresa '${company.name}' está inativa ou pendente (${company.subscriptionStatus}).`);
+      }
+
+      // 2. Verificar se o plano permite fluxos (WORKFLOW)
+      const plan = company.plan as PlanTier;
+      if (plan === PlanTier.INICIAL) {
+        throw new Error(`Fluxos de automação não estão disponíveis no plano INICIAL.`);
+      }
+
       const data = node.data as Record<string, unknown>;
       const rawVars = execution.variables;
       const variables: Record<string, unknown> = typeof rawVars === 'string' ? JSON.parse(rawVars) : (rawVars || {});
@@ -1034,6 +1050,13 @@ export class FlowEngineService {
     data: Record<string, unknown>,
     variables: Record<string, unknown>
   ): Promise<void> {
+    const company = (execution.flow as any).company;
+    const plan = company?.plan as PlanTier;
+
+    if (plan !== PlanTier.ESCALA_TOTAL) {
+      throw new Error('Geração de imagem via IA disponível apenas no plano ESCALA_TOTAL.');
+    }
+
     const instance = execution.whatsappInstance as Record<string, unknown> | null;
     if (!instance) {
       throw new Error('Nenhuma instância do WhatsApp conectada para enviar imagem IA');

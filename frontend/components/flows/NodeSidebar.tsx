@@ -1,9 +1,21 @@
+import { useAuthStore } from "@/lib/store/auth.store";
+import { Lock } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
 type NodeSidebarProps = {
   handleAddNode: (type: string, name: string) => void;
 };
 
 export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
+  const { user } = useAuthStore();
+  const isEscalaTotal = user?.plan === 'ESCALA_TOTAL';
+
   const addNode = (type: string, name: string) => {
+    if (type === 'ai_image' && !isEscalaTotal) {
+      toast.error("O bloco 'Imagem IA' está disponível apenas no plano Escala Total.");
+      return;
+    }
     handleAddNode(type, name);
   };
 
@@ -92,12 +104,25 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
 
           <button
             onClick={() => addNode('ai_image', 'Imagem IA')}
-            className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-violet-400 hover:shadow-md transition-all text-center group"
+            className={cn(
+              "flex flex-col items-center justify-center gap-1.5 p-2 border rounded-lg shadow-sm transition-all text-center group relative",
+              isEscalaTotal
+                ? "bg-white hover:border-violet-400 hover:shadow-md"
+                : "bg-gray-50 border-gray-200 grayscale opacity-80 cursor-not-allowed"
+            )}
           >
-            <div className="bg-violet-100 p-2 rounded-md text-violet-600 group-hover:bg-violet-500 group-hover:text-white transition-colors text-lg">✨</div>
+            {!isEscalaTotal && (
+              <div className="absolute top-1 right-1">
+                <Lock className="h-2.5 w-2.5 text-gray-400" />
+              </div>
+            )}
+            <div className={cn(
+              "p-2 rounded-md text-lg transition-colors",
+              isEscalaTotal ? "bg-violet-100 text-violet-600 group-hover:bg-violet-500 group-hover:text-white" : "bg-gray-200 text-gray-400"
+            )}>✨</div>
             <div>
-              <p className="font-semibold text-xs text-gray-800">Imagem IA</p>
-              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Gerar imagem</p>
+              <p className="font-semibold text-xs text-gray-800 text-center">Imagem IA</p>
+              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight text-center">Gerar imagem</p>
             </div>
           </button>
 

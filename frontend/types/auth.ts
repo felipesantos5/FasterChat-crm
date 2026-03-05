@@ -1,3 +1,5 @@
+export type PlanTier = "INICIAL" | "NEGOCIOS" | "ESCALA_TOTAL";
+
 export interface User {
   id: string;
   name: string;
@@ -5,6 +7,8 @@ export interface User {
   role: string;
   companyId: string;
   companyName?: string;
+  plan?: PlanTier;
+  subscriptionStatus?: string;
 }
 
 export interface AuthResponse {

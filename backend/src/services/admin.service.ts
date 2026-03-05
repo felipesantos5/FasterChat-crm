@@ -18,8 +18,8 @@ export const adminService = {
 
   // Lista todas as empresas com estatísticas
   async listCompanies() {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const companies = await prisma.company.findMany({
       include: {
@@ -31,27 +31,16 @@ export const adminService = {
             role: true,
           },
         },
-        customers: {
+        _count: {
           select: {
-            id: true,
-          },
-        },
-        whatsappInstances: {
-          select: {
-            id: true,
-            messages: {
+            customers: true,
+            whatsappInstances: {
               where: {
-                direction: "INBOUND",
-                timestamp: {
-                  gte: thirtyDaysAgo,
-                },
-              },
-              select: {
-                id: true,
-              },
-            },
-          },
-        },
+                status: "CONNECTED"
+              }
+            }
+          }
+        }
       },
       orderBy: {
         createdAt: "desc",
@@ -59,32 +48,53 @@ export const adminService = {
     });
 
     // Formatar os dados para retornar
-    return companies.map((company) => {
-      // Encontra o admin (dono) da empresa
-      const owner = company.users.find((user) => user.role === "ADMIN");
+    const companiesStats = await Promise.all(
+      companies.map(async (company) => {
+        // Encontra o admin (dono) da empresa
+        const owner = company.users.find((user) => user.role === "ADMIN");
 
-      // Conta o total de colaboradores (excluindo o dono)
-      const collaboratorsCount = company.users.filter(
-        (user) => user.role !== "ADMIN"
-      ).length;
+        // Conta o total de colaboradores (excluindo o dono)
+        const collaboratorsCount = company.users.filter(
+          (user) => user.role !== "ADMIN"
+        ).length;
 
-      // Conta as mensagens recebidas nos últimos 30 dias
-      const messagesLast30Days = company.whatsappInstances.reduce(
-        (total, instance) => total + instance.messages.length,
-        0
-      );
+        // Busca o total e últimos 7 dias de mensagens enviadas
+        const [totalMessagesSent, messagesLast7Days] = await Promise.all([
+          prisma.message.count({
+            where: {
+              direction: "OUTBOUND",
+              whatsappInstance: {
+                companyId: company.id
+              }
+            }
+          }),
+          prisma.message.count({
+            where: {
+              direction: "OUTBOUND",
+              timestamp: { gte: sevenDaysAgo },
+              whatsappInstance: {
+                companyId: company.id
+              }
+            }
+          })
+        ]);
 
-      return {
-        id: company.id,
-        name: company.name,
-        ownerEmail: owner?.email || "N/A",
-        ownerName: owner?.name || "N/A",
-        collaboratorsCount,
-        customersCount: company.customers.length,
-        messagesLast30Days,
-        createdAt: company.createdAt,
-      };
-    });
+        return {
+          id: company.id,
+          name: company.name,
+          ownerEmail: owner?.email || "N/A",
+          ownerName: owner?.name || "N/A",
+          collaboratorsCount,
+          customersCount: company._count.customers,
+          connectedInstancesCount: company._count.whatsappInstances,
+          totalMessagesSent,
+          messagesLast7Days,
+          createdAt: company.createdAt,
+        };
+      })
+    );
+
+    return companiesStats;
   },
 
   // Busca estatísticas gerais

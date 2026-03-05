@@ -10,13 +10,16 @@ import DeleteConfirmModal from "@/components/links/DeleteConfirmModal";
 import HowItWorksModal from "@/components/links/HowItWorksModal";
 import { buttons, cards, typography, spacing, badges, icons } from "@/lib/design-system";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { PlanGate } from "@/components/layout/plan-gate";
 import { LoadingErrorState } from "@/components/ui/error-state";
 import { useErrorHandler } from "@/hooks/use-error-handler";
 
 export default function LinksPage() {
   return (
     <ProtectedPage requiredPage="WHATSAPP_LINKS">
-      <LinksPageContent />
+      <PlanGate feature="WHATSAPP_LINKS" mode="redirect">
+        <LinksPageContent />
+      </PlanGate>
     </ProtectedPage>
   );
 }

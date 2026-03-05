@@ -54,8 +54,8 @@ export default function FlowsHowItWorksModal({ onClose }: FlowsHowItWorksModalPr
             {/* Card 2 - Condições */}
             <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-green-200 hover:bg-green-50/50 transition-all">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <GitBranch className="h-4 w-4 text-purple-600" />
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <GitBranch className="h-4 w-4 text-green-600" />
                 </div>
                 <span className="font-medium text-gray-900">Condições de Resposta</span>
               </div>
@@ -67,8 +67,8 @@ export default function FlowsHowItWorksModal({ onClose }: FlowsHowItWorksModalPr
             {/* Card 3 - IA Avançada */}
             <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-green-200 hover:bg-green-50/50 transition-all">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Bot className="h-4 w-4 text-blue-600" />
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Bot className="h-4 w-4 text-green-600" />
                 </div>
                 <span className="font-medium text-gray-900">Inteligência Artificial</span>
               </div>
@@ -80,8 +80,8 @@ export default function FlowsHowItWorksModal({ onClose }: FlowsHowItWorksModalPr
             {/* Card 4 - CRM Automático */}
             <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-green-200 hover:bg-green-50/50 transition-all">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Database className="h-4 w-4 text-orange-600" />
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Database className="h-4 w-4 text-green-600" />
                 </div>
                 <span className="font-medium text-gray-900">Ações no CRM</span>
               </div>
@@ -93,8 +93,8 @@ export default function FlowsHowItWorksModal({ onClose }: FlowsHowItWorksModalPr
             {/* Card 5 - Delays e Timing */}
             <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-green-200 hover:bg-green-50/50 transition-all">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-emerald-100 rounded-lg">
-                  <Clock className="h-4 w-4 text-emerald-600" />
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Clock className="h-4 w-4 text-green-600" />
                 </div>
                 <span className="font-medium text-gray-900">Delays Temporais</span>
               </div>
@@ -106,8 +106,8 @@ export default function FlowsHowItWorksModal({ onClose }: FlowsHowItWorksModalPr
             {/* Card 6 - Atendimento Dinâmico */}
             <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-green-200 hover:bg-green-50/50 transition-all">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-rose-100 rounded-lg">
-                  <Zap className="h-4 w-4 text-rose-600" />
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Zap className="h-4 w-4 text-green-600" />
                 </div>
                 <span className="font-medium text-gray-900">Transbordo e Alertas</span>
               </div>

@@ -17,8 +17,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (isLoading) return;
 
     // Se não está autenticado e não está na página de login, redireciona
-    if (!isAuthenticated && pathname !== "/admin/login") {
-      router.push("/admin/login");
+    if (!isAuthenticated && pathname !== "/master-panel/login") {
+      router.push("/master-panel/login");
     }
   }, [isAuthenticated, isLoading, pathname, router]);
 

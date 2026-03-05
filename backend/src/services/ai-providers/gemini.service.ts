@@ -210,6 +210,7 @@ interface GenerateResponseParams {
     customerId: string;
     companyId: string;
   };
+  allowedTools?: string[];
 }
 
 class GeminiService {
@@ -247,6 +248,7 @@ class GeminiService {
         audioMimeType,
         enableTools = true,
         context,
+        allowedTools,
       } = params;
 
       const modelToUse = model || this.model;
@@ -264,7 +266,7 @@ class GeminiService {
           topP: 0.85, // Reduzido de 0.95 para respostas mais focadas
           topK: 40, // Limita variabilidade nas escolhas de tokens
         },
-        tools: enableTools ? geminiTools : undefined,
+        tools: enableTools ? (allowedTools ? this.filterGeminiTools(allowedTools) : geminiTools) : undefined,
       });
 
       // Monta o conteúdo da mensagem
@@ -1026,6 +1028,16 @@ class GeminiService {
 
     logger.error(`🎨 All image generation attempts failed across all models`);
     throw new Error(`Falha ao gerar imagem: ${lastError?.message}`);
+  }
+
+  private filterGeminiTools(allowedNames: string[]): Tool[] {
+    return geminiTools.map((tool: any) => {
+      if (!tool.functionDeclarations) return tool;
+      return {
+        ...tool,
+        functionDeclarations: tool.functionDeclarations.filter((fd: any) => allowedNames.includes(fd.name))
+      };
+    }).filter((tool: any) => tool.functionDeclarations && tool.functionDeclarations.length > 0);
   }
 }
 

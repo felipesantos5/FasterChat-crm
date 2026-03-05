@@ -15,6 +15,12 @@ enum UserRole {
   USER
 }
 
+enum PlanTier {
+  INICIAL
+  NEGOCIOS
+  ESCALA_TOTAL
+}
+
 enum InviteStatus {
   PENDING
   ACCEPTED
@@ -60,6 +66,12 @@ model Company {
 
   whatsappStrategy          String? @default("RANDOM") @map("whatsapp_strategy")
   defaultWhatsappInstanceId String? @map("default_whatsapp_instance_id")
+
+  // Subscription fields
+  plan              PlanTier @default(INICIAL)
+  stripeCustomerId  String?  @unique @map("stripe_customer_id")
+  stripeSubscriptionId String? @unique @map("stripe_subscription_id")
+  subscriptionStatus String?  @default("active") @map("subscription_status")
 
   @@map("companies")
 }

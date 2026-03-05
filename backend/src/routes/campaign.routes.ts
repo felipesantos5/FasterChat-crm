@@ -3,12 +3,14 @@ import campaignController from '../controllers/campaign.controller';
 import campaignExecutionController from '../controllers/campaign-execution.controller';
 import { authenticate } from '../middlewares/auth';
 import { checkPermission } from '../middlewares/permission';
+import { checkPlanFeature } from '../middlewares/plan';
 import { asyncHandler } from '../middlewares/errorHandler';
 
 const router = Router();
 
-// Aplica autenticação em todas as rotas de campanha
+// Aplica autenticação e verificação de plano em TODAS as rotas de campanha
 router.use(authenticate);
+router.use(checkPlanFeature('CAMPAIGNS'));
 
 // CRUD básico
 router.post('/', checkPermission('CAMPAIGNS', true), asyncHandler(campaignController.create));

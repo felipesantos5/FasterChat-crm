@@ -1,3 +1,11 @@
+// import { PlanTier } from "@prisma/client";
+// Definindo localmente para evitar erros de lint até o Prisma Client sincronizar
+const PlanTier = {
+  INICIAL: "INICIAL",
+  NEGOCIOS: "NEGOCIOS",
+  ESCALA_TOTAL: "ESCALA_TOTAL",
+} as any;
+type PlanTier = "INICIAL" | "NEGOCIOS" | "ESCALA_TOTAL";
 import { prisma } from "../utils/prisma";
 import openaiService from "./ai-providers/openai.service";
 import geminiService from "./ai-providers/gemini.service";
@@ -738,8 +746,31 @@ Total: R$ 505,00"
         console.warn("[AIService] Erro ao verificar Google Calendar:", error);
       }
 
-      // Modelo é definido pelo provider (ignora o banco de dados)
-      const modelConfig = DEFAULT_MODELS[AI_PROVIDER] || DEFAULT_MODELS.gemini;
+      // Modelo e ferramentas dependem do plano (Segurança e Diferenciação)
+      const company = customer.company as any;
+      const plan = (company?.plan || PlanTier.INICIAL) as PlanTier;
+      const subStatus = company?.subscriptionStatus || 'active';
+
+      // 1. Bloqueio por status da assinatura (opcional: permite uso básico ou bloqueia totalmente)
+      if (subStatus !== 'active' && subStatus !== 'trailing') {
+        // Se a assinatura expirou, podemos forçar o modelo mais barato ou retornar erro
+        // Por enquanto, vamos apenas garantir o modelo mini/flash
+        if (plan === PlanTier.ESCALA_TOTAL) {
+           console.warn(`[AIService] Assinatura ${subStatus} para empresa ${company.id}. Rebaixando IA.`);
+        }
+      }
+
+      let modelConfig: string;
+
+      if (AI_PROVIDER === "openai") {
+        modelConfig = (plan === PlanTier.ESCALA_TOTAL && (subStatus === 'active' || subStatus === 'trailing'))
+          ? (process.env.OPENAI_MODEL || "gpt-4o") 
+          : (process.env.OPENAI_MODEL_MINI || "gpt-4o-mini");
+      } else {
+        modelConfig = (plan === PlanTier.ESCALA_TOTAL && (subStatus === 'active' || subStatus === 'trailing'))
+          ? (process.env.GEMINI_MODEL_PRO || "gemini-1.5-pro") 
+          : (process.env.GEMINI_MODEL || "gemini-2.0-flash");
+      }
       
       // Usa temperatura baixa por padrão para garantir precisão nos dados
       const temperature = options?.temperature ?? CHATBOT_CONFIG.TEMPERATURE;
@@ -823,7 +854,13 @@ Total: R$ 505,00"
         }
       }
 
-      const useTools = true;
+      // Filtra ferramentas baseadas no plano (Google Agenda apenas para NEGOCIOS e ESCALA_TOTAL)
+      let tools = [...essentialTools];
+      if (plan === (PlanTier.INICIAL as any)) {
+        tools = tools.filter(t => !['get_available_slots', 'create_appointment'].includes((t as any).function.name));
+      }
+
+      const useTools = tools.length > 0;
 
       // Adapta os parâmetros de acordo com o provedor
       let aiResponse: string;
@@ -838,7 +875,7 @@ Total: R$ 505,00"
           model: modelConfig,
           imageUrl: imageUrlForVision,
           ...(useTools && {
-            tools: essentialTools,
+            tools: tools,
             toolChoice: "auto",
             context: {
               customerId: customer.id,
@@ -855,8 +892,11 @@ Total: R$ 505,00"
           maxTokens,
           model: modelConfig,
           imageBase64: imageBase64ForGemini,
-          imageMimeType,
+          imageMimeType: imageMimeType,
           enableTools: useTools,
+          ...(useTools && {
+            allowedTools: tools.map(t => (t as any).function.name),
+          }),
           context: {
             customerId: customer.id,
             companyId: customer.companyId,

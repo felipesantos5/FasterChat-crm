@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -22,6 +22,8 @@ import {
   DollarSign,
   Zap,
   Network,
+  CreditCard,
+  Lock,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import logo from "@/assets/logo2.webp";
@@ -30,6 +32,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useHandoffsCount } from "@/hooks/use-handoffs-count";
 import { useUnreadCount } from "@/hooks/use-unread-count";
+import { usePlanFeatures, PlanFeature, PLAN_NAMES, FEATURE_MIN_PLAN } from "@/hooks/usePlanFeatures";
 
 // Tipo para os itens de menu
 interface MenuItem {
@@ -39,6 +42,7 @@ interface MenuItem {
   children?: MenuItem[];
   permission?: string; // Permissão necessária para ver este item
   adminOnly?: boolean; // Item visível apenas para ADMIN
+  planFeature?: PlanFeature; // Feature de plano necessária para este item
 }
 
 const menuItems: MenuItem[] = [
@@ -71,23 +75,27 @@ const menuItems: MenuItem[] = [
     icon: CalendarDays,
     href: "/dashboard/calendario",
     permission: "CALENDAR",
+    planFeature: "GOOGLE_CALENDAR",
   },
   {
     label: "Campanhas",
     icon: Megaphone,
     href: "/dashboard/campaigns",
     permission: "CAMPAIGNS",
+    planFeature: "CAMPAIGNS",
   },
   {
     label: "Links de WhatsApp",
     icon: Link2,
     href: "/dashboard/links",
     permission: "WHATSAPP_LINKS",
+    planFeature: "WHATSAPP_LINKS",
   },
   {
     label: "Fluxos de Automação",
     icon: Network,
     href: "/dashboard/flows",
+    planFeature: "WORKFLOW",
   },
   {
     label: "Configurações",
@@ -118,6 +126,11 @@ const menuItems: MenuItem[] = [
         permission: "AI_CONFIG",
       },
       {
+        label: "Assinatura",
+        icon: CreditCard,
+        href: "/dashboard/settings/billing",
+      },
+      {
         label: "Scripts de Atendimento",
         icon: Zap,
         href: "/dashboard/settings/ai/scripts",
@@ -145,10 +158,12 @@ const menuItems: MenuItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
   const { isOpen, close } = useSidebar();
   const { hasPermission, loading } = usePermissions();
   const { user } = useAuthStore();
+  const { hasFeature } = usePlanFeatures();
   const { count: handoffsCount, isError } = useHandoffsCount();
   const { count: unreadCount } = useUnreadCount(user?.companyId);
 
@@ -301,6 +316,37 @@ export function Sidebar() {
     const showHandoffBadge = item.label === "Conversas" && handoffsCount > 0;
     const showUnreadBadge = item.label === "Conversas" && unreadCount > 0;
     const isConversas = item.label === "Conversas";
+
+    // Verificar se o item está bloqueado por plano
+    const isPlanLocked = item.planFeature ? !hasFeature(item.planFeature) : false;
+    const minPlanName = item.planFeature ? PLAN_NAMES[FEATURE_MIN_PLAN[item.planFeature]] : "";
+
+    // Item bloqueado por plano - exibe como desabilitado com cadeado
+    if (isPlanLocked) {
+      return (
+        <button
+          key={item.href}
+          onClick={() => router.push("/dashboard/settings/billing")}
+          title={`Disponível no plano ${minPlanName}. Clique para fazer upgrade.`}
+          className={cn(
+            "flex w-full items-center justify-between rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all relative",
+            "text-muted-foreground/50 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30 dark:hover:text-amber-400 cursor-pointer group"
+          )}
+          style={{ paddingLeft: `${depth * 12 + 12}px` }}
+        >
+          <div className="flex items-center space-x-2 md:space-x-3 flex-1">
+            <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 opacity-50" />
+            <span className="truncate opacity-60">{item.label}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
+              Upgrade
+            </span>
+            <Lock className="h-3 w-3 text-amber-500 dark:text-amber-400 flex-shrink-0" />
+          </div>
+        </button>
+      );
+    }
 
     return (
       <Link

@@ -24,6 +24,8 @@ export interface AuthResponse {
     email: string;
     role: string;
     companyId: string;
+    plan: string;
+    subscriptionStatus?: string;
   };
   token: string;
   refreshToken?: string;

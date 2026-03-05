@@ -23,7 +23,9 @@ interface Company {
   ownerName: string;
   collaboratorsCount: number;
   customersCount: number;
-  messagesLast30Days: number;
+  connectedInstancesCount: number;
+  totalMessagesSent: number;
+  messagesLast7Days: number;
   createdAt: string;
 }
 
@@ -78,7 +80,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.push("/admin/login");
+      router.push("/master-panel/login");
       return;
     }
     fetchData();
@@ -86,7 +88,7 @@ export default function AdminDashboardPage() {
 
   const handleLogout = () => {
     logout();
-    router.push("/admin/login");
+    router.push("/master-panel/login");
   };
 
   const formatDate = (dateString: string) => {
@@ -253,7 +255,13 @@ export default function AdminDashboardPage() {
                       Clientes
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Msgs (30 dias)
+                      Instâncias
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Msgs (7 dias)
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Msgs (Total)
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Criado em
@@ -297,9 +305,20 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium">
+                          <Database className="w-4 h-4" />
+                          {company.connectedInstancesCount}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full text-sm font-medium">
                           <MessageSquare className="w-4 h-4" />
-                          {company.messagesLast30Days}
+                          {company.messagesLast7Days}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+                          {company.totalMessagesSent}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

@@ -296,13 +296,8 @@ export default function CustomerDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => {
-              if (window.history.length > 2) {
-                router.back();
-              } else {
-                router.push("/dashboard/customers");
-              }
-            }}
+            onClick={() => router.back()}
+            className="hover:bg-gray-100 rounded-full"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -321,18 +316,12 @@ export default function CustomerDetailPage() {
               )}
               {customer.pipelineStage ? (
                 <Badge
-                  variant="outline"
-                  className="text-xs font-semibold px-2.5 py-0.5"
-                  style={{
-                    backgroundColor: `${customer.pipelineStage.color}18`,
-                    borderColor: customer.pipelineStage.color,
-                    color: customer.pipelineStage.color,
-                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white text-[10px] h-5 uppercase font-bold px-2"
                 >
                   {customer.pipelineStage.name}
                 </Badge>
               ) : (
-                <Badge variant="destructive" className="bg-red-500 hover:bg-red-600 text-xs font-semibold px-2.5 py-0.5">
+                <Badge variant="destructive" className="bg-red-600 hover:bg-red-700 text-[10px] h-5 uppercase font-bold px-2">
                   Sem Funil
                 </Badge>
               )}
@@ -342,9 +331,10 @@ export default function CustomerDetailPage() {
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={() =>
-              router.push(`/dashboard/conversations?customer=${customer.id}`)
-            }
+            onClick={() => {
+              const url = `/dashboard/conversations?customer=${customer.id}`;
+              router.push(url);
+            }}
           >
             <MessageSquare className="mr-2 h-4 w-4" />
             Abrir Chat

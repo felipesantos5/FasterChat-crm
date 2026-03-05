@@ -15,16 +15,20 @@ import { EditCampaignDialog } from '@/components/campaigns/edit-campaign-dialog'
 import { ScheduleCampaignDialog } from '@/components/campaigns/schedule-campaign-dialog';
 import CampaignsHowItWorksModal from '@/components/campaigns/CampaignsHowItWorksModal';
 import { ProtectedPage } from '@/components/layout/protected-page';
+import { PlanGate } from '@/components/layout/plan-gate';
 import { LoadingErrorState } from "@/components/ui/error-state";
 import { useErrorHandler } from "@/hooks/use-error-handler";
 
 export default function CampaignsPage() {
   return (
     <ProtectedPage requiredPage="CAMPAIGNS">
-      <CampaignsPageContent />
+      <PlanGate feature="CAMPAIGNS" mode="redirect">
+        <CampaignsPageContent />
+      </PlanGate>
     </ProtectedPage>
   );
 }
+
 
 function CampaignsPageContent() {
   const router = useRouter();

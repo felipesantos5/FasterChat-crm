@@ -20,10 +20,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FlowConfigModal } from '@/components/flows/flow-config-modal';
 import FlowsHowItWorksModal from '@/components/flows/FlowsHowItWorksModal';
-// import { FlowBatchUploadModal } from '@/components/flows/flow-batch-upload-modal';
-// import { whatsappApi } from '@/lib/whatsapp';
-// import { getUser } from '@/lib/auth';
-// import { WhatsAppStatus } from '@/types/whatsapp';
+import { PlanGate } from '@/components/layout/plan-gate';
 
 interface Flow {
   id: string;
@@ -38,6 +35,14 @@ interface Flow {
 }
 
 export default function FlowsPage() {
+  return (
+    <PlanGate feature="WORKFLOW" mode="redirect">
+      <FlowsPageContent />
+    </PlanGate>
+  );
+}
+
+function FlowsPageContent() {
   // const router = useRouter();
   const [flows, setFlows] = useState<Flow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,11 +56,11 @@ export default function FlowsPage() {
 
   const fetchFlows = async () => {
     try {
-      const res = await api.get('/flows');
+      const res = await api.get("/flows");
       setFlows(res.data);
     } catch (error) {
-      console.error('Error fetching flows', error);
-      toast.error('Erro ao carregar fluxos');
+      console.error("Error fetching flows", error);
+      toast.error("Erro ao carregar fluxos");
     } finally {
       setLoading(false);
     }
@@ -140,11 +145,13 @@ export default function FlowsPage() {
                   <Zap size={22} fill="currentColor" className="opacity-80" />
                 </div>
                 <div className="flex gap-2">
-                  <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full ${flow.status === 'ACTIVE'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                    {flow.status === 'ACTIVE' ? 'Ativo' : 'Rascunho'}
+                  <span
+                    className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full ${flow.status === "ACTIVE"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-yellow-100 text-yellow-700"
+                      }`}
+                  >
+                    {flow.status === "ACTIVE" ? "Ativo" : "Rascunho"}
                   </span>
                   <button
                     onClick={(e) => openConfigModal(flow, e)}
@@ -168,22 +175,25 @@ export default function FlowsPage() {
                   {flow.name}
                 </h3>
                 <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-                  <div className="flex items-center gap-1.5" title="Execuções Totais">
+                  <div
+                    className="flex items-center gap-1.5"
+                    title="Execuções Totais"
+                  >
                     <Play size={14} className="text-gray-400" />
                     <span>{flow._count?.executions || 0} execuções</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Clock size={14} className="text-gray-400" />
-                    <span>{format(new Date(flow.createdAt), "dd/MM/yy", { locale: ptBR })}</span>
+                    <span>
+                      {format(new Date(flow.createdAt), "dd/MM/yy", {
+                        locale: ptBR,
+                      })}
+                    </span>
                   </div>
                 </div>
               </div>
 
               <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-between text-xs font-semibold text-gray-400">
-                {/* <span className="flex items-center gap-1 uppercase tracking-tighter">
-                  <MessageSquare size={12} />
-                  Trigger: {flow.triggerType}
-                </span> */}
                 <span className="text-primary flex items-center group-hover:translate-x-1 transition-transform">
                   Editar <ChevronRight size={14} />
                 </span>
@@ -196,9 +206,12 @@ export default function FlowsPage() {
           <div className="bg-gray-50 p-4 rounded-full mb-4">
             <Zap size={40} className="text-gray-300" />
           </div>
-          <h3 className="text-xl font-bold text-gray-800">Crie seu primeiro fluxo</h3>
+          <h3 className="text-xl font-bold text-gray-800">
+            Crie seu primeiro fluxo
+          </h3>
           <p className="text-gray-500 mt-2 max-w-xs mx-auto">
-            Automatize suas vendas e atendimento pelo WhatsApp de forma visual e poderosa.
+            Automatize suas vendas e atendimento pelo WhatsApp de forma visual
+            e poderosa.
           </p>
           <Link
             href="/dashboard/flows/new"

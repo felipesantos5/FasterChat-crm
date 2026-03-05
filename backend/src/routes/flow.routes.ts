@@ -4,6 +4,7 @@ import { FlowController } from '../controllers/FlowController';
 import { FlowBatchController } from '../controllers/FlowBatchController';
 import { authenticate } from '../middlewares/auth';
 import { asyncHandler } from '../middlewares/errorHandler';
+import { checkPlanFeature } from '../middlewares/plan';
 
 const flowRouter = Router();
 const flowController = new FlowController();
@@ -29,6 +30,7 @@ const upload = multer({
 });
 
 flowRouter.use(authenticate);
+flowRouter.use(checkPlanFeature('WORKFLOW'));
 
 flowRouter.get('/', asyncHandler(flowController.getFlows));
 flowRouter.post('/', asyncHandler(flowController.createFlow));

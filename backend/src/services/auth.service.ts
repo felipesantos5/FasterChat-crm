@@ -1,8 +1,9 @@
-import { User } from '@prisma/client';
+import { User, PlanTier } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { hashPassword, comparePassword } from '../utils/password';
 import { generateToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { SignupDTO, LoginDTO, AuthResponse, JWTPayload } from '../types/auth';
+import crypto from 'crypto';
 
 export class AuthService {
   async signup(data: SignupDTO): Promise<AuthResponse> {
@@ -61,6 +62,8 @@ export class AuthService {
         email: result.user.email,
         role: result.user.role,
         companyId: result.user.companyId,
+        plan: (result.company as any).plan,
+        subscriptionStatus: (result.company as any).subscriptionStatus || "active",
       },
       token,
       refreshToken,
@@ -73,6 +76,7 @@ export class AuthService {
     // Find user
     const user = await prisma.user.findUnique({
       where: { email },
+      include: { company: true },
     });
 
     if (!user) {
@@ -110,11 +114,13 @@ export class AuthService {
 
     return {
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        companyId: user.companyId,
+        id: (user as any).id,
+        name: (user as any).name,
+        email: (user as any).email,
+        role: (user as any).role,
+        companyId: (user as any).companyId,
+        plan: (user as any).company.plan,
+        subscriptionStatus: (user as any).company.subscriptionStatus,
       },
       token,
       refreshToken,
@@ -157,6 +163,58 @@ export class AuthService {
     return prisma.user.findUnique({
       where: { id: userId },
     });
+  }
+
+  /**
+   * 🤖 Cria conta automaticamente após pagamento via Stripe.
+   * Chamado pelo webhook stripe depois de um checkout.session.completed de um lead novo.
+   * Retorna as credenciais geradas para que o chamador possa enviar por email.
+   */
+  async createAccountFromCheckout(data: {
+    email: string;
+    name: string;
+    companyName: string;
+    plan: string;
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+  }): Promise<{ tempPassword: string; userId: string; companyId: string }> {
+    const { email, name, companyName, plan, stripeCustomerId, stripeSubscriptionId } = data;
+
+    // Gera senha temporária segura (12 chars alfanuméricos)
+    const tempPassword = crypto.randomBytes(8).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
+    const passwordHash = await hashPassword(tempPassword);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const company = await tx.company.create({
+        data: {
+          name: companyName,
+          plan: plan as any,
+          subscriptionStatus: 'active',
+          stripeCustomerId: stripeCustomerId || null,
+          stripeSubscriptionId: stripeSubscriptionId || null,
+        },
+      });
+
+      const user = await tx.user.create({
+        data: {
+          name,
+          email,
+          passwordHash,
+          companyId: company.id,
+          role: 'ADMIN',
+        },
+      });
+
+      return { user, company };
+    });
+
+    console.log(`[AuthService] ✅ Conta criada via Stripe checkout para ${email} (empresa: ${companyName}, plano: ${plan})`);
+
+    return {
+      tempPassword,
+      userId: result.user.id,
+      companyId: result.company.id,
+    };
   }
 }
 

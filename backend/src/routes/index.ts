@@ -23,12 +23,14 @@ import collaboratorRoutes from "./collaborator.routes";
 import adminRoutes from "./admin.routes";
 import serviceRoutes from "./service.routes";
 import customFieldRoutes from "./custom-field.routes";
+import stripeRoutes from "./stripe.routes";
 import conversationExampleController from "../controllers/conversation-example.controller";
 import { authenticate } from "../middlewares/auth";
 import { asyncHandler } from "../middlewares/errorHandler";
 
 const router = Router();
 
+router.use("/stripe", stripeRoutes);
 router.use("/auth", authRoutes);
 router.use("/upload", uploadRouter);
 router.use("/customers", customerRoutes);

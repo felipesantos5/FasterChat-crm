@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import googleCalendarController from '../controllers/google-calendar.controller';
 import { asyncHandler } from '../middlewares/errorHandler';
+import { authenticate } from '../middlewares/auth';
+import { checkPlanFeature } from '../middlewares/plan';
 
 const router = Router();
+
+router.use(authenticate);
+router.use(checkPlanFeature('GOOGLE_CALENDAR'));
 
 // Auth
 router.get('/auth-url', asyncHandler(googleCalendarController.getAuthUrl));

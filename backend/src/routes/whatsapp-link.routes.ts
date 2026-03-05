@@ -2,12 +2,14 @@ import { Router } from 'express';
 import whatsappLinkController from '../controllers/whatsapp-link.controller';
 import { authenticate } from '../middlewares/auth';
 import { checkPermission } from '../middlewares/permission';
+import { checkPlanFeature } from '../middlewares/plan';
 import { asyncHandler } from '../middlewares/errorHandler';
 
 const router = Router();
 
-// Todas as rotas requerem autenticação
+// Todas as rotas requerem autenticação e plano NEGOCIOS+
 router.use(authenticate);
+router.use(checkPlanFeature('WHATSAPP_LINKS'));
 
 // CRUD de links
 router.post('/', checkPermission('WHATSAPP_LINKS', true), asyncHandler(whatsappLinkController.create.bind(whatsappLinkController)));

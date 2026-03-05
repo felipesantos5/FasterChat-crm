@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Calendar as BigCalendar, dateFnsLocalizer, View } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import Link from "next/link";
 import { Calendar, Plus, Settings, Clock, MapPin, User, Edit, Trash2, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { appointmentApi } from "@/lib/appointment";
@@ -32,6 +33,8 @@ import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
 import { useErrorHandler } from "@/hooks/use-error-handler";
 import { ExpandableText } from "@/components/ui/expandable-text";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+
 
 const locales = { "pt-BR": ptBR };
 
@@ -80,7 +83,9 @@ export default function CalendarioPage() {
 function CalendarioPageContent() {
   // ✅ 1. Recuperar dados do usuário autenticado
   const { user } = useAuthStore();
+  const { hasFeature } = usePlanFeatures();
   const companyId = user?.companyId;
+  const canUseGoogleCalendar = hasFeature("GOOGLE_CALENDAR");
 
   // ✅ 2. Recuperar clientes reais da API
   const { customers } = useCustomers(companyId || null);
@@ -156,22 +161,33 @@ function CalendarioPageContent() {
           </div>
           <div className="flex items-center gap-2">
             {/* Google Calendar Button */}
-            {googleStatus?.connected ? (
-              <button
-                onClick={() => setShowGoogleCalendar(true)}
-                className="flex items-center justify-center h-10 w-10 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-all border border-green-200 shadow-sm"
-                title="Google Calendar Conectado"
-              >
-                <CheckCircle className="h-5 w-5" />
-              </button>
+            {canUseGoogleCalendar ? (
+              googleStatus?.connected ? (
+                <button
+                  onClick={() => setShowGoogleCalendar(true)}
+                  className="flex items-center justify-center h-10 w-10 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-all border border-green-200 shadow-sm"
+                  title="Google Calendar Conectado"
+                >
+                  <CheckCircle className="h-5 w-5" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowGoogleCalendar(true)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-all border border-yellow-200 text-xs font-bold h-10 shadow-sm whitespace-nowrap"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden xl:inline">Google Calendar</span>
+                </button>
+              )
             ) : (
-              <button
-                onClick={() => setShowGoogleCalendar(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-all border border-yellow-200 text-xs font-bold h-10 shadow-sm whitespace-nowrap"
+              <Link
+                href="/dashboard/settings/billing"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-gray-100 transition-all border border-gray-200 text-[10px] font-bold h-10 shadow-sm whitespace-nowrap"
+                title="Google Calendar requer plano Negócios"
               >
                 <Settings className="h-4 w-4" />
-                <span className="hidden xl:inline">Google Calendar</span>
-              </button>
+                <span className="hidden xl:inline">Upgrade p/ Google Calendar</span>
+              </Link>
             )}
 
             {/* New Appointment Button */}
