@@ -12,11 +12,14 @@ import {
   ChevronRight,
   Play,
   Clock,
-  Settings
+  Settings,
+  HelpCircle,
+  Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FlowConfigModal } from '@/components/flows/flow-config-modal';
+import FlowsHowItWorksModal from '@/components/flows/FlowsHowItWorksModal';
 // import { FlowBatchUploadModal } from '@/components/flows/flow-batch-upload-modal';
 // import { whatsappApi } from '@/lib/whatsapp';
 // import { getUser } from '@/lib/auth';
@@ -42,6 +45,9 @@ export default function FlowsPage() {
   // For Config Modal
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedFlow, setSelectedFlow] = useState<Flow | null>(null);
+
+  // For How It Works Modal
+  const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
 
   const fetchFlows = async () => {
     try {
@@ -89,14 +95,31 @@ export default function FlowsPage() {
   return (
     <div className="flex-1 space-y-6 p-4 pt-6 md:p-8 bg-gray-50/30 min-h-screen font-sans">
       <div className="flex items-center justify-between">
-        <div />
-        <Link
-          href="/dashboard/flows/new"
-          className="inline-flex items-center justify-center rounded-lg text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-primary bg-primary text-white hover:bg-primary/90 h-11 px-5 shadow-sm gap-2"
-        >
-          <Plus size={18} />
-          Novo Fluxo
-        </Link>
+        {/* Header Actions */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+          {/* Botão Como Funciona */}
+          <button
+            onClick={() => setShowHowItWorksModal(true)}
+            className="group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary/10 to-blue-500/10 hover:from-primary/20 hover:to-blue-500/20 border border-primary/20 hover:border-primary/30 rounded-xl transition-all duration-200 shadow-sm hover:shadow"
+          >
+            <div className="p-1.5 bg-primary/20 group-hover:bg-primary/30 rounded-lg transition-colors">
+              <Sparkles className="h-4 w-4 text-primary" />
+            </div>
+            <div className="text-left hidden sm:block">
+              <span className="text-sm font-semibold text-primary block">Como funciona?</span>
+              <span className="text-xs text-primary/80">Entenda os fluxos de automação</span>
+            </div>
+            <HelpCircle className="h-4 w-4 text-primary ml-1" />
+          </button>
+
+          <Link
+            href="/dashboard/flows/new"
+            className="inline-flex items-center justify-center rounded-lg text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-primary bg-primary text-white hover:bg-primary/90 h-11 px-5 shadow-sm gap-2 whitespace-nowrap"
+          >
+            <Plus size={18} />
+            Novo Fluxo
+          </Link>
+        </div>
       </div>
 
       {loading ? (
@@ -205,6 +228,11 @@ export default function FlowsPage() {
           flowName={batchFlow.name}
         />
       )} */}
+
+      {/* How It Works Modal */}
+      {showHowItWorksModal && (
+        <FlowsHowItWorksModal onClose={() => setShowHowItWorksModal(false)} />
+      )}
     </div>
   );
 }

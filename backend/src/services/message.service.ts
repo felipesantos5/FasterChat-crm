@@ -561,8 +561,7 @@ class MessageService {
         || data.message?.imageMessage?.caption
         || '[mídia sem texto]';
       const msgPreview = String(msgText).substring(0, 80);
-      console.log(`[MessageService] 📩 INBOUND | instance="${instanceName}" remoteJid="${remoteJid}" fromMe=${data.key?.fromMe} pushName="${data.pushName || ''}" msgType="${data.messageType || ''}" preview="${msgPreview}"`);
-      console.log(`[MessageService] 📩 INBOUND EXTRA | senderPn="${data.senderPn || ''}" participant="${data.key?.participant || ''}" remoteJidAlt="${data.remoteJidAlt || ''}" owner="${data.owner || ''}" messageStubParams=${JSON.stringify(data.messageStubParameters || [])}`);
+      // Logging omitted for brevity
 
       let realJid = remoteJid;
       let isLid = false;
@@ -810,7 +809,7 @@ class MessageService {
       let customer = null;
       let customerSource = 'NEW'; // Rastreia qual caminho encontrou o customer
 
-      console.log(`[MessageService] 🔍 CUSTOMER LOOKUP | phone="${phone}" isLid=${isLid} resolvedFromLid=${resolvedFromLid} lidFallback=${lidFallbackMode} rawLid="${rawLidId}" companyId="${instance.companyId}"`);
+      // Lookup logic
 
       // ==================================================================================
       // Em lidFallbackMode, o phone é o LID bruto (ex: "147798464925851").
@@ -838,7 +837,7 @@ class MessageService {
             }
           }
 
-          console.log(`[MessageService] 🔍 FLOW ATIVO CHECK | phoneVariants=${JSON.stringify(phoneVariants)}`);
+          // Flow config
 
           const activeFlow = await prisma.flowExecution.findFirst({
             where: {
@@ -863,7 +862,7 @@ class MessageService {
               console.warn(`[MessageService] ⚠️ Flow ativo encontrado mas customer NÃO existe no DB: contactPhone="${activeFlow.contactPhone}"`);
             }
           } else {
-            console.log(`[MessageService] 🔍 FLOW ATIVO CHECK | Nenhum flow WAITING_REPLY para variantes ${JSON.stringify(phoneVariants)}`);
+            // Nenhum flow WAITING_REPLY encontrado
           }
         }
 
@@ -872,7 +871,6 @@ class MessageService {
           customer = await customerService.findByPhoneWithVariant(phone, instance.companyId);
           if (customer) {
             customerSource = 'PHONE_VARIANT';
-            console.log(`[MessageService] ✅ Customer via findByPhoneWithVariant: phone="${phone}" → customer.id="${customer.id}" customer.phone="${customer.phone}" customer.name="${customer.name}" customer.lidPhone="${customer.lidPhone || ''}"`);
           }
         }
       }
@@ -963,8 +961,6 @@ class MessageService {
 
       if (!customer) {
         console.log(`[MessageService] 🔍 CUSTOMER LOOKUP FALHOU | Nenhuma busca encontrou customer para phone="${phone}" rawLid="${rawLidId}" lidFallback=${lidFallbackMode}`);
-      } else {
-        console.log(`[MessageService] 📋 CUSTOMER FINAL | source="${customerSource}" id="${customer.id}" phone="${customer.phone}" name="${customer.name}" lidPhone="${customer.lidPhone || ''}" remoteJid="${remoteJid}"`);
       }
 
       // 🚫 Em lidFallbackMode (LID não resolvido para phone válido), NÃO criar customer novo.

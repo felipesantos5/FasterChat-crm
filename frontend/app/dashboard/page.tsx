@@ -119,7 +119,7 @@ function DashboardPageContent() {
   // Coleta os cards de baixo dinamicamente, máximo 4
   const bottomCards = chartsData
     ? [
-      <ModernConversionCard key="conversion" data={chartsData.overallConversion} />,
+      <ModernConversionCard key="conversion" data={chartsData.customerActivity} />,
       <ModernPeakHoursChart key="peak" data={chartsData.messagesByHour} />,
       ...(chartsData.activeAppointments?.active > 0
         ? [<ModernAppointmentsCard key="appointments" data={chartsData.activeAppointments} />]

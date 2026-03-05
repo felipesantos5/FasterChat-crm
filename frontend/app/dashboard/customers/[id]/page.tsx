@@ -296,7 +296,13 @@ export default function CustomerDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push("/dashboard/customers")}
+            onClick={() => {
+              if (window.history.length > 2) {
+                router.back();
+              } else {
+                router.push("/dashboard/customers");
+              }
+            }}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -313,7 +319,7 @@ export default function CustomerDetailPage() {
               {customer.isGroup && (
                 <Badge variant="secondary">Grupo</Badge>
               )}
-              {customer.pipelineStage && (
+              {customer.pipelineStage ? (
                 <Badge
                   variant="outline"
                   className="text-xs font-semibold px-2.5 py-0.5"
@@ -324,6 +330,10 @@ export default function CustomerDetailPage() {
                   }}
                 >
                   {customer.pipelineStage.name}
+                </Badge>
+              ) : (
+                <Badge variant="destructive" className="bg-red-500 hover:bg-red-600 text-xs font-semibold px-2.5 py-0.5">
+                  Sem Funil
                 </Badge>
               )}
             </div>
@@ -361,7 +371,7 @@ export default function CustomerDetailPage() {
                 <CardTitle>Informações de Contato</CardTitle>
                 <CardDescription>Dados de contato do cliente</CardDescription>
               </div>
-              {customer.pipelineStage && (
+              {customer.pipelineStage ? (
                 <Badge
                   variant="outline"
                   className="text-xs"
@@ -372,6 +382,10 @@ export default function CustomerDetailPage() {
                   }}
                 >
                   {customer.pipelineStage.name}
+                </Badge>
+              ) : (
+                <Badge variant="destructive" className="text-xs bg-red-500 hover:bg-red-600">
+                  Sem Funil
                 </Badge>
               )}
             </CardHeader>

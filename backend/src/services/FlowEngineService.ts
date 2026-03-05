@@ -1073,7 +1073,7 @@ export class FlowEngineService {
       }
     }
 
-    console.log(`[FlowEngine] 🎨 Gerando imagem IA | prompt="${prompt.substring(0, 80)}..." | refs=${referenceImages.length}`);
+    // Logging omitted
 
     // 4. Presence (composing) enquanto gera
     try {
@@ -1124,7 +1124,7 @@ export class FlowEngineService {
       mediaBase64
     );
 
-    console.log(`[FlowEngine] 🎨 Imagem IA enviada com sucesso para ${contactPhone}`);
+    // Logging omitted
   }
 
   private async executeConditionNode(execution: Record<string, unknown>, node: Record<string, unknown>, data: Record<string, unknown>): Promise<void> {

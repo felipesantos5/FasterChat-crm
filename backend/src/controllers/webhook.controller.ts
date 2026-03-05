@@ -140,13 +140,13 @@ class WebhookController {
                 || "";
             }
 
-            console.log(`[FlowEngine] Checking reply: phone=${phone} companyId=${companyId} instanceId=${instanceId} content="${messageContent}" fromResult=${!!result}`);
+            // Logging omitted
             if (phone && companyId) {
               const { FlowEngineService } = await import("../services/FlowEngineService");
               const flowEngine = new FlowEngineService();
               const flowResumed = await flowEngine.handleIncomingMessage(phone, companyId, messageContent, instanceId);
 
-              console.log(`[FlowEngine] handleIncomingMessage returned: ${flowResumed}`);
+              // Logging omitted
               if (flowResumed) {
                 return res.status(200).json({
                   success: true,

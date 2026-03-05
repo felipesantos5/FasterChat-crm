@@ -137,6 +137,7 @@ export class CustomerService {
         customFieldValues: {
           include: { field: true },
         },
+        pipelineStage: true,
       },
     });
   }
