@@ -1500,6 +1500,42 @@ class MessageService {
   }
 
   /**
+   * Deleta uma mensagem OUTBOUND já enviada (Revoke para todos)
+   */
+  async deleteMessage(messageDbId: string, companyId: string) {
+    const message = await prisma.message.findUnique({
+      where: { id: messageDbId },
+      include: {
+        customer: true,
+      },
+    });
+
+    if (!message) throw Object.assign(new Error("Mensagem não encontrada"), { statusCode: 404 });
+    if (message.customer.companyId !== companyId) throw Object.assign(new Error("Não autorizado"), { statusCode: 403 });
+    if (message.direction !== MessageDirection.OUTBOUND) throw Object.assign(new Error("Só é possível apagar mensagens enviadas"), { statusCode: 400 });
+    if (!message.messageId) throw Object.assign(new Error("Mensagem sem ID do WhatsApp"), { statusCode: 400 });
+
+    // Chama a Evolution API para deletar no WhatsApp
+    await whatsappService.deleteMessage({
+      instanceId: message.whatsappInstanceId,
+      remoteJid: message.customer.phone,
+      messageId: message.messageId,
+    });
+
+    // Deleta do banco
+    await prisma.message.delete({
+      where: { id: messageDbId },
+    });
+
+    // Emite evento WebSocket para atualizar o chat em tempo real
+    if (websocketService.isInitialized()) {
+      websocketService.emitMessageDeleted(companyId, message.customerId, messageDbId);
+    }
+
+    return { success: true };
+  }
+
+  /**
    * Envia uma mídia (imagem ou áudio) para um customer via WhatsApp
    */
   async sendMedia(

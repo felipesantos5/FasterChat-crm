@@ -119,6 +119,14 @@ export const messageApi = {
   },
 
   /**
+   * Deleta uma mensagem já enviada (Revoke para todos)
+   */
+  async deleteMessage(messageId: string): Promise<{ success: boolean }> {
+    const response = await api.delete(`/messages/${messageId}`);
+    return response.data;
+  },
+
+  /**
    * Obtém estatísticas de feedback
    */
   async getFeedbackStats(companyId: string): Promise<{

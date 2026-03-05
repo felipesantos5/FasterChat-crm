@@ -17,7 +17,7 @@ import { whatsappApi } from "@/lib/whatsapp";
 import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2 } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -176,6 +176,16 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     [customerId]
   );
 
+  // Handler para mensagem deletada via WebSocket
+  const handleWebSocketMessageDeleted = useCallback(
+    (data: { messageId: string; customerId: string }) => {
+      if (data.customerId === customerId) {
+        setMessages((prev) => prev.filter((msg) => msg.id !== data.messageId));
+      }
+    },
+    [customerId]
+  );
+
   // WebSocket - usa hook diretamente para ter controle dos eventos
   const { isConnected, isAuthenticated, subscribeToConversation, unsubscribeFromConversation } = useWebSocket({
     autoConnect: true,
@@ -184,6 +194,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     onTyping: handleWebSocketTyping,
     onMessageStatus: handleWebSocketMessageStatus,
     onMessageEdited: handleWebSocketMessageEdited,
+    onMessageDeleted: handleWebSocketMessageDeleted,
   });
 
   // Obtém companyId do usuário logado
@@ -407,6 +418,27 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       toast.error(error?.response?.data?.message || "Não foi possível editar a mensagem");
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  const DELETE_WINDOW_MS = 48 * 60 * 60 * 1000; // Janela típica do WhatsApp (48h)
+
+  const canDeleteMessage = (message: Message) =>
+    message.direction === MessageDirection.OUTBOUND &&
+    !!message.messageId &&
+    Date.now() - new Date(message.timestamp).getTime() < DELETE_WINDOW_MS;
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm("Tem certeza que deseja apagar esta mensagem para todos?")) return;
+
+    try {
+      await messageApi.deleteMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      toast.success("Mensagem apagada com sucesso!");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Não foi possível apagar a mensagem");
+    } finally {
+      setOpenMenuId(null);
     }
   };
 
@@ -1006,14 +1038,15 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                   </div>
                 )}
                 <div className={cn("flex items-end gap-1", isInbound ? "justify-start" : "justify-end")}>
-                  {/* Botão de menu — aparece ao hover, apenas para mensagens editáveis */}
-                  {!isInbound && canEditMessage(message) && (
+                  {/* Botão de menu — aparece ao hover */}
+                  {!isInbound && (canEditMessage(message) || canDeleteMessage(message)) && (
                     <div className="relative self-center opacity-0 group-hover:opacity-100 transition-opacity order-first">
                       <button
                         onClick={() => setOpenMenuId(openMenuId === message.id ? null : message.id)}
                         onBlur={(e) => {
                           if (!e.currentTarget.parentElement?.contains(e.relatedTarget as Node)) {
-                            setOpenMenuId(null);
+                            // Pequeno delay para permitir o clique no botão antes de fechar o menu
+                            setTimeout(() => setOpenMenuId(null), 150);
                           }
                         }}
                         className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -1022,14 +1055,25 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                         <ChevronDown className="h-3.5 w-3.5" />
                       </button>
                       {openMenuId === message.id && (
-                        <div className="absolute bottom-full mb-1 right-0 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-100 dark:border-gray-700 z-20 min-w-[110px]">
-                          <button
-                            onClick={() => startEdit(message)}
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg w-full text-left"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Editar
-                          </button>
+                        <div className="absolute bottom-full mb-1 right-0 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-100 dark:border-gray-700 z-20 min-w-[130px] overflow-hidden">
+                          {canEditMessage(message) && (
+                            <button
+                              onClick={() => startEdit(message)}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 w-full text-left"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Editar
+                            </button>
+                          )}
+                          {canDeleteMessage(message) && (
+                            <button
+                              onClick={() => handleDeleteMessage(message.id)}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 w-full text-left"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Apagar para todos
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>

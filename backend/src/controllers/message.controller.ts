@@ -288,6 +288,26 @@ class MessageController {
   }
 
   /**
+   * DELETE /api/messages/:id
+   * Deleta uma mensagem enviada (Revoke para todos)
+   */
+  async deleteMessage(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Não autenticado' });
+      }
+
+      const { id } = req.params;
+      const result = await messageService.deleteMessage(id, req.user.companyId);
+
+      return res.status(200).json({ success: true, data: result });
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ success: false, message: error.message || 'Falha ao deletar mensagem' });
+    }
+  }
+
+  /**
    * POST /api/messages/:id/feedback
    * Adiciona feedback a uma mensagem da IA
    */

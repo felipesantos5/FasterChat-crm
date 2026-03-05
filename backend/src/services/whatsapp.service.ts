@@ -490,6 +490,31 @@ class WhatsAppService {
 
     return { success: true };
   }
+  
+  /**
+   * Deleta uma mensagem para todos (Revoke) via WhatsApp (janela de 48h do WhatsApp)
+   */
+  async deleteMessage(data: { instanceId: string; remoteJid: string; messageId: string }) {
+    const { instanceId, remoteJid, messageId } = data;
+
+    const instance = await prisma.whatsAppInstance.findUnique({ where: { id: instanceId } });
+    if (!instance) throw Errors.whatsappInstanceNotFound();
+
+    const formattedJid = this.formatJid(remoteJid);
+
+    await this.axiosInstance.delete(`/chat/deleteMessage/${instance.instanceName}`, {
+      data: {
+        number: formattedJid,
+        key: {
+          id: messageId,
+          fromMe: true,
+          remoteJid: formattedJid,
+        },
+      }
+    });
+
+    return { success: true };
+  }
 
   /**
    * Obtém todas as instâncias de uma empresa

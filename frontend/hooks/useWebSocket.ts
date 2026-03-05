@@ -28,6 +28,7 @@ interface UseWebSocketOptions {
   onStatsUpdate?: (stats: any) => void;
   onMessageStatus?: (data: { messageId: string; status: MessageStatus; timestamp: Date }) => void;
   onMessageEdited?: (data: { messageId: string; newContent: string; customerId: string }) => void;
+  onMessageDeleted?: (data: { messageId: string; customerId: string }) => void;
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
@@ -39,6 +40,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     onStatsUpdate,
     onMessageStatus,
     onMessageEdited,
+    onMessageDeleted,
   } = options;
 
   const socketRef = useRef<Socket | null>(null);
@@ -120,6 +122,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
     if (onMessageEdited) {
       socket.on('message_edited', onMessageEdited);
+    }
+
+    if (onMessageDeleted) {
+      socket.on('message_deleted', onMessageDeleted);
     }
 
     socketRef.current = socket;

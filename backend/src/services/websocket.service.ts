@@ -165,6 +165,17 @@ class WebSocketService {
   }
 
   /**
+   * Emite exclusão de mensagem para atualizar o chat em tempo real
+   */
+  emitMessageDeleted(companyId: string, customerId: string, messageId: string) {
+    if (!this.io) return;
+
+    const payload = { messageId, customerId };
+    this.io.to(`company:${companyId}`).emit('message_deleted', payload);
+    this.io.to(`conversation:${customerId}`).emit('message_deleted', payload);
+  }
+
+  /**
    * Emite atualização de status de mensagem
    */
   emitMessageStatusUpdate(companyId: string, messageId: string, status: string) {

@@ -35,6 +35,9 @@ router.put('/:id', asyncHandler(messageController.editMessage));
 // POST /api/messages/:id/feedback - Adiciona feedback a uma mensagem
 router.post('/:id/feedback', asyncHandler(messageController.addFeedback));
 
+// DELETE /api/messages/:id - Deleta uma mensagem (Revoke para todos)
+router.delete('/:id', asyncHandler(messageController.deleteMessage));
+
 // GET /api/messages/feedback/stats/:companyId - Obtém estatísticas de feedback
 router.get('/feedback/stats/:companyId', asyncHandler(messageController.getFeedbackStats));
 
