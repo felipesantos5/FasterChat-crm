@@ -1,7 +1,11 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@fasterchat.com.br';
+
+function getResend(): Resend | null {
+  if (!process.env.RESEND_API_KEY) return null;
+  return new Resend(process.env.RESEND_API_KEY);
+}
 const APP_URL = process.env.APP_URL || 'https://app.fasterchat.com.br';
 
 const PLAN_LABELS: Record<string, string> = {
@@ -98,6 +102,11 @@ export class EmailService {
 </body>
 </html>`.trim();
 
+    const resend = getResend();
+    if (!resend) {
+      console.error('[EmailService] RESEND_API_KEY não configurada — welcome email não enviado.');
+      return;
+    }
     try {
       const result = await resend.emails.send({
         from: `FasterChat <${FROM_EMAIL}>`,
@@ -107,7 +116,6 @@ export class EmailService {
       });
       console.log(`[EmailService] ✅ Welcome email enviado para ${to}:`, result.data?.id);
     } catch (error: any) {
-      // Não lança erro — onboarding não deve falhar por causa do email
       console.error(`[EmailService] ❌ Erro ao enviar welcome email para ${to}:`, error.message);
     }
   }
@@ -125,6 +133,11 @@ export class EmailService {
     const newPlanLabel = PLAN_LABELS[newPlan] || newPlan;
     const oldPlanLabel = PLAN_LABELS[oldPlan] || oldPlan;
 
+    const resend = getResend();
+    if (!resend) {
+      console.error('[EmailService] RESEND_API_KEY não configurada — upgrade email não enviado.');
+      return;
+    }
     try {
       await resend.emails.send({
         from: `FasterChat <${FROM_EMAIL}>`,
@@ -156,6 +169,11 @@ export class EmailService {
   ): Promise<void> {
     const inviteUrl = `${process.env.FRONTEND_URL || APP_URL}/accept-invite/${token}`;
 
+    const resend = getResend();
+    if (!resend) {
+      console.error('[EmailService] RESEND_API_KEY não configurada — invite email não enviado.');
+      throw new Error('Serviço de email não configurado');
+    }
     try {
       await resend.emails.send({
         from: `FasterChat <${FROM_EMAIL}>`,
