@@ -100,16 +100,16 @@ export default function FlowsPage() {
           {/* Botão Como Funciona */}
           <button
             onClick={() => setShowHowItWorksModal(true)}
-            className="group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary/10 to-blue-500/10 hover:from-primary/20 hover:to-blue-500/20 border border-primary/20 hover:border-primary/30 rounded-xl transition-all duration-200 shadow-sm hover:shadow"
+            className="group flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border border-green-200 hover:border-green-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow"
           >
-            <div className="p-1.5 bg-primary/20 group-hover:bg-primary/30 rounded-lg transition-colors">
-              <Sparkles className="h-4 w-4 text-primary" />
+            <div className="p-1.5 bg-green-100 group-hover:bg-green-200 rounded-lg transition-colors">
+              <Sparkles className="h-4 w-4 text-green-600" />
             </div>
-            <div className="text-left hidden sm:block">
-              <span className="text-sm font-semibold text-primary block">Como funciona?</span>
-              <span className="text-xs text-primary/80">Entenda os fluxos de automação</span>
+            <div className="text-left">
+              <span className="text-sm font-semibold text-green-800 block">Como funciona?</span>
+              <span className="text-xs text-green-600">Entenda os fluxos de automação</span>
             </div>
-            <HelpCircle className="h-4 w-4 text-primary ml-1" />
+            <HelpCircle className="h-4 w-4 text-green-500 ml-1" />
           </button>
 
           <Link
