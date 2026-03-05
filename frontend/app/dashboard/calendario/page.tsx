@@ -31,6 +31,7 @@ import { CalendarSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
 import { useErrorHandler } from "@/hooks/use-error-handler";
+import { ExpandableText } from "@/components/ui/expandable-text";
 
 const locales = { "pt-BR": ptBR };
 
@@ -528,14 +529,22 @@ function CalendarioPageContent() {
               {selectedAppointment.description && (
                 <div>
                   <p className="font-medium mb-1">Descrição</p>
-                  <p className="text-sm text-muted-foreground">{selectedAppointment.description}</p>
+                  <ExpandableText
+                    text={selectedAppointment.description}
+                    limit={250}
+                    className="text-sm text-muted-foreground"
+                  />
                 </div>
               )}
 
               {selectedAppointment.notes && (
                 <div>
                   <p className="font-medium mb-1">Notas Internas</p>
-                  <p className="text-sm text-muted-foreground italic">{selectedAppointment.notes}</p>
+                  <ExpandableText
+                    text={selectedAppointment.notes}
+                    limit={250}
+                    className="text-sm text-muted-foreground italic"
+                  />
                 </div>
               )}
 

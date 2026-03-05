@@ -521,12 +521,14 @@ export class FlowEngineService {
         edges = exactMatch;
       } else {
         // Fallback: se não encontrou edge com o handle exato, tenta edges sem handle definido
-        const noHandleEdges = edges.filter(e => !e.sourceHandle);
+        const noHandleEdges = edges.filter(e => !e.sourceHandle || e.sourceHandle === "" || e.sourceHandle === "default");
         if (noHandleEdges.length > 0) {
-          console.warn(`[FlowEngine] ⚠️ Nenhuma edge com handle "${sourceHandle}" encontrada. Usando ${noHandleEdges.length} edge(s) sem handle definido como fallback.`);
+          console.warn(`[FlowEngine] ⚠️ Nenhuma edge com handle "${sourceHandle}" encontrada em ${currentNodeId}. Usando ${noHandleEdges.length} edge(s) de fallback.`);
           edges = noHandleEdges;
+        } else {
+          // Se não há match exato nem fallback, edges fica vazio para que o fluxo termine ou não bifurque erroneamente
+          edges = [];
         }
-        // Se nem edges sem handle existem, edges fica vazio → flow completed
       }
     }
 
@@ -1217,13 +1219,22 @@ MENSAGEM DO CLIENTE: "${messageText}"`;
           
           const cleanClassification = classification.toLowerCase().trim();
           
-          if (cleanClassification.includes('interested') && !cleanClassification.includes('not_')) {
-             handle = 'interested';
-          } else if (cleanClassification.includes('not_interested')) {
+          // Lógica robusta de mapeamento: detecta tanto as chaves em inglês quanto keywords em português
+          if (cleanClassification.includes('not_interested') || 
+              cleanClassification.includes('não interessado') || 
+              cleanClassification.includes('nao interessado')) {
              handle = 'not_interested';
-          } else if (cleanClassification.includes('already_has')) {
+          } else if (cleanClassification.includes('already_has') || 
+                     cleanClassification.includes('já possui') || 
+                     cleanClassification.includes('ja possui') || 
+                     cleanClassification.includes('já tem')) {
              handle = 'already_has';
-          } else if (cleanClassification.includes('other')) {
+          } else if (cleanClassification.includes('interested') || 
+                     cleanClassification.includes('interessado')) {
+             // Esta condição fica por último ou com guardas para não pegar o "não interessado"
+             handle = 'interested';
+          } else if (cleanClassification.includes('other') || 
+                     cleanClassification.includes('outros')) {
              handle = 'other';
           }
           
