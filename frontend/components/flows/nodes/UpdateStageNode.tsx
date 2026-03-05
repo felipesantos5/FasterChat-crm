@@ -4,6 +4,13 @@ import { Trash2, GitPullRequest } from 'lucide-react';
 import { pipelineApi } from '@/lib/pipeline';
 import { getUser } from '@/lib/auth';
 import { PipelineStage } from '@/types/pipeline';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const UpdateStageNode = memo(({ id, data }: any) => {
   const { deleteElements, updateNodeData } = useReactFlow();
@@ -26,14 +33,15 @@ export const UpdateStageNode = memo(({ id, data }: any) => {
     fetchStages();
   }, []);
 
-  const handleStageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    updateNodeData(id, { stageId: e.target.value });
+  const handleStageChange = (value: string) => {
+    updateNodeData(id, { stageId: value });
   };
 
   const selectedStageId = data?.stageId || '';
+  const selectedStage = stages.find(s => s.id === selectedStageId);
 
   return (
-    <div className="bg-white border-2 border-indigo-400 rounded-xl shadow-lg min-w-[260px] overflow-hidden transition-all hover:shadow-indigo-100 hover:border-indigo-500">
+    <div className="bg-white border-2 border-indigo-400 rounded-xl shadow-lg min-w-[280px] overflow-hidden transition-all hover:shadow-indigo-100 hover:border-indigo-500">
       <Handle type="target" position={Position.Left} className="w-8 h-8 bg-indigo-500 border-2 border-white" />
 
       <div className="bg-indigo-50 px-3 py-3 border-b border-indigo-100 flex items-center justify-between gap-2">
@@ -58,20 +66,36 @@ export const UpdateStageNode = memo(({ id, data }: any) => {
           </label>
 
           {loading ? (
-            <div className="h-9 w-full bg-gray-50 animate-pulse rounded-lg" />
+            <div className="h-10 w-full bg-gray-50 animate-pulse rounded-lg" />
           ) : (
-            <select
-              className="w-full p-2 bg-gray-50 border border-gray-100 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 nodrag cursor-pointer transition-all"
-              value={selectedStageId}
-              onChange={handleStageChange}
-            >
-              <option value="">Selecione um status...</option>
-              {stages.map((stage) => (
-                <option key={stage.id} value={stage.id}>
-                  {stage.name}
-                </option>
-              ))}
-            </select>
+            <Select value={selectedStageId} onValueChange={handleStageChange}>
+              <SelectTrigger className="w-full bg-gray-50 border-gray-100 focus:ring-indigo-500/20 focus:border-indigo-400 nodrag h-10">
+                <SelectValue placeholder="Selecione um status...">
+                  {selectedStage && (
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: selectedStage.color || '#CBD5E1' }}
+                      />
+                      <span className="truncate">{selectedStage.name}</span>
+                    </div>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="nodrag">
+                {stages.map((stage) => (
+                  <SelectItem key={stage.id} value={stage.id}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: stage.color || '#CBD5E1' }}
+                      />
+                      <span>{stage.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
 
           <p className="text-[10px] text-gray-400 text-center mt-2 italic px-1">

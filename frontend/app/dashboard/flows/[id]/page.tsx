@@ -6,7 +6,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 
 function FlowBuilderInner({ id }: { id: string }) {
   return (
-    <div className="flex flex-col h-[calc(100vh-65px)] w-full bg-white relative">
+    <div className="flex flex-col h-[calc(100vh-65px)] w-full bg-white relative overflow-hidden">
       <ReactFlowProvider>
         <FlowCanvas flowId={id} />
       </ReactFlowProvider>

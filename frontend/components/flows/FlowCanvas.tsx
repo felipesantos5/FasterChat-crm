@@ -445,7 +445,7 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         </div>
       </div>
 
-      <div className="flex-1 w-full h-full flex flex-row relative z-10">
+      <div className="flex-1 w-full h-full flex flex-row relative z-10 overflow-hidden min-h-0">
         <div className="flex-1 h-full relative">
           {loading ? (
             <div className="flex w-full h-full items-center justify-center text-gray-400">Carregando fluxo...</div>

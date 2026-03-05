@@ -49,11 +49,11 @@ export default function ButtonEdge({
           className="nodrag nopan"
         >
           <button
-            className="w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-all text-gray-400"
+            className="w-10 h-10 bg-red-50 border border-red-200 text-red-500 rounded-full flex items-center justify-center shadow-md hover:bg-red-100 hover:text-red-600 hover:border-red-300 transition-all"
             onClick={onEdgeClick}
             title="Remover conexão"
           >
-            <X size={12} strokeWidth={3} />
+            <X size={16} strokeWidth={3} />
           </button>
         </div>
       </EdgeLabelRenderer>
