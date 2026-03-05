@@ -115,7 +115,7 @@ export const whatsappApi = {
   /**
    * Obtem a configuração da estratégia atual
    */
-  async getStrategy(): Promise<{ data: { whatsappStrategy: "RANDOM" | "SPECIFIC"; defaultWhatsappInstanceId: string | null } }> {
+  async getStrategy(): Promise<{ data: { whatsappStrategy: "RANDOM" | "SPECIFIC"; defaultWhatsappInstanceId: string | null; plan?: string } }> {
     const response = await api.get(`/whatsapp/strategy`);
     return response.data;
   },

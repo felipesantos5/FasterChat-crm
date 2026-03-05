@@ -269,6 +269,7 @@ export class StripeService {
 
   private getPriceIdForPlan(plan: PlanTier): string | undefined {
     const map: Record<PlanTier, string | undefined> = {
+      [PlanTier.FREE]: undefined,
       [PlanTier.INICIAL]: process.env.STRIPE_PRICE_INICIAL,
       [PlanTier.NEGOCIOS]: process.env.STRIPE_PRICE_NEGOCIOS,
       [PlanTier.ESCALA_TOTAL]: process.env.STRIPE_PRICE_ESCALA_TOTAL,
