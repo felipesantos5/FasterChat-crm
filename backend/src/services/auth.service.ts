@@ -27,8 +27,6 @@ export class AuthService {
       const company = await tx.company.create({
         data: {
           name: companyName,
-          plan: PlanTier.FREE,
-          subscriptionStatus: 'active', // Plano free já começa ativo
         },
       });
 

@@ -22,6 +22,7 @@ import {
   DollarSign,
   Zap,
   Network,
+  CreditCard,
   Lock,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
@@ -127,6 +128,11 @@ const menuItems: MenuItem[] = [
         permission: "AI_CONFIG",
       },
       {
+        label: "Assinatura",
+        icon: CreditCard,
+        href: "/dashboard/settings/billing",
+      },
+      {
         label: "Scripts de Atendimento",
         icon: Zap,
         href: "/dashboard/settings/ai/scripts",
@@ -137,7 +143,6 @@ const menuItems: MenuItem[] = [
   {
     label: "IA",
     icon: Bot,
-    planFeature: "AI_HUB",
     children: [
       {
         label: "Insights",
@@ -271,41 +276,11 @@ export function Sidebar() {
     const Icon = item.icon;
     const hasChildren = item.children && item.children.length > 0;
     const isOpen = openMenus.includes(item.label);
+    // Dashboard usa match exato; demais rotas usam startsWith para marcar subrotas também
     const isActive = checkActive(item.href);
     const isParentActive = item.children?.some((child) =>
       child.href ? checkActive(child.href) : false
     );
-
-    // Verificar se o item está bloqueado por plano
-    const isPlanLocked = item.planFeature ? !hasFeature(item.planFeature) : false;
-    const minPlanName = item.planFeature ? PLAN_NAMES[FEATURE_MIN_PLAN[item.planFeature]] : "";
-
-    // Item bloqueado por plano - exibe como desabilitado com cadeado
-    if (isPlanLocked) {
-      return (
-        <button
-          key={item.label}
-          onClick={() => setIsPricingModalOpen(true)}
-          title={`Disponível no plano ${minPlanName}. Clique para fazer upgrade.`}
-          className={cn(
-            "flex w-full items-center justify-between rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all relative",
-            "text-muted-foreground/50 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30 dark:hover:text-amber-400 cursor-pointer group"
-          )}
-          style={{ paddingLeft: `${depth * 12 + 12}px` }}
-        >
-          <div className="flex items-center space-x-2 md:space-x-3 flex-1 overflow-hidden">
-            <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 opacity-50" />
-            <span className="truncate opacity-60">{item.label}</span>
-          </div>
-          <div className="flex items-center justify-end min-w-[65px] gap-1.5">
-            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-all duration-200 hidden md:block whitespace-nowrap">
-              Upgrade
-            </span>
-            <Lock className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400 flex-shrink-0" />
-          </div>
-        </button>
-      );
-    }
 
     // Item com submenu
     if (hasChildren) {
@@ -343,6 +318,37 @@ export function Sidebar() {
     const showHandoffBadge = item.label === "Conversas" && handoffsCount > 0;
     const showUnreadBadge = item.label === "Conversas" && unreadCount > 0;
     const isConversas = item.label === "Conversas";
+
+    // Verificar se o item está bloqueado por plano
+    const isPlanLocked = item.planFeature ? !hasFeature(item.planFeature) : false;
+    const minPlanName = item.planFeature ? PLAN_NAMES[FEATURE_MIN_PLAN[item.planFeature]] : "";
+
+    // Item bloqueado por plano - exibe como desabilitado com cadeado
+    if (isPlanLocked) {
+      return (
+        <button
+          key={item.href}
+          onClick={() => setIsPricingModalOpen(true)}
+          title={`Disponível no plano ${minPlanName}. Clique para fazer upgrade.`}
+          className={cn(
+            "flex w-full items-center justify-between rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all relative",
+            "text-muted-foreground/50 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30 dark:hover:text-amber-400 cursor-pointer group"
+          )}
+          style={{ paddingLeft: `${depth * 12 + 12}px` }}
+        >
+          <div className="flex items-center space-x-2 md:space-x-3 flex-1 overflow-hidden">
+            <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 opacity-50" />
+            <span className="truncate opacity-60">{item.label}</span>
+          </div>
+          <div className="flex items-center justify-end min-w-[65px] gap-1.5">
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-all duration-200 hidden md:block whitespace-nowrap">
+              Upgrade
+            </span>
+            <Lock className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400 flex-shrink-0" />
+          </div>
+        </button>
+      );
+    }
 
     return (
       <Link
@@ -400,7 +406,7 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 h-screen w-[274px] border-r bg-card transition-transform duration-300 ease-in-out",
+          "fixed left-0 top-0 z-50 h-screen w-64 border-r bg-card transition-transform duration-300 ease-in-out",
           "lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
