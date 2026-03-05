@@ -177,8 +177,8 @@ export class FlowBatchController {
   // Em vez de loop com setTimeout, enfileira todos os contatos como jobs BullMQ
   // com delays escalonados. A concorrência e rate limiting são controlados pelo worker.
   // ==================================================================================
-  private static readonly BATCH_STAGGER_MIN_MS = 45_000;  // 45s mínimo entre enfileiramentos
-  private static readonly BATCH_STAGGER_MAX_MS = 90_000;  // 90s máximo entre enfileiramentos
+  private static readonly BATCH_STAGGER_MIN_MS = 1_000;  // 1s mínimo para validação rápida
+  private static readonly BATCH_STAGGER_MAX_MS = 3_000;  // 3s máximo para validação rápida
 
   /**
    * Enfileira todos os contatos como jobs BullMQ flow-orchestration com delays escalonados.
@@ -195,7 +195,8 @@ export class FlowBatchController {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const phone = String(row[phoneColumn] || '').replace(/\D/g, '');
+      const rawPhone = String(row[phoneColumn] || '');
+      const phone = rawPhone.replace(/\D/g, '');
 
       const variables: Record<string, unknown> = {};
       for (const key of Object.keys(row)) {
@@ -205,6 +206,18 @@ export class FlowBatchController {
       variables._batchId = batch.batchId;
       variables._batchName = fileName;
       variables._batchTotal = batch.total;
+
+      // 🛡️ Validação Sintática Básica: pula se for número impossível
+      if (phone.length < 10 || phone.length > 15) {
+        batch.failed++;
+        batch.errors.push({ 
+          row: i + 1, 
+          phone: rawPhone, 
+          error: 'Formato de telefone inválido (deve ter entre 10 e 15 dígitos)' 
+        });
+        batch.processed++;
+        continue;
+      }
 
       try {
         await flowQueueService.enqueueFlowStart(
@@ -227,12 +240,9 @@ export class FlowBatchController {
 
       batch.processed++;
 
-      // Delay escalonado para o próximo contato
+      // Delay reduzido: o objetivo é validar rápido e deixar o anti-spam para o motor de envios
       if (i < rows.length - 1) {
-        const stagger = Math.floor(
-          Math.random() * (FlowBatchController.BATCH_STAGGER_MAX_MS - FlowBatchController.BATCH_STAGGER_MIN_MS)
-        ) + FlowBatchController.BATCH_STAGGER_MIN_MS;
-        cumulativeDelay += stagger;
+        cumulativeDelay += Math.floor(Math.random() * (FlowBatchController.BATCH_STAGGER_MAX_MS - FlowBatchController.BATCH_STAGGER_MIN_MS)) + FlowBatchController.BATCH_STAGGER_MIN_MS;
       }
     }
 

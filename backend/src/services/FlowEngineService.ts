@@ -7,6 +7,8 @@ import { customerService } from './customer.service';
 import flowQueueService from './flow-queue.service';
 import type { FlowStartJobData } from './flow-queue.service';
 import geminiService from './ai-providers/gemini.service';
+import redisConnection from '../config/redis';
+import { Errors } from '../utils/errors';
 
 // ==================================================================================
 // 🛡️ CIRCUIT BREAKER: Protege a Evolution API contra sobrecarga.
@@ -39,6 +41,10 @@ const CB_INITIAL_COOLDOWN_MS = 30_000;   // 30s de pausa inicial
 const CB_MAX_COOLDOWN_MS = 5 * 60_000;   // Máximo 5 minutos de pausa
 const CB_MAX_RETRIES = 2;                // Tentativas por mensagem (1 original + 2 retries)
 const CB_RETRY_BASE_DELAY_MS = 3_000;    // 3s base para retry (exponencial)
+
+// 🔄 ROUND ROBIN: Índice global para alternar entre instâncias conectadas
+// Mantido em memória para garantir distribuição exata e justa em disparos em massa.
+let nextInstanceIndex = 0;
 
 export class FlowEngineService {
   constructor() {
@@ -101,12 +107,13 @@ export class FlowEngineService {
   }
 
   /**
-   * 🛡️ Envia mensagem com retry e circuit breaker.
-   * Retorna o resultado do envio ou lança erro após todas as tentativas.
+   * 🛡️ Envia mensagem com retry, circuit breaker e FAILOVER automático.
+   * Se o chip atual estiver desconectado, tenta pegar outro chip da empresa e continuar.
    */
   private async sendWithRetry(
-    sendFn: () => Promise<Record<string, unknown>>,
-    context: string
+    sendFn: (instanceId: string) => Promise<Record<string, unknown>>,
+    context: string,
+    failoverConfig?: { executionId: string; companyId: string; currentInstanceId: string }
   ): Promise<Record<string, unknown>> {
     // Verifica circuit breaker antes de tentar
     const cbCheck = this.checkCircuitBreaker();
@@ -115,16 +122,32 @@ export class FlowEngineService {
     }
 
     let lastError: Error | undefined;
+    let activeInstanceId = failoverConfig?.currentInstanceId || '';
 
     for (let attempt = 0; attempt <= CB_MAX_RETRIES; attempt++) {
       try {
-        const result = await sendFn();
+        const result = await sendFn(activeInstanceId);
         this.recordSuccess();
         return result;
       } catch (err: unknown) {
         const error = err instanceof Error ? err : new Error(String(err));
         lastError = error;
         const isLastAttempt = attempt === CB_MAX_RETRIES;
+
+        // 🔄 FAILOVER LOGIC: Se o chip desconectou, tentamos trocar por outro AGORA
+        // Se conseguirmos uma nova instância, o loop de retry tentará com ela.
+        if (failoverConfig && (error as any).code === 'WHATSAPP_DISCONNECTED' && !isLastAttempt) {
+          const newInstance = await this.handleFailover(
+            failoverConfig.executionId,
+            failoverConfig.companyId,
+            activeInstanceId
+          );
+          if (newInstance) {
+            activeInstanceId = (newInstance as any).id as string;
+            console.log(`[FlowEngine:Failover] 🚀 Recuperando envio "${context}" com nova instância: ${activeInstanceId}`);
+            // Continua para o próximo retry com o novo chip
+          }
+        }
 
         // Identifica se é erro de rede/API (retentável) vs erro de dados (não retentável)
         const isRetryable = this.isRetryableError(err);
@@ -156,6 +179,32 @@ export class FlowEngineService {
   }
 
   /**
+   * 🛡️ Tenta trocar a instância de WhatsApp de uma execução se a atual estiver desconectada.
+   * Retorna a nova instância selecionada ou null se não houver alternativa.
+   */
+  private async handleFailover(executionId: string, companyId: string, currentInstanceId: string): Promise<Record<string, unknown> | null> {
+    try {
+      // Busca uma nova instância disponível
+      const newInstance = await this.getInstanceForCompany(companyId);
+
+      if (newInstance && (newInstance as any).id !== currentInstanceId) {
+        console.log(`[FlowEngine:Failover] 🔄 Trocando instância da execução ${executionId}: ${currentInstanceId} -> ${(newInstance as any).id}`);
+
+        // Atualiza no banco para que futuros passos deste fluxo já usem o novo chip
+        await prisma.flowExecution.update({
+          where: { id: executionId },
+          data: { whatsappInstanceId: (newInstance as any).id }
+        });
+
+        return newInstance as unknown as Record<string, unknown>;
+      }
+    } catch (err) {
+      console.warn(`[FlowEngine:Failover] ⚠️ Falha ao tentar encontrar chip de failover para ${executionId}:`, err);
+    }
+    return null;
+  }
+
+  /**
    * 🛡️ Determina se um erro é retentável (falha de rede/API) ou permanente (dados inválidos)
    */
   private isRetryableError(err: unknown): boolean {
@@ -182,6 +231,11 @@ export class FlowEngineService {
 
     // Erros de conexão genéricos
     if (message.includes('socket hang up') || message.includes('network') || message.includes('connection')) {
+      return true;
+    }
+
+    // 🔄 WhatsApp Desconectado é retentável para permitir Failover (trocar de chip)
+    if ((err as any)?.code === 'WHATSAPP_DISCONNECTED') {
       return true;
     }
 
@@ -355,13 +409,6 @@ export class FlowEngineService {
       throw new Error(`Nenhuma instância WhatsApp conectada para iniciar o fluxo`);
     }
 
-    // ✅ Valida se o número existe no WhatsApp antes de iniciar o fluxo
-    const numberOnWhatsApp = await whatsappService.numberExists(selectedInstance.instanceName, cleanPhone);
-    if (!numberOnWhatsApp) {
-      console.warn(`[FlowEngine] ⚠️ Número ${cleanPhone} NÃO está no WhatsApp. Pulando fluxo.`);
-      throw new Error(`Número ${cleanPhone} não está registrado no WhatsApp`);
-    }
-
     // Coleta execuções ativas para cancelar depois de criar a nova (precisamos do novo ID)
     const activeStatuses: FlowExecutionStatus[] = [
       FlowExecutionStatus.RUNNING,
@@ -377,7 +424,7 @@ export class FlowEngineService {
       select: { id: true },
     });
 
-    // Create execution (usa o phone limpo + instância selecionada)
+    // 🛡️ CRIA A EXECUÇÃO ANTES DA VALIDAÇÃO para que o progresso do batch registre o erro se falhar
     const execution = await prisma.flowExecution.create({
       data: {
         flowId,
@@ -389,6 +436,35 @@ export class FlowEngineService {
         history: [triggerNode.id],
       }
     });
+
+    // ✅ Valida se o número existe no WhatsApp
+    try {
+      const numberOnWhatsApp = await whatsappService.numberExists(selectedInstance.instanceName, cleanPhone);
+      if (!numberOnWhatsApp) {
+        console.warn(`[FlowEngine] ⚠️ Número ${cleanPhone} NÃO está no WhatsApp. Descartando execução ${execution.id}`);
+        await prisma.flowExecution.update({
+          where: { id: execution.id },
+          data: { 
+            status: FlowExecutionStatus.FAILED, 
+            error: `O número ${cleanPhone} não possui WhatsApp ou é inválido.`,
+            completedAt: new Date()
+          }
+        });
+        return; // Interrompe o fluxo sem erro fatal no worker
+      }
+    } catch (err: any) {
+      console.error(`[FlowEngine] ❌ Erro ao validar número ${cleanPhone} na Evolution:`, err.message);
+      // Se a API cair, falhamos a execução para que apareça no relatório
+      await prisma.flowExecution.update({
+        where: { id: execution.id },
+        data: { 
+          status: FlowExecutionStatus.FAILED, 
+          error: `Falha técnica ao validar número: ${err.message}`,
+          completedAt: new Date()
+        }
+      });
+      return;
+    }
 
     // Cancela execuções anteriores agora que temos o ID da nova
     if (activeExecs.length > 0) {
@@ -558,8 +634,11 @@ export class FlowEngineService {
         const isOutbound = outboundTypes.includes(targetNode.type);
         
         if (isOutbound) {
-          // Se o próximo nó é de envio, enfileira a execução com delay anti-spam
-          const delay = Math.floor(Math.random() * (MSG_SEND_DELAY_MAX_MS - MSG_SEND_DELAY_MIN_MS)) + MSG_SEND_DELAY_MIN_MS;
+          // 🛡️ METRÔNOMO DE INSTÂNCIA: Garante que este CHIP não mande mensagens rápido demais
+          // para contatos diferentes. O delay agora é calculado baseado no último envio agendado para o chip.
+          const instanceId = (execution.whatsappInstanceId as string) || (execution.whatsappInstance as any)?.id;
+          const delay = await this.reserveSendSlot(instanceId);
+          
           await flowQueueService.enqueueFlowStep(
             { executionId: execution.id, nodeId: targetNode.id, sourceHandle: 'INTERNAL_EXECUTE' },
             { delay }
@@ -569,6 +648,49 @@ export class FlowEngineService {
           await this.executeNode(execution, targetNode);
         }
       }
+    }
+  }
+
+  /**
+   * 🛡️ Reserva um "slot" de tempo para envio em uma instância de WhatsApp.
+   * Garante o espaçamento anti-spam Global por CHIP, mesmo que 1000 fluxos comecem ao mesmo tempo.
+   * Retorna o delay (ms) que o job deve aguardar.
+   */
+  private async reserveSendSlot(instanceId: string): Promise<number> {
+    if (!instanceId) return 0;
+    
+    const key = `flow:instance_busy_until:${instanceId}`;
+    const now = Date.now();
+    
+    try {
+      // Busca até quando este chip está "comprometido" com envios anteriores
+      const currentBusyUntilRaw = await redisConnection.get(key);
+      let currentBusyUntil = Number(currentBusyUntilRaw || 0);
+
+      // Se o chip está livre ou o tempo já passou, começamos do "agora"
+      if (currentBusyUntil < now) {
+        currentBusyUntil = now;
+      }
+
+      // Calcula o próximo horário livre sorteando um gap entre 35s e 60s
+      const gap = Math.floor(Math.random() * (MSG_SEND_DELAY_MAX_MS - MSG_SEND_DELAY_MIN_MS)) + MSG_SEND_DELAY_MIN_MS;
+      const nextBusyUntil = currentBusyUntil + gap;
+
+      // Salva o novo bloqueio no Redis (expira em 10min para segurança)
+      await redisConnection.set(key, nextBusyUntil, 'PX', 10 * 60 * 1000);
+
+      // O delay é a diferença entre quando o chip estará livre e o agora
+      const delay = currentBusyUntil - now;
+      
+      if (delay > 0) {
+        console.log(`[FlowEngine:Metronome] ⏳ Chip ${instanceId} ocupado. Enfileirando envio com delay de ${(delay / 1000).toFixed(1)}s`);
+      }
+      
+      return delay;
+    } catch (err) {
+      console.warn(`[FlowEngine:Metronome] ⚠️ Falha ao acessar Redis para metronomo:`, err);
+      // Fallback: usa delay aleatório padrão se o Redis falhar
+      return Math.floor(Math.random() * (MSG_SEND_DELAY_MAX_MS - MSG_SEND_DELAY_MIN_MS)) + MSG_SEND_DELAY_MIN_MS;
     }
   }
 
@@ -742,9 +864,12 @@ export class FlowEngineService {
       console.warn(`[FlowEngine] ⚠️ Instância padrão ${company.defaultWhatsappInstanceId} não está conectada, usando random`);
     }
 
-    // RANDOM (padrão): Seleciona aleatoriamente entre as instâncias conectadas
-    const randomIndex = Math.floor(Math.random() * connectedInstances.length);
-    const selectedInstance = connectedInstances[randomIndex];
+    // ROUND ROBIN (padrão): Seleciona as instâncias em ordem fixa para distribuição exata
+    const selectedInstance = connectedInstances[nextInstanceIndex % connectedInstances.length];
+    
+    // Incrementa o índice para a próxima chamada (usa módulo para evitar overflow)
+    nextInstanceIndex = (nextInstanceIndex + 1) % connectedInstances.length;
+    
     return selectedInstance;
   }
 
@@ -775,12 +900,17 @@ export class FlowEngineService {
     }
 
     const result = await this.sendWithRetry(
-      () => whatsappService.sendMessage({
-        instanceId: instance.id as string,
+      (instanceId) => whatsappService.sendMessage({
+        instanceId,
         to: contactPhone,
         text
       }),
-      `sendMessage(${contactPhone})`
+      `sendMessage(${contactPhone})`,
+      {
+        executionId: execution.id as string,
+        companyId: (execution.flow as any).companyId as string,
+        currentInstanceId: instance.id as string
+      }
     );
 
     // 🔗 Captura o LID retornado pela Evolution API para mapeamento futuro
@@ -821,14 +951,19 @@ export class FlowEngineService {
       }
 
       const result = await this.sendWithRetry(
-        () => whatsappService.sendMedia({
-          instanceId: instance.id as string,
+        (instanceId) => whatsappService.sendMedia({
+          instanceId,
           to: contactPhone,
           mediaBase64: mediaSource,
           mediaType: nodeType, // 'audio', 'image' or 'video'
           caption: caption
         }),
-        `sendMedia(${contactPhone}, ${nodeType})`
+        `sendMedia(${contactPhone}, ${nodeType})`,
+        {
+          executionId: execution.id as string,
+          companyId: (execution.flow as any).companyId as string,
+          currentInstanceId: (instance as any).id as string
+        }
       );
 
       // 🔗 Captura o LID retornado pela Evolution API para mapeamento futuro
@@ -919,16 +1054,21 @@ export class FlowEngineService {
       caption = this.replaceVariables(caption, variables);
     }
 
-    // 8. Envia pelo WhatsApp
+    // 8. Envia pelo WhatsApp com Failover
     const result = await this.sendWithRetry(
-      () => whatsappService.sendMedia({
-        instanceId: instance.id as string,
+      (instanceId) => whatsappService.sendMedia({
+        instanceId,
         to: contactPhone,
         mediaBase64: mediaBase64,
         mediaType: 'image',
         caption: caption,
       }),
-      `sendAiImage(${contactPhone})`
+      `sendAiImage(${contactPhone})`,
+      {
+        executionId: execution.id as string,
+        companyId: (execution.flow as any).companyId as string,
+        currentInstanceId: instance.id as string
+      }
     );
 
     // 🔗 Captura LID

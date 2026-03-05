@@ -306,24 +306,27 @@ class FlowSchedulerService {
             continue;
           }
 
-          // 🛡️ Determina de qual nó retomar usando lastCompletedNodeId
-          // Se o nó atual já foi completado (mensagem enviada + próximo enfileirado),
-          // o recovery vai para o PRÓXIMO nó. Caso contrário, re-processa o atual.
-          const resumeFromNodeId = (execution.lastCompletedNodeId === execution.currentNodeId)
-            ? execution.currentNodeId   // Nó completo → processNextNodes encontra o próximo
-            : (execution.lastCompletedNodeId || execution.currentNodeId); // Nó incompleto → tenta de onde o último completou
+          // 🛡️ Determina de qual nó retomar e como:
+          // - Se currentNodeId === lastCompletedNodeId: o trabalho do nó atual (ex: enviar mensagem) JÁ FOI FEITO.
+          //   A recuperação deve enfileirar apenas o avanço para o PRÓXIMO nó (processNextNodes).
+          // - Caso contrário: o nó atual NÃO terminou sua execução (server crash no meio do envio?).
+          //   A recuperação deve re-executar o nó atual (estratégia 'INTERNAL_EXECUTE').
+          
+          const isCurrentNodeAlreadyCompleted = execution.lastCompletedNodeId === execution.currentNodeId;
+          const resumeFromNodeId = execution.currentNodeId;
+          const sourceHandle = isCurrentNodeAlreadyCompleted ? undefined : 'INTERNAL_EXECUTE';
 
-          const wasCompleted = execution.lastCompletedNodeId === execution.currentNodeId;
           console.log(
             `[Flow Scheduler] ▶️ Re-enfileirando execução ${execution.id} (phone: ${execution.contactPhone}) ` +
             `do nó ${resumeFromNodeId} (currentNode: ${execution.currentNodeId}, ` +
             `lastCompleted: ${execution.lastCompletedNodeId || 'null'}, ` +
-            `strategy: ${wasCompleted ? 'NEXT_NODE' : 'RE_PROCESS'})`
+            `strategy: ${isCurrentNodeAlreadyCompleted ? 'FIND_NEXT' : 'RE_EXECUTE'})`
           );
 
           await flowQueueService.enqueueFlowStep({
             executionId: execution.id,
             nodeId: resumeFromNodeId,
+            sourceHandle,
           });
         } catch (error: unknown) {
           const err = error instanceof Error ? error : new Error(String(error));
