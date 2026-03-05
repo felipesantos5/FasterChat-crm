@@ -451,6 +451,14 @@ export class FlowEngineService {
       return;
     }
 
+    if (sourceHandle === 'INTERNAL_EXECUTE') {
+      const targetNode = execution.flow.nodes.find(n => n.id === nodeId);
+      if (targetNode) {
+        await this.executeNode(execution, targetNode);
+        return;
+      }
+    }
+
     // Para DELAYED e WAITING_REPLY, usa check atômico para evitar execução dupla
     if (execution.status === FlowExecutionStatus.DELAYED || execution.status === FlowExecutionStatus.WAITING_REPLY) {
       const updated = await prisma.flowExecution.updateMany({
@@ -542,10 +550,24 @@ export class FlowEngineService {
     }
 
     // Para cada edge, encontra o nó alvo e executa
+    const outboundTypes = ['message', 'audio', 'image', 'video', 'ai_image'];
+
     for (const edge of edges) {
       const targetNode = flow.nodes.find(n => n.id === edge.targetNodeId);
       if (targetNode) {
-        await this.executeNode(execution, targetNode);
+        const isOutbound = outboundTypes.includes(targetNode.type);
+        
+        if (isOutbound) {
+          // Se o próximo nó é de envio, enfileira a execução com delay anti-spam
+          const delay = Math.floor(Math.random() * (MSG_SEND_DELAY_MAX_MS - MSG_SEND_DELAY_MIN_MS)) + MSG_SEND_DELAY_MIN_MS;
+          await flowQueueService.enqueueFlowStep(
+            { executionId: execution.id, nodeId: targetNode.id, sourceHandle: 'INTERNAL_EXECUTE' },
+            { delay }
+          );
+        } else {
+          // Se é lógica ou espera, executa agora sem delay para fluxo instantâneo
+          await this.executeNode(execution, targetNode);
+        }
       }
     }
   }
@@ -598,10 +620,8 @@ export class FlowEngineService {
       switch (node.type) {
         case 'message':
           await this.executeMessageNode(execution, data, variables);
-          // Enfileira próximo step com delay anti-spam
-          await this.enqueueNextStepWithDelay(execution.id as string, node.id as string);
-          // Marca nó como completamente processado (mensagem enviada + próximo enfileirado)
           await this.markNodeCompleted(execution.id as string, node.id as string);
+          await this.processNextNodes(execution.id as string, node.id as string);
           break;
 
         case 'condition':
@@ -619,46 +639,38 @@ export class FlowEngineService {
         case 'image':
         case 'video':
           await this.executeMediaNode(execution, node, data, variables);
-          // Enfileira próximo step com delay anti-spam
-          await this.enqueueNextStepWithDelay(execution.id as string, node.id as string);
-          // Marca nó como completamente processado
           await this.markNodeCompleted(execution.id as string, node.id as string);
+          await this.processNextNodes(execution.id as string, node.id as string);
           break;
 
         case 'ai_action':
           await this.executeAiActionNode(execution, node, data);
-          // Nó de ação — sem delay anti-spam
-          await flowQueueService.enqueueFlowStep({
-            executionId: execution.id as string,
-            nodeId: node.id as string,
-          });
           await this.markNodeCompleted(execution.id as string, node.id as string);
+          await this.processNextNodes(execution.id as string, node.id as string);
           break;
 
         case 'validation':
           await this.executeValidationNode(execution, node, data, variables);
           await this.markNodeCompleted(execution.id as string, node.id as string);
+          await this.processNextNodes(execution.id as string, node.id as string);
           break;
 
         case 'random':
           await this.executeRandomNode(execution, node, data);
           await this.markNodeCompleted(execution.id as string, node.id as string);
+          // executeRandomNode já chama processNextNodes internamente
           break;
 
         case 'ai_image':
           await this.executeAiImageNode(execution, node, data, variables);
-          // Enfileira próximo step com delay anti-spam (envia imagem via WhatsApp)
-          await this.enqueueNextStepWithDelay(execution.id as string, node.id as string);
           await this.markNodeCompleted(execution.id as string, node.id as string);
+          await this.processNextNodes(execution.id as string, node.id as string);
           break;
 
         default:
           console.warn(`[FlowEngine] Unknown node type: ${node.type}`);
-          await flowQueueService.enqueueFlowStep({
-            executionId: execution.id as string,
-            nodeId: node.id as string,
-          });
           await this.markNodeCompleted(execution.id as string, node.id as string);
+          await this.processNextNodes(execution.id as string, node.id as string);
           break;
       }
     } catch (error: unknown) {
@@ -691,6 +703,7 @@ export class FlowEngineService {
 
   /**
    * Enfileira o próximo step com delay anti-spam (25-35s) para nós de mensagem/mídia.
+   * @deprecated - Agora o delay é tratado dentro de processNextNodes.
    */
   private async enqueueNextStepWithDelay(executionId: string, nodeId: string): Promise<void> {
     const delay = Math.floor(Math.random() * (MSG_SEND_DELAY_MAX_MS - MSG_SEND_DELAY_MIN_MS)) + MSG_SEND_DELAY_MIN_MS;
@@ -1147,6 +1160,19 @@ export class FlowEngineService {
           continue;
         }
 
+        if (!execution.currentNode) {
+          console.warn(`[FlowEngine] ⚠️ Execução ${execution.id} sem currentNode (nó deletado?). Marcando como FAILED.`);
+          await prisma.flowExecution.update({
+            where: { id: execution.id },
+            data: { 
+              status: FlowExecutionStatus.FAILED, 
+              error: 'Nó atual não encontrado (provavelmente deletado)',
+              completedAt: new Date(),
+            }
+          });
+          continue;
+        }
+
         // Determine which handle to follow based on message content
         const text = messageText.toLowerCase().trim();
         let handle = 'respondeu'; // Default: any response
@@ -1193,52 +1219,82 @@ export class FlowEngineService {
         const aiPrompt = (nodeData as Record<string, unknown>)?.aiPrompt as string || 'Classifique a intenção do usuário.';
         
         let handle = 'other'; // Default se a IA falhar ou não souber
+
+        // 🧠 BUSCA DE CONTEXTO: Encontra a última mensagem enviada para este cliente
+        // Isso ajuda a IA a entender o que o cliente está respondendo (ex: se disse "sim", sim para o que?)
+        let contextMessage = '';
+        try {
+          const customer = await prisma.customer.findUnique({
+            where: {
+              companyId_phone: {
+                companyId,
+                phone: execution.contactPhone,
+              }
+            },
+            select: { id: true }
+          });
+
+          if (customer) {
+            const lastOutbound = await prisma.message.findFirst({
+              where: {
+                customerId: customer.id,
+                direction: MessageDirection.OUTBOUND,
+              },
+              orderBy: { timestamp: 'desc' },
+              select: { content: true }
+            });
+            if (lastOutbound) {
+              contextMessage = lastOutbound.content;
+            }
+          }
+        } catch (ctxErr) {
+          console.warn(`[FlowEngine] ⚠️ Erro ao buscar contexto para AI Condition execution ${execution.id}:`, ctxErr);
+        }
         
         try {
-          const { default: geminiService } = await import('./ai-providers/gemini.service');
-          
-          const systemPrompt = `Você é um classificador de intenções para um fluxo de automação de WhatsApp.
-A instrução primária de classificação é: "${aiPrompt}"
+          // Usa o geminiService já importado no topo do arquivo
+          const systemPrompt = `Você é um classificador de intenções especializado em atendimento via WhatsApp.
+Sua tarefa é analisar a resposta de um cliente e determinar sua intenção baseando-se no contexto da última mensagem enviada pela empresa.
 
-Classifique a mensagem do usuário APENAS com uma destas palavras (exatamente como escrito, em minúsculas):
-- "interested" se o cliente estiver interessado, quer saber mais, gostou da proposta, etc.
-- "not_interested" se o cliente não gostou, não quer saber, não tem interesse no momento, achou caro, etc.
-- "already_has" se o cliente informou que já possui o produto ou serviço, ou já é cliente de outra forma que inviabilize.
-- "other" se for uma dúvida não relacionada, se estiver indeciso ou se não se encaixar em nenhuma das lógicas acima.
+CONTEXTO (O que a empresa perguntou ou disse por último):
+"${contextMessage || 'Sem contexto disponível'}"
 
-MENSAGEM DO CLIENTE: "${messageText}"`;
+MENSAGEM DO CLIENTE (A resposta que você deve classificar):
+"${messageText}"
 
-          // Vamos chamar uma prompt normal para classificação simples
+INSTRUÇÃO DE CLASSIFICAÇÃO ADICIONAL:
+"${aiPrompt}"
+
+Classifique a intenção do cliente em APENAS UMA das categorias abaixo:
+- "interested": O cliente demonstra interesse, aceita uma proposta, quer agendar, quer saber preços, diz que sim, ou respondeu positivamente ao contexto.
+- "not_interested": O cliente recusa, diz que não quer, pede para parar de enviar mensagens, ou demonstra desinteresse claro.
+- "already_has": O cliente informa que já possui o produto/serviço, já é cliente da empresa, ou já resolveu sua necessidade.
+- "other": Dúvidas que não indicam claramente interesse ou desinteresse, mensagens neutras, ou assuntos fora do contexto.
+
+Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
+
           const classification = await geminiService.generateResponse({
             systemPrompt,
-            userPrompt: "Responda apenas com a classificação correspondente.",
-            temperature: 0.1, // muito baixa para forçar formato exato
-            maxTokens: 10,
+            userPrompt: "Classifique a intenção do cliente com base no contexto fornecido.",
+            temperature: 0.1,
+            maxTokens: 15,
             enableTools: false,
           });
           
           const cleanClassification = classification.toLowerCase().trim();
           
-          // Lógica robusta de mapeamento: detecta tanto as chaves em inglês quanto keywords em português
-          if (cleanClassification.includes('not_interested') || 
-              cleanClassification.includes('não interessado') || 
-              cleanClassification.includes('nao interessado')) {
+          // Mapeamento robusto para garantir que o handle seja válido
+          if (cleanClassification.includes('not_interested') || cleanClassification.includes('não interessado') || cleanClassification.includes('nao interessado')) {
              handle = 'not_interested';
-          } else if (cleanClassification.includes('already_has') || 
-                     cleanClassification.includes('já possui') || 
-                     cleanClassification.includes('ja possui') || 
-                     cleanClassification.includes('já tem')) {
+          } else if (cleanClassification.includes('already_has') || cleanClassification.includes('já possui') || cleanClassification.includes('ja possui') || cleanClassification.includes('já tem')) {
              handle = 'already_has';
-          } else if (cleanClassification.includes('interested') || 
-                     cleanClassification.includes('interessado')) {
-             // Esta condição fica por último ou com guardas para não pegar o "não interessado"
+          } else if (cleanClassification.includes('interested') || cleanClassification.includes('interessado')) {
              handle = 'interested';
-          } else if (cleanClassification.includes('other') || 
-                     cleanClassification.includes('outros')) {
+          } else if (cleanClassification.includes('other') || cleanClassification.includes('outros')) {
              handle = 'other';
           }
           
-          console.log(`[FlowEngine] 🧠 AI Condition classificou mensagem "${messageText}" como: ${handle} (Raw: ${cleanClassification})`);
+          console.log(`[FlowEngine] 🧠 AI Condition | context="${contextMessage.substring(0, 50)}..." | user="${messageText}" | handle=${handle} (Raw: ${cleanClassification})`);
           
         } catch (error) {
            console.error(`[FlowEngine] ❌ Erro ao classificar resposta na AI Condition. Fallback para 'other'.`, error);
@@ -1275,12 +1331,8 @@ MENSAGEM DO CLIENTE: "${messageText}"`;
       }
     }
 
-    // Random é um nó de roteamento — enfileira diretamente sem delay
-    await flowQueueService.enqueueFlowStep({
-      executionId: execution.id as string,
-      nodeId: node.id as string,
-      sourceHandle: selectedHandle,
-    });
+    // Random é um nó de roteamento — processa imediatamente
+    await this.processNextNodes(execution.id as string, node.id as string, selectedHandle);
   }
 
   private async executeValidationNode(execution: Record<string, unknown>, node: Record<string, unknown>, data: Record<string, unknown>, variables: Record<string, unknown>): Promise<void> {

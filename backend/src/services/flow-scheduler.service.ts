@@ -69,6 +69,18 @@ class FlowSchedulerService {
       for (const execution of pendingExecutions) {
         try {
           if (execution.status === FlowExecutionStatus.WAITING_REPLY) {
+            if (!execution.currentNodeId) {
+              await prisma.flowExecution.update({
+                where: { id: execution.id },
+                data: {
+                  status: FlowExecutionStatus.FAILED,
+                  error: 'Execução interrompida: nó atual deletado do fluxo',
+                  completedAt: new Date()
+                }
+              });
+              continue;
+            }
+
             // Check atômico para evitar execução dupla com o BullMQ timeout job
             const updated = await prisma.flowExecution.updateMany({
               where: { id: execution.id, status: FlowExecutionStatus.WAITING_REPLY },
@@ -77,14 +89,24 @@ class FlowSchedulerService {
 
             if (updated.count === 0) continue; // Já processado pelo BullMQ ou webhook
 
-            if (execution.currentNodeId) {
-              await flowQueueService.enqueueFlowStep({
-                executionId: execution.id,
-                nodeId: execution.currentNodeId,
-                sourceHandle: 'nao_respondeu',
-              });
-            }
+            await flowQueueService.enqueueFlowStep({
+              executionId: execution.id,
+              nodeId: execution.currentNodeId,
+              sourceHandle: 'nao_respondeu',
+            });
           } else if (execution.status === FlowExecutionStatus.DELAYED) {
+            if (!execution.currentNodeId) {
+              await prisma.flowExecution.update({
+                where: { id: execution.id },
+                data: {
+                  status: FlowExecutionStatus.FAILED,
+                  error: 'Execução interrompida: nó atual deletado do fluxo',
+                  completedAt: new Date()
+                }
+              });
+              continue;
+            }
+
             // Check atômico para evitar execução dupla
             const updated = await prisma.flowExecution.updateMany({
               where: { id: execution.id, status: FlowExecutionStatus.DELAYED },
@@ -93,12 +115,10 @@ class FlowSchedulerService {
 
             if (updated.count === 0) continue; // Já processado pelo BullMQ
 
-            if (execution.currentNodeId) {
-              await flowQueueService.enqueueFlowStep({
-                executionId: execution.id,
-                nodeId: execution.currentNodeId,
-              });
-            }
+            await flowQueueService.enqueueFlowStep({
+              executionId: execution.id,
+              nodeId: execution.currentNodeId,
+            });
           }
         } catch (error: unknown) {
           const err = error instanceof Error ? error : new Error(String(error));

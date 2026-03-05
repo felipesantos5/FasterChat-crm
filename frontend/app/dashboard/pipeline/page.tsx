@@ -372,7 +372,7 @@ function PipelinePageContent() {
             <div
               key={stageData.stage.id}
               className={cn(
-                "flex-shrink-0 w-72 h-full flex flex-col rounded-xl bg-white border shadow-sm transition-all overflow-hidden",
+                "flex-1 min-w-[300px] max-w-[450px] h-full flex flex-col rounded-xl bg-white border shadow-sm transition-all overflow-hidden",
                 dragOverStageId === stageData.stage.id ? "border-green-400 ring-2 ring-green-100" : "border-gray-200"
               )}
               onDragOver={(e) => handleDragOver(e, stageData.stage.id)}
