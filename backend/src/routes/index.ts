@@ -30,7 +30,8 @@ import { asyncHandler } from "../middlewares/errorHandler";
 
 const router = Router();
 
-// NÃO registre /stripe aqui, pois o webhook precisa ser registrado antes do body parser no server.ts
+// O webhook do Stripe é registrado separadamente no server.ts antes do body parser.
+// As demais rotas (/checkout, /portal) são registradas abaixo após os parsers.
 router.use("/auth", authRoutes);
 router.use("/upload", uploadRouter);
 router.use("/customers", customerRoutes);
@@ -55,6 +56,7 @@ router.use("/admin", adminRoutes);
 router.use("/services", serviceRoutes);
 router.use("/custom-fields", customFieldRoutes);
 router.use("/flows", flowRouter);
+router.use("/stripe", stripeRoutes);
 
 // Rotas públicas (sem /api prefix) - devem ser registradas no server.ts
 // router.use('/l', linkRedirectRoutes);

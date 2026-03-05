@@ -54,8 +54,8 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
       <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto p-0 border-none bg-transparent shadow-none">
         <div className="bg-white rounded-3xl p-6 md:p-10 shadow-2xl">
           <DialogHeader className="mb-8 text-center">
-            <DialogTitle className="text-3xl font-extrabold text-gray-900">Turbine sua operação com o plano ideal</DialogTitle>
-            <DialogDescription className="text-gray-500 text-lg">
+            <DialogTitle className="text-3xl font-extrabold text-gray-900 text-center">Turbine sua operação com o plano ideal</DialogTitle>
+            <DialogDescription className="text-gray-500 text-lg text-center">
               Escolha o plano que melhor se adapta ao momento do seu negócio.
             </DialogDescription>
           </DialogHeader>
