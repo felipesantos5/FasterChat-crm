@@ -5,11 +5,13 @@ import { asyncHandler } from '../middlewares/errorHandler';
 
 const router = Router();
 
-// 💳 Webhook (PÚBLICO - SEM AUTENTICAÇÃO)
-// IMPORTANTE: Precisa do raw body para verificar assinatura
+// Webhook (PÚBLICO - raw body obrigatório para verificar assinatura)
 router.post('/webhook', raw({ type: 'application/json' }), asyncHandler(stripeController.webhook));
 
-// 🛍️ Checkout e Portal (PROTEGIDOS)
+// Checkout público para novo lead vindo da landing page (sem conta)
+router.post('/checkout/public', asyncHandler(stripeController.createPublicCheckout));
+
+// Checkout e Portal para cliente autenticado
 router.post('/checkout', authenticate, asyncHandler(stripeController.createCheckout));
 router.post('/portal', authenticate, asyncHandler(stripeController.createPortal));
 

@@ -95,4 +95,29 @@ export const adminController = {
       });
     }
   },
+
+  // Atualizar plano de uma empresa
+  async updateCompanyPlan(req: Request, res: Response) {
+    try {
+      const { companyId } = req.params;
+      const { plan } = req.body;
+
+      if (!companyId || !plan) {
+        return res.status(400).json({
+          error: "companyId e plan são obrigatórios",
+        });
+      }
+
+      await adminService.updateCompanyPlan(companyId, plan);
+
+      return res.json({
+        message: "Plano atualizado com sucesso",
+      });
+    } catch (error: any) {
+      console.error("Erro ao atualizar plano:", error);
+      return res.status(500).json({
+        error: error.message || "Erro ao atualizar plano",
+      });
+    }
+  },
 };

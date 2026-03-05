@@ -12,9 +12,11 @@ import {
   Shield,
   Calendar,
   Database,
-  Loader2
+  Loader2,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface Company {
   id: string;
@@ -26,6 +28,7 @@ interface Company {
   connectedInstancesCount: number;
   totalMessagesSent: number;
   messagesLast7Days: number;
+  plan: "INICIAL" | "NEGOCIOS" | "ESCALA_TOTAL";
   createdAt: string;
 }
 
@@ -130,6 +133,34 @@ export default function AdminDashboardPage() {
       console.error(error);
     } finally {
       setSeedingCompanyId(null);
+    }
+  };
+
+  const handleUpdatePlan = async (companyId: string, companyName: string, newPlan: string) => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/companies/${companyId}/plan`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ plan: newPlan }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao atualizar plano");
+      }
+
+      toast.success(`Plano da empresa ${companyName} atualizado para ${newPlan}`);
+
+      // Atualiza a lista localmente
+      setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, plan: newPlan as any } : c));
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar plano");
+      console.error(error);
     }
   };
 
@@ -263,6 +294,9 @@ export default function AdminDashboardPage() {
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Msgs (Total)
                     </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Plano Atual
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Criado em
                     </th>
@@ -320,6 +354,29 @@ export default function AdminDashboardPage() {
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
                           {company.totalMessagesSent}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <select
+                            value={company.plan}
+                            onChange={(e) => handleUpdatePlan(company.id, company.name, e.target.value)}
+                            className={cn(
+                              "text-xs font-bold py-1.5 px-3 rounded-lg border-2 transition-all outline-none",
+                              company.plan === "ESCALA_TOTAL" ? "bg-purple-50 border-purple-200 text-purple-700 font-extrabold" :
+                                company.plan === "NEGOCIOS" ? "bg-green-50 border-green-200 text-green-700" :
+                                  "bg-gray-50 border-gray-200 text-gray-600"
+                            )}
+                          >
+                            <option value="INICIAL">INICIAL</option>
+                            <option value="NEGOCIOS">NEGÓCIOS</option>
+                            <option value="ESCALA_TOTAL">ESCALA TOTAL</option>
+                          </select>
+                          {company.plan === "ESCALA_TOTAL" && (
+                            <div className="flex items-center gap-1 text-[10px] text-purple-600 font-bold uppercase tracking-tighter">
+                              <Zap className="w-3 h-3" /> Vip
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2 text-sm text-gray-500">

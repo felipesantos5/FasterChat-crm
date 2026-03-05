@@ -89,6 +89,7 @@ export const adminService = {
           connectedInstancesCount: company._count.whatsappInstances,
           totalMessagesSent,
           messagesLast7Days,
+          plan: company.plan,
           createdAt: company.createdAt,
         };
       })
@@ -120,6 +121,24 @@ export const adminService = {
       totalUsers,
       totalMessagesLast30Days: totalMessages,
     };
+  },
+
+  // Atualiza o plano de uma empresa
+  async updateCompanyPlan(companyId: string, plan: any) {
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+    });
+
+    if (!company) {
+      throw new Error(`Empresa com ID ${companyId} não encontrada`);
+    }
+
+    const updatedCompany = await prisma.company.update({
+      where: { id: companyId },
+      data: { plan },
+    });
+
+    return updatedCompany;
   },
 
   // Seed de dados HVAC para cliente específico

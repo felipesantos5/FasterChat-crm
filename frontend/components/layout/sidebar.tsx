@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -33,6 +33,8 @@ import { useAuthStore } from "@/lib/store/auth.store";
 import { useHandoffsCount } from "@/hooks/use-handoffs-count";
 import { useUnreadCount } from "@/hooks/use-unread-count";
 import { usePlanFeatures, PlanFeature, PLAN_NAMES, FEATURE_MIN_PLAN } from "@/hooks/usePlanFeatures";
+import { PricingModal } from "@/components/dashboard/pricing-modal";
+
 
 // Tipo para os itens de menu
 interface MenuItem {
@@ -158,7 +160,6 @@ const menuItems: MenuItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
   const { isOpen, close } = useSidebar();
   const { hasPermission, loading } = usePermissions();
@@ -166,6 +167,7 @@ export function Sidebar() {
   const { hasFeature } = usePlanFeatures();
   const { count: handoffsCount, isError } = useHandoffsCount();
   const { count: unreadCount } = useUnreadCount(user?.companyId);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
   useEffect(() => {
     if (isError) {
@@ -326,7 +328,7 @@ export function Sidebar() {
       return (
         <button
           key={item.href}
-          onClick={() => router.push("/dashboard/settings/billing")}
+          onClick={() => setIsPricingModalOpen(true)}
           title={`Disponível no plano ${minPlanName}. Clique para fazer upgrade.`}
           className={cn(
             "flex w-full items-center justify-between rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all relative",
@@ -334,15 +336,15 @@ export function Sidebar() {
           )}
           style={{ paddingLeft: `${depth * 12 + 12}px` }}
         >
-          <div className="flex items-center space-x-2 md:space-x-3 flex-1">
+          <div className="flex items-center space-x-2 md:space-x-3 flex-1 overflow-hidden">
             <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 opacity-50" />
             <span className="truncate opacity-60">{item.label}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
+          <div className="flex items-center justify-end min-w-[65px] gap-1.5">
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-tight opacity-0 group-hover:opacity-100 transition-all duration-200 hidden md:block whitespace-nowrap">
               Upgrade
             </span>
-            <Lock className="h-3 w-3 text-amber-500 dark:text-amber-400 flex-shrink-0" />
+            <Lock className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400 flex-shrink-0" />
           </div>
         </button>
       );
@@ -438,6 +440,11 @@ export function Sidebar() {
           </nav>
         </div>
       </aside>
+
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+      />
     </>
   );
 }

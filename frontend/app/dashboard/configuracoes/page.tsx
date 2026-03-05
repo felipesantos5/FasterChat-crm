@@ -9,9 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Save, User, Building, Volume2, Bell } from "lucide-react";
+import { Loader2, Save, User, Volume2, Bell, CreditCard, Zap, Sparkles } from "lucide-react";
 import { spacing } from "@/lib/design-system";
 import { notificationSound } from "@/lib/notification-sound";
+import { usePlanFeatures } from "@/hooks/usePlanFeatures";
+import { PricingModal } from "@/components/dashboard/pricing-modal";
+import { Badge } from "@/components/ui/badge";
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
@@ -24,7 +27,9 @@ export default function SettingsPage() {
   // Estados para notificações sonoras
   const [newMessageSoundEnabled, setNewMessageSoundEnabled] = useState(true);
   const [transbordoSoundEnabled, setTransbordoSoundEnabled] = useState(true);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
+  const { currentPlanName } = usePlanFeatures();
   const isAdmin = user?.role === "ADMIN";
 
   useEffect(() => {
@@ -93,23 +98,6 @@ export default function SettingsPage() {
                   <Label>E-mail</Label>
                   <p className="text-sm text-muted-foreground py-2 px-3 bg-muted rounded-md">{user?.email}</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Dados da Empresa */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Building className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <CardTitle>Empresa</CardTitle>
-                    <CardDescription>Dados visíveis nos relatórios</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="companyName">Nome da Empresa</Label>
                   {isAdmin ? (
@@ -124,15 +112,52 @@ export default function SettingsPage() {
                       {user?.companyName || "Não definido"}
                     </p>
                   )}
-                  {!isAdmin && (
-                    <p className="text-xs text-muted-foreground">
-                      Apenas administradores podem alterar o nome da empresa.
-                    </p>
-                  )}
                 </div>
-                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-                  <p>
-                    O plano atual permite até <strong>5 conexões</strong> de WhatsApp e usuários ilimitados.
+              </CardContent>
+            </Card>
+
+            {/* Gerenciamento de Plano */}
+            <Card className="border-green-100 shadow-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <CreditCard className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <CardTitle>Seu Plano</CardTitle>
+                      <CardDescription>Gerencie sua assinatura</CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-bold px-3 py-1">
+                    {user?.subscriptionStatus === "active" ? "Ativo" : "Pendente"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-green-50/50 rounded-2xl border border-green-100">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                      <Zap className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-green-700 font-bold uppercase tracking-wider">Plano Atual</p>
+                      <h3 className="text-lg font-extrabold text-gray-900">{currentPlanName}</h3>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Button
+                    type="button"
+                    onClick={() => setIsPricingModalOpen(true)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-11 rounded-xl shadow-lg shadow-green-200 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Alterar meu Plano
+                  </Button>
+                  <p className="text-center text-[11px] text-gray-400">
+                    O upgrade é liberado instantaneamente após o pagamento.
                   </p>
                 </div>
               </CardContent>
@@ -262,6 +287,11 @@ export default function SettingsPage() {
           </div>
         </form>
       </div>
+
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+      />
     </div>
   );
 }

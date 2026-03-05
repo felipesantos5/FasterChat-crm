@@ -1,17 +1,13 @@
 import { Request, Response } from 'express';
+import { PlanTier } from '@prisma/client';
 import stripeService from '../services/stripe.service';
-// import { PlanTier } from "@prisma/client";
-// Definindo localmente até o Prisma Client sincronizar
-const PlanTier = {
-  INICIAL: "INICIAL",
-  NEGOCIOS: "NEGOCIOS",
-  ESCALA_TOTAL: "ESCALA_TOTAL",
-} as any;
-type PlanTier = "INICIAL" | "NEGOCIOS" | "ESCALA_TOTAL";
+
+const VALID_PLANS = Object.values(PlanTier);
 
 class StripeController {
   /**
    * POST /api/stripe/checkout
+   * Para cliente autenticado fazendo upgrade de plano.
    */
   async createCheckout(req: Request, res: Response) {
     try {
@@ -21,8 +17,11 @@ class StripeController {
 
       const { plan, successUrl, cancelUrl } = req.body;
 
-      if (!plan || !Object.values(PlanTier).includes(plan as PlanTier)) {
+      if (!plan || !VALID_PLANS.includes(plan as PlanTier)) {
         return res.status(400).json({ success: false, message: 'Plano inválido' });
+      }
+      if (!successUrl || !cancelUrl) {
+        return res.status(400).json({ success: false, message: 'successUrl e cancelUrl são obrigatórios' });
       }
 
       const session = await stripeService.createCheckoutSession(
@@ -32,13 +31,46 @@ class StripeController {
         cancelUrl
       );
 
-      return res.status(200).json({
-        success: true,
-        data: { url: session.url },
-      });
-    } catch (error: any) {
+      return res.status(200).json({ success: true, data: { url: session.url } });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro interno';
       console.error('[StripeController] Error createCheckout:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(500).json({ success: false, message });
+    }
+  }
+
+  /**
+   * POST /api/stripe/checkout/public
+   * Para novo lead vindo da landing page (sem conta).
+   */
+  async createPublicCheckout(req: Request, res: Response) {
+    try {
+      const { email, name, companyName, plan, successUrl, cancelUrl } = req.body;
+
+      if (!email || !name || !companyName || !plan) {
+        return res.status(400).json({
+          success: false,
+          message: 'Campos obrigatórios: email, name, companyName, plan',
+        });
+      }
+      if (!VALID_PLANS.includes(plan as PlanTier)) {
+        return res.status(400).json({ success: false, message: 'Plano inválido' });
+      }
+
+      const session = await stripeService.createPublicCheckoutSession({
+        email,
+        name,
+        companyName,
+        plan: plan as PlanTier,
+        successUrl: successUrl || `${process.env.APP_URL || ''}/sucesso`,
+        cancelUrl: cancelUrl || `${process.env.APP_URL || ''}/cancelado`,
+      });
+
+      return res.status(200).json({ success: true, data: { url: session.url } });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro interno';
+      console.error('[StripeController] Error createPublicCheckout:', error);
+      return res.status(500).json({ success: false, message });
     }
   }
 
@@ -52,36 +84,37 @@ class StripeController {
       }
 
       const { returnUrl } = req.body;
+      if (!returnUrl) {
+        return res.status(400).json({ success: false, message: 'returnUrl é obrigatório' });
+      }
+
       const session = await stripeService.createPortalSession(req.user.companyId, returnUrl);
 
-      return res.status(200).json({
-        success: true,
-        data: { url: session.url },
-      });
-    } catch (error: any) {
+      return res.status(200).json({ success: true, data: { url: session.url } });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erro interno';
       console.error('[StripeController] Error createPortal:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(500).json({ success: false, message });
     }
   }
 
   /**
    * POST /api/stripe/webhook
-   * Rota pública (chamada pelo Stripe)
+   * Rota pública chamada pelo Stripe — raw body obrigatório.
    */
   async webhook(req: Request, res: Response) {
     const sig = req.headers['stripe-signature'] as string;
+    if (!sig) {
+      return res.status(400).json({ error: 'stripe-signature header ausente' });
+    }
 
     try {
-      // O raw body é necessário para verificar a assinatura do webhook
-      // Usamos req.body se o express.raw() estiver configurado, mas no Express 4.x
-      // geralmente precisamos de um middleware específico ou usar o body bruto.
-      // Assumindo que o payload já é o Buffer ou será tratado.
-      await stripeService.handleWebhook(sig, req.body);
-      
-      return res.status(200).send({ received: true });
-    } catch (err: any) {
-      console.error(`[StripeController] Webhook Error: ${err.message}`);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+      await stripeService.handleWebhook(sig, req.body as Buffer);
+      return res.status(200).json({ received: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      console.error(`[StripeController] Webhook Error: ${message}`);
+      return res.status(400).send(`Webhook Error: ${message}`);
     }
   }
 }
