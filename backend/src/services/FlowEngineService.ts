@@ -621,7 +621,7 @@ export class FlowEngineService {
   public async processNextNodes(executionId: string, currentNodeId: string, sourceHandle?: string): Promise<void> {
     const execution = await prisma.flowExecution.findUnique({
       where: { id: executionId },
-      include: { flow: { include: { nodes: true, edges: true } }, whatsappInstance: true }
+      include: { flow: { include: { nodes: true, edges: true, company: true } }, whatsappInstance: true }
     });
 
     if (!execution || execution.status !== FlowExecutionStatus.RUNNING) {

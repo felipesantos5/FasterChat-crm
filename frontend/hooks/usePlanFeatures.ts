@@ -100,7 +100,7 @@ export const PLAN_PRICES: Record<PlanTier, string> = {
 };
 
 export function usePlanFeatures() {
-  const { user } = useAuthStore();
+  const { user, isLoading } = useAuthStore();
   const currentPlan = (user?.plan ?? "INICIAL") as PlanTier;
   const subscriptionStatus = user?.subscriptionStatus;
 
@@ -114,6 +114,9 @@ export function usePlanFeatures() {
    * Verifica se a feature está disponível para o plano atual
    */
   const hasFeature = (feature: PlanFeature): boolean => {
+    // Se ainda está carregando o usuário, retorna true para evitar "flicker" de cadeado
+    if (isLoading) return true;
+
     if (!isSubscriptionActive) return false;
     const allowedPlans = PLAN_FEATURE_MAP[feature];
     return allowedPlans.includes(currentPlan);
@@ -137,5 +140,6 @@ export function usePlanFeatures() {
     hasFeature,
     getMinPlan,
     isSubscriptionActive,
+    isLoading,
   };
 }

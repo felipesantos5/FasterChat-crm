@@ -161,12 +161,14 @@ export function Sidebar() {
   const pathname = usePathname();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
   const { isOpen, close } = useSidebar();
-  const { hasPermission, loading } = usePermissions();
-  const { user } = useAuthStore();
+  const { user, isLoading: authLoading } = useAuthStore();
+  const { hasPermission, loading: permissionsLoading } = usePermissions();
   const { hasFeature, currentPlan } = usePlanFeatures();
   const { count: handoffsCount, isError } = useHandoffsCount();
   const { count: unreadCount } = useUnreadCount(user?.companyId);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+
+  const loading = authLoading || permissionsLoading;
 
   useEffect(() => {
     if (isError) {

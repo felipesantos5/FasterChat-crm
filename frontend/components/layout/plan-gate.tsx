@@ -35,11 +35,11 @@ export function PlanGate({
   message,
   className,
 }: PlanGateProps) {
-  const { hasFeature, currentPlanName } = usePlanFeatures();
+  const { hasFeature, currentPlanName, isLoading } = usePlanFeatures();
   const router = useRouter();
   const allowed = hasFeature(feature);
 
-  if (allowed) {
+  if (allowed || isLoading) {
     return <>{children}</>;
   }
 
