@@ -7,6 +7,7 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isRefreshing: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string, companyName: string) => Promise<void>;
   logout: () => void;
@@ -20,6 +21,7 @@ export const useAuthStore = create<AuthState>((set) => {
     token: null,
     isAuthenticated: false,
     isLoading: true, // Começa como loading
+    isRefreshing: false,
 
     login: async (email, password) => {
     set({ isLoading: true });
@@ -83,13 +85,14 @@ export const useAuthStore = create<AuthState>((set) => {
         token,
         isAuthenticated: true,
         isLoading: false,
+        isRefreshing: true,
       });
 
       // Valida token em background (não bloqueia e não desloga em erro de rede)
       try {
         const user = await authApi.getMe();
         setUser(user);
-        set({ user });
+        set({ user, isRefreshing: false });
       } catch (error: any) {
         // Só desloga se for erro 401 (token inválido/expirado)
         // Não desloga em erros de rede (ECONNREFUSED, timeout, etc)
@@ -101,12 +104,15 @@ export const useAuthStore = create<AuthState>((set) => {
             token: null,
             isAuthenticated: false,
             isLoading: false,
+            isRefreshing: false,
           });
+        } else {
+          set({ isRefreshing: false });
         }
       }
     } else {
       // No saved auth data
-      set({ isLoading: false });
+      set({ isLoading: false, isRefreshing: false });
     }
   },
 }});

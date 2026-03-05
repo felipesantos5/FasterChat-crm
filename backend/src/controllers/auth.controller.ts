@@ -119,6 +119,8 @@ export class AuthController {
           role: user.role,
           companyId: user.companyId,
           companyName: user.company?.name || "",
+          plan: user.company?.plan || "FREE",
+          subscriptionStatus: user.company?.subscriptionStatus || "active",
         },
       });
     } catch (error) {
@@ -214,6 +216,8 @@ export class AuthController {
           role: updatedUser.role,
           companyId: updatedUser.companyId,
           companyName: updatedUser.company?.name || "",
+          plan: updatedUser.company?.plan || "FREE",
+          subscriptionStatus: updatedUser.company?.subscriptionStatus || "active",
         },
       });
     } catch (error: any) {
