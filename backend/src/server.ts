@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import { createServer } from "http";
 import routes from "./routes";
+import stripeRoutes from "./routes/stripe.routes";
 import linkRedirectRoutes from "./routes/link-redirect.routes";
 import { errorHandler, notFoundHandler, requestTimeout } from "./middlewares/errorHandler";
 import { blockApiForRestrictedDomains } from "./middlewares/domainRestriction";
@@ -15,12 +16,7 @@ import campaignSchedulerService from "./services/campaign-scheduler.service";
 import flowSchedulerService from "./services/flow-scheduler.service";
 import flowQueueService from "./services/flow-queue.service";
 import { config } from "./config";
-import {
-  initializeGlobalErrorHandlers,
-  registerServer,
-  registerCleanup,
-  globalErrorConfig,
-} from "./utils/globalErrorHandler";
+import { initializeGlobalErrorHandlers, registerServer, registerCleanup, globalErrorConfig } from "./utils/globalErrorHandler";
 import { prisma } from "./utils/prisma";
 
 dotenv.config();
@@ -69,7 +65,7 @@ const PORT = process.env.PORT || 3051;
 
 // Necessário quando rodando atrás de proxy (Docker/nginx/cloud)
 // Faz o Express confiar no header X-Forwarded-For para identificar o IP real
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 
 // Cria servidor HTTP para compartilhar com Socket.IO
 const httpServer = createServer(app);
@@ -126,10 +122,12 @@ flowSchedulerService.start();
 // ===========================================
 
 // Helmet - Headers de segurança (Ajustado para permitir carregamento de mídia cross-origin)
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: false, // Desabilitado para simplificar carregamento de blobs/URLs externas em dev
-}));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false, // Desabilitado para simplificar carregamento de blobs/URLs externas em dev
+  }),
+);
 
 // CORS - Lista de origens permitidas
 const allowedOrigins = [
@@ -170,7 +168,7 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  })
+  }),
 );
 
 // Rate Limiting mais restrito para rotas de autenticação (previne brute force)
@@ -207,6 +205,9 @@ const apiLimiter = rateLimit({
   },
 });
 
+// --- REGISTRA WEBHOOK STRIPE ANTES DO BODY PARSER ---
+app.use("/api/stripe/webhook", stripeRoutes);
+
 app.use("/api", apiLimiter);
 
 // ===========================================
@@ -220,7 +221,7 @@ app.use(express.json({ limit: "1mb" })); // fallback geral
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Servir arquivos estáticos (Uploads de Áudio/Imagem)
-app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
+app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
 
 // ===========================================
 // REQUEST TIMEOUT (60 segundos)
@@ -321,6 +322,7 @@ app.get("/l-test", (_req, res) => {
 // API routes (COM autenticação)
 // SEGURANÇA: Bloqueia acesso à API de domínios restritos (ex: domínio de redirect)
 // Configure RESTRICTED_DOMAINS no .env para ativar (ex: RESTRICTED_DOMAINS=wpplink.com.br)
+// IMPORTANTE: /api/stripe/webhook já foi registrada antes do body parser!
 app.use("/api", blockApiForRestrictedDomains, routes);
 
 // Rota raiz para redirect (domínios dedicados como whatsconversas.com.br)

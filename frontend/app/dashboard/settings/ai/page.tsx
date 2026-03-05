@@ -254,12 +254,13 @@ function AISettingsPageContent() {
           })),
         })),
         // Carrega faixas de preço se existirem
-        pricingTiers: s.pricingTiers?.map((t: any) => ({
-          id: t.id,
-          minQuantity: t.minQuantity,
-          maxQuantity: t.maxQuantity,
-          pricePerUnit: Number(t.pricePerUnit),
-        })) || [],
+        pricingTiers:
+          s.pricingTiers?.map((t: any) => ({
+            id: t.id,
+            minQuantity: t.minQuantity,
+            maxQuantity: t.maxQuantity,
+            pricePerUnit: Number(t.pricePerUnit),
+          })) || [],
         usePricingTiers: s.pricingTiers && s.pricingTiers.length > 0,
       }));
       setServices(loadedServices);
@@ -360,7 +361,7 @@ function AISettingsPageContent() {
         companySegment,
         companyDescription,
         objectiveType,
-        aiObjective: objectiveType === 'custom' ? aiObjective : undefined,
+        aiObjective: objectiveType === "custom" ? aiObjective : undefined,
         aiTone,
         aiProactivity,
         aiClosingFocus,
@@ -442,7 +443,7 @@ function AISettingsPageContent() {
           companySegment,
           companyDescription,
           objectiveType,
-          aiObjective: objectiveType === 'custom' ? aiObjective : undefined,
+          aiObjective: objectiveType === "custom" ? aiObjective : undefined,
           workingHours,
           businessHoursStart,
           businessHoursEnd,
@@ -484,7 +485,7 @@ function AISettingsPageContent() {
     };
 
     if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? newProduct : p));
+      setProducts(products.map((p) => (p.id === editingProduct.id ? newProduct : p)));
     } else {
       setProducts([...products, newProduct]);
     }
@@ -508,7 +509,7 @@ function AISettingsPageContent() {
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    const updatedProducts = products.filter(p => p.id !== productId);
+    const updatedProducts = products.filter((p) => p.id !== productId);
     setProducts(updatedProducts);
 
     // Salva imediatamente para persistir a deleção
@@ -601,18 +602,11 @@ function AISettingsPageContent() {
 
   const removeVariable = (serviceIndex: number, varIndex: number) => {
     const updated = [...services];
-    updated[serviceIndex].variables = updated[serviceIndex].variables.filter(
-      (_, i) => i !== varIndex
-    );
+    updated[serviceIndex].variables = updated[serviceIndex].variables.filter((_, i) => i !== varIndex);
     setServices(updated);
   };
 
-  const updateVariable = (
-    serviceIndex: number,
-    varIndex: number,
-    field: keyof ServiceVariable,
-    value: any
-  ) => {
+  const updateVariable = (serviceIndex: number, varIndex: number, field: keyof ServiceVariable, value: any) => {
     const updated = [...services];
     updated[serviceIndex].variables[varIndex] = {
       ...updated[serviceIndex].variables[varIndex],
@@ -633,19 +627,11 @@ function AISettingsPageContent() {
 
   const removeOption = (serviceIndex: number, varIndex: number, optIndex: number) => {
     const updated = [...services];
-    updated[serviceIndex].variables[varIndex].options = updated[serviceIndex].variables[
-      varIndex
-    ].options.filter((_, i) => i !== optIndex);
+    updated[serviceIndex].variables[varIndex].options = updated[serviceIndex].variables[varIndex].options.filter((_, i) => i !== optIndex);
     setServices(updated);
   };
 
-  const updateOption = (
-    serviceIndex: number,
-    varIndex: number,
-    optIndex: number,
-    field: keyof ServiceOption,
-    value: any
-  ) => {
+  const updateOption = (serviceIndex: number, varIndex: number, optIndex: number, field: keyof ServiceOption, value: any) => {
     const updated = [...services];
     updated[serviceIndex].variables[varIndex].options[optIndex] = {
       ...updated[serviceIndex].variables[varIndex].options[optIndex],
@@ -662,9 +648,7 @@ function AISettingsPageContent() {
 
     // Se ativando e não tem faixas, adiciona uma padrão
     if (!currentValue && (!updated[serviceIndex].pricingTiers || updated[serviceIndex].pricingTiers!.length === 0)) {
-      updated[serviceIndex].pricingTiers = [
-        { minQuantity: 1, maxQuantity: 1, pricePerUnit: updated[serviceIndex].basePrice || 0 },
-      ];
+      updated[serviceIndex].pricingTiers = [{ minQuantity: 1, maxQuantity: 1, pricePerUnit: updated[serviceIndex].basePrice || 0 }];
     }
     setServices(updated);
   };
@@ -675,10 +659,7 @@ function AISettingsPageContent() {
     const lastTier = tiers[tiers.length - 1];
     const newMin = lastTier ? (lastTier.maxQuantity || lastTier.minQuantity) + 1 : 1;
 
-    updated[serviceIndex].pricingTiers = [
-      ...tiers,
-      { minQuantity: newMin, maxQuantity: null, pricePerUnit: 0 },
-    ];
+    updated[serviceIndex].pricingTiers = [...tiers, { minQuantity: newMin, maxQuantity: null, pricePerUnit: 0 }];
     setServices(updated);
   };
 
@@ -688,12 +669,7 @@ function AISettingsPageContent() {
     setServices(updated);
   };
 
-  const updatePricingTier = (
-    serviceIndex: number,
-    tierIndex: number,
-    field: keyof PricingTier,
-    value: any
-  ) => {
+  const updatePricingTier = (serviceIndex: number, tierIndex: number, field: keyof PricingTier, value: any) => {
     const updated = [...services];
     if (updated[serviceIndex].pricingTiers) {
       updated[serviceIndex].pricingTiers![tierIndex] = {
@@ -729,9 +705,7 @@ function AISettingsPageContent() {
         }
         for (const option of variable.options) {
           if (!option.name.trim()) {
-            toast.error(
-              `Todas as opções da variável "${variable.name}" precisam ter um nome`
-            );
+            toast.error(`Todas as opções da variável "${variable.name}" precisam ter um nome`);
             return false;
           }
         }
@@ -748,7 +722,7 @@ function AISettingsPageContent() {
         if (savedServiceId && service.usePricingTiers && service.pricingTiers && service.pricingTiers.length > 0) {
           try {
             await api.put(`/services/${savedServiceId}/pricing-tiers`, {
-              tiers: service.pricingTiers.map(tier => ({
+              tiers: service.pricingTiers.map((tier) => ({
                 minQuantity: tier.minQuantity,
                 maxQuantity: tier.maxQuantity,
                 pricePerUnit: tier.pricePerUnit,
@@ -807,30 +781,32 @@ function AISettingsPageContent() {
 
   // Se setup completo, mostra visão geral
   if (setupCompleted) {
-    return <CompletedView
-      knowledge={knowledge}
-      companyName={companyName}
-      companySegment={companySegment}
-      companyDescription={companyDescription}
-      objectiveType={objectiveType}
-      objectivePresets={objectivePresets}
-      aiObjective={aiObjective}
-      workingHours={workingHours}
-      businessHoursStart={businessHoursStart}
-      businessHoursEnd={businessHoursEnd}
-      paymentMethods={paymentMethods}
-      deliveryInfo={deliveryInfo}
-      warrantyInfo={warrantyInfo}
-      products={products}
-      services={services}
-      autoReplyEnabled={autoReplyEnabled}
-      replyDelay={replyDelay}
-      onEdit={() => setSetupCompleted(false)}
-      onRegenerate={handleGenerateContext}
-      generatingContext={generatingContext}
-      setAutoReplyEnabled={setAutoReplyEnabled}
-      saveKnowledge={saveKnowledge}
-    />;
+    return (
+      <CompletedView
+        knowledge={knowledge}
+        companyName={companyName}
+        companySegment={companySegment}
+        companyDescription={companyDescription}
+        objectiveType={objectiveType}
+        objectivePresets={objectivePresets}
+        aiObjective={aiObjective}
+        workingHours={workingHours}
+        businessHoursStart={businessHoursStart}
+        businessHoursEnd={businessHoursEnd}
+        paymentMethods={paymentMethods}
+        deliveryInfo={deliveryInfo}
+        warrantyInfo={warrantyInfo}
+        products={products}
+        services={services}
+        autoReplyEnabled={autoReplyEnabled}
+        replyDelay={replyDelay}
+        onEdit={() => setSetupCompleted(false)}
+        onRegenerate={handleGenerateContext}
+        generatingContext={generatingContext}
+        setAutoReplyEnabled={setAutoReplyEnabled}
+        saveKnowledge={saveKnowledge}
+      />
+    );
   }
 
   return (
@@ -838,9 +814,7 @@ function AISettingsPageContent() {
       {/* Header com Steps */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold mb-2">Configuração da IA</h1>
-        <p className="text-muted-foreground">
-          Configure sua assistente virtual em poucos passos
-        </p>
+        <p className="text-muted-foreground">Configure sua assistente virtual em poucos passos</p>
 
         {/* Progress Steps */}
         <div className="flex items-center justify-between mt-6 mb-8">
@@ -851,7 +825,7 @@ function AISettingsPageContent() {
                 onClick={() => setCurrentStep(index)}
                 className={cn(
                   "flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity",
-                  index <= currentStep ? "text-primary" : "text-muted-foreground"
+                  index <= currentStep ? "text-primary" : "text-muted-foreground",
                 )}
               >
                 <div
@@ -861,26 +835,15 @@ function AISettingsPageContent() {
                       ? "bg-primary border-primary text-primary-foreground"
                       : index === currentStep
                         ? "border-primary text-primary"
-                        : "border-muted-foreground/30 hover:border-muted-foreground/50"
+                        : "border-muted-foreground/30 hover:border-muted-foreground/50",
                   )}
                 >
-                  {index < currentStep ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
-                    <step.icon className="h-5 w-5" />
-                  )}
+                  {index < currentStep ? <Check className="h-5 w-5" /> : <step.icon className="h-5 w-5" />}
                 </div>
-                <span className="text-xs mt-1 font-medium hidden sm:block">
-                  {step.title}
-                </span>
+                <span className="text-xs mt-1 font-medium hidden sm:block">{step.title}</span>
               </button>
               {index < STEPS.length - 1 && (
-                <div
-                  className={cn(
-                    "w-12 sm:w-20 h-0.5 mx-2",
-                    index < currentStep ? "bg-primary" : "bg-muted-foreground/30"
-                  )}
-                />
+                <div className={cn("w-12 sm:w-20 h-0.5 mx-2", index < currentStep ? "bg-primary" : "bg-muted-foreground/30")} />
               )}
             </div>
           ))}
@@ -939,9 +902,7 @@ function AISettingsPageContent() {
                   rows={8}
                   className="min-h-[180px]"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Quanto mais detalhes você fornecer, melhor a IA entenderá seu negócio.
-                </p>
+                <p className="text-xs text-muted-foreground">Quanto mais detalhes você fornecer, melhor a IA entenderá seu negócio.</p>
               </div>
             </>
           )}
@@ -952,9 +913,7 @@ function AISettingsPageContent() {
               <div className="space-y-4">
                 <div>
                   <Label className="text-base">Selecione o objetivo da sua IA</Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Escolha o tipo de atendimento que melhor se adequa ao seu negócio
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">Escolha o tipo de atendimento que melhor se adequa ao seu negócio</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -969,17 +928,13 @@ function AISettingsPageContent() {
                         onClick={() => setObjectiveType(preset.id)}
                         className={cn(
                           "flex items-start gap-3 p-4 rounded-lg border-2 text-left transition-all hover:border-primary/50",
-                          isSelected
-                            ? "border-primary bg-primary/5"
-                            : "border-muted hover:bg-muted/50"
+                          isSelected ? "border-primary bg-primary/5" : "border-muted hover:bg-muted/50",
                         )}
                       >
                         <div
                           className={cn(
                             "p-2 rounded-lg shrink-0",
-                            isSelected
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-muted-foreground"
+                            isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
                           )}
                         >
                           <IconComponent className="h-5 w-5" />
@@ -987,13 +942,9 @@ function AISettingsPageContent() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{preset.label}</span>
-                            {isSelected && (
-                              <Check className="h-4 w-4 text-primary shrink-0" />
-                            )}
+                            {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
                           </div>
-                          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
-                            {preset.description}
-                          </p>
+                          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{preset.description}</p>
                         </div>
                       </button>
                     );
@@ -1013,9 +964,7 @@ function AISettingsPageContent() {
                     rows={6}
                     className="min-h-[140px]"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Descreva detalhadamente o que você espera que a IA faça ao atender seus clientes.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Descreva detalhadamente o que você espera que a IA faça ao atender seus clientes.</p>
                 </div>
               )}
 
@@ -1027,11 +976,7 @@ function AISettingsPageContent() {
                     onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
                     className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {showAdvancedConfig ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
+                    {showAdvancedConfig ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     Configuração Avançada (opcional)
                   </button>
 
@@ -1053,9 +998,7 @@ function AISettingsPageContent() {
                           <option value="casual">Casual</option>
                           <option value="formal">Formal</option>
                         </select>
-                        <p className="text-xs text-muted-foreground">
-                          Define o estilo de comunicação da IA com os clientes
-                        </p>
+                        <p className="text-xs text-muted-foreground">Define o estilo de comunicação da IA com os clientes</p>
                       </div>
 
                       {/* Nível de Proatividade */}
@@ -1073,9 +1016,7 @@ function AISettingsPageContent() {
                           <option value="medium">Média - Sugere quando relevante</option>
                           <option value="high">Alta - Proativa em oferecer soluções</option>
                         </select>
-                        <p className="text-xs text-muted-foreground">
-                          Controla o quanto a IA toma iniciativa na conversa
-                        </p>
+                        <p className="text-xs text-muted-foreground">Controla o quanto a IA toma iniciativa na conversa</p>
                       </div>
 
                       {/* Foco em Fechamento */}
@@ -1084,15 +1025,9 @@ function AISettingsPageContent() {
                           <Label htmlFor="aiClosingFocus" className="text-sm font-medium">
                             Foco em Fechamento de Vendas
                           </Label>
-                          <p className="text-xs text-muted-foreground">
-                            Se ativado, a IA tentará conduzir a conversa para o fechamento
-                          </p>
+                          <p className="text-xs text-muted-foreground">Se ativado, a IA tentará conduzir a conversa para o fechamento</p>
                         </div>
-                        <Switch
-                          id="aiClosingFocus"
-                          checked={aiClosingFocus}
-                          onCheckedChange={setAiClosingFocus}
-                        />
+                        <Switch id="aiClosingFocus" checked={aiClosingFocus} onCheckedChange={setAiClosingFocus} />
                       </div>
 
                       {/* Instruções Personalizadas */}
@@ -1108,9 +1043,7 @@ function AISettingsPageContent() {
                           rows={4}
                           className="min-h-[100px]"
                         />
-                        <p className="text-xs text-muted-foreground">
-                          Adicione regras ou comportamentos específicos que a IA deve seguir
-                        </p>
+                        <p className="text-xs text-muted-foreground">Adicione regras ou comportamentos específicos que a IA deve seguir</p>
                       </div>
 
                       {/* Atraso na Resposta */}
@@ -1144,15 +1077,15 @@ function AISettingsPageContent() {
                   <Sparkles className="h-4 w-4 text-primary" />
                   Comportamento Profissional Automático
                 </h4>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Sua IA já vem configurada com as melhores práticas de atendimento:
-                </p>
+                <p className="text-sm text-muted-foreground mb-2">Sua IA já vem configurada com as melhores práticas de atendimento:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   <li>• Comunicação educada e profissional</li>
                   <li>• Respostas claras e objetivas</li>
                   <li>• Uso moderado de emojis</li>
                   <li>• Tratamento respeitoso ao cliente</li>
-                  <li>• <strong>Nunca inventa preços</strong> - usa apenas valores cadastrados</li>
+                  <li>
+                    • <strong>Nunca inventa preços</strong> - usa apenas valores cadastrados
+                  </li>
                   <li>• Encaminha para humano quando necessário</li>
                 </ul>
               </div>
@@ -1172,7 +1105,9 @@ function AISettingsPageContent() {
                 </p>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="businessHoursStart" className="text-sm font-normal">Das</Label>
+                    <Label htmlFor="businessHoursStart" className="text-sm font-normal">
+                      Das
+                    </Label>
                     <select
                       id="businessHoursStart"
                       value={businessHoursStart}
@@ -1180,12 +1115,16 @@ function AISettingsPageContent() {
                       className="flex h-9 w-[85px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                     >
                       {Array.from({ length: 24 }, (_, i) => (
-                        <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                        <option key={i} value={i}>
+                          {String(i).padStart(2, "0")}:00
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="businessHoursEnd" className="text-sm font-normal">até</Label>
+                    <Label htmlFor="businessHoursEnd" className="text-sm font-normal">
+                      até
+                    </Label>
                     <select
                       id="businessHoursEnd"
                       value={businessHoursEnd}
@@ -1193,7 +1132,9 @@ function AISettingsPageContent() {
                       className="flex h-9 w-[85px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                     >
                       {Array.from({ length: 24 }, (_, i) => (
-                        <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                        <option key={i} value={i}>
+                          {String(i).padStart(2, "0")}:00
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1216,9 +1157,7 @@ function AISettingsPageContent() {
                   rows={2}
                   className="min-h-[60px]"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Informação textual que a IA pode usar para responder sobre horário de funcionamento
-                </p>
+                <p className="text-xs text-muted-foreground">Informação textual que a IA pode usar para responder sobre horário de funcionamento</p>
               </div>
 
               <div className="space-y-2">
@@ -1274,9 +1213,7 @@ function AISettingsPageContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium">Seus Produtos e Serviços</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Adicione os produtos ou serviços que você oferece
-                  </p>
+                  <p className="text-sm text-muted-foreground">Adicione os produtos ou serviços que você oferece</p>
                 </div>
                 <Button onClick={() => setShowProductForm(true)} size="sm">
                   <Plus className="h-4 w-4 mr-1" />
@@ -1289,9 +1226,7 @@ function AISettingsPageContent() {
                 <Card className="border-primary">
                   <CardContent className="pt-4 space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium">
-                        {editingProduct ? "Editar Produto" : "Novo Produto/Serviço"}
-                      </h4>
+                      <h4 className="font-medium">{editingProduct ? "Editar Produto" : "Novo Produto/Serviço"}</h4>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1333,13 +1268,7 @@ function AISettingsPageContent() {
                           Preço
                           <CreditCard className="h-3 w-3 text-muted-foreground" />
                         </Label>
-                        <Input
-                          id="product-price"
-                          value={productForm.price}
-                          onChange={handlePriceChange}
-                          placeholder="R$ 0,00"
-                          inputMode="numeric"
-                        />
+                        <Input id="product-price" value={productForm.price} onChange={handlePriceChange} placeholder="R$ 0,00" inputMode="numeric" />
                       </div>
 
                       <div className="space-y-2">
@@ -1357,9 +1286,7 @@ function AISettingsPageContent() {
                             placeholder="60"
                             className="pr-16"
                           />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                            minutos
-                          </span>
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">minutos</span>
                         </div>
                       </div>
                     </div>
@@ -1423,16 +1350,16 @@ function AISettingsPageContent() {
                               {product.price && (
                                 <div className="flex items-center gap-1.5 text-sm">
                                   <CreditCard className="h-4 w-4 text-green-600" />
-                                  <span className="font-semibold text-green-700 dark:text-green-400">
-                                    {product.price}
-                                  </span>
+                                  <span className="font-semibold text-green-700 dark:text-green-400">{product.price}</span>
                                 </div>
                               )}
                               {product.duration && (
                                 <div className="flex items-center gap-1.5 text-sm">
                                   <Clock className="h-4 w-4 text-blue-600" />
                                   <span className="text-muted-foreground">
-                                    {product.duration} min {product.duration >= 60 && `(${Math.floor(product.duration / 60)}h${product.duration % 60 > 0 ? ` ${product.duration % 60}min` : ''})`}
+                                    {product.duration} min{" "}
+                                    {product.duration >= 60 &&
+                                      `(${Math.floor(product.duration / 60)}h${product.duration % 60 > 0 ? ` ${product.duration % 60}min` : ""})`}
                                   </span>
                                 </div>
                               )}
@@ -1446,28 +1373,16 @@ function AISettingsPageContent() {
 
                             {/* Descrição */}
                             {product.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                                {product.description}
-                              </p>
+                              <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{product.description}</p>
                             )}
                           </div>
 
                           {/* Botões de Ação */}
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleEditProduct(product)}
-                            >
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditProduct(product)}>
                               <Edit3 className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleDeleteProduct(product.id)}
-                            >
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteProduct(product.id)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
@@ -1492,9 +1407,7 @@ function AISettingsPageContent() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="font-medium">Serviços com Variações de Preço</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Configure serviços com variáveis que modificam o preço final
-                  </p>
+                  <p className="text-sm text-muted-foreground">Configure serviços com variáveis que modificam o preço final</p>
                 </div>
                 <Button onClick={addService} size="sm">
                   <Plus className="h-4 w-4 mr-1" />
@@ -1573,9 +1486,7 @@ function AISettingsPageContent() {
                               <Label>Descrição (opcional)</Label>
                               <Input
                                 value={service.description || ""}
-                                onChange={(e) =>
-                                  updateService(serviceIndex, "description", e.target.value)
-                                }
+                                onChange={(e) => updateService(serviceIndex, "description", e.target.value)}
                                 placeholder="Breve descrição do serviço"
                               />
                             </div>
@@ -1583,9 +1494,7 @@ function AISettingsPageContent() {
                               <Label>Categoria (opcional)</Label>
                               <Input
                                 value={service.category || ""}
-                                onChange={(e) =>
-                                  updateService(serviceIndex, "category", e.target.value)
-                                }
+                                onChange={(e) => updateService(serviceIndex, "category", e.target.value)}
                                 placeholder="Ex: Instalação, Limpeza, Manutenção"
                               />
                             </div>
@@ -1599,15 +1508,11 @@ function AISettingsPageContent() {
                                   type="number"
                                   min="1"
                                   value={service.duration || 60}
-                                  onChange={(e) =>
-                                    updateService(serviceIndex, "duration", parseInt(e.target.value) || 60)
-                                  }
+                                  onChange={(e) => updateService(serviceIndex, "duration", parseInt(e.target.value) || 60)}
                                   placeholder="60"
                                   className="pr-16"
                                 />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                                  minutos
-                                </span>
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">minutos</span>
                               </div>
                             </div>
                           </div>
@@ -1620,13 +1525,8 @@ function AISettingsPageContent() {
                                 Precificação
                               </Label>
                               <div className="flex items-center gap-2">
-                                <Label className="text-sm font-normal text-muted-foreground">
-                                  Preço varia por quantidade?
-                                </Label>
-                                <Switch
-                                  checked={service.usePricingTiers || false}
-                                  onCheckedChange={() => toggleUsePricingTiers(serviceIndex)}
-                                />
+                                <Label className="text-sm font-normal text-muted-foreground">Preço varia por quantidade?</Label>
+                                <Switch checked={service.usePricingTiers || false} onCheckedChange={() => toggleUsePricingTiers(serviceIndex)} />
                               </div>
                             </div>
 
@@ -1641,50 +1541,32 @@ function AISettingsPageContent() {
                                     step="0.01"
                                     min="0"
                                     value={service.basePrice}
-                                    onChange={(e) =>
-                                      updateService(
-                                        serviceIndex,
-                                        "basePrice",
-                                        parseFloat(e.target.value) || 0
-                                      )
-                                    }
+                                    onChange={(e) => updateService(serviceIndex, "basePrice", parseFloat(e.target.value) || 0)}
                                     className="pl-9"
                                   />
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                  Preço fixo independente da quantidade
-                                </p>
+                                <p className="text-xs text-muted-foreground">Preço fixo independente da quantidade</p>
                               </div>
                             ) : (
                               /* Faixas de Preço por Quantidade */
                               <div className="space-y-3">
                                 <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
                                   <p className="text-sm text-blue-800 dark:text-blue-200">
-                                    <strong>Faixas de preço:</strong> Configure preços diferentes conforme a quantidade.
-                                    Ex: 1 un = R$ 275, 2-4 un = R$ 250/cada, 5+ un = R$ 200/cada.
+                                    <strong>Faixas de preço:</strong> Configure preços diferentes conforme a quantidade. Ex: 1 un = R$ 275, 2-4 un =
+                                    R$ 250/cada, 5+ un = R$ 200/cada.
                                   </p>
                                 </div>
 
                                 {service.pricingTiers && service.pricingTiers.length > 0 && (
                                   <div className="space-y-2">
                                     {service.pricingTiers.map((tier, tierIndex) => (
-                                      <div
-                                        key={tierIndex}
-                                        className="flex flex-wrap items-center gap-2 bg-muted/50 p-3 rounded-lg border"
-                                      >
+                                      <div key={tierIndex} className="flex flex-wrap items-center gap-2 bg-muted/50 p-3 rounded-lg border">
                                         <span className="text-sm text-muted-foreground">De</span>
                                         <Input
                                           type="number"
                                           min="1"
                                           value={tier.minQuantity}
-                                          onChange={(e) =>
-                                            updatePricingTier(
-                                              serviceIndex,
-                                              tierIndex,
-                                              "minQuantity",
-                                              parseInt(e.target.value) || 1
-                                            )
-                                          }
+                                          onChange={(e) => updatePricingTier(serviceIndex, tierIndex, "minQuantity", parseInt(e.target.value) || 1)}
                                           className="w-16 text-center"
                                         />
                                         <span className="text-sm text-muted-foreground">até</span>
@@ -1697,7 +1579,7 @@ function AISettingsPageContent() {
                                               serviceIndex,
                                               tierIndex,
                                               "maxQuantity",
-                                              e.target.value ? parseInt(e.target.value) : null
+                                              e.target.value ? parseInt(e.target.value) : null,
                                             )
                                           }
                                           placeholder="+"
@@ -1706,21 +1588,14 @@ function AISettingsPageContent() {
                                         <span className="text-sm text-muted-foreground">un.</span>
                                         <ArrowRight className="w-4 h-4 text-muted-foreground" />
                                         <div className="relative">
-                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                            R$
-                                          </span>
+                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
                                           <Input
                                             type="number"
                                             step="0.01"
                                             min="0"
                                             value={tier.pricePerUnit}
                                             onChange={(e) =>
-                                              updatePricingTier(
-                                                serviceIndex,
-                                                tierIndex,
-                                                "pricePerUnit",
-                                                parseFloat(e.target.value) || 0
-                                              )
+                                              updatePricingTier(serviceIndex, tierIndex, "pricePerUnit", parseFloat(e.target.value) || 0)
                                             }
                                             className="w-28 pl-8"
                                           />
@@ -1740,12 +1615,7 @@ function AISettingsPageContent() {
                                   </div>
                                 )}
 
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => addPricingTier(serviceIndex)}
-                                  className="w-full border-dashed"
-                                >
+                                <Button variant="outline" size="sm" onClick={() => addPricingTier(serviceIndex)} className="w-full border-dashed">
                                   <Plus className="w-4 h-4 mr-1" />
                                   Adicionar Faixa de Preço
                                 </Button>
@@ -1753,18 +1623,14 @@ function AISettingsPageContent() {
                                 {/* Preview de cálculo */}
                                 {service.pricingTiers && service.pricingTiers.length > 0 && (
                                   <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
-                                    <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">
-                                      Exemplo de cálculo:
-                                    </p>
+                                    <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">Exemplo de cálculo:</p>
                                     <div className="space-y-1 text-sm text-green-700 dark:text-green-300">
                                       {service.pricingTiers.map((tier, idx) => (
                                         <div key={idx} className="flex items-center gap-2">
                                           <Hash className="w-3 h-3" />
                                           <span>
-                                            {tier.maxQuantity
-                                              ? `${tier.minQuantity} a ${tier.maxQuantity} un.`
-                                              : `${tier.minQuantity}+ un.`}
-                                            {" "}: R$ {tier.pricePerUnit.toFixed(2)} cada
+                                            {tier.maxQuantity ? `${tier.minQuantity} a ${tier.maxQuantity} un.` : `${tier.minQuantity}+ un.`} : R${" "}
+                                            {tier.pricePerUnit.toFixed(2)} cada
                                             {tier.minQuantity > 0 && (
                                               <span className="text-green-600 dark:text-green-400 ml-1">
                                                 (ex: {tier.minQuantity} un. = R$ {(tier.pricePerUnit * tier.minQuantity).toFixed(2)})
@@ -1787,11 +1653,7 @@ function AISettingsPageContent() {
                                 <Variable className="w-4 h-4" />
                                 Variáveis de Preço
                               </Label>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => addVariable(serviceIndex)}
-                              >
+                              <Button variant="outline" size="sm" onClick={() => addVariable(serviceIndex)}>
                                 <Plus className="w-4 h-4 mr-1" />
                                 Adicionar Variável
                               </Button>
@@ -1800,14 +1662,8 @@ function AISettingsPageContent() {
                             {service.variables.length === 0 ? (
                               <div className="text-center py-6 bg-muted/30 rounded-lg border-2 border-dashed">
                                 <Variable className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
-                                <p className="text-sm text-muted-foreground">
-                                  Nenhuma variável cadastrada
-                                </p>
-                                <Button
-                                  variant="link"
-                                  size="sm"
-                                  onClick={() => addVariable(serviceIndex)}
-                                >
+                                <p className="text-sm text-muted-foreground">Nenhuma variável cadastrada</p>
+                                <Button variant="link" size="sm" onClick={() => addVariable(serviceIndex)}>
                                   + Adicionar primeira variável
                                 </Button>
                               </div>
@@ -1821,14 +1677,7 @@ function AISettingsPageContent() {
                                         <div className="flex-1">
                                           <Input
                                             value={variable.name}
-                                            onChange={(e) =>
-                                              updateVariable(
-                                                serviceIndex,
-                                                varIndex,
-                                                "name",
-                                                e.target.value
-                                              )
-                                            }
+                                            onChange={(e) => updateVariable(serviceIndex, varIndex, "name", e.target.value)}
                                             placeholder="Nome da variável (ex: BTUs, Tipo de Acesso)"
                                             className="font-medium"
                                           />
@@ -1845,45 +1694,24 @@ function AISettingsPageContent() {
 
                                       {/* Options */}
                                       <div className="space-y-2">
-                                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                          Opções
-                                        </span>
+                                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Opções</span>
 
                                         {variable.options.map((option, optIndex) => (
-                                          <div
-                                            key={optIndex}
-                                            className="flex items-center gap-2 bg-background rounded-lg p-2 border"
-                                          >
+                                          <div key={optIndex} className="flex items-center gap-2 bg-background rounded-lg p-2 border">
                                             <Input
                                               value={option.name}
-                                              onChange={(e) =>
-                                                updateOption(
-                                                  serviceIndex,
-                                                  varIndex,
-                                                  optIndex,
-                                                  "name",
-                                                  e.target.value
-                                                )
-                                              }
+                                              onChange={(e) => updateOption(serviceIndex, varIndex, optIndex, "name", e.target.value)}
                                               placeholder="Nome da opção"
                                               className="flex-1"
                                             />
                                             <div className="relative w-32">
-                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                                                R$
-                                              </span>
+                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
                                               <Input
                                                 type="number"
                                                 step="0.01"
                                                 value={option.priceModifier}
                                                 onChange={(e) =>
-                                                  updateOption(
-                                                    serviceIndex,
-                                                    varIndex,
-                                                    optIndex,
-                                                    "priceModifier",
-                                                    parseFloat(e.target.value) || 0
-                                                  )
+                                                  updateOption(serviceIndex, varIndex, optIndex, "priceModifier", parseFloat(e.target.value) || 0)
                                                 }
                                                 className="pl-8 text-right"
                                               />
@@ -1891,9 +1719,7 @@ function AISettingsPageContent() {
                                             <Button
                                               variant="ghost"
                                               size="icon"
-                                              onClick={() =>
-                                                removeOption(serviceIndex, varIndex, optIndex)
-                                              }
+                                              onClick={() => removeOption(serviceIndex, varIndex, optIndex)}
                                               disabled={variable.options.length <= 1}
                                               className="text-muted-foreground hover:text-destructive disabled:opacity-30"
                                             >
@@ -1921,9 +1747,7 @@ function AISettingsPageContent() {
                           {/* Example Calculation */}
                           {service.variables.length > 0 && (
                             <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-800">
-                              <h4 className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">
-                                Exemplo de cálculo
-                              </h4>
+                              <h4 className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">Exemplo de cálculo</h4>
                               <div className="space-y-1 text-sm text-green-700 dark:text-green-300">
                                 <div className="flex justify-between">
                                   <span>Preço base</span>
@@ -1941,7 +1765,7 @@ function AISettingsPageContent() {
                                           {formatServicePrice(variable.options[0].priceModifier)}
                                         </span>
                                       </div>
-                                    )
+                                    ),
                                 )}
                                 <div className="flex justify-between pt-2 border-t border-green-300 dark:border-green-700 font-semibold">
                                   <span>Total</span>
@@ -1971,8 +1795,7 @@ function AISettingsPageContent() {
               <Wand2 className="h-16 w-16 mx-auto text-primary mb-4" />
               <h3 className="text-xl font-semibold mb-2">Tudo pronto!</h3>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Agora vamos gerar um contexto completo e otimizado para sua IA
-                com base nas informações que você forneceu.
+                Agora vamos gerar um contexto completo e otimizado para sua IA com base nas informações que você forneceu.
               </p>
 
               <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left max-w-md mx-auto">
@@ -1993,12 +1816,7 @@ function AISettingsPageContent() {
                 </ul>
               </div>
 
-              <Button
-                onClick={handleGenerateContext}
-                disabled={generatingContext}
-                size="lg"
-                className="min-w-[200px]"
-              >
+              <Button onClick={handleGenerateContext} disabled={generatingContext} size="lg" className="min-w-[200px]">
                 {generatingContext ? (
                   <>
                     <Loader2 className="h-5 w-5 mr-2 animate-spin" />
@@ -2017,11 +1835,7 @@ function AISettingsPageContent() {
           {/* Navigation Buttons */}
           {currentStep < 5 && (
             <div className="flex items-center justify-between pt-6 border-t">
-              <Button
-                variant="outline"
-                onClick={handlePrevStep}
-                disabled={currentStep === 0}
-              >
+              <Button variant="outline" onClick={handlePrevStep} disabled={currentStep === 0}>
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Voltar
               </Button>
@@ -2041,19 +1855,13 @@ function AISettingsPageContent() {
                     }}
                     disabled={saving || generatingContext}
                   >
-                    {saving || generatingContext ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <Check className="h-4 w-4 mr-1" />
-                    )}
+                    {saving || generatingContext ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
                     Salvar e Regenerar
                   </Button>
                 )}
 
                 <Button onClick={handleNextStep} disabled={saving}>
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  ) : null}
+                  {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
                   Próximo
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
@@ -2115,8 +1923,9 @@ function CompletedView({
   saveKnowledge: (nextStep?: number, overrides?: { autoReplyEnabled?: boolean }) => void;
 }) {
   // Encontra o preset selecionado
-  const selectedPreset = objectivePresets.find(p => p.id === objectiveType);
+  const selectedPreset = objectivePresets.find((p) => p.id === objectiveType);
   const ObjectiveIcon = OBJECTIVE_ICONS[objectiveType] || Target;
+  const isFreePlan = knowledge?.plan === "FREE";
   return (
     <div className="p-6 mx-auto space-y-6">
       {/* Toggle de Resposta Automática */}
@@ -2125,47 +1934,50 @@ function CompletedView({
           <div className="flex items-center gap-4">
             <div className="space-y-0.5">
               <Label className="text-base">Resposta Automática</Label>
-              <p className="text-sm text-muted-foreground">
-                Permite que a IA responda automaticamente mensagens dos clientes
-              </p>
+              <p className="text-sm text-muted-foreground">Permite que a IA responda automaticamente mensagens dos clientes</p>
             </div>
             <div className="flex flex-col gap-1 items-end">
               <div className="flex items-center gap-2">
-                {knowledge?.plan === 'FREE' && (
+                {isFreePlan && (
                   <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
                     <Shield className="h-3 w-3 mr-1" />
-                    Plano Pago
+                    Disponível apenas em planos pagos
                   </Badge>
                 )}
                 <Switch
-                  checked={knowledge?.plan === 'FREE' ? false : autoReplyEnabled}
+                  checked={isFreePlan ? false : autoReplyEnabled}
                   onCheckedChange={(checked) => {
-                    if (knowledge?.plan === 'FREE') {
-                      toast.error("O auto-reply requer um plano pago.");
+                    if (isFreePlan) {
+                      toast("Para ativar a IA, faça upgrade de plano.", {
+                        description: "O plano Free não permite ativar a IA. Acesse a área de planos para mudar.",
+                      });
                       return;
                     }
                     setAutoReplyEnabled(checked);
                     saveKnowledge(undefined, { autoReplyEnabled: checked });
                   }}
-                  disabled={knowledge?.plan === 'FREE'}
+                  disabled={isFreePlan}
                 />
               </div>
-              <span className="text-[10px] text-muted-foreground">
-                Delay: {replyDelay}s
-              </span>
+              <span className="text-[10px] text-muted-foreground">Delay: {replyDelay}s</span>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onEdit}>
+            <Button variant="outline" onClick={onEdit} disabled={isFreePlan}>
               <Edit3 className="h-4 w-4 mr-1" />
               Editar
             </Button>
-            <Button onClick={onRegenerate} disabled={generatingContext}>
-              {generatingContext ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <Wand2 className="h-4 w-4 mr-1" />
-              )}
+            <Button
+              onClick={() => {
+                if (isFreePlan) {
+                  toast("Para regenerar contexto da IA, faça upgrade de plano.", { description: "O plano Free não permite uso da IA." });
+                  return;
+                }
+                onRegenerate();
+              }}
+              disabled={generatingContext || isFreePlan}
+            >
+              {generatingContext ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Wand2 className="h-4 w-4 mr-1" />}
               Regenerar Contexto
             </Button>
           </div>
@@ -2215,11 +2027,7 @@ function CompletedView({
                 {selectedPreset?.label || "Suporte ao Cliente"}
               </Badge>
             </div>
-            {selectedPreset?.description && (
-              <p className="text-sm text-muted-foreground">
-                {selectedPreset.description}
-              </p>
-            )}
+            {selectedPreset?.description && <p className="text-sm text-muted-foreground">{selectedPreset.description}</p>}
             {objectiveType === "custom" && aiObjective && (
               <div className="mt-2 pt-2 border-t">
                 <span className="text-sm text-muted-foreground">Objetivo customizado:</span>
@@ -2241,7 +2049,7 @@ function CompletedView({
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">
-                {String(businessHoursStart).padStart(2, '0')}:00 às {String(businessHoursEnd).padStart(2, '0')}:00
+                {String(businessHoursStart).padStart(2, "0")}:00 às {String(businessHoursEnd).padStart(2, "0")}:00
               </span>
             </div>
             {workingHours && (
@@ -2287,16 +2095,10 @@ function CompletedView({
                 {products.slice(0, 4).map((product) => (
                   <div key={product.id} className="flex items-center justify-between text-sm">
                     <span>{product.name}</span>
-                    {product.price && (
-                      <span className="text-muted-foreground">{product.price}</span>
-                    )}
+                    {product.price && <span className="text-muted-foreground">{product.price}</span>}
                   </div>
                 ))}
-                {products.length > 4 && (
-                  <p className="text-xs text-muted-foreground">
-                    +{products.length - 4} mais...
-                  </p>
-                )}
+                {products.length > 4 && <p className="text-xs text-muted-foreground">+{products.length - 4} mais...</p>}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Nenhum produto cadastrado</p>
@@ -2327,11 +2129,7 @@ function CompletedView({
                     </span>
                   </div>
                 ))}
-                {services.length > 4 && (
-                  <p className="text-xs text-muted-foreground">
-                    +{services.length - 4} mais...
-                  </p>
-                )}
+                {services.length > 4 && <p className="text-xs text-muted-foreground">+{services.length - 4} mais...</p>}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Nenhum serviço com variações</p>
@@ -2348,9 +2146,7 @@ function CompletedView({
               <MessageSquare className="h-5 w-5 text-primary" />
               <div>
                 <p className="font-medium">Exemplos de Conversa</p>
-                <p className="text-sm text-muted-foreground">
-                  Crie conversas exemplo para ensinar o tom da IA
-                </p>
+                <p className="text-sm text-muted-foreground">Crie conversas exemplo para ensinar o tom da IA</p>
               </div>
               <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground" />
             </CardContent>
@@ -2362,16 +2158,13 @@ function CompletedView({
               <Database className="h-5 w-5 text-primary" />
               <div>
                 <p className="font-medium">Base de Conhecimento</p>
-                <p className="text-sm text-muted-foreground">
-                  Upload de manuais, políticas e documentos
-                </p>
+                <p className="text-sm text-muted-foreground">Upload de manuais, políticas e documentos</p>
               </div>
               <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground" />
             </CardContent>
           </a>
         </Card>
       </div>
-
     </div>
   );
 }

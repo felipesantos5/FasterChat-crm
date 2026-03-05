@@ -32,9 +32,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useHandoffsCount } from "@/hooks/use-handoffs-count";
 import { useUnreadCount } from "@/hooks/use-unread-count";
-import { usePlanFeatures, PlanFeature, PLAN_NAMES, FEATURE_MIN_PLAN } from "@/hooks/usePlanFeatures";
+import { usePlanFeatures, PlanFeature, PLAN_NAMES, FEATURE_MIN_PLAN, isPageAllowedForFree } from "@/hooks/usePlanFeatures";
 import { PricingModal } from "@/components/dashboard/pricing-modal";
-
 
 // Tipo para os itens de menu
 interface MenuItem {
@@ -164,14 +163,14 @@ export function Sidebar() {
   const { isOpen, close } = useSidebar();
   const { hasPermission, loading } = usePermissions();
   const { user } = useAuthStore();
-  const { hasFeature } = usePlanFeatures();
+  const { hasFeature, currentPlan } = usePlanFeatures();
   const { count: handoffsCount, isError } = useHandoffsCount();
   const { count: unreadCount } = useUnreadCount(user?.companyId);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
   useEffect(() => {
     if (isError) {
-      console.error('[Sidebar] Error loading handoffs count:', isError);
+      console.error("[Sidebar] Error loading handoffs count:", isError);
     }
   }, [isError]);
 
@@ -200,9 +199,7 @@ export function Sidebar() {
 
     // Se existe outro href no menu que também é prefixo deste pathname e é mais longo que o atual,
     // então este atual (mais curto) não deve ser o "active".
-    const hasMoreSpecificMatch = allHrefs.some(
-      (h) => h !== href && pathname.startsWith(h) && h.length > href.length
-    );
+    const hasMoreSpecificMatch = allHrefs.some((h) => h !== href && pathname.startsWith(h) && h.length > href.length);
 
     return !hasMoreSpecificMatch;
   };
@@ -217,9 +214,7 @@ export function Sidebar() {
     const expandParents = (items: MenuItem[]) => {
       items.forEach((item) => {
         if (item.children) {
-          const isChildActive = item.children.some((child) =>
-            child.href ? checkActive(child.href) : false
-          );
+          const isChildActive = item.children.some((child) => (child.href ? checkActive(child.href) : false));
 
           if (isChildActive && !openMenus.includes(item.label)) {
             setOpenMenus((prev) => [...prev, item.label]);
@@ -234,12 +229,12 @@ export function Sidebar() {
     expandParents(menuItems);
   }, [pathname]);
 
-  // Filtra itens do menu baseado nas permissões do usuário
+  // Filtra itens do menu baseado nas permissões do usuário e plano
   const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
     return items
       .map((item) => {
         // Se o item requer ADMIN e o usuário não é ADMIN, não exibe
-        if (item.adminOnly && user?.role !== 'ADMIN') {
+        if (item.adminOnly && user?.role !== "ADMIN") {
           return null;
         }
 
@@ -248,15 +243,17 @@ export function Sidebar() {
           return null;
         }
 
+        // BLOQUEIO DE PLANO FREE: só rotas permitidas
+        if (currentPlan === "FREE" && item.href && !isPageAllowedForFree(item.href)) {
+          return null;
+        }
+
         // Se tem children, filtra recursivamente
         if (item.children) {
           const filteredChildren = filterMenuItems(item.children);
-
-          // Se não sobrou nenhum child visível, não exibe o pai
           if (filteredChildren.length === 0) {
             return null;
           }
-
           return { ...item, children: filteredChildren };
         }
 
@@ -278,9 +275,7 @@ export function Sidebar() {
     const isOpen = openMenus.includes(item.label);
     // Dashboard usa match exato; demais rotas usam startsWith para marcar subrotas também
     const isActive = checkActive(item.href);
-    const isParentActive = item.children?.some((child) =>
-      child.href ? checkActive(child.href) : false
-    );
+    const isParentActive = item.children?.some((child) => (child.href ? checkActive(child.href) : false));
 
     // Item com submenu
     if (hasChildren) {
@@ -290,7 +285,7 @@ export function Sidebar() {
             onClick={() => toggleMenu(item.label)}
             className={cn(
               "flex w-full items-center justify-between rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-colors",
-              isParentActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              isParentActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
             )}
             style={{ paddingLeft: `${depth * 12 + 12}px` }}
           >
@@ -302,12 +297,7 @@ export function Sidebar() {
           </button>
 
           {/* Submenu com animação */}
-          <div
-            className={cn(
-              "overflow-hidden transition-all duration-200 ease-in-out",
-              isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-            )}
-          >
+          <div className={cn("overflow-hidden transition-all duration-200 ease-in-out", isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0")}>
             <div className="mt-1 space-y-1">{item.children?.map((child) => renderMenuItem(child, depth + 1))}</div>
           </div>
         </div>
@@ -332,7 +322,7 @@ export function Sidebar() {
           title={`Disponível no plano ${minPlanName}. Clique para fazer upgrade.`}
           className={cn(
             "flex w-full items-center justify-between rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all relative",
-            "text-muted-foreground/50 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30 dark:hover:text-amber-400 cursor-pointer group"
+            "text-muted-foreground/50 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30 dark:hover:text-amber-400 cursor-pointer group",
           )}
           style={{ paddingLeft: `${depth * 12 + 12}px` }}
         >
@@ -361,29 +351,32 @@ export function Sidebar() {
             ? "bg-primary text-primary-foreground"
             : isConversas
               ? "bg-primary/8 text-foreground border-l-2 border-primary hover:bg-primary/15"
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
         )}
         style={{ paddingLeft: isConversas && !isActive ? `${depth * 12 + 10}px` : `${depth * 12 + 12}px` }}
       >
         <div className="flex items-center space-x-2 md:space-x-3 flex-1">
-          <Icon className={cn(
-            "h-4 w-4 md:h-5 md:w-5 flex-shrink-0",
-            !isActive && isConversas && "text-primary"
-          )} />
+          <Icon className={cn("h-4 w-4 md:h-5 md:w-5 flex-shrink-0", !isActive && isConversas && "text-primary")} />
           <span className={cn("truncate", !isActive && isConversas && "font-semibold")}>{item.label}</span>
         </div>
 
         <div className="flex items-center space-x-1">
           {/* Badge Laranja para Handoffs (Transbordo Humano) */}
           {showHandoffBadge && (
-            <div className="flex-shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold rounded-full shadow-lg animate-pulse" title="Transbordos não lidos">
+            <div
+              className="flex-shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold rounded-full shadow-lg animate-pulse"
+              title="Transbordos não lidos"
+            >
               {handoffsCount}
             </div>
           )}
 
           {/* Badge Verde para Notificações Gerais (Não Lidas) */}
           {showUnreadBadge && (
-            <div className="flex-shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-full shadow-lg" title="Mensagens não lidas">
+            <div
+              className="flex-shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-full shadow-lg"
+              title="Mensagens não lidas"
+            >
               {unreadCount}
             </div>
           )}
@@ -398,7 +391,7 @@ export function Sidebar() {
       <div
         className={cn(
           "fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 lg:hidden",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
         onClick={close}
       />
@@ -408,7 +401,7 @@ export function Sidebar() {
         className={cn(
           "fixed left-0 top-0 z-50 h-screen w-64 border-r bg-card transition-transform duration-300 ease-in-out",
           "lg:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
         <div className="flex h-full flex-col">
@@ -416,7 +409,9 @@ export function Sidebar() {
           <div className="flex h-16 items-center justify-between border-b px-3 lg:px-6">
             <Link href="/dashboard" prefetch={true} className="flex items-center space-x-2">
               <Image src={logo} alt="Logo" width={38} height={38} className="h-10 w-10" />
-              <span className="text-xl font-bold text-zinc-700 flex"><span className="text-green-500">Faster</span> Chat</span>
+              <span className="text-xl font-bold text-zinc-700 flex">
+                <span className="text-green-500">Faster</span> Chat
+              </span>
             </Link>
 
             {/* Botão fechar - apenas mobile */}
@@ -431,9 +426,7 @@ export function Sidebar() {
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto p-2 md:p-4">
             {loading ? (
-              <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
-                Carregando...
-              </div>
+              <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">Carregando...</div>
             ) : (
               visibleMenuItems.map((item) => renderMenuItem(item))
             )}
@@ -441,10 +434,7 @@ export function Sidebar() {
         </div>
       </aside>
 
-      <PricingModal
-        isOpen={isPricingModalOpen}
-        onClose={() => setIsPricingModalOpen(false)}
-      />
+      <PricingModal isOpen={isPricingModalOpen} onClose={() => setIsPricingModalOpen(false)} />
     </>
   );
 }

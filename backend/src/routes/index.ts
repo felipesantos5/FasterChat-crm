@@ -30,7 +30,7 @@ import { asyncHandler } from "../middlewares/errorHandler";
 
 const router = Router();
 
-router.use("/stripe", stripeRoutes);
+// NÃO registre /stripe aqui, pois o webhook precisa ser registrado antes do body parser no server.ts
 router.use("/auth", authRoutes);
 router.use("/upload", uploadRouter);
 router.use("/customers", customerRoutes);

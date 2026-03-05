@@ -8,17 +8,26 @@ import { Header } from "@/components/layout/header";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { DashboardFilterProvider } from "@/contexts/DashboardFilterContext";
+import { usePlanFeatures, isPageAllowedForFree } from "@/hooks/usePlanFeatures";
+import { usePathname } from "next/navigation";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
+  const { currentPlan } = usePlanFeatures();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
       router.push("/login");
+      return;
     }
-  }, [isAuthenticated, isLoading, router]);
+    // Se for FREE e tentar acessar rota não permitida, redireciona para dashboard
+    if (currentPlan === "FREE" && !isPageAllowedForFree(pathname)) {
+      router.replace("/dashboard");
+    }
+  }, [isAuthenticated, isLoading, router, currentPlan, pathname]);
 
   if (isLoading || !isAuthenticated) {
     return (

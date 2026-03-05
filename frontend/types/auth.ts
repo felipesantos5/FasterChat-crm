@@ -1,4 +1,4 @@
-export type PlanTier = "INICIAL" | "NEGOCIOS" | "ESCALA_TOTAL";
+export type PlanTier = "FREE" | "INICIAL" | "NEGOCIOS" | "ESCALA_TOTAL";
 
 export interface User {
   id: string;

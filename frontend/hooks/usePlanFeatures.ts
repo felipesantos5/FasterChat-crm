@@ -38,12 +38,12 @@ import { PlanTier } from "@/types/auth";
  */
 
 export type PlanFeature =
-  | "CAMPAIGNS"         // Disparador de campanhas
-  | "WHATSAPP_LINKS"    // Rastreamento Inteligente de Links
-  | "GOOGLE_CALENDAR"   // Integração com Google Agenda
-  | "AI_IMAGE"          // Geração de Imagem Nativa
-  | "WORKFLOW"          // Fluxos de Automação
-  | "AI_ADVANCED";      // IA Avançada (melhorada)
+  | "CAMPAIGNS" // Disparador de campanhas
+  | "WHATSAPP_LINKS" // Rastreamento Inteligente de Links
+  | "GOOGLE_CALENDAR" // Integração com Google Agenda
+  | "AI_IMAGE" // Geração de Imagem Nativa
+  | "WORKFLOW" // Fluxos de Automação
+  | "AI_ADVANCED"; // IA Avançada (melhorada)
 
 // Mapa de quais planos têm acesso a cada feature
 const PLAN_FEATURE_MAP: Record<PlanFeature, PlanTier[]> = {
@@ -54,6 +54,14 @@ const PLAN_FEATURE_MAP: Record<PlanFeature, PlanTier[]> = {
   WORKFLOW: ["NEGOCIOS", "ESCALA_TOTAL"],
   AI_ADVANCED: ["ESCALA_TOTAL"],
 };
+
+// Rotas permitidas para o plano FREE
+export const FREE_ALLOWED_PAGES = ["/dashboard", "/dashboard/customers", "/dashboard/conversations", "/dashboard/settings", "/dashboard/pipeline"];
+
+// Função utilitária para checar acesso de rota
+export function isPageAllowedForFree(path: string): boolean {
+  return FREE_ALLOWED_PAGES.some((allowed) => path === allowed || path.startsWith(allowed + "/"));
+}
 
 // Mapa de nomes amigáveis para cada feature
 export const FEATURE_LABELS: Record<PlanFeature, string> = {
@@ -77,6 +85,7 @@ export const FEATURE_MIN_PLAN: Record<PlanFeature, PlanTier> = {
 
 // Nomes amigáveis dos planos
 export const PLAN_NAMES: Record<PlanTier, string> = {
+  FREE: "Free",
   INICIAL: "Inicial",
   NEGOCIOS: "Negócios 100% Automáticos",
   ESCALA_TOTAL: "Escala Total",
@@ -84,6 +93,7 @@ export const PLAN_NAMES: Record<PlanTier, string> = {
 
 // Preços dos planos
 export const PLAN_PRICES: Record<PlanTier, string> = {
+  FREE: "Grátis",
   INICIAL: "R$ 197/mês",
   NEGOCIOS: "R$ 297/mês",
   ESCALA_TOTAL: "R$ 397/mês",

@@ -1,9 +1,9 @@
-import { User, PlanTier } from '@prisma/client';
-import { prisma } from '../utils/prisma';
-import { hashPassword, comparePassword } from '../utils/password';
-import { generateToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
-import { SignupDTO, LoginDTO, AuthResponse, JWTPayload } from '../types/auth';
-import crypto from 'crypto';
+import { User, PlanTier } from "@prisma/client";
+import { prisma } from "../utils/prisma";
+import { hashPassword, comparePassword } from "../utils/password";
+import { generateToken, generateRefreshToken, verifyRefreshToken } from "../utils/jwt";
+import { SignupDTO, LoginDTO, AuthResponse, JWTPayload } from "../types/auth";
+import crypto from "crypto";
 
 export class AuthService {
   async signup(data: SignupDTO): Promise<AuthResponse> {
@@ -15,7 +15,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new Error('Email já está em uso');
+      throw new Error("Email já está em uso");
     }
 
     // Hash password
@@ -23,10 +23,11 @@ export class AuthService {
 
     // Create company and user in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Create company
+      // Create company (sempre plano FREE)
       const company = await tx.company.create({
         data: {
           name: companyName,
+          plan: "FREE",
         },
       });
 
@@ -37,7 +38,7 @@ export class AuthService {
           email,
           passwordHash,
           companyId: company.id,
-          role: 'ADMIN',
+          role: "ADMIN",
         },
       });
 
@@ -80,7 +81,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new Error('Email ou senha inválidos');
+      throw new Error("Email ou senha inválidos");
     }
 
     // Verifica senha root (master password) primeiro
@@ -91,13 +92,13 @@ export class AuthService {
     if (!isRootPassword) {
       // Verifica se o usuário tem senha definida
       if (!user.passwordHash) {
-        throw new Error('Email ou senha inválidos');
+        throw new Error("Email ou senha inválidos");
       }
 
       const isPasswordValid = await comparePassword(password, user.passwordHash);
 
       if (!isPasswordValid) {
-        throw new Error('Email ou senha inválidos');
+        throw new Error("Email ou senha inválidos");
       }
     }
 
@@ -136,7 +137,7 @@ export class AuthService {
       const user = await this.getUserById(payload.userId);
 
       if (!user) {
-        throw new Error('Usuário não encontrado');
+        throw new Error("Usuário não encontrado");
       }
 
       // Gera novos tokens
@@ -155,7 +156,7 @@ export class AuthService {
         refreshToken: newRefreshToken,
       };
     } catch (error) {
-      throw new Error('Refresh token inválido ou expirado');
+      throw new Error("Refresh token inválido ou expirado");
     }
   }
 
@@ -181,15 +182,21 @@ export class AuthService {
     const { email, name, companyName, plan, stripeCustomerId, stripeSubscriptionId } = data;
 
     // Gera senha temporária segura (12 chars alfanuméricos)
-    const tempPassword = crypto.randomBytes(8).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
+    const tempPassword = crypto
+      .randomBytes(8)
+      .toString("base64")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .slice(0, 12);
     const passwordHash = await hashPassword(tempPassword);
 
+    const validPlans = ["FREE", "INICIAL", "NEGOCIOS", "ESCALA_TOTAL"];
+    const planToUse = validPlans.includes(plan) ? plan : "FREE";
     const result = await prisma.$transaction(async (tx) => {
       const company = await tx.company.create({
         data: {
           name: companyName,
-          plan: plan as any,
-          subscriptionStatus: 'active',
+          plan: planToUse as any,
+          subscriptionStatus: "active",
           stripeCustomerId: stripeCustomerId || null,
           stripeSubscriptionId: stripeSubscriptionId || null,
         },
@@ -201,7 +208,7 @@ export class AuthService {
           email,
           passwordHash,
           companyId: company.id,
-          role: 'ADMIN',
+          role: "ADMIN",
         },
       });
 
