@@ -43,6 +43,7 @@ export type PlanFeature =
   | "GOOGLE_CALENDAR"   // Integração com Google Agenda
   | "AI_IMAGE"          // Geração de Imagem Nativa
   | "WORKFLOW"          // Fluxos de Automação
+  | "AI_HUB"            // Hub de IA (Insights, Exemplos)
   | "AI_ADVANCED";      // IA Avançada (melhorada)
 
 // Mapa de quais planos têm acesso a cada feature
@@ -52,6 +53,7 @@ const PLAN_FEATURE_MAP: Record<PlanFeature, PlanTier[]> = {
   GOOGLE_CALENDAR: ["ESCALA_TOTAL"],
   AI_IMAGE: ["ESCALA_TOTAL"],
   WORKFLOW: ["NEGOCIOS", "ESCALA_TOTAL"],
+  AI_HUB: ["INICIAL", "NEGOCIOS", "ESCALA_TOTAL"],
   AI_ADVANCED: ["ESCALA_TOTAL"],
 };
 
@@ -62,6 +64,7 @@ export const FEATURE_LABELS: Record<PlanFeature, string> = {
   GOOGLE_CALENDAR: "Integração com Google Agenda",
   AI_IMAGE: "Geração de Imagem Nativa",
   WORKFLOW: "Fluxos de Automação",
+  AI_HUB: "Hub de IA",
   AI_ADVANCED: "IA Avançada",
 };
 
@@ -72,11 +75,13 @@ export const FEATURE_MIN_PLAN: Record<PlanFeature, PlanTier> = {
   GOOGLE_CALENDAR: "ESCALA_TOTAL",
   AI_IMAGE: "ESCALA_TOTAL",
   WORKFLOW: "NEGOCIOS",
+  AI_HUB: "INICIAL",
   AI_ADVANCED: "ESCALA_TOTAL",
 };
 
 // Nomes amigáveis dos planos
 export const PLAN_NAMES: Record<PlanTier, string> = {
+  FREE: "Grátis",
   INICIAL: "Inicial",
   NEGOCIOS: "Negócios 100% Automáticos",
   ESCALA_TOTAL: "Escala Total",
@@ -84,6 +89,7 @@ export const PLAN_NAMES: Record<PlanTier, string> = {
 
 // Preços dos planos
 export const PLAN_PRICES: Record<PlanTier, string> = {
+  FREE: "R$ 0/mês",
   INICIAL: "R$ 197/mês",
   NEGOCIOS: "R$ 297/mês",
   ESCALA_TOTAL: "R$ 397/mês",
@@ -91,7 +97,7 @@ export const PLAN_PRICES: Record<PlanTier, string> = {
 
 export function usePlanFeatures() {
   const { user } = useAuthStore();
-  const currentPlan = (user?.plan ?? "INICIAL") as PlanTier;
+  const currentPlan = (user?.plan ?? "FREE") as PlanTier;
   const subscriptionStatus = user?.subscriptionStatus;
 
   const isSubscriptionActive =

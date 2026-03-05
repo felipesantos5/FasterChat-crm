@@ -2134,20 +2134,19 @@ function CompletedView({
                 {knowledge?.plan === 'FREE' && (
                   <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
                     <Shield className="h-3 w-3 mr-1" />
-                    Plano Pago
+                    Requer Plano Pago
                   </Badge>
                 )}
                 <Switch
                   checked={knowledge?.plan === 'FREE' ? false : autoReplyEnabled}
                   onCheckedChange={(checked) => {
                     if (knowledge?.plan === 'FREE') {
-                      toast.error("O auto-reply requer um plano pago.");
+                      toast.error("Recurso indisponível no plano gratuito. Faça upgrade do seu plano para ativar a Resposta Automática com IA e escalar seu atendimento!");
                       return;
                     }
                     setAutoReplyEnabled(checked);
                     saveKnowledge(undefined, { autoReplyEnabled: checked });
                   }}
-                  disabled={knowledge?.plan === 'FREE'}
                 />
               </div>
               <span className="text-[10px] text-muted-foreground">

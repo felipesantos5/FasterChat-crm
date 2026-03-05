@@ -292,12 +292,16 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     fetchActiveExecution();
   }, [customerId]);
 
+  const [userPlan, setUserPlan] = useState<string | null>(null);
   // Carrega configuração global de resposta automática
   useEffect(() => {
     const companyId = getCompanyId();
     if (!companyId) return;
     aiKnowledgeApi.getKnowledge(companyId)
-      .then((data) => setAutoReplyEnabled(data.autoReplyEnabled ?? true))
+      .then((res) => {
+        setAutoReplyEnabled(res.autoReplyEnabled ?? true);
+        setUserPlan(res.data?.plan || 'FREE');
+      })
       .catch(() => {/* mantém false — mais seguro que mostrar IA ativa por engano */ });
   }, []);
 
@@ -693,6 +697,10 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   // Toggle IA
   const handleToggleAi = async () => {
     try {
+      if (userPlan === 'FREE') {
+        toast.error("Recurso indisponível no plano gratuito. Faça upgrade do seu plano para ativar a Resposta Automática com IA!");
+        return;
+      }
       setTogglingAi(true);
       const newAiState = !conversation?.aiEnabled;
       await conversationApi.toggleAI(customerId, newAiState);
