@@ -160,7 +160,6 @@ export function InviteCollaboratorModal({
               {PERMISSION_GROUPS.map((group) => {
                 const groupPageValues = group.pages.map((p) => p.value);
                 const allGroupSelected = groupPageValues.every((p) => pagePerms[p]?.canView);
-                const someGroupSelected = groupPageValues.some((p) => pagePerms[p]?.canView);
 
                 return (
                   <div key={group.label} className="border rounded-xl overflow-hidden">
