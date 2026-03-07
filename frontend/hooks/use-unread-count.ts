@@ -48,10 +48,12 @@ export function useUnreadCount(companyId?: string | null) {
     // Escutando eventos do WebSocket
     socket.on('new_message', handleNewMessage);
     socket.on('message_status_update', handleMessageStatusUpdate);
+    socket.on('conversation_update', handleMessageStatusUpdate);
 
     return () => {
       socket.off('new_message', handleNewMessage);
       socket.off('message_status_update', handleMessageStatusUpdate);
+      socket.off('conversation_update', handleMessageStatusUpdate);
     };
   }, [isAuthenticated, socket, mutate]);
 

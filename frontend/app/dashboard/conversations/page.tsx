@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { mutate as globalMutate } from "swr";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { ChatArea } from "@/components/chat/chat-area";
 import { CustomerDetails } from "@/components/chat/customer-details";
@@ -559,12 +560,17 @@ function ConversationsPageContent() {
                   toast.error("Erro ao desarquivar contato");
                 }
               }}
-              onMarkAsRead={() => mutate(
-                (current) => current?.map((c) =>
-                  c.customerId === selectedConversation.customerId ? { ...c, unreadCount: 0 } : c
-                ),
-                false
-              )}
+              onMarkAsRead={() => {
+                mutate(
+                  (current) => current?.map((c) =>
+                    c.customerId === selectedConversation.customerId ? { ...c, unreadCount: 0 } : c
+                  ),
+                  false
+                );
+                if (companyId) {
+                  globalMutate(`/messages/unread-count/${companyId}`);
+                }
+              }}
             />
           </>
         ) : (

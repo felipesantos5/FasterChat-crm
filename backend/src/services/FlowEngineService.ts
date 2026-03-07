@@ -35,6 +35,10 @@ const circuitBreaker: CircuitBreakerState = {
 const MSG_SEND_DELAY_MIN_MS = 35_000;    // 35s mínimo
 const MSG_SEND_DELAY_MAX_MS = 60_000;    // 60s máximo
 
+// Tempo de "digitando..." antes de enviar mensagem de texto e áudio
+const TYPING_DELAY_TEXT_MS = 15_000;  // 15s para mensagem de texto
+const TYPING_DELAY_AUDIO_MS = 30_000; // 30s para áudio (gravando...)
+
 // Limite a partir do qual um nó de delay é considerado "pausa longa" para o batch.
 // Abaixo disso, o contato atual ainda está "em progresso" e o próximo não é disparado.
 const BATCH_LONG_DELAY_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutos
@@ -971,9 +975,10 @@ export class FlowEngineService {
 
     const contactPhone = execution.contactPhone as string;
 
-    // Typing presence antes de enviar (fire-and-forget, sem delay blocking)
+    // Exibe "digitando..." por 15s antes de enviar
     try {
-      await whatsappService.sendPresence(instance.id as string, contactPhone, 5000, "composing");
+      await whatsappService.sendPresence(instance.id as string, contactPhone, TYPING_DELAY_TEXT_MS, "composing");
+      await new Promise(resolve => setTimeout(resolve, TYPING_DELAY_TEXT_MS));
     } catch { /* presença não crítica */ }
 
     const result = await this.sendWithRetry(
@@ -1009,10 +1014,12 @@ export class FlowEngineService {
     const nodeType = node.type as string;
     const isAudio = nodeType === 'audio';
     const presenceType = isAudio ? "recording" : "composing";
+    const presenceDelay = isAudio ? TYPING_DELAY_AUDIO_MS : TYPING_DELAY_TEXT_MS;
 
-    // Presence fire-and-forget (sem delay blocking)
+    // Exibe "gravando..." (áudio) ou "digitando..." (imagem/vídeo) antes de enviar
     try {
-      await whatsappService.sendPresence(instance.id as string, contactPhone, 5000, presenceType);
+      await whatsappService.sendPresence(instance.id as string, contactPhone, presenceDelay, presenceType);
+      await new Promise(resolve => setTimeout(resolve, presenceDelay));
     } catch { /* presença não crítica */ }
 
     // Aceita mediaUrl (link público para MP3/OGG/IMG) ou mediaBase64
