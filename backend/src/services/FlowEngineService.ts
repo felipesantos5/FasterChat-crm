@@ -1636,11 +1636,12 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
           });
 
           if (flow) {
-            const updateResult = await prisma.customer.updateMany({
+            await prisma.customer.updateMany({
               where: { companyId: flow.companyId, phone: realPhone, lidPhone: null },
               data: { lidPhone: lidValue },
             });
           }
+        }
       }
     } catch { /* falha ao armazenar LID mapping — não crítico */ }
   }
