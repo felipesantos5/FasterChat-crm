@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, X, Check, ChevronRight, Loader2, ShieldAlert } from "lucide-react";
+import { AlertTriangle, X, ChevronRight, Loader2, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -61,8 +61,8 @@ export function CancelSubscriptionModal({ isOpen, onClose }: CancelSubscriptionM
   const [confirmText, setConfirmText] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
-  const featuresToLose = PLAN_FEATURES_LOSS[user?.plan ?? "INICIAL"] ?? PLAN_FEATURES_LOSS.INICIAL;
-  const canProceedStep1 = reason !== "" && details.trim().length >= 30;
+  const featuresToLose = PLAN_FEATURES_LOSS[user?.plan ?? "FREE"] ?? PLAN_FEATURES_LOSS.INICIAL;
+  const canProceedStep1 = reason !== "" && details.trim().length > 0;
   const canProceedStep3 = confirmText === "CANCELAR";
 
   const handleClose = () => {
@@ -94,27 +94,6 @@ export function CancelSubscriptionModal({ isOpen, onClose }: CancelSubscriptionM
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg w-[95vw]">
-        {/* Indicador de etapas */}
-        <div className="flex items-center gap-2 mb-2">
-          {([1, 2, 3] as const).map((s) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors",
-                  step > s
-                    ? "bg-green-500 text-white"
-                    : step === s
-                      ? "bg-gray-900 text-white"
-                      : "bg-gray-100 text-gray-400"
-                )}
-              >
-                {step > s ? <Check className="w-3.5 h-3.5" /> : s}
-              </div>
-              {s < 3 && <div className={cn("h-px w-8 transition-colors", step > s ? "bg-green-400" : "bg-gray-200")} />}
-            </div>
-          ))}
-          <span className="ml-auto text-xs text-muted-foreground">Etapa {step} de 3</span>
-        </div>
 
         {/* ETAPA 1 — Motivo */}
         {step === 1 && (
@@ -146,15 +125,12 @@ export function CancelSubscriptionModal({ isOpen, onClose }: CancelSubscriptionM
                   Nos conte mais sobre o que aconteceu <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
-                  placeholder="Descreva com mais detalhes o motivo do cancelamento (mínimo 30 caracteres)..."
+                  placeholder="Descreva com mais detalhes o motivo do cancelamento..."
                   value={details}
                   onChange={(e) => setDetails(e.target.value)}
                   className="resize-none h-24"
                   maxLength={500}
                 />
-                <p className={cn("text-xs text-right", details.trim().length >= 30 ? "text-green-600" : "text-muted-foreground")}>
-                  {details.trim().length}/30 caracteres mínimos
-                </p>
               </div>
 
               <div className="flex justify-between gap-3 pt-2">

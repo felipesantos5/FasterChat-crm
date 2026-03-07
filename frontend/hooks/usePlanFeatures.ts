@@ -101,7 +101,7 @@ export const PLAN_PRICES: Record<PlanTier, string> = {
 
 export function usePlanFeatures() {
   const { user, isLoading, isRefreshing } = useAuthStore();
-  const currentPlan = (user?.plan || "INICIAL") as PlanTier;
+  const currentPlan = (user?.plan || "FREE") as PlanTier;
   const subscriptionStatus = user?.subscriptionStatus;
 
   const isSubscriptionActive =
@@ -119,7 +119,7 @@ export function usePlanFeatures() {
 
     // Se estamos REFRESCANDO (background getMe) e o plano atual parece ser o inicial/vazio,
     // retornamos true para evitar que cadeados apareçam se o usuário for pago (devido a cache antigo ou bug de me)
-    if (isRefreshing && (user?.plan === "INICIAL" || !user?.plan)) return true;
+    if (isRefreshing && !user?.plan) return true;
 
     if (!isSubscriptionActive) return false;
     const allowedPlans = PLAN_FEATURE_MAP[feature];
@@ -136,7 +136,7 @@ export function usePlanFeatures() {
   /**
    * Retorna o nome amigável do plano atual
    */
-  const currentPlanName = PLAN_NAMES[currentPlan] ?? "Inicial";
+  const currentPlanName = PLAN_NAMES[currentPlan] ?? "Free";
 
   return {
     currentPlan,

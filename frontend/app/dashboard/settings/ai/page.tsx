@@ -384,7 +384,17 @@ function AISettingsPageContent() {
       toast.success("Configurações salvas!");
     } catch (err: any) {
       console.error("Error saving:", err);
-      toast.error("Erro ao salvar configurações");
+      const code = err?.response?.data?.code;
+      const message = err?.response?.data?.message;
+      if (code === 'PLAN_RESTRICTION') {
+        toast.error("Recurso indisponível no seu plano", { description: message || "Faça upgrade para ativar a resposta automática." });
+      } else if (code === 'PERMISSION_DENIED') {
+        toast.error("Sem permissão", { description: message || "Solicite acesso ao administrador." });
+      } else if (code === 'SUBSCRIPTION_INACTIVE') {
+        toast.error("Assinatura inativa", { description: message || "Regularize seu pagamento para continuar." });
+      } else {
+        toast.error("Erro ao salvar configurações");
+      }
     } finally {
       setSaving(false);
     }
@@ -462,7 +472,17 @@ function AISettingsPageContent() {
       }
     } catch (err: any) {
       console.error("Error generating context:", err);
-      toast.error("Erro ao gerar contexto. Tente novamente.");
+      const code = err?.response?.data?.code;
+      const message = err?.response?.data?.message;
+      if (code === 'PLAN_RESTRICTION') {
+        toast.error("Recurso indisponível no seu plano", { description: message || "Faça upgrade para ativar a resposta automática." });
+      } else if (code === 'PERMISSION_DENIED') {
+        toast.error("Sem permissão", { description: message || "Solicite acesso ao administrador." });
+      } else if (code === 'SUBSCRIPTION_INACTIVE') {
+        toast.error("Assinatura inativa", { description: message || "Regularize seu pagamento para continuar." });
+      } else {
+        toast.error("Erro ao gerar contexto. Tente novamente.");
+      }
     } finally {
       setGeneratingContext(false);
     }
@@ -1925,7 +1945,7 @@ function CompletedView({
   // Encontra o preset selecionado
   const selectedPreset = objectivePresets.find((p) => p.id === objectiveType);
   const ObjectiveIcon = OBJECTIVE_ICONS[objectiveType] || Target;
-  const isFreePlan = knowledge?.plan === "FREE";
+  const isFreePlan = knowledge?.plan === "FREE" || knowledge?.plan === "INICIAL";
   return (
     <div className="p-6 mx-auto space-y-6">
       {/* Toggle de Resposta Automática */}
@@ -1941,15 +1961,15 @@ function CompletedView({
                 {isFreePlan && (
                   <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
                     <Shield className="h-3 w-3 mr-1" />
-                    Disponível apenas em planos pagos
+                    Disponível a partir do plano Negócios
                   </Badge>
                 )}
                 <Switch
                   checked={isFreePlan ? false : autoReplyEnabled}
                   onCheckedChange={(checked) => {
                     if (isFreePlan) {
-                      toast("Para ativar a IA, faça upgrade de plano.", {
-                        description: "O plano Free não permite ativar a IA. Acesse a área de planos para mudar.",
+                      toast.error("Recurso indisponível no seu plano", {
+                        description: "A resposta automática está disponível a partir do plano Negócios. Acesse a área de planos para fazer upgrade.",
                       });
                       return;
                     }
@@ -1970,7 +1990,7 @@ function CompletedView({
             <Button
               onClick={() => {
                 if (isFreePlan) {
-                  toast("Para regenerar contexto da IA, faça upgrade de plano.", { description: "O plano Free não permite uso da IA." });
+                  toast.error("Recurso indisponível no seu plano", { description: "A regeneração de contexto está disponível a partir do plano Negócios." });
                   return;
                 }
                 onRegenerate();

@@ -79,10 +79,20 @@ export const checkPlanFeature = (feature: 'WORKFLOW' | 'AI_ADVANCED' | 'AI_IMAGE
           allowed = false;
       }
 
+      const featureNames: Record<string, string> = {
+        WORKFLOW: 'Fluxos de Automação',
+        CAMPAIGNS: 'Campanhas',
+        WHATSAPP_LINKS: 'Links Rastreados',
+        AI_ADVANCED: 'IA Avançada',
+        AI_IMAGE: 'Geração de Imagens',
+        GOOGLE_CALENDAR: 'Google Agenda',
+      };
+      const featureName = featureNames[feature] || feature;
+
       if (!allowed) {
         res.status(403).json({
           success: false,
-          message: `O recurso '${feature}' não está disponível no seu plano atual (${plan}).`,
+          message: `"${featureName}" não está disponível no seu plano atual. Faça upgrade para acessar este recurso.`,
           code: 'PLAN_RESTRICTION'
         });
         return;

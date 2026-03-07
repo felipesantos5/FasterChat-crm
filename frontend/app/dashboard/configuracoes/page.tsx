@@ -31,7 +31,7 @@ export default function SettingsPage() {
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
-  const { currentPlanName } = usePlanFeatures();
+  const { currentPlanName, isSubscriptionActive, currentPlan } = usePlanFeatures();
   const isAdmin = user?.role === "ADMIN";
 
   useEffect(() => {
@@ -161,15 +161,17 @@ export default function SettingsPage() {
                   <p className="text-center text-[11px] text-gray-400">
                     O upgrade é liberado instantaneamente após o pagamento.
                   </p>
-                  <div className="text-center pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setIsCancelModalOpen(true)}
-                      className="text-[11px] text-gray-400 hover:text-red-500 underline underline-offset-2 transition-colors"
-                    >
-                      Cancelar assinatura
-                    </button>
-                  </div>
+                  {isSubscriptionActive && currentPlan !== "FREE" && (
+                    <div className="text-center pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsCancelModalOpen(true)}
+                        className="text-[11px] text-gray-400 hover:text-red-500 underline underline-offset-2 transition-colors"
+                      >
+                        Cancelar assinatura
+                      </button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

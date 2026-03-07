@@ -122,10 +122,12 @@ class AIKnowledgeController {
       // Verifica o plano da empresa se tentar ativar o autoReply
       if (autoReplyEnabled) {
         const company = await aiKnowledgeService.getCompanyPlan(companyId);
-        if (!company || company.plan === 'FREE') {
+        const restrictedPlans = ['FREE', 'INICIAL'];
+        if (!company || restrictedPlans.includes(company.plan as string)) {
           return res.status(403).json({
             success: false,
-            message: 'O recurso de resposta automática de IA não está disponível no plano gratuito. Faça um upgrade para ativar.',
+            code: 'PLAN_RESTRICTION',
+            message: 'A resposta automática de IA não está disponível no seu plano. Faça um upgrade para o plano Negócios ou superior para ativar.',
           });
         }
       }

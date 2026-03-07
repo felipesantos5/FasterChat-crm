@@ -47,7 +47,7 @@ function WhatsAppSettingsPageContent() {
 
   // Plano resolvido: usa o retorno da API (autoritativo) ou o plano do auth store (imediato do localStorage)
   const resolvedPlan = companyPlan ?? user?.plan ?? null;
-  const PLAN_LIMITS: Record<string, number> = { INICIAL: 1, NEGOCIOS: 3, ESCALA_TOTAL: 999 };
+  const PLAN_LIMITS: Record<string, number> = { FREE: 1, INICIAL: 1, NEGOCIOS: 3, ESCALA_TOTAL: 999 };
   const instanceLimit = resolvedPlan ? (PLAN_LIMITS[resolvedPlan] ?? 1) : null;
   const limitDisplay = resolvedPlan === 'ESCALA_TOTAL' ? '∞' : (instanceLimit?.toString() ?? '—');
 
@@ -79,7 +79,7 @@ function WhatsAppSettingsPageContent() {
         if (strategyResponse.data) {
           setStrategy(strategyResponse.data.whatsappStrategy || "RANDOM");
           setDefaultInstanceId(strategyResponse.data.defaultWhatsappInstanceId || null);
-          setCompanyPlan(strategyResponse.data.plan || "INICIAL");
+          setCompanyPlan(strategyResponse.data.plan || "FREE");
         }
       } catch (err) {
         console.error("Error loading strategy:", err);

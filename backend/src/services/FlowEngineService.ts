@@ -35,6 +35,10 @@ const circuitBreaker: CircuitBreakerState = {
 const MSG_SEND_DELAY_MIN_MS = 35_000;    // 35s mínimo
 const MSG_SEND_DELAY_MAX_MS = 60_000;    // 60s máximo
 
+// Limite a partir do qual um nó de delay é considerado "pausa longa" para o batch.
+// Abaixo disso, o contato atual ainda está "em progresso" e o próximo não é disparado.
+const BATCH_LONG_DELAY_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutos
+
 // Configurações do circuit breaker
 const CB_MAX_CONSECUTIVE_ERRORS = 5;     // Abre o circuito após 5 erros seguidos
 const CB_INITIAL_COOLDOWN_MS = 30_000;   // 30s de pausa inicial
@@ -456,25 +460,28 @@ export class FlowEngineService {
       if (!numberOnWhatsApp) {
         await prisma.flowExecution.update({
           where: { id: execution.id },
-          data: { 
-            status: FlowExecutionStatus.FAILED, 
+          data: {
+            status: FlowExecutionStatus.FAILED,
             error: `O número ${cleanPhone} não possui WhatsApp ou é inválido.`,
             completedAt: new Date()
           }
         });
-        return; // Interrompe o fluxo sem erro fatal no worker
+        // 🔗 Número inválido: avança o próximo contato do batch
+        await this.advanceBatchQueue(variables, flowId, data.companyId);
+        return;
       }
     } catch (err: any) {
       console.error(`[FlowEngine] ❌ Erro ao validar número ${cleanPhone} na Evolution:`, err.message);
-      // Se a API cair, falhamos a execução para que apareça no relatório
       await prisma.flowExecution.update({
         where: { id: execution.id },
-        data: { 
-          status: FlowExecutionStatus.FAILED, 
+        data: {
+          status: FlowExecutionStatus.FAILED,
           error: `Falha técnica ao validar número: ${err.message}`,
           completedAt: new Date()
         }
       });
+      // 🔗 Erro técnico: avança o próximo contato do batch
+      await this.advanceBatchQueue(variables, flowId, data.companyId);
       return;
     }
 
@@ -626,6 +633,11 @@ export class FlowEngineService {
         where: { id: executionId },
         data: { status: FlowExecutionStatus.COMPLETED, completedAt: new Date() }
       });
+      // 🔗 Avança o próximo contato do batch (se houver)
+      const vars = typeof execution.variables === 'string'
+        ? JSON.parse(execution.variables)
+        : (execution.variables as Record<string, unknown> || {});
+      await this.advanceBatchQueue(vars, execution.flowId as string, (execution.flow as any).companyId);
       return;
     }
 
@@ -656,6 +668,30 @@ export class FlowEngineService {
         }
       }
     }
+  }
+
+  /**
+   * 🔗 Avança a fila Redis de um batch: dispara o próximo contato pendente.
+   * Chamado quando uma execução termina (COMPLETED/FAILED) ou entra em pausa longa
+   * (WAITING_REPLY ou DELAYED > BATCH_LONG_DELAY_THRESHOLD_MS).
+   */
+  private async advanceBatchQueue(
+    variables: Record<string, unknown>,
+    flowId: string,
+    companyId: string,
+  ): Promise<void> {
+    const batchId = variables._batchId as string | undefined;
+    if (!batchId) return;
+
+    const { FlowBatchController } = await import('../controllers/FlowBatchController');
+    const queueKey = FlowBatchController.batchQueueKey(batchId);
+
+    try {
+      const nextJson = await redisConnection.lpop(queueKey);
+      if (!nextJson) return; // fila esgotada
+      const nextContact = JSON.parse(nextJson) as FlowStartJobData;
+      await flowQueueService.enqueueFlowStart(nextContact);
+    } catch { /* falha ao avançar fila do batch — não crítico */ }
   }
 
   /**
@@ -830,6 +866,11 @@ export class FlowEngineService {
         where: { id: execution.id as string },
         data: { status: FlowExecutionStatus.FAILED, error: err.message }
       });
+      // 🔗 Avança o próximo contato do batch mesmo em caso de erro
+      const vars = typeof execution.variables === 'string'
+        ? JSON.parse(execution.variables)
+        : (execution.variables as Record<string, unknown> || {});
+      await this.advanceBatchQueue(vars, (execution.flow as any).id, (execution.flow as any).companyId);
     }
   }
 
@@ -1129,6 +1170,12 @@ export class FlowEngineService {
       }
     });
 
+    // 🔗 Contato está aguardando resposta — libera o próximo contato do batch
+    const condVars = typeof execution.variables === 'string'
+      ? JSON.parse(execution.variables)
+      : (execution.variables as Record<string, unknown> || {});
+    await this.advanceBatchQueue(condVars, (execution.flow as any).id, (execution.flow as any).companyId);
+
     // Agenda job de timeout: quando expirar, segue pelo handle "nao_respondeu"
     const timeoutMs = delaySeconds * 1000;
     const executionId = execution.id as string;
@@ -1168,6 +1215,14 @@ export class FlowEngineService {
       { executionId: execution.id as string, nodeId: node.id as string },
       { delay: delayMs }
     );
+
+    // 🔗 Delay longo (> 5 min): libera o próximo contato do batch enquanto este espera
+    if (delayMs >= BATCH_LONG_DELAY_THRESHOLD_MS) {
+      const delayVars = typeof execution.variables === 'string'
+        ? JSON.parse(execution.variables)
+        : (execution.variables as Record<string, unknown> || {});
+      await this.advanceBatchQueue(delayVars, (execution.flow as any).id, (execution.flow as any).companyId);
+    }
   }
 
   private async executeAiActionNode(execution: Record<string, unknown>, node: Record<string, unknown>, data: Record<string, unknown>): Promise<void> {

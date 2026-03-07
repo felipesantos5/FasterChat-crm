@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
-import flowQueueService from '../services/flow-queue.service';
+import flowQueueService, { FlowStartJobData } from '../services/flow-queue.service';
+import redisConnection from '../config/redis';
 import * as XLSX from 'xlsx';
 
 /**
@@ -173,16 +174,21 @@ export class FlowBatchController {
   }
 
   // ==================================================================================
-  // 🚀 BATCH PROCESSING VIA BULLMQ
-  // Em vez de loop com setTimeout, enfileira todos os contatos como jobs BullMQ
-  // com delays escalonados. A concorrência e rate limiting são controlados pelo worker.
+  // 🚀 BATCH PROCESSING SEQUENCIAL VIA REDIS QUEUE
+  // Todos os contatos são armazenados em uma fila Redis. O FlowEngine dispara o
+  // próximo contato automaticamente ao concluir ou pausar o anterior.
   // ==================================================================================
-  private static readonly BATCH_STAGGER_MIN_MS = 10_000;  // 10s mínimo entre jobs de orchestration
-  private static readonly BATCH_STAGGER_MAX_MS = 20_000; // 20s máximo entre jobs de orchestration
 
   /**
-   * Enfileira todos os contatos como jobs BullMQ flow-orchestration com delays escalonados.
-   * Retorna imediatamente — o BullMQ cuida da execução real.
+   * Chave Redis da fila de contatos pendentes de um batch.
+   * Usada pelo FlowEngineService para avançar o próximo contato.
+   */
+  static batchQueueKey(batchId: string): string {
+    return `batch:${batchId}:queue`;
+  }
+
+  /**
+   * Valida todos os contatos, armazena os válidos na fila Redis e dispara o primeiro.
    */
   private async processRows(
     batch: BatchStatus,
@@ -191,7 +197,7 @@ export class FlowBatchController {
     flow: Record<string, unknown>,
     fileName: string
   ): Promise<void> {
-    let cumulativeDelay = 0;
+    const queueKey = FlowBatchController.batchQueueKey(batch.batchId);
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -207,52 +213,50 @@ export class FlowBatchController {
       variables._batchName = fileName;
       variables._batchTotal = batch.total;
 
-      // 🛡️ Validação Sintática Básica: pula se for número impossível
+      // 🛡️ Validação sintática: pula números impossíveis
       if (phone.length < 10 || phone.length > 15) {
         batch.failed++;
-        batch.errors.push({ 
-          row: i + 1, 
-          phone: rawPhone, 
-          error: 'Formato de telefone inválido (deve ter entre 10 e 15 dígitos)' 
+        batch.errors.push({
+          row: i + 1,
+          phone: rawPhone,
+          error: 'Formato de telefone inválido (deve ter entre 10 e 15 dígitos)',
         });
         batch.processed++;
         continue;
       }
 
-      try {
-        await flowQueueService.enqueueFlowStart(
-          {
-            flowId: flow.id as string,
-            contactPhone: phone,
-            variables,
-            companyId: flow.companyId as string,
-          },
-          { delay: cumulativeDelay }
-        );
+      const jobData: FlowStartJobData = {
+        flowId: flow.id as string,
+        contactPhone: phone,
+        variables,
+        companyId: flow.companyId as string,
+      };
 
+      try {
+        await redisConnection.rpush(queueKey, JSON.stringify(jobData));
         batch.succeeded++;
       } catch (err: unknown) {
         const error = err instanceof Error ? err : new Error(String(err));
         batch.failed++;
         batch.errors.push({ row: i + 1, phone, error: error.message || 'Erro ao enfileirar' });
-        console.error(`[FlowBatch] ❌ [${i + 1}/${rows.length}] Erro ao enfileirar ${phone}:`, error.message);
+        console.error(`[FlowBatch] ❌ [${i + 1}/${rows.length}] Erro ao armazenar ${phone}:`, error.message);
       }
 
       batch.processed++;
+    }
 
-      // Delay reduzido: o objetivo é validar rápido e deixar o anti-spam para o motor de envios
-      if (i < rows.length - 1) {
-        cumulativeDelay += Math.floor(Math.random() * (FlowBatchController.BATCH_STAGGER_MAX_MS - FlowBatchController.BATCH_STAGGER_MIN_MS)) + FlowBatchController.BATCH_STAGGER_MIN_MS;
-      }
+    // TTL de 7 dias — tempo suficiente para batchs longos terminarem
+    await redisConnection.expire(queueKey, 7 * 24 * 3600);
+
+    // Dispara o primeiro contato da fila; os demais serão disparados em cadeia pelo FlowEngine
+    const firstJson = await redisConnection.lpop(queueKey);
+    if (firstJson) {
+      const firstContact = JSON.parse(firstJson) as FlowStartJobData;
+      await flowQueueService.enqueueFlowStart(firstContact);
     }
 
     batch.status = 'COMPLETED';
     batch.completedAt = new Date();
-
-    console.log(
-      `[FlowBatch] 📊 Batch ${batch.batchId} enfileirado: ${batch.succeeded} jobs criados, ` +
-      `${batch.failed} erros. Spread total: ${(cumulativeDelay / 1000 / 60).toFixed(1)}min`
-    );
 
     if (batch.errors.length > 100) {
       batch.errors = batch.errors.slice(-100);
@@ -318,7 +322,6 @@ export class FlowBatchController {
       });
     } catch (err) {
       // Se falhar a query no banco, retorna os dados em memória normalmente
-      console.warn(`[FlowBatch] ⚠️ Erro ao buscar contadores reais do batch ${batchId}:`, err);
       return res.json(batch);
     }
   }
@@ -439,7 +442,6 @@ export class FlowBatchController {
 
         } catch (updateErr: any) {
           // Não falha se não conseguir atualizar (ex: fluxo não pertence à empresa)
-          console.warn(`[FlowBatch] ⚠️ Não foi possível salvar variáveis da planilha:`, updateErr.message);
         }
       }
 

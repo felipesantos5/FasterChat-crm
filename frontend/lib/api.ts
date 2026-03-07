@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import { toast } from "sonner";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3051";
 
@@ -106,6 +107,27 @@ api.interceptors.response.use(
         refreshTokenPromise = null;
         handleLogout();
         return Promise.reject(refreshError);
+      }
+    }
+
+    // Tratamento global de erros 403 com código específico
+    if (error.response?.status === 403) {
+      const data = error.response.data as { code?: string; message?: string };
+      const code = data?.code;
+      const message = data?.message;
+
+      if (code === 'PLAN_RESTRICTION') {
+        toast.error("Recurso indisponível no seu plano", {
+          description: message || "Faça upgrade de plano para acessar este recurso.",
+        });
+      } else if (code === 'PERMISSION_DENIED') {
+        toast.error("Sem permissão de acesso", {
+          description: message || "Solicite acesso ao administrador da conta.",
+        });
+      } else if (code === 'SUBSCRIPTION_INACTIVE') {
+        toast.error("Assinatura inativa", {
+          description: message || "Regularize seu pagamento para continuar usando o sistema.",
+        });
       }
     }
 

@@ -26,7 +26,8 @@ export const checkPermission = (page: string, requireEdit: boolean = false) => {
       if (!permission || !permission.canView) {
         res.status(403).json({
           success: false,
-          message: 'Você não tem permissão para acessar este recurso',
+          code: 'PERMISSION_DENIED',
+          message: 'Você não tem permissão para acessar este recurso. Solicite acesso ao administrador.',
         });
         return;
       }
@@ -34,7 +35,8 @@ export const checkPermission = (page: string, requireEdit: boolean = false) => {
       if (requireEdit && !permission.canEdit) {
         res.status(403).json({
           success: false,
-          message: 'Você não tem permissão para editar este recurso',
+          code: 'PERMISSION_DENIED',
+          message: 'Você não tem permissão para editar este recurso. Solicite acesso ao administrador.',
         });
         return;
       }
