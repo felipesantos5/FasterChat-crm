@@ -690,7 +690,22 @@ export class FlowEngineService {
       const nextJson = await redisConnection.lpop(queueKey);
       if (!nextJson) return; // fila esgotada
       const nextContact = JSON.parse(nextJson) as FlowStartJobData;
-      await flowQueueService.enqueueFlowStart(nextContact);
+
+      // Verifica janela de envio por fuso horário
+      let windowDelay = 0;
+      try {
+        const configJson = await redisConnection.get(FlowBatchController.batchConfigKey(batchId));
+        if (configJson) {
+          const config = JSON.parse(configJson) as { enabled: boolean; start: number; end: number };
+          if (config.enabled) {
+            const { getTimezoneFromPhone, getDelayUntilWindow } = await import('../utils/phone-timezone');
+            const tz = getTimezoneFromPhone(nextContact.contactPhone);
+            windowDelay = getDelayUntilWindow(tz, config.start, config.end);
+          }
+        }
+      } catch { /* falha na verificação de janela — envia sem delay de janela */ }
+
+      await flowQueueService.enqueueFlowStart(nextContact, { delay: windowDelay });
     } catch { /* falha ao avançar fila do batch — não crítico */ }
   }
 

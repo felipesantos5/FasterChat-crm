@@ -3,6 +3,7 @@ import { prisma } from '../utils/prisma';
 import { AppError } from '../utils/errors';
 import { FlowExecutionStatus } from '@prisma/client';
 import flowQueueService from '../services/flow-queue.service';
+import { randomUUID } from 'crypto';
 
 export class FlowController {
   public async getFlows(req: Request, res: Response): Promise<Response> {
@@ -406,5 +407,78 @@ export class FlowController {
     await flowQueueService.removeJobsForExecution(executionId);
 
     return res.json({ success: true });
+  }
+
+  /**
+   * POST /api/flows/:id/duplicate
+   * Duplica um fluxo existente (nodes + edges) como rascunho.
+   */
+  public async duplicateFlow(req: Request, res: Response): Promise<Response> {
+    const { id } = req.params;
+    const { companyId } = req.user!;
+
+    const original = await prisma.flow.findFirst({
+      where: { id, companyId },
+      include: { nodes: true, edges: true },
+    });
+
+    if (!original) {
+      return res.status(404).json({ error: 'Fluxo não encontrado.' });
+    }
+
+    const webhookSlug = `${original.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-copy-${Math.random().toString(36).substring(2, 7)}`;
+
+    const duplicate = await prisma.$transaction(async (tx) => {
+      const newFlow = await tx.flow.create({
+        data: {
+          companyId,
+          name: `Cópia de ${original.name}`,
+          description: (original as any).description,
+          triggerType: original.triggerType,
+          webhookSlug,
+          status: 'DRAFT',
+          autoTags: (original as any).autoTags ?? [],
+        },
+      });
+
+      // Mapeia IDs antigos → novos para recriar as edges corretamente
+      const nodeIdMap = new Map<string, string>();
+
+      for (const node of original.nodes) {
+        const newId = randomUUID();
+        await tx.flowNode.create({
+          data: {
+            id: newId,
+            flowId: newFlow.id,
+            type: node.type,
+            data: node.data ?? {},
+            positionX: node.positionX,
+            positionY: node.positionY,
+          },
+        });
+        nodeIdMap.set(node.id, newId);
+      }
+
+      for (const edge of original.edges) {
+        const newSource = nodeIdMap.get(edge.sourceNodeId);
+        const newTarget = nodeIdMap.get(edge.targetNodeId);
+        if (!newSource || !newTarget) continue;
+
+        await tx.flowEdge.create({
+          data: {
+            id: randomUUID(),
+            flowId: newFlow.id,
+            sourceNodeId: newSource,
+            sourceHandle: edge.sourceHandle,
+            targetNodeId: newTarget,
+            targetHandle: edge.targetHandle,
+          },
+        });
+      }
+
+      return newFlow;
+    });
+
+    return res.status(201).json(duplicate);
   }
 }

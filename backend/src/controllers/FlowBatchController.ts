@@ -14,6 +14,12 @@ import * as XLSX from 'xlsx';
  * - Seleção aleatória de instância WhatsApp por execução (respeita estratégia)
  */
 
+interface SendWindow {
+  enabled: boolean;
+  start: number; // 0-23
+  end: number;   // 0-23
+}
+
 interface BatchStatus {
   batchId: string;
   flowId: string;
@@ -29,6 +35,7 @@ interface BatchStatus {
   pausedUntil: Date | null;     // Se pausado, quando retoma
   consecutiveErrors: number;     // Erros seguidos no batch
   pauseCount: number;            // Quantas vezes já pausou
+  sendWindow: SendWindow;        // Janela de envio por fuso horário
 }
 
 // Store em memória para rastrear progresso dos batches
@@ -131,6 +138,16 @@ export class FlowBatchController {
       return res.status(400).json({ error: 'Nenhuma linha com telefone válido encontrada na planilha.' });
     }
 
+    // Janela de envio por fuso horário (opcional)
+    const sendWindowEnabled = req.body.sendWindowEnabled === 'true';
+    const sendWindowStart = Math.min(23, Math.max(0, parseInt(req.body.sendWindowStart ?? '8', 10)));
+    const sendWindowEnd = Math.min(23, Math.max(0, parseInt(req.body.sendWindowEnd ?? '21', 10)));
+    const sendWindow: SendWindow = {
+      enabled: sendWindowEnabled,
+      start: sendWindowStart,
+      end: sendWindowEnd,
+    };
+
     // Criar batch ID
     const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
@@ -150,8 +167,18 @@ export class FlowBatchController {
       pausedUntil: null,
       consecutiveErrors: 0,
       pauseCount: 0,
+      sendWindow,
     };
     batchStore.set(batchId, batchStatus);
+
+    // Persiste a config da janela no Redis (usada pelo FlowEngineService ao avançar fila)
+    if (sendWindowEnabled) {
+      await redisConnection.set(
+        FlowBatchController.batchConfigKey(batchId),
+        JSON.stringify(sendWindow),
+        'EX', 7 * 24 * 3600
+      );
+    }
 
     // Responde imediatamente com o batchId (processamento é assíncrono)
     res.status(202).json({
@@ -185,6 +212,10 @@ export class FlowBatchController {
    */
   static batchQueueKey(batchId: string): string {
     return `batch:${batchId}:queue`;
+  }
+
+  static batchConfigKey(batchId: string): string {
+    return `batch:${batchId}:config`;
   }
 
   /**

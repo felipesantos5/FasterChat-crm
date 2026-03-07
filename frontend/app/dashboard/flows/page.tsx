@@ -14,7 +14,9 @@ import {
   Clock,
   Settings,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  Copy,
+  Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -97,6 +99,23 @@ function FlowsPageContent() {
     setFlows(flows.map(f => f.id === selectedFlow.id ? { ...f, autoTags: tags, status: status } : f));
   };
 
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  const duplicateFlow = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDuplicatingId(id);
+    try {
+      const res = await api.post(`/flows/${id}/duplicate`);
+      setFlows(prev => [res.data, ...prev]);
+      toast.success('Fluxo duplicado com sucesso');
+    } catch {
+      toast.error('Erro ao duplicar fluxo');
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
   return (
     <div className="flex-1 space-y-6 p-4 pt-6 md:p-8 bg-gray-50/30 min-h-screen font-sans">
       <div className="flex items-center justify-between">
@@ -159,6 +178,17 @@ function FlowsPageContent() {
                     title="Configurar Fluxo"
                   >
                     <Settings size={16} />
+                  </button>
+                  <button
+                    onClick={(e) => duplicateFlow(flow.id, e)}
+                    className="text-gray-400 hover:text-blue-500 transition-colors p-1"
+                    title="Duplicar Fluxo"
+                    disabled={duplicatingId === flow.id}
+                  >
+                    {duplicatingId === flow.id
+                      ? <Loader2 size={16} className="animate-spin" />
+                      : <Copy size={16} />
+                    }
                   </button>
                   <button
                     onClick={(e) => deleteFlow(flow.id, e)}
