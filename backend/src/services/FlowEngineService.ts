@@ -144,7 +144,6 @@ export class FlowEngineService {
           );
           if (newInstance) {
             activeInstanceId = (newInstance as any).id as string;
-            console.log(`[FlowEngine:Failover] 🚀 Recuperando envio "${context}" com nova instância: ${activeInstanceId}`);
             // Continua para o próximo retry com o novo chip
           }
         }
@@ -188,7 +187,6 @@ export class FlowEngineService {
       const newInstance = await this.getInstanceForCompany(companyId);
 
       if (newInstance && (newInstance as any).id !== currentInstanceId) {
-        console.log(`[FlowEngine:Failover] 🔄 Trocando instância da execução ${executionId}: ${currentInstanceId} -> ${(newInstance as any).id}`);
 
         // Atualiza no banco para que futuros passos deste fluxo já usem o novo chip
         await prisma.flowExecution.update({
@@ -304,7 +302,6 @@ export class FlowEngineService {
         data: { pipelineStageId: stageId }
       });
 
-      console.log(`[FlowEngine] ✅ Cliente ${customerId} movido para estágio ${stageId} pelo fluxo.`);
     } catch (err: any) {
       console.error(`[FlowEngine] ❌ Erro ao mover cliente ${customerId} para estágio ${stageId}:`, err.message);
       throw new Error(`Falha ao alterar estágio no funil: ${err.message}`);
@@ -723,9 +720,6 @@ export class FlowEngineService {
       ) as number;
 
       const safeDelay = Math.max(0, delay);
-      if (safeDelay > 0) {
-        console.log(`[FlowEngine:Metronome] ⏳ Chip ${instanceId} ocupado. Enfileirando envio com delay de ${(safeDelay / 1000).toFixed(1)}s`);
-      }
 
       return safeDelay;
     } catch (err) {
@@ -1505,7 +1499,6 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
              handle = 'other';
           }
           
-          console.log(`[FlowEngine] 🧠 AI Condition | context="${contextMessage.substring(0, 50)}..." | user="${messageText}" | handle=${handle} (Raw: ${cleanClassification})`);
           
         } catch (error) {
            console.error(`[FlowEngine] ❌ Erro ao classificar resposta na AI Condition. Fallback para 'other'.`, error);
@@ -1607,12 +1600,7 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
    * 🔗 Captura o LID retornado pela Evolution API e armazena no FlowExecution e no Customer.
    */
   private async storeLidMapping(execution: Record<string, unknown>, responseRemoteJid?: string): Promise<void> {
-    console.log(`[FlowEngine] 🔗 storeLidMapping chamado | execId="${execution.id}" contactPhone="${execution.contactPhone}" responseRemoteJid="${responseRemoteJid || 'UNDEFINED'}"`);
-
-    if (!responseRemoteJid) {
-      console.warn(`[FlowEngine] ⚠️ storeLidMapping: responseRemoteJid é undefined/null — Evolution API não retornou o JID na resposta do envio`);
-      return;
-    }
+    if (!responseRemoteJid) return;
 
     try {
       const responsePhone = responseRemoteJid
@@ -1622,7 +1610,6 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
 
       const cleanContactPhone = (execution.contactPhone as string).replace(/\D/g, "");
 
-      console.log(`[FlowEngine] 🔗 storeLidMapping | responsePhone="${responsePhone}" (${responsePhone.length} dígitos) cleanContactPhone="${cleanContactPhone}" (${cleanContactPhone.length} dígitos) match=${responsePhone === cleanContactPhone}`);
 
       // Se o JID retornado é diferente do telefone que enviamos, é um LID
       if (responsePhone && responsePhone !== cleanContactPhone) {
@@ -1630,14 +1617,12 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
         const responseLooksLikeLid = responsePhone.length >= 14;
         const contactLooksLikeLid = cleanContactPhone.length >= 14;
 
-        console.log(`[FlowEngine] 🔗 storeLidMapping | responseLooksLikeLid=${responseLooksLikeLid} contactLooksLikeLid=${contactLooksLikeLid}`);
 
         // Só armazena se um deles parece LID e o outro parece phone real
         if (responseLooksLikeLid || contactLooksLikeLid) {
           const lidValue = responseLooksLikeLid ? responsePhone : cleanContactPhone;
           const realPhone = responseLooksLikeLid ? cleanContactPhone : responsePhone;
 
-          console.log(`[FlowEngine] ✅ storeLidMapping SALVANDO | lidValue="${lidValue}" realPhone="${realPhone}" execId="${execution.id}"`);
 
           // Salva no FlowExecution para matching de respostas
           await prisma.flowExecution.update({
@@ -1656,16 +1641,7 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
               where: { companyId: flow.companyId, phone: realPhone, lidPhone: null },
               data: { lidPhone: lidValue },
             });
-            console.log(`[FlowEngine] 🔗 storeLidMapping | Customer.lidPhone atualizado: ${updateResult.count} registro(s) para phone="${realPhone}"`);
           }
-        } else {
-          // Ambos parecem telefones normais (< 14 dígitos) mas são diferentes
-          // Isso pode acontecer quando a Evolution API retorna um número diferente
-          // (ex: 2500068408 para o nosso 5548996917435)
-          console.warn(`[FlowEngine] ⚠️ storeLidMapping | Números diferentes mas nenhum parece LID: response="${responsePhone}" contact="${cleanContactPhone}". Possível número interno do WhatsApp Business.`);
-        }
-      } else {
-        console.log(`[FlowEngine] 🔗 storeLidMapping | responsePhone === contactPhone — sem LID para mapear (mesmo número retornado)`);
       }
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err));

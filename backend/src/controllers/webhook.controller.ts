@@ -98,7 +98,6 @@ class WebhookController {
                   select: { phone: true },
                 });
                 if (customerByLid) {
-                  console.log(`[Webhook:FlowEngine] 🔗 Resolved LID "${phone}" → real phone "${customerByLid.phone}" via customer.lidPhone mapping`);
                   phone = customerByLid.phone;
                 } else {
                   // 🔑 Fallback: Busca por contactLid na FlowExecution (mapeado pelo storeLidMapping no envio)
@@ -113,7 +112,6 @@ class WebhookController {
                   });
 
                   if (execByLid) {
-                    console.log(`[Webhook:FlowEngine] 🔗 Resolved LID "${phone}" → real phone "${execByLid.contactPhone}" via flowExecution.contactLid mapping`);
                     phone = execByLid.contactPhone;
 
                     // Salva no customer para futuras resoluções permanentes
@@ -126,10 +124,7 @@ class WebhookController {
                       data: { lidPhone: cleanLid },
                     });
                   } else {
-                    // ⛔ Sem mapeamento conhecido. NÃO adivinhamos.
-                    // O storeLidMapping() deveria ter capturado no envio.
-                    // Se não capturou, é melhor perder a mensagem do que contaminar outro fluxo.
-                    console.warn(`[Webhook:FlowEngine] ⚠️ LID "${cleanLid}" sem mapeamento conhecido (customer.lidPhone ou flowExecution.contactLid). Não é possível resolver com segurança. Mensagem não será associada a nenhum fluxo.`);
+                    // ⛔ Sem mapeamento conhecido — não associar a nenhum fluxo para evitar contaminação.
                   }
                 }
               }
@@ -337,8 +332,6 @@ class WebhookController {
 
             if (!messageId || statusValue === undefined) continue;
 
-            console.log(`[Webhook:StatusUpdate] messageId=${messageId} status=${statusValue} remoteJid=${update.key?.remoteJid || 'N/A'}`);
-
             // Mapeia o status da Evolution API para o nosso enum
             // Evolution API pode enviar números OU strings
             // Números: 0=ERROR, 1=PENDING, 2=SERVER_ACK, 3=DELIVERY_ACK, 4=READ, 5=PLAYED
@@ -471,16 +464,6 @@ class WebhookController {
           const sendData = payload.data;
           const sendKey = sendData?.key;
 
-          // 📋 LOG DETALHADO do evento send.message para debug de LID mapping
-          const sendRaw = sendData as unknown as Record<string, unknown>;
-          const sendKeyRaw = sendKey as Record<string, unknown>;
-          console.log(`[Webhook:SendMessage] 📩 SEND EVENT | instance="${payload.instance}" remoteJid="${sendKeyRaw?.remoteJid || ''}" fromMe=${sendKeyRaw?.fromMe} messageId="${sendKeyRaw?.id || ''}" participant="${sendKeyRaw?.participant || ''}"`);
-          console.log(`[Webhook:SendMessage] 📩 SEND EXTRA | pushName="${sendRaw?.pushName || ''}" senderPn="${sendRaw?.senderPn || ''}" messageType="${sendRaw?.messageType || ''}" status="${sendRaw?.status || ''}" owner="${sendRaw?.owner || ''}"`);
-          // Log de campos extras que podem conter o LID real
-          if (sendData?.message) {
-            const msgKeys = Object.keys(sendData.message).join(', ');
-            console.log(`[Webhook:SendMessage] 📩 SEND MSG KEYS | ${msgKeys}`);
-          }
           if (sendKey?.remoteJid && payload.instance) {
             const sentToJid = sendKey.remoteJid;
             const sentToPhone = sentToJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "");
@@ -534,19 +517,16 @@ class WebhookController {
                       data: { lidPhone: sentToPhone },
                     });
 
-                    console.log(`[Webhook:SendMessage] 🔗 LID mapping via messageId: "${savedMsg.customer.phone}" → LID "${sentToPhone}"`);
                     mapped = true;
                   }
                 }
 
-                if (!mapped) {
-                  console.warn(`[Webhook:SendMessage] ⚠️ Could not map LID "${sentToPhone}" via messageId correlation. storeLidMapping() should handle this at send time.`);
-                }
+                if (!mapped) { /* LID não mapeado — storeLidMapping() cobre no envio */ }
               }
             }
           }
         } catch (sendErr: any) {
-          console.warn(`[Webhook] ⚠️ Error processing send.message LID mapping:`, sendErr.message);
+          console.error(`[Webhook] Error processing send.message LID mapping:`, sendErr.message);
         }
         return res.status(200).json({ success: true, message: "Send message processed" });
       }
