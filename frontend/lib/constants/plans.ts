@@ -2,7 +2,7 @@ export const PLANS = [
   {
     id: "INICIAL",
     name: "Essencial",
-    subtitle: "Centralize todos os seus leads e pare de perder vendas por falta de acompanhamento. Com nosso CRM, você tem a visão clara de onde cada cliente está na sua jornada, mantendo o controle total da sua base de dados.",
+    subtitle: "Ideal para quem está começando a organizar o atendimento. Centralize seus leads, acompanhe cada cliente no funil e nunca mais perca uma venda por falta de follow-up. Tenha um número de WhatsApp conectado com atendente virtual por IA disponível 24 horas.",
     price: "R$ 197",
     period: "/mês",
     features: [
@@ -22,7 +22,7 @@ export const PLANS = [
   {
     id: "NEGOCIOS",
     name: "Growth",
-    subtitle: "Deixe de ser escravo do teclado. Nossos agentes assumem o atendimento inicial, qualificam leads e respondem dúvidas 24/7, garantindo que o toque humano apareça apenas na hora de fechar negócio.",
+    subtitle: "Para negócios que querem escalar sem aumentar a equipe. Conecte até 5 WhatsApps, dispare campanhas segmentadas, rastreie cliques de links e deixe a IA qualificar e responder seus leads enquanto você foca em fechar negócios.",
     price: "R$ 297",
     period: "/mês",
     features: [
@@ -35,14 +35,14 @@ export const PLANS = [
       { label: "Geração de Imagem Nativa", included: false },
     ],
     popular: true,
-    ctaLabel: "Testar Grátis",
+    ctaLabel: "Começar Agora",
     color: "border-green-500",
     headerBg: "bg-white",
   },
   {
     id: "ESCALA_TOTAL",
     name: "Performance Máxima",
-    subtitle: "Domine sua estratégia com disparos em massa seguros e dashboards analíticos em tempo real. Identifique gargalos no seu funil e use dados concretos para escalar seu volume de mensagens sem risco de banimento.",
+    subtitle: "A solução completa para operações de alto volume. WhatsApps ilimitados, IA avançada com geração de imagens nativa, integração com Google Agenda e todos os recursos do Growth. Escale sem limites com a infraestrutura mais robusta da plataforma.",
     price: "R$ 397",
     period: "/mês",
     features: [

@@ -84,7 +84,12 @@ class FlowQueueService {
    * O worker de orchestration vai chamar flowEngine.startFlowDirect().
    */
   async enqueueFlowStart(data: FlowStartJobData, options?: { delay?: number }): Promise<void> {
-    const jobId = `start_${data.flowId}_${data.contactPhone}_${Date.now()}`;
+    // Para disparos de planilha, usa jobId determinístico por phone+batch para evitar enfileiramento duplo.
+    // Para disparos avulsos (sem batchId), inclui timestamp para permitir re-disparo.
+    const batchId = data.variables?._batchId as string | undefined;
+    const jobId = batchId
+      ? `start_${data.flowId}_${data.contactPhone}_${batchId}`
+      : `start_${data.flowId}_${data.contactPhone}_${Date.now()}`;
     await this.orchestrationQueue.add('start-flow', data, {
       jobId,
       delay: options?.delay || 0,
@@ -100,10 +105,21 @@ class FlowQueueService {
     options?: { delay?: number; jobId?: string }
   ): Promise<void> {
     const jobId = options?.jobId || `step_${data.executionId}_${data.nodeId}_${Date.now()}`;
-    await this.stepQueue.add('execute-step', data, {
-      jobId,
-      delay: options?.delay || 0,
-    });
+    try {
+      await this.stepQueue.add('execute-step', data, {
+        jobId,
+        delay: options?.delay || 0,
+      });
+    } catch (err: unknown) {
+      // BullMQ pode lançar erro se o jobId já existir em versões antigas.
+      // Neste caso, o job já está enfileirado — comportamento idempotente esperado.
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('already') || message.includes('exists')) {
+        console.warn(`[FlowQueue] ⚠️ Job ${jobId} já existe na fila (idempotente — ignorando)`);
+        return;
+      }
+      throw err;
+    }
   }
 
   // ==================================================================================

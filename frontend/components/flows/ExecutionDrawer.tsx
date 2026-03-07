@@ -32,7 +32,8 @@ type ExecutionDrawerProps = {
 
 const ACTIVE_STATUSES = ['RUNNING', 'WAITING_REPLY', 'DELAYED'];
 
-const BATCH_PAGE_SIZE = 5;
+const BATCH_PAGE_SIZE = 30;
+const MAX_BATCHES_IN_SIDEBAR = 10;
 
 export function ExecutionDrawer({
   isOpen,
@@ -61,11 +62,20 @@ export function ExecutionDrawer({
     }));
   };
 
+  // Filtra execuções que ainda estão na fase de inicialização (RUNNING com apenas o nó trigger
+  // no histórico). Essas foram criadas pelo worker de orquestração mas o worker de steps
+  // ainda não processou nenhum nó real — aparecem como "não iniciadas" para o usuário.
+  const startedExecutions = executions.filter((exe) => {
+    if (exe.status !== 'RUNNING') return true; // COMPLETED, FAILED, PAUSED, etc. → sempre exibe
+    const histLen = Array.isArray(exe.history) ? exe.history.length : 0;
+    return histLen > 1; // RUNNING só aparece depois de processar ao menos 1 nó além do trigger
+  });
+
   // Agrupamento
   const batches: Record<string, { id: string; name: string; total: number; startedAt: string; executions: Execution[] }> = {};
   const standaloneExecutions: Execution[] = [];
 
-  executions.forEach((exe) => {
+  startedExecutions.forEach((exe) => {
     const vars = exe.variables || {};
     if (vars._batchId) {
       if (!batches[vars._batchId]) {
@@ -83,7 +93,13 @@ export function ExecutionDrawer({
     }
   });
 
-  const hasBatches = Object.keys(batches).length > 0;
+  // Ordenar por data desc e limitar às 10 mais recentes
+  const sortedBatches = Object.values(batches)
+    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+    .slice(0, MAX_BATCHES_IN_SIDEBAR);
+
+  const latestBatchId = sortedBatches[0]?.id ?? null;
+  const hasBatches = sortedBatches.length > 0;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -223,9 +239,9 @@ export function ExecutionDrawer({
         <h2 className="font-bold text-gray-800 flex items-center gap-2">
           <Database size={18} className="text-primary" />
           Execuções Recentes
-          {executions.length > 0 && (
+          {hasBatches && (
             <span className="text-xs font-normal text-gray-500">
-              ({executions.length})
+              ({sortedBatches.length} planilha{sortedBatches.length !== 1 ? 's' : ''})
             </span>
           )}
         </h2>
@@ -235,55 +251,81 @@ export function ExecutionDrawer({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {executions.length === 0 ? (
+        {startedExecutions.length === 0 ? (
           <div className="text-center py-10 text-gray-400">
             <Database size={40} className="mx-auto mb-2 opacity-20" />
-            <p className="text-sm">Nenhuma execução encontrada ainda.</p>
+            <p className="text-sm">
+              {executions.length > 0
+                ? 'Aguardando início das execuções...'
+                : 'Nenhuma execução encontrada ainda.'}
+            </p>
           </div>
         ) : (
           <>
-            {/* GRUPOS DE PLANILHA (BATCHES) */}
-            {Object.values(batches).map((batch) => {
-              const isExpanded = expandedBatches[batch.id] || false;
+            {/* GRUPOS DE PLANILHA (BATCHES) — últimas 10, mais recente em destaque */}
+            {sortedBatches.map((batch) => {
+              const isLatest = batch.id === latestBatchId;
+              // Mais recente abre automaticamente; demais fecham por padrão
+              const isExpanded = expandedBatches[batch.id] !== undefined
+                ? expandedBatches[batch.id]
+                : isLatest;
               const totalInBatch = batch.executions.length;
               const visibleCount = batchVisibleCount[batch.id] || BATCH_PAGE_SIZE;
               const visibleExecutions = isExpanded ? batch.executions.slice(0, visibleCount) : [];
               const hasMoreInBatch = visibleCount < totalInBatch;
 
               return (
-                <div key={batch.id} className="border rounded-lg overflow-hidden flex flex-col mb-3 bg-white shadow-sm">
+                <div
+                  key={batch.id}
+                  className={`border rounded-xl overflow-hidden flex flex-col mb-3 shadow-sm transition-all ${
+                    isLatest
+                      ? 'border-green-400 bg-white shadow-green-100 shadow-md ring-1 ring-green-400/30'
+                      : 'border-slate-200 bg-white'
+                  }`}
+                >
                   <div
                     onClick={() => toggleBatch(batch.id)}
-                    className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors border-b border-transparent data-[expanded=true]:border-slate-200"
-                    data-expanded={isExpanded}
+                    className={`flex items-center justify-between cursor-pointer transition-colors border-b ${
+                      isLatest
+                        ? 'p-4 bg-green-50 hover:bg-green-100/70 border-green-200'
+                        : 'p-3 bg-slate-50 hover:bg-slate-100 border-transparent'
+                    }`}
                   >
                     <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="p-1.5 bg-blue-100 text-blue-600 rounded-md shrink-0">
-                        <FileSpreadsheet size={16} />
+                      <div className={`p-1.5 rounded-md shrink-0 ${isLatest ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                        <FileSpreadsheet size={isLatest ? 18 : 16} />
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="font-semibold text-sm text-slate-800 truncate" title={batch.name}>
-                          {batch.name}
-                        </span>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-semibold truncate ${isLatest ? 'text-base text-green-900' : 'text-sm text-slate-800'}`}
+                            title={batch.name}
+                          >
+                            {batch.name}
+                          </span>
+                          {isLatest && (
+                            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider bg-green-500 text-white px-2 py-0.5 rounded-full">
+                              Mais Recente
+                            </span>
+                          )}
+                        </div>
+                        <div className={`flex items-center gap-2 mt-0.5 ${isLatest ? 'text-xs text-green-700' : 'text-xs text-slate-500'}`}>
                           <span className="flex items-center gap-1">
                             <Clock size={11} />
                             {format(new Date(batch.startedAt), "dd/MM HH:mm:ss", { locale: ptBR })}
                           </span>
                           <span>•</span>
-                          <span className="font-medium">
-                            {totalInBatch} execuções
-                          </span>
+                          <span className="font-medium">{totalInBatch} execuções</span>
                         </div>
                       </div>
                     </div>
-                    <div>
-                      {isExpanded ? <ChevronDown size={18} className="text-slate-400" /> : <ChevronRight size={18} className="text-slate-400" />}
+                    <div className={isLatest ? 'text-green-500' : 'text-slate-400'}>
+                      {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                     </div>
                   </div>
 
                   {isExpanded && (
-                    <div className="p-3 bg-slate-50/50 flex flex-col gap-3 rounded-b-lg border-t border-slate-100">
+                    <div className="p-3 flex flex-col gap-3 rounded-b-xl border-t border-slate-100 bg-slate-50/40">
                       {visibleExecutions.map(renderExecutionCard)}
                       {hasMoreInBatch && (
                         <button

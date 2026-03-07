@@ -96,7 +96,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                       <CardTitle className="text-xl font-bold text-gray-900 leading-tight">
                         {plan.name}
                       </CardTitle>
-                      <CardDescription className="text-gray-500 text-xs mt-1 min-h-[32px]">
+                      <CardDescription className="text-gray-500 text-xs mt-1 leading-relaxed h-[90px] overflow-hidden">
                         {plan.subtitle}
                       </CardDescription>
 
@@ -143,7 +143,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                             ? "bg-gray-100 text-gray-400 hover:bg-gray-100 cursor-default border border-gray-200"
                             : plan.popular
                               ? "bg-green-500 hover:bg-green-600 text-white shadow-md"
-                              : "bg-white border-2 border-gray-200 text-gray-700 hover:border-green-500 hover:text-green-600"
+                              : "bg-white border-2 border-gray-200 text-gray-700 hover:border-green-500 hover:bg-green-500 hover:text-white"
                         )}
                         disabled={(!!loading && loading !== plan.id) || isCurrent}
                         onClick={() => !isCurrent && handleUpgrade(plan.id)}

@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
 import { useErrorHandler } from "@/hooks/use-error-handler";
+import { useAuthStore } from "@/lib/store/auth.store";
 
 export default function WhatsAppSettingsPage() {
   return (
@@ -23,6 +24,7 @@ export default function WhatsAppSettingsPage() {
 }
 
 function WhatsAppSettingsPageContent() {
+  const { user } = useAuthStore();
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const { hasError, handleError, clearError } = useErrorHandler();
@@ -40,8 +42,14 @@ function WhatsAppSettingsPageContent() {
   // Estados de estratégia de envio
   const [strategy, setStrategy] = useState<"RANDOM" | "SPECIFIC">("RANDOM");
   const [defaultInstanceId, setDefaultInstanceId] = useState<string | null>(null);
-  const [companyPlan, setCompanyPlan] = useState<string>("INICIAL");
+  const [companyPlan, setCompanyPlan] = useState<string | null>(null);
   const [savingStrategy, setSavingStrategy] = useState(false);
+
+  // Plano resolvido: usa o retorno da API (autoritativo) ou o plano do auth store (imediato do localStorage)
+  const resolvedPlan = companyPlan ?? user?.plan ?? null;
+  const PLAN_LIMITS: Record<string, number> = { INICIAL: 1, NEGOCIOS: 3, ESCALA_TOTAL: 999 };
+  const instanceLimit = resolvedPlan ? (PLAN_LIMITS[resolvedPlan] ?? 1) : null;
+  const limitDisplay = resolvedPlan === 'ESCALA_TOTAL' ? '∞' : (instanceLimit?.toString() ?? '—');
 
   // Obtém o companyId do usuário logado (você pode ajustar conforme sua implementação)
   const getCompanyId = () => {
@@ -109,17 +117,16 @@ function WhatsAppSettingsPageContent() {
       setCreating(true);
       setOperationError(null);
 
-      // Limites por plano
-      const limits: { [key: string]: number } = {
-        'INICIAL': 1,
-        'NEGOCIOS': 3,
-        'ESCALA_TOTAL': 999
-      };
+      // Aguarda plano estar resolvido
+      if (instanceLimit === null) {
+        toast.error("Aguarde o carregamento das informações do plano.");
+        return;
+      }
 
-      const limit = limits[companyPlan] || 1;
-      if (instances.length >= limit) {
-        toast.error(`Sua conta atingiu o limite de ${limit} ${limit === 1 ? 'instância' : 'instâncias'} para o plano ${companyPlan}.`);
-        setOperationError(`Sua conta atingiu o limite de ${limit} ${limit === 1 ? 'instância' : 'instâncias'} para o plano ${companyPlan}.`);
+      if (instances.length >= instanceLimit) {
+        const msg = `Sua conta atingiu o limite de ${instanceLimit} ${instanceLimit === 1 ? 'instância' : 'instâncias'} para o plano ${resolvedPlan}.`;
+        toast.error(msg);
+        setOperationError(msg);
         return;
       }
 
@@ -276,25 +283,29 @@ function WhatsAppSettingsPageContent() {
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
               <div className="space-y-1">
-                <p className="text-sm font-medium">Uso do Plano: {companyPlan}</p>
+                <p className="text-sm font-medium">Uso do Plano: {resolvedPlan ?? '—'}</p>
                 <p className="text-2xl font-bold">
-                  {instances.length} / {companyPlan === 'ESCALA_TOTAL' ? '∞' : (companyPlan === 'NEGOCIOS' ? '3' : '1')}
+                  {resolvedPlan === null ? (
+                    <span className="text-muted-foreground text-base">Carregando...</span>
+                  ) : (
+                    `${instances.length} / ${limitDisplay}`
+                  )}
                 </p>
                 <p className="text-xs text-muted-foreground">Instâncias de WhatsApp conectadas</p>
               </div>
-              <Badge variant={instances.length >= (companyPlan === 'NEGOCIOS' ? 3 : (companyPlan === 'ESCALA_TOTAL' ? 999 : 1)) ? "destructive" : "secondary"}>
-                {instances.length >= (companyPlan === 'NEGOCIOS' ? 3 : (companyPlan === 'ESCALA_TOTAL' ? 999 : 1)) ? "Limite Atingido" : "Disponível"}
+              <Badge variant={instanceLimit !== null && instances.length >= instanceLimit ? "destructive" : "secondary"}>
+                {instanceLimit === null ? "—" : instances.length >= instanceLimit ? "Limite Atingido" : "Disponível"}
               </Badge>
             </div>
             <Button
               onClick={handleCreateInstance}
-              disabled={creating || instances.length >= (companyPlan === 'NEGOCIOS' ? 3 : (companyPlan === 'ESCALA_TOTAL' ? 999 : 1))}
+              disabled={creating || instanceLimit === null || instances.length >= instanceLimit}
               className="w-full sm:w-auto"
             >
               {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Adicionar WhatsApp
             </Button>
-            {instances.length >= (companyPlan === 'NEGOCIOS' ? 3 : (companyPlan === 'ESCALA_TOTAL' ? 999 : 1)) && (
+            {instanceLimit !== null && instances.length >= instanceLimit && (
               <p className="text-xs text-destructive flex items-center gap-1">
                 <AlertCircle className="h-3 w-3" />
                 Aumente seu plano para conectar mais instâncias.

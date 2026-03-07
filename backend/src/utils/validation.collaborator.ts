@@ -9,6 +9,8 @@ const permissionSchema = z.object({
     'CALENDAR',
     'CAMPAIGNS',
     'WHATSAPP_LINKS',
+    'FLOWS',
+    'AI_INSIGHTS',
     'AI_CONFIG',
     'WHATSAPP_CONFIG',
   ]),

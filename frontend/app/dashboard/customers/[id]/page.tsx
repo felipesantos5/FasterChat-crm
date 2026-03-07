@@ -43,6 +43,7 @@ import {
   Home,
   User,
   StickyNote,
+  X,
 } from "lucide-react";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -97,6 +98,9 @@ export default function CustomerDetailPage() {
 
   // Delete customer modal state
   const [deleteCustomerModalOpen, setDeleteCustomerModalOpen] = useState(false);
+
+  // Avatar lightbox
+  const [avatarZoomOpen, setAvatarZoomOpen] = useState(false);
 
   const loadCustomer = async () => {
     try {
@@ -302,12 +306,17 @@ export default function CustomerDetailPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           {/* Avatar do cliente */}
-          <Avatar className="h-14 w-14 border-2 border-primary/20 shadow-sm">
-            <AvatarImage src={customer.profilePicUrl || undefined} alt={customer.name} />
-            <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
-              {customer.name.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <div
+            onClick={() => customer.profilePicUrl && setAvatarZoomOpen(true)}
+            className={customer.profilePicUrl ? "cursor-zoom-in" : ""}
+          >
+            <Avatar className="h-14 w-14 border-2 border-primary/20 shadow-sm">
+              <AvatarImage src={customer.profilePicUrl || undefined} alt={customer.name} />
+              <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
+                {customer.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
@@ -316,12 +325,17 @@ export default function CustomerDetailPage() {
               )}
               {customer.pipelineStage ? (
                 <Badge
-                  className="bg-red-600 hover:bg-red-700 text-white text-[10px] h-5 uppercase font-bold px-2"
+                  className="text-[10px] h-5 uppercase font-bold px-2 border"
+                  style={{
+                    backgroundColor: `${customer.pipelineStage.color}22`,
+                    borderColor: customer.pipelineStage.color,
+                    color: customer.pipelineStage.color,
+                  }}
                 >
                   {customer.pipelineStage.name}
                 </Badge>
               ) : (
-                <Badge variant="destructive" className="bg-red-600 hover:bg-red-700 text-[10px] h-5 uppercase font-bold px-2">
+                <Badge variant="outline" className="text-[10px] h-5 uppercase font-bold px-2 text-muted-foreground">
                   Sem Funil
                 </Badge>
               )}
@@ -919,6 +933,27 @@ export default function CustomerDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Avatar Lightbox */}
+      {avatarZoomOpen && customer.profilePicUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setAvatarZoomOpen(false)}
+        >
+          <button
+            onClick={() => setAvatarZoomOpen(false)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+          >
+            <X size={24} />
+          </button>
+          <img
+            src={customer.profilePicUrl}
+            alt={customer.name}
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[85vh] max-w-[85vw] rounded-2xl object-contain shadow-2xl animate-in zoom-in-95 duration-200"
+          />
+        </div>
+      )}
     </div>
   );
 }

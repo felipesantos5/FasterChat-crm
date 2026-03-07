@@ -673,10 +673,13 @@ export class FlowEngineService {
           // para contatos diferentes. O delay agora é calculado baseado no último envio agendado para o chip.
           const instanceId = (execution.whatsappInstanceId as string) || (execution.whatsappInstance as any)?.id;
           const delay = await this.reserveSendSlot(instanceId);
-          
+
+          // 🛡️ IDEMPOTÊNCIA: jobId determinístico evita que retries do BullMQ enfileirem
+          // o mesmo nó duas vezes (causando envio duplo de mensagem).
+          const stepJobId = `step_${execution.id}_${targetNode.id}`;
           await flowQueueService.enqueueFlowStep(
             { executionId: execution.id, nodeId: targetNode.id, sourceHandle: 'INTERNAL_EXECUTE' },
-            { delay }
+            { delay, jobId: stepJobId }
           );
         } else {
           // Se é lógica ou espera, executa agora sem delay para fluxo instantâneo
@@ -693,35 +696,38 @@ export class FlowEngineService {
    */
   private async reserveSendSlot(instanceId: string): Promise<number> {
     if (!instanceId) return 0;
-    
+
     const key = `flow:instance_busy_until:${instanceId}`;
     const now = Date.now();
-    
+    const gap = Math.floor(Math.random() * (MSG_SEND_DELAY_MAX_MS - MSG_SEND_DELAY_MIN_MS)) + MSG_SEND_DELAY_MIN_MS;
+    const ttl = 10 * 60 * 1000; // 10 minutos em ms
+
+    // Script Lua atômico: GET → compara → SET em uma única operação.
+    // Evita race condition onde múltiplos workers leem o mesmo valor antes do SET.
+    const luaScript = `
+      local key = KEYS[1]
+      local now = tonumber(ARGV[1])
+      local gap = tonumber(ARGV[2])
+      local ttl = tonumber(ARGV[3])
+      local current = tonumber(redis.call('GET', key) or '0')
+      if current < now then current = now end
+      local next_slot = current + gap
+      redis.call('SET', key, tostring(next_slot), 'PX', ttl)
+      return current - now
+    `;
+
     try {
-      // Busca até quando este chip está "comprometido" com envios anteriores
-      const currentBusyUntilRaw = await redisConnection.get(key);
-      let currentBusyUntil = Number(currentBusyUntilRaw || 0);
+      const delay = await redisConnection.eval(
+        luaScript, 1, key,
+        now.toString(), gap.toString(), ttl.toString()
+      ) as number;
 
-      // Se o chip está livre ou o tempo já passou, começamos do "agora"
-      if (currentBusyUntil < now) {
-        currentBusyUntil = now;
+      const safeDelay = Math.max(0, delay);
+      if (safeDelay > 0) {
+        console.log(`[FlowEngine:Metronome] ⏳ Chip ${instanceId} ocupado. Enfileirando envio com delay de ${(safeDelay / 1000).toFixed(1)}s`);
       }
 
-      // Calcula o próximo horário livre sorteando um gap entre 35s e 60s
-      const gap = Math.floor(Math.random() * (MSG_SEND_DELAY_MAX_MS - MSG_SEND_DELAY_MIN_MS)) + MSG_SEND_DELAY_MIN_MS;
-      const nextBusyUntil = currentBusyUntil + gap;
-
-      // Salva o novo bloqueio no Redis (expira em 10min para segurança)
-      await redisConnection.set(key, nextBusyUntil, 'PX', 10 * 60 * 1000);
-
-      // O delay é a diferença entre quando o chip estará livre e o agora
-      const delay = currentBusyUntil - now;
-      
-      if (delay > 0) {
-        console.log(`[FlowEngine:Metronome] ⏳ Chip ${instanceId} ocupado. Enfileirando envio com delay de ${(delay / 1000).toFixed(1)}s`);
-      }
-      
-      return delay;
+      return safeDelay;
     } catch (err) {
       console.warn(`[FlowEngine:Metronome] ⚠️ Falha ao acessar Redis para metronomo:`, err);
       // Fallback: usa delay aleatório padrão se o Redis falhar
@@ -822,11 +828,12 @@ export class FlowEngineService {
           await this.processNextNodes(execution.id as string, node.id as string);
           break;
 
-        case 'validation':
-          await this.executeValidationNode(execution, node, data, variables);
+        case 'validation': {
+          const validationHandle = await this.executeValidationNode(execution, node, data, variables);
           await this.markNodeCompleted(execution.id as string, node.id as string);
-          await this.processNextNodes(execution.id as string, node.id as string);
+          await this.processNextNodes(execution.id as string, node.id as string, validationHandle);
           break;
+        }
 
         case 'random':
           await this.executeRandomNode(execution, node, data);
@@ -1539,7 +1546,7 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
     await this.processNextNodes(execution.id as string, node.id as string, selectedHandle);
   }
 
-  private async executeValidationNode(execution: Record<string, unknown>, node: Record<string, unknown>, data: Record<string, unknown>, variables: Record<string, unknown>): Promise<void> {
+  private async executeValidationNode(execution: Record<string, unknown>, node: Record<string, unknown>, data: Record<string, unknown>, variables: Record<string, unknown>): Promise<string> {
     const variableTemplate = (data.variable || '') as string;
     const operator = (data.operator || 'equals') as string;
     const compareValue = (data.compareValue || '') as string;
@@ -1592,14 +1599,8 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
         result = valLower === compareLower;
     }
 
-    const handle = result ? 'true' : 'false';
-
-    // Validation é um nó de roteamento — enfileira diretamente sem delay
-    await flowQueueService.enqueueFlowStep({
-      executionId: execution.id as string,
-      nodeId: node.id as string,
-      sourceHandle: handle,
-    });
+    // Retorna o handle correto para quem chamou rotear via processNextNodes
+    return result ? 'true' : 'false';
   }
 
   /**

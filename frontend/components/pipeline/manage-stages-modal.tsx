@@ -32,14 +32,33 @@ interface ManageStagesModalProps {
 }
 
 const PRESET_COLORS = [
+  // Verdes
   "#22C55E", // Green
   "#16A34A", // Green Dark
   "#4ADE80", // Green Light
+  "#10B981", // Emerald
+  "#84CC16", // Lime
+  // Azuis
   "#3B82F6", // Blue
-  "#F59E0B", // Amber
-  "#EF4444", // Red
+  "#6366F1", // Indigo
+  "#0EA5E9", // Sky
   "#06B6D4", // Cyan
-  "#94A3B8", // Slate
+  "#14B8A6", // Teal
+  // Roxos / Rosas
+  "#8B5CF6", // Violet
+  "#A855F7", // Purple
+  "#EC4899", // Pink
+  "#F43F5E", // Rose
+  // Quentes
+  "#EF4444", // Red
+  "#F97316", // Orange
+  "#F59E0B", // Amber
+  "#EAB308", // Yellow
+  // Neutros
+  "#64748B", // Slate
+  "#6B7280", // Gray
+  "#78716C", // Stone
+  "#94A3B8", // Slate Light
 ];
 
 export function ManageStagesModal({
@@ -272,9 +291,9 @@ export function ManageStagesModal({
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="space-y-1">
                     <Label className="text-xs text-gray-500">Cor:</Label>
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1.5">
                       {PRESET_COLORS.map((color) => (
                         <button
                           key={color}
@@ -282,7 +301,7 @@ export function ManageStagesModal({
                           className={cn(
                             "w-6 h-6 rounded-full border-2 transition-all",
                             editColor === color
-                              ? "border-gray-900 scale-110"
+                              ? "border-gray-900 scale-110 shadow-md"
                               : "border-transparent hover:scale-105"
                           )}
                           style={{ backgroundColor: color }}
@@ -399,9 +418,9 @@ export function ManageStagesModal({
                 className="h-9"
                 autoFocus
               />
-              <div className="flex items-center gap-2">
+              <div className="space-y-1">
                 <Label className="text-xs text-gray-500">Cor:</Label>
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {PRESET_COLORS.map((color) => (
                     <button
                       key={color}
@@ -409,7 +428,7 @@ export function ManageStagesModal({
                       className={cn(
                         "w-6 h-6 rounded-full border-2 transition-all",
                         newColor === color
-                          ? "border-gray-900 scale-110"
+                          ? "border-gray-900 scale-110 shadow-md"
                           : "border-transparent hover:scale-105"
                       )}
                       style={{ backgroundColor: color }}

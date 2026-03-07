@@ -14,6 +14,7 @@ import { spacing } from "@/lib/design-system";
 import { notificationSound } from "@/lib/notification-sound";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { PricingModal } from "@/components/dashboard/pricing-modal";
+import { CancelSubscriptionModal } from "@/components/dashboard/cancel-subscription-modal";
 import { Badge } from "@/components/ui/badge";
 
 export default function SettingsPage() {
@@ -28,6 +29,7 @@ export default function SettingsPage() {
   const [newMessageSoundEnabled, setNewMessageSoundEnabled] = useState(true);
   const [transbordoSoundEnabled, setTransbordoSoundEnabled] = useState(true);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
   const { currentPlanName } = usePlanFeatures();
   const isAdmin = user?.role === "ADMIN";
@@ -159,6 +161,15 @@ export default function SettingsPage() {
                   <p className="text-center text-[11px] text-gray-400">
                     O upgrade é liberado instantaneamente após o pagamento.
                   </p>
+                  <div className="text-center pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsCancelModalOpen(true)}
+                      className="text-[11px] text-gray-400 hover:text-red-500 underline underline-offset-2 transition-colors"
+                    >
+                      Cancelar assinatura
+                    </button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -291,6 +302,10 @@ export default function SettingsPage() {
       <PricingModal
         isOpen={isPricingModalOpen}
         onClose={() => setIsPricingModalOpen(false)}
+      />
+      <CancelSubscriptionModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
       />
     </div>
   );

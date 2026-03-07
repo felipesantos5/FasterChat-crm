@@ -22,7 +22,6 @@ import {
   DollarSign,
   Zap,
   Network,
-  CreditCard,
   Lock,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
@@ -125,11 +124,6 @@ const menuItems: MenuItem[] = [
         icon: DollarSign,
         href: "/dashboard/settings/pricing",
         permission: "AI_CONFIG",
-      },
-      {
-        label: "Assinatura",
-        icon: CreditCard,
-        href: "/dashboard/settings/billing",
       },
       {
         label: "Scripts de Atendimento",
