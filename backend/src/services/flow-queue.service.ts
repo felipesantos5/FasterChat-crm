@@ -115,7 +115,6 @@ class FlowQueueService {
       // Neste caso, o job já está enfileirado — comportamento idempotente esperado.
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('already') || message.includes('exists')) {
-        console.warn(`[FlowQueue] ⚠️ Job ${jobId} já existe na fila (idempotente — ignorando)`);
         return;
       }
       throw err;
@@ -139,10 +138,7 @@ class FlowQueueService {
           await job.remove();
         }
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      console.warn(`[FlowQueue] ⚠️ Falha ao remover timeout job ${jobId}: ${message}`);
-    }
+    } catch { /* falha ao remover timeout job */ }
   }
 
   /**
@@ -165,10 +161,7 @@ class FlowQueueService {
           await job.remove();
         }
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      console.warn(`[FlowQueue] ⚠️ Falha ao remover jobs da execução ${executionId}: ${message}`);
-    }
+    } catch { /* falha ao remover jobs da execução */ }
   }
 
   /**
@@ -189,10 +182,7 @@ class FlowQueueService {
           await job.remove();
         }
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      console.warn(`[FlowQueue] ⚠️ Falha ao remover jobs orchestration do batch ${batchId}: ${message}`);
-    }
+    } catch { /* falha ao remover jobs do batch */ }
   }
 
   // ==================================================================================
@@ -253,7 +243,6 @@ class FlowQueueService {
       console.error(`[FlowQueue] ❌ Step job failed (exec: ${job?.data.executionId}, node: ${job?.data.nodeId}): ${err.message}`);
     });
 
-    console.log('[FlowQueue] ✅ Workers iniciados (orchestration: 5 concurrency, step: 5 concurrency, 20 msg/min)');
   }
 
   /**
@@ -266,7 +255,6 @@ class FlowQueueService {
     if (this.stepWorker) {
       await this.stepWorker.close();
     }
-    console.log('[FlowQueue] Workers parados');
   }
 }
 

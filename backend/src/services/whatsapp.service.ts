@@ -637,7 +637,6 @@ class WhatsAppService {
       const webhookUrl = process.env.WEBHOOK_URL || process.env.API_URL;
 
       if (!webhookUrl) {
-        console.warn("WEBHOOK_URL not configured, skipping webhook setup");
         return;
       }
 
@@ -939,9 +938,8 @@ class WhatsAppService {
       }
 
       return false;
-    } catch (error: any) {
+    } catch {
       // Se o endpoint não existir (404) ou falhar, assume que existe para não bloquear envios
-      console.warn(`[WhatsApp Service] ⚠️ numberExists check failed for ${phone}:`, error.message);
       return true;
     }
   }

@@ -24,7 +24,6 @@ class WebhookController {
       if (webhookSecret && webhookSecret !== 'your-webhook-secret-key') {
         const receivedSecret = req.headers['x-webhook-secret'] || req.headers['x-api-key'];
         if (!receivedSecret || receivedSecret !== webhookSecret) {
-          console.warn('[Webhook] Rejecting request: invalid or missing webhook secret');
           return res.status(401).json({ success: false, message: 'Unauthorized' });
         }
       }

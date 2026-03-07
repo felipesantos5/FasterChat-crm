@@ -89,7 +89,6 @@ export class FlowEngineService {
     circuitBreaker.totalErrors++;
     circuitBreaker.lastErrorTime = Date.now();
 
-    console.warn(`[FlowEngine:CircuitBreaker] ⚠️ Erro #${circuitBreaker.consecutiveErrors} consecutivo (total: ${circuitBreaker.totalErrors}): ${error}`);
 
     if (circuitBreaker.consecutiveErrors >= CB_MAX_CONSECUTIVE_ERRORS) {
       // Calcula cooldown com backoff exponencial baseado no total de erros
@@ -153,9 +152,7 @@ export class FlowEngineService {
 
         if (!isRetryable || isLastAttempt) {
           this.recordError(error.message || 'Erro desconhecido');
-          if (!isLastAttempt) {
-            console.warn(`[FlowEngine] ❌ ${context}: Erro não retentável: ${error.message}`);
-          } else {
+          if (isLastAttempt) {
             console.error(`[FlowEngine] ❌ ${context}: Falhou após ${CB_MAX_RETRIES + 1} tentativas: ${error.message}`);
           }
           break;
@@ -163,7 +160,6 @@ export class FlowEngineService {
 
         // Backoff exponencial: 3s, 6s
         const delayMs = CB_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
-        console.warn(`[FlowEngine] ⏳ ${context}: Tentativa ${attempt + 1}/${CB_MAX_RETRIES + 1} falhou (${error.message}). Retry em ${(delayMs / 1000).toFixed(1)}s...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
 
         // Re-verifica circuit breaker antes do retry
@@ -196,8 +192,8 @@ export class FlowEngineService {
 
         return newInstance as unknown as Record<string, unknown>;
       }
-    } catch (err) {
-      console.warn(`[FlowEngine:Failover] ⚠️ Falha ao tentar encontrar chip de failover para ${executionId}:`, err);
+    } catch {
+      // ignorado — falha de failover não é crítica
     }
     return null;
   }
@@ -286,15 +282,8 @@ export class FlowEngineService {
     const stageId = data.stageId as string;
     const customerId = execution.customerId as string;
 
-    if (!stageId) {
-      console.warn(`[FlowEngine] ⚠️ Nó ${node.id} de alterar estágio sem ID de destino.`);
-      return;
-    }
-
-    if (!customerId) {
-      console.warn(`[FlowEngine] ⚠️ Execução ${execution.id} sem customerId associado.`);
-      return;
-    }
+    if (!stageId) return;
+    if (!customerId) return;
 
     try {
       await prisma.customer.update({
@@ -370,9 +359,7 @@ export class FlowEngineService {
         });
       } catch (e: unknown) {
         const error = e as Record<string, unknown>;
-        if (error.code === 'P2002') {
-          console.warn(`[FlowEngine] ⚠️ Conflito ao normalizar telefone ${customer.phone} para ${cleanPhone}`);
-        }
+        if (error.code === 'P2002') { /* conflito de normalização de telefone — ignorado */ }
       }
     }
 
@@ -411,10 +398,7 @@ export class FlowEngineService {
         try {
           const { default: tagService } = await import('./tag.service');
           await tagService.createOrGetMany(flow.companyId, combinedTags);
-        } catch (tagErr: unknown) {
-          const error = tagErr instanceof Error ? tagErr : new Error(String(tagErr));
-          console.warn(`[FlowEngine] ⚠️ Error creating tags in DB for customer ${customer.id}:`, error.message);
-        }
+        } catch { /* falha ao registrar tags — não crítico */ }
       }
 
       // Desativar a IA quando entra em um fluxo vindo de webhook
@@ -428,10 +412,7 @@ export class FlowEngineService {
             aiEnabled: false,
           });
         }
-      } catch (err: unknown) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        console.warn(`[FlowEngine] ⚠️ Error disabling AI for customer ${customer.id}:`, error.message);
-      }
+      } catch { /* falha ao desativar IA — não crítico */ }
     }
 
     // Seleciona a instância WhatsApp UMA VEZ no início do fluxo (respeita estratégia RANDOM/SPECIFIC)
@@ -473,7 +454,6 @@ export class FlowEngineService {
     try {
       const numberOnWhatsApp = await whatsappService.numberExists(selectedInstance.instanceName, cleanPhone);
       if (!numberOnWhatsApp) {
-        console.warn(`[FlowEngine] ⚠️ Número ${cleanPhone} NÃO está no WhatsApp. Descartando execução ${execution.id}`);
         await prisma.flowExecution.update({
           where: { id: execution.id },
           data: { 
@@ -543,10 +523,7 @@ export class FlowEngineService {
       }
     });
 
-    if (!execution) {
-      console.warn(`[FlowEngine] ⚠️ Execução ${executionId} não encontrada (já removida?)`);
-      return;
-    }
+    if (!execution) return;
 
     // Verifica se a execução ainda está em um status válido para continuar
     const validStatuses: FlowExecutionStatus[] = [
@@ -598,10 +575,6 @@ export class FlowEngineService {
         const currentIdxInHistory = history.lastIndexOf(currentNodeId);
 
         if (nodeIdxInHistory >= 0 && currentIdxInHistory > nodeIdxInHistory) {
-          console.warn(
-            `[FlowEngine] 🛡️ Stale retry guard: job para nó "${nodeId}" ignorado. ` +
-            `Execução ${executionId} já está no nó "${currentNodeId}" (posição ${currentIdxInHistory} vs ${nodeIdxInHistory} no history).`
-          );
           return;
         }
       }
@@ -639,7 +612,6 @@ export class FlowEngineService {
         // Fallback: se não encontrou edge com o handle exato, tenta edges sem handle definido
         const noHandleEdges = edges.filter(e => !e.sourceHandle || e.sourceHandle === "" || e.sourceHandle === "default");
         if (noHandleEdges.length > 0) {
-          console.warn(`[FlowEngine] ⚠️ Nenhuma edge com handle "${sourceHandle}" encontrada em ${currentNodeId}. Usando ${noHandleEdges.length} edge(s) de fallback.`);
           edges = noHandleEdges;
         } else {
           // Se não há match exato nem fallback, edges fica vazio para que o fluxo termine ou não bifurque erroneamente
@@ -722,8 +694,7 @@ export class FlowEngineService {
       const safeDelay = Math.max(0, delay);
 
       return safeDelay;
-    } catch (err) {
-      console.warn(`[FlowEngine:Metronome] ⚠️ Falha ao acessar Redis para metronomo:`, err);
+    } catch {
       // Fallback: usa delay aleatório padrão se o Redis falhar
       return Math.floor(Math.random() * (MSG_SEND_DELAY_MAX_MS - MSG_SEND_DELAY_MIN_MS)) + MSG_SEND_DELAY_MIN_MS;
     }
@@ -848,7 +819,6 @@ export class FlowEngineService {
           break;
 
         default:
-          console.warn(`[FlowEngine] Unknown node type: ${node.type}`);
           await this.markNodeCompleted(execution.id as string, node.id as string);
           await this.processNextNodes(execution.id as string, node.id as string);
           break;
@@ -919,7 +889,6 @@ export class FlowEngineService {
         return specificInstance;
       }
       // Se a instância específica não está conectada, faz fallback para random
-      console.warn(`[FlowEngine] ⚠️ Instância padrão ${company.defaultWhatsappInstanceId} não está conectada, usando random`);
     }
 
     // ROUND ROBIN (padrão): Seleciona as instâncias em ordem fixa para distribuição exata
@@ -936,9 +905,6 @@ export class FlowEngineService {
 
     text = this.replaceVariables(text, variables);
 
-    if (!text || text.trim() === '') {
-      console.warn(`[FlowEngine] ⚠️ Texto da mensagem está vazio! Verifique o nó de mensagem no fluxo.`);
-    }
 
     // Usa a instância que foi selecionada no início do fluxo (persistida na execução)
     const instance = execution.whatsappInstance as Record<string, unknown> | null;
@@ -952,10 +918,7 @@ export class FlowEngineService {
     // Typing presence antes de enviar (fire-and-forget, sem delay blocking)
     try {
       await whatsappService.sendPresence(instance.id as string, contactPhone, 5000, "composing");
-    } catch (presenceErr: unknown) {
-      const error = presenceErr instanceof Error ? presenceErr : new Error(String(presenceErr));
-      console.warn(`[FlowEngine] ⚠️ Falha ao enviar presença (não crítico):`, error.message);
-    }
+    } catch { /* presença não crítica */ }
 
     const result = await this.sendWithRetry(
       (instanceId) => whatsappService.sendMessage({
@@ -994,10 +957,7 @@ export class FlowEngineService {
     // Presence fire-and-forget (sem delay blocking)
     try {
       await whatsappService.sendPresence(instance.id as string, contactPhone, 5000, presenceType);
-    } catch (presenceErr: unknown) {
-      const error = presenceErr instanceof Error ? presenceErr : new Error(String(presenceErr));
-      console.warn(`[FlowEngine] ⚠️ Falha ao enviar presença de mídia (não crítico):`, error.message);
-    }
+    } catch { /* presença não crítica */ }
 
     // Aceita mediaUrl (link público para MP3/OGG/IMG) ou mediaBase64
     const mediaSource = (data.mediaUrl || data.mediaBase64) as string | undefined;
@@ -1035,8 +995,6 @@ export class FlowEngineService {
         nodeType, // 'audio', 'image', 'video'
         mediaSource
       );
-    } else {
-      console.warn(`[FlowEngine] Sem mídia informada no nó ${node.id} do fluxo.`);
     }
   }
 
@@ -1070,7 +1028,6 @@ export class FlowEngineService {
     prompt = this.replaceVariables(prompt, variables);
 
     if (!prompt || prompt.trim() === '') {
-      console.warn(`[FlowEngine] ⚠️ Prompt de geração de imagem está vazio no nó ${(node as any).id}`);
       throw new Error('Prompt de geração de imagem não pode estar vazio');
     }
 
@@ -1102,10 +1059,7 @@ export class FlowEngineService {
     // 4. Presence (composing) enquanto gera
     try {
       await whatsappService.sendPresence(instance.id as string, contactPhone, 5000, 'composing');
-    } catch (presenceErr: unknown) {
-      const error = presenceErr instanceof Error ? presenceErr : new Error(String(presenceErr));
-      console.warn(`[FlowEngine] ⚠️ Falha ao enviar presença (não crítico):`, error.message);
-    }
+    } catch { /* presença não crítica */ }
 
     // 5. Gera a imagem via Gemini
     const generated = await geminiService.generateImage(prompt, referenceImages);
@@ -1237,10 +1191,7 @@ export class FlowEngineService {
             ...(turnOn ? { needsHelp: false } : {})
           });
         }
-      } catch (err: unknown) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        console.warn(`[FlowEngine] ⚠️ Error toggling AI for customer ${customer.id}:`, error.message);
-      }
+      } catch { /* falha ao ativar IA — não crítico */ }
     }
   }
 
@@ -1279,8 +1230,6 @@ export class FlowEngineService {
       });
       if (suffixMatches.length === 1) {
         executions = suffixMatches;
-      } else if (suffixMatches.length > 1) {
-        console.warn(`[FlowEngine:handleIncomingMessage] ⚠️ Suffix "${suffixDigits}" matched ${suffixMatches.length} executions — skipping to prevent cross-contamination. IDs: ${suffixMatches.map(e => e.id).join(', ')}`);
       }
     }
 
@@ -1334,8 +1283,6 @@ export class FlowEngineService {
           });
           if (realSuffixMatches.length === 1) {
             execsByRealPhone = realSuffixMatches;
-          } else if (realSuffixMatches.length > 1) {
-            console.warn(`[FlowEngine:handleIncomingMessage] ⚠️ LID suffix "${realSuffix}" matched ${realSuffixMatches.length} executions — skipping.`);
           }
         }
 
@@ -1366,7 +1313,6 @@ export class FlowEngineService {
         }
 
         if (!execution.currentNode) {
-          console.warn(`[FlowEngine] ⚠️ Execução ${execution.id} sem currentNode (nó deletado?). Marcando como FAILED.`);
           await prisma.flowExecution.update({
             where: { id: execution.id },
             data: { 
@@ -1452,9 +1398,7 @@ export class FlowEngineService {
               contextMessage = lastOutbound.content;
             }
           }
-        } catch (ctxErr) {
-          console.warn(`[FlowEngine] ⚠️ Erro ao buscar contexto para AI Condition execution ${execution.id}:`, ctxErr);
-        }
+        } catch { /* contexto não disponível */ }
         
         try {
           // Usa o geminiService já importado no topo do arquivo
@@ -1643,10 +1587,7 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
             });
           }
       }
-    } catch (err: unknown) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      console.warn(`[FlowEngine] ⚠️ Falha ao armazenar LID mapping (não crítico):`, error.message);
-    }
+    } catch { /* falha ao armazenar LID mapping — não crítico */ }
   }
 
   /**
@@ -1672,10 +1613,7 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
       // Busca o customer usando a busca por variantes
       const customer = await customerService.findByPhoneWithVariant(execution.contactPhone as string, flow.companyId);
 
-      if (!customer) {
-        console.warn(`[FlowEngine] ⚠️ Customer não encontrado para salvar mensagem na conversa: ${execution.contactPhone}`);
-        return;
-      }
+      if (!customer) return;
 
       // Salva a mensagem na tabela de mensagens
       await messageService.createMessage({
@@ -1690,10 +1628,6 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
         mediaUrl: mediaUrl || null,
       });
 
-    } catch (err: unknown) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      // Não falha o fluxo se não conseguir salvar na conversa
-      console.warn(`[FlowEngine] ⚠️ Falha ao salvar mensagem na conversa (não crítico):`, error.message);
-    }
+    } catch { /* falha ao salvar mensagem na conversa — não falha o fluxo */ }
   }
 }
