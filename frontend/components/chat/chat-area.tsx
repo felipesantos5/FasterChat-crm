@@ -893,8 +893,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
             {customerProfilePic && (
               <AvatarImage src={customerProfilePic} alt={customerName} className="object-cover" />
             )}
-            <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
-              {customerName ? customerName.substring(0, 2).toUpperCase() : "??"}
+            <AvatarFallback className="bg-gray-200 dark:bg-gray-600">
+              <UserIcon className="h-6 w-6 text-gray-400 dark:text-gray-300" />
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col min-w-0">

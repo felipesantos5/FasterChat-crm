@@ -32,7 +32,6 @@ import {
   Phone,
   Ban,
 } from "lucide-react";
-import { Label } from "@/components/ui/label";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useBatchStore } from "./batchStore";

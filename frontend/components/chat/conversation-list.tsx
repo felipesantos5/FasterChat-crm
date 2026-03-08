@@ -5,7 +5,7 @@ import { ConversationSummary } from "@/types/message";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, AlertCircle, Users, Archive, Mic } from "lucide-react";
+import { MessageSquare, AlertCircle, Users, Archive, Mic, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConversationListProps {
@@ -68,12 +68,7 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
             )}
           >
             {/* Avatar Compacto */}
-            <div
-              className={cn(
-                "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden",
-                needsHelp ? "bg-yellow-100 dark:bg-yellow-900/30" : isGroup ? "bg-blue-100 dark:bg-blue-900/30" : "bg-primary/10"
-              )}
-            >
+            <div className="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden relative">
               {conversation.customerProfilePic ? (
                 <img
                   src={conversation.customerProfilePic}
@@ -81,17 +76,21 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
-                    e.currentTarget.nextElementSibling?.classList.remove("hidden");
+                    (e.currentTarget.nextElementSibling as HTMLElement | null)?.classList.remove("hidden");
                   }}
                 />
               ) : null}
-              <div className={cn("flex items-center justify-center", conversation.customerProfilePic ? "hidden" : "")}>
+              <div className={cn(
+                "absolute inset-0 flex items-center justify-center rounded-full",
+                conversation.customerProfilePic ? "hidden" : "",
+                needsHelp ? "bg-yellow-100 dark:bg-yellow-900/30" : isGroup ? "bg-blue-100 dark:bg-blue-900/30" : "bg-gray-200 dark:bg-gray-600"
+              )}>
                 {needsHelp ? (
                   <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                 ) : isGroup ? (
                   <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 ) : (
-                  <MessageSquare className="h-4 w-4 text-primary" />
+                  <User className="h-5 w-5 text-gray-400 dark:text-gray-300" />
                 )}
               </div>
             </div>

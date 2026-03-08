@@ -477,9 +477,10 @@ class WhatsAppService {
     if (!instance) throw Errors.whatsappInstanceNotFound();
 
     const formattedJid = this.formatJid(remoteJid);
+    const plainNumber = remoteJid.replace(/\D/g, '');
 
     await this.axiosInstance.post(`/chat/updateMessage/${instance.instanceName}`, {
-      number: formattedJid,
+      number: plainNumber,
       key: {
         id: messageId,
         fromMe: true,
@@ -507,7 +508,6 @@ class WhatsAppService {
         id: messageId,
         remoteJid: formattedJid,
         fromMe: true,
-        participant: '',
       },
     });
 

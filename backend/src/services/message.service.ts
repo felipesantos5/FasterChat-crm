@@ -60,6 +60,8 @@ class MessageService {
             senderType: message.senderType,
             mediaType: message.mediaType,
             mediaUrl: message.mediaUrl,
+            messageId: message.messageId,
+            whatsappInstanceId: message.whatsappInstanceId,
           });
         }
 
@@ -99,6 +101,8 @@ class MessageService {
           senderType: message.senderType,
           mediaType: message.mediaType,
           mediaUrl: message.mediaUrl,
+          messageId: message.messageId,
+          whatsappInstanceId: message.whatsappInstanceId,
         });
       }
 
@@ -1423,6 +1427,8 @@ class MessageService {
           senderType: message.senderType,
           mediaType: message.mediaType,
           mediaUrl: message.mediaUrl,
+          messageId: message.messageId,
+          whatsappInstanceId: message.whatsappInstanceId,
         });
       }
 
@@ -1500,10 +1506,13 @@ class MessageService {
     if (message.direction !== MessageDirection.OUTBOUND) throw Object.assign(new Error("Só é possível apagar mensagens enviadas"), { statusCode: 400 });
     if (!message.messageId) throw Object.assign(new Error("Mensagem sem ID do WhatsApp"), { statusCode: 400 });
 
+    // Usa lidPhone se disponível — a mensagem pode ter sido enviada ao JID @lid
+    const remoteJid = (message.customer as any).lidPhone || message.customer.phone;
+
     // Chama a Evolution API para deletar no WhatsApp
     await whatsappService.deleteMessage({
       instanceId: message.whatsappInstanceId,
-      remoteJid: message.customer.phone,
+      remoteJid,
       messageId: message.messageId,
     });
 
@@ -1662,6 +1671,8 @@ class MessageService {
           senderType: message.senderType,
           mediaType: message.mediaType,
           mediaUrl: message.mediaUrl,
+          messageId: message.messageId,
+          whatsappInstanceId: message.whatsappInstanceId,
         });
       }
 
