@@ -30,6 +30,9 @@ interface Flow {
   triggerType: string;
   status: string;
   autoTags?: string[];
+  sendWindowEnabled?: boolean;
+  sendWindowStart?: number;
+  sendWindowEnd?: number;
   createdAt: string;
   _count?: {
     executions: number;
@@ -94,9 +97,9 @@ function FlowsPageContent() {
     setConfigModalOpen(true);
   };
 
-  const handleSaveConfig = (tags: string[], status: string) => {
+  const handleSaveConfig = (tags: string[], status: string, sendWindowEnabled: boolean, sendWindowStart: number, sendWindowEnd: number) => {
     if (!selectedFlow) return;
-    setFlows(flows.map(f => f.id === selectedFlow.id ? { ...f, autoTags: tags, status: status } : f));
+    setFlows(flows.map(f => f.id === selectedFlow.id ? { ...f, autoTags: tags, status, sendWindowEnabled, sendWindowStart, sendWindowEnd } : f));
   };
 
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
@@ -259,6 +262,9 @@ function FlowsPageContent() {
           flowId={selectedFlow.id}
           initialTags={selectedFlow.autoTags || []}
           initialStatus={selectedFlow.status}
+          initialSendWindowEnabled={selectedFlow.sendWindowEnabled ?? false}
+          initialSendWindowStart={selectedFlow.sendWindowStart ?? 8}
+          initialSendWindowEnd={selectedFlow.sendWindowEnd ?? 21}
           onSave={handleSaveConfig}
         />
       )}

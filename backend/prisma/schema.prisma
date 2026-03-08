@@ -946,6 +946,9 @@ model Flow {
   lastWebhookPayload Json?      @map("last_webhook_payload") // Guarda o último payload pra extrair variáveis
   status             FlowStatus @default(DRAFT)
   autoTags           String[]   @default([]) @map("auto_tags") // tags automáticas no webhook
+  sendWindowEnabled  Boolean    @default(false) @map("send_window_enabled")
+  sendWindowStart    Int        @default(8)     @map("send_window_start")
+  sendWindowEnd      Int        @default(21)    @map("send_window_end")
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
 

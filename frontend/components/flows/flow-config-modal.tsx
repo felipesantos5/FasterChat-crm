@@ -10,10 +10,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TagSelector } from "@/components/forms/tag-selector";
 import { Tag, tagApi } from "@/lib/tag";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { Globe } from "lucide-react";
 
 interface FlowConfigModalProps {
   open: boolean;
@@ -21,7 +23,10 @@ interface FlowConfigModalProps {
   flowId: string;
   initialTags?: string[];
   initialStatus?: string;
-  onSave: (tags: string[], status: string) => void;
+  initialSendWindowEnabled?: boolean;
+  initialSendWindowStart?: number;
+  initialSendWindowEnd?: number;
+  onSave: (tags: string[], status: string, sendWindowEnabled: boolean, sendWindowStart: number, sendWindowEnd: number) => void;
 }
 
 export function FlowConfigModal({
@@ -30,20 +35,29 @@ export function FlowConfigModal({
   flowId,
   initialTags = [],
   initialStatus = "DRAFT",
+  initialSendWindowEnabled = false,
+  initialSendWindowStart = 8,
+  initialSendWindowEnd = 21,
   onSave,
 }: FlowConfigModalProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [status, setStatus] = useState<string>("DRAFT");
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sendWindowEnabled, setSendWindowEnabled] = useState(false);
+  const [sendWindowStart, setSendWindowStart] = useState(8);
+  const [sendWindowEnd, setSendWindowEnd] = useState(21);
 
   useEffect(() => {
     if (open) {
       setTags(initialTags);
       setStatus(initialStatus);
+      setSendWindowEnabled(initialSendWindowEnabled);
+      setSendWindowStart(initialSendWindowStart);
+      setSendWindowEnd(initialSendWindowEnd);
       fetchTags();
     }
-  }, [open, initialTags, initialStatus]);
+  }, [open, initialTags, initialStatus, initialSendWindowEnabled, initialSendWindowStart, initialSendWindowEnd]);
 
   const fetchTags = async () => {
     try {
@@ -61,9 +75,12 @@ export function FlowConfigModal({
       await api.put(`/flows/${flowId}`, {
         autoTags: tags,
         status: status,
+        sendWindowEnabled,
+        sendWindowStart,
+        sendWindowEnd,
       });
       toast.success("Configuração do fluxo salva com sucesso.");
-      onSave(tags, status);
+      onSave(tags, status, sendWindowEnabled, sendWindowStart, sendWindowEnd);
       onClose();
     } catch (error) {
       console.error("Error saving flow config", error);
@@ -77,7 +94,7 @@ export function FlowConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>Configurar Fluxo</DialogTitle>
           <DialogDescription>
@@ -112,6 +129,75 @@ export function FlowConfigModal({
             <p className="text-xs text-muted-foreground">
               Selecione tags existentes ou crie novas para organizar clientes vindos deste fluxo.
             </p>
+          </div>
+
+          {/* Janela de envio por fuso horário */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <div className="space-y-0.5">
+                  <Label className="text-base cursor-pointer" htmlFor="flow-send-window-switch">
+                    Janela de envio por fuso horário
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Dispara apenas dentro do horário local do contato (detectado pelo DDD)
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="flow-send-window-switch"
+                checked={sendWindowEnabled}
+                onCheckedChange={setSendWindowEnabled}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            {sendWindowEnabled && (
+              <div className="flex items-center gap-3 pt-1">
+                <div className="flex items-center gap-2 flex-1">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Das</Label>
+                  <Select
+                    value={String(sendWindowStart)}
+                    onValueChange={(v) => setSendWindowStart(Number(v))}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <SelectItem key={i} value={String(i)}>
+                          {String(i).padStart(2, "0")}:00
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2 flex-1">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">até</Label>
+                  <Select
+                    value={String(sendWindowEnd)}
+                    onValueChange={(v) => setSendWindowEnd(Number(v))}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <SelectItem key={i} value={String(i)}>
+                          {String(i).padStart(2, "0")}:00
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                  (hora local)
+                </Label>
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>

@@ -31,11 +31,8 @@ import {
   Users,
   Phone,
   Ban,
-  Globe,
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useBatchStore } from "./batchStore";
@@ -87,9 +84,6 @@ export function FlowBatchUploadModal({
   const [isCanceling, setIsCanceling] = useState(false);
 
   // Janela de envio por fuso horário
-  const [sendWindowEnabled, setSendWindowEnabled] = useState(false);
-  const [sendWindowStart, setSendWindowStart] = useState("8");
-  const [sendWindowEnd, setSendWindowEnd] = useState("21");
 
   // Quando o flowId muda (navegou para outro fluxo), limpa o store imediatamente
   useEffect(() => {
@@ -186,9 +180,6 @@ export function FlowBatchUploadModal({
     try {
       const formData = new FormData();
       formData.append("file", storeFile);
-      formData.append("sendWindowEnabled", String(sendWindowEnabled));
-      formData.append("sendWindowStart", sendWindowStart);
-      formData.append("sendWindowEnd", sendWindowEnd);
 
       const res = await api.post(`/flows/${flowId}/batch`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -417,66 +408,6 @@ export function FlowBatchUploadModal({
                 </div>
               </div>
 
-              {/* Janela de envio por fuso horário */}
-              <div className="border rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Globe size={16} className="text-primary" />
-                    <div>
-                      <Label className="text-sm font-semibold cursor-pointer" htmlFor="send-window-switch">
-                        Respeitar fuso horário do contato
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Detecta o país pelo número e só dispara dentro do horário configurado
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    id="send-window-switch"
-                    checked={sendWindowEnabled}
-                    onCheckedChange={setSendWindowEnabled}
-                  />
-                </div>
-
-                {sendWindowEnabled && (
-                  <div className="flex items-center gap-3 pt-1">
-                    <div className="flex items-center gap-2 flex-1">
-                      <Label className="text-xs text-muted-foreground whitespace-nowrap">Das</Label>
-                      <Select value={sendWindowStart} onValueChange={setSendWindowStart}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 24 }, (_, i) => (
-                            <SelectItem key={i} value={String(i)}>
-                              {String(i).padStart(2, "0")}:00
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-center gap-2 flex-1">
-                      <Label className="text-xs text-muted-foreground whitespace-nowrap">até</Label>
-                      <Select value={sendWindowEnd} onValueChange={setSendWindowEnd}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 24 }, (_, i) => (
-                            <SelectItem key={i} value={String(i)}>
-                              {String(i).padStart(2, "0")}:00
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Label className="text-xs text-muted-foreground whitespace-nowrap">
-                      (hora local do contato)
-                    </Label>
-                  </div>
-                )}
-              </div>
-
               {/* Estimated time */}
               <div className="bg-gray-50 rounded-lg p-3 flex items-center gap-2">
                 <Clock size={16} className="text-gray-500" />
@@ -484,8 +415,7 @@ export function FlowBatchUploadModal({
                   Tempo estimado:{" "}
                   <strong>
                     {Math.ceil((storePreview.totalRows * 10) / 60)} minutos
-                  </strong>{" "}
-                  {sendWindowEnabled && <span className="text-amber-600">(pode ser mais com janela de fuso)</span>}
+                  </strong>
                 </p>
               </div>
             </div>

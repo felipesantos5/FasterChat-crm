@@ -224,7 +224,6 @@ class MessageService {
                 where: { id: message.customer.id },
                 data: { lidPhone: rawPhone }
               });
-              console.log(`[MessageService] 🔗 LID mapping salvo via Status Update: customer "${message.customer.phone}" → lidPhone "${rawPhone}"`);
             } catch (e) {
               console.warn(`[MessageService] ⚠️ Erro ao salvar lidPhone:`, e);
             }
@@ -251,7 +250,6 @@ class MessageService {
               where: { id: updatedMessage.customer.id },
               data: { lidPhone: rawPhone }
             });
-            console.log(`[MessageService] 🔗 LID mapping salvo via Status Update: customer "${updatedMessage.customer.phone}" → lidPhone "${rawPhone}"`);
           } catch (e) {
             console.warn(`[MessageService] ⚠️ Erro ao salvar lidPhone:`, e);
           }
@@ -260,7 +258,6 @@ class MessageService {
 
       // Emite via WebSocket para atualizar checkmarks em tempo real
       if (websocketService.isInitialized()) {
-        console.log(`[MessageService:StatusUpdate] ✅ ${message.status} → ${status} | msgId=${updatedMessage.id} customer=${updatedMessage.customer.phone}`);
         websocketService.emitMessageStatusUpdate(
           updatedMessage.customer.companyId,
           updatedMessage.id,
@@ -709,7 +706,6 @@ class MessageService {
               const waitingExec = waitingExecs[0];
               realJid = `${waitingExec.contactPhone}@s.whatsapp.net`;
               resolvedFromLid = true;
-              console.log(`[MessageService] 🔗 PRIORIDADE 7: LID "${lidId}" resolvido via FlowExecution WAITING_REPLY (única) → phone "${waitingExec.contactPhone}"`);
 
               // Armazena o mapeamento LID para futuras resoluções
               await prisma.flowExecution.update({
@@ -726,7 +722,6 @@ class MessageService {
                 data: { lidPhone: lidId },
               });
 
-              console.log(`[MessageService] 🔗 LID mapping criado: phone "${waitingExec.contactPhone}" → LID "${lidId}"`);
             } else if (waitingExecs.length > 1) {
               console.warn(`[MessageService] ⚠️ PRIORIDADE 7 IGNORADA: ${waitingExecs.length} execuções WAITING_REPLY sem LID na mesma instância. Não é possível adivinhar qual contato respondeu. LID="${lidId}"`);
             }
@@ -739,7 +734,6 @@ class MessageService {
 
       // Log do resultado da resolução LID
       if (isLid) {
-        console.log(`[MessageService] 🔍 LID RESOLUÇÃO | original="${remoteJid}" → realJid="${realJid}" resolved=${resolvedFromLid}`);
       }
 
       // ==================================================================================
@@ -848,7 +842,6 @@ class MessageService {
           });
 
           if (activeFlow) {
-            console.log(`[MessageService] 🔍 FLOW ATIVO FOUND | execId="${activeFlow.id}" contactPhone="${activeFlow.contactPhone}" flowId="${activeFlow.flowId}"`);
             customer = await prisma.customer.findFirst({
               where: {
                 companyId: instance.companyId,
@@ -857,7 +850,6 @@ class MessageService {
             });
             if (customer) {
               customerSource = 'FLOW_ATIVO';
-              console.log(`[MessageService] ✅ Customer via Flow Ativo: phone="${phone}" → customer.id="${customer.id}" customer.phone="${customer.phone}" customer.name="${customer.name}"`);
             } else {
               console.warn(`[MessageService] ⚠️ Flow ativo encontrado mas customer NÃO existe no DB: contactPhone="${activeFlow.contactPhone}"`);
             }
@@ -890,7 +882,6 @@ class MessageService {
 
         if (customerByLid) {
           customerSource = 'LID_PHONE';
-          console.log(`[MessageService] ✅ Customer via lidPhone: LID "${lidSearchKey}" → customer.id="${customerByLid.id}" customer.phone="${customerByLid.phone}" customer.name="${customerByLid.name}"`);
           customer = customerByLid;
         }
       }
@@ -908,7 +899,6 @@ class MessageService {
 
         if (customerByRawLid) {
           customerSource = 'LID_PHONE_RAW';
-          console.log(`[MessageService] ✅ Customer via lidPhone (rawLid): LID "${rawLidId}" → customer.id="${customerByRawLid.id}" customer.phone="${customerByRawLid.phone}" customer.name="${customerByRawLid.name}"`);
           customer = customerByRawLid;
         }
       }
@@ -944,7 +934,6 @@ class MessageService {
 
           if (flowCustomer) {
             customerSource = 'FLOW_EXEC_LID';
-            console.log(`[MessageService] ✅ Customer via FlowExecution.contactLid: LID "${lidSearchKey}" → customer.id="${flowCustomer.id}" customer.phone="${flowCustomer.phone}" customer.name="${flowCustomer.name}"`);
             try {
               customer = await prisma.customer.update({
                 where: { id: flowCustomer.id },
@@ -960,7 +949,6 @@ class MessageService {
       }
 
       if (!customer) {
-        console.log(`[MessageService] 🔍 CUSTOMER LOOKUP FALHOU | Nenhuma busca encontrou customer para phone="${phone}" rawLid="${rawLidId}" lidFallback=${lidFallbackMode}`);
       }
 
       // 🚫 Em lidFallbackMode (LID não resolvido para phone válido), NÃO criar customer novo.
@@ -972,7 +960,6 @@ class MessageService {
 
       if (!customer) {
         // 🔍 LOG: Novo customer sendo criado — registra dados para debug
-        console.log(`[MessageService] 🆕 Criando novo customer: phone="${phone}" remoteJid="${remoteJid}" isLid=${isLid} resolvedFromLid=${resolvedFromLid} pushName="${data.pushName || ''}" senderPn="${data.senderPn || ''}" participant="${data.key?.participant || ''}"`);
 
         // 🔧 PREPARA O NOME
         let sanitizedName: string;
@@ -1093,7 +1080,6 @@ class MessageService {
               where: { id: customer.id },
               data: { lidPhone: rawLid },
             });
-            console.log(`[MessageService] 🔗 LID mapping salvo: customer "${customer.phone}" → lidPhone "${rawLid}"`);
           } catch (lidErr: any) {
             console.warn(`[MessageService] ⚠️ Falha ao salvar lidPhone (não crítico):`, lidErr.message);
           }
@@ -1397,7 +1383,6 @@ class MessageService {
               where: { id: customer.id },
               data: { lidPhone: rawPhone }
             });
-            console.log(`[MessageService:sendMessage] 🔗 LID mapping salvo via API Response: customer "${customer.phone}" → lidPhone "${rawPhone}"`);
           } catch (e) {
             console.warn(`[MessageService:sendMessage] ⚠️ Erro ao salvar lidPhone:`, e);
           }
@@ -1634,7 +1619,6 @@ class MessageService {
               where: { id: customer.id },
               data: { lidPhone: rawPhone }
             });
-            console.log(`[MessageService:sendMedia] 🔗 LID mapping salvo via API Response: customer "${customer.phone}" → lidPhone "${rawPhone}"`);
           } catch (e) {
             console.warn(`[MessageService:sendMedia] ⚠️ Erro ao salvar lidPhone:`, e);
           }

@@ -138,14 +138,11 @@ export class FlowBatchController {
       return res.status(400).json({ error: 'Nenhuma linha com telefone válido encontrada na planilha.' });
     }
 
-    // Janela de envio por fuso horário (opcional)
-    const sendWindowEnabled = req.body.sendWindowEnabled === 'true';
-    const sendWindowStart = Math.min(23, Math.max(0, parseInt(req.body.sendWindowStart ?? '8', 10)));
-    const sendWindowEnd = Math.min(23, Math.max(0, parseInt(req.body.sendWindowEnd ?? '21', 10)));
+    // Janela de envio por fuso horário — lida da configuração persistida no fluxo
     const sendWindow: SendWindow = {
-      enabled: sendWindowEnabled,
-      start: sendWindowStart,
-      end: sendWindowEnd,
+      enabled: (flow as any).sendWindowEnabled ?? false,
+      start: (flow as any).sendWindowStart ?? 8,
+      end: (flow as any).sendWindowEnd ?? 21,
     };
 
     // Criar batch ID

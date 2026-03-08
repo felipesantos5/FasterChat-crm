@@ -478,7 +478,7 @@ class WhatsAppService {
 
     const formattedJid = this.formatJid(remoteJid);
 
-    await this.axiosInstance.put(`/chat/updateMessage/${instance.instanceName}`, {
+    await this.axiosInstance.post(`/chat/updateMessage/${instance.instanceName}`, {
       number: formattedJid,
       key: {
         id: messageId,
@@ -502,15 +502,13 @@ class WhatsAppService {
 
     const formattedJid = this.formatJid(remoteJid);
 
-    await this.axiosInstance.delete(`/chat/deleteMessage/${instance.instanceName}`, {
+    await this.axiosInstance.delete(`/chat/deleteMessageForEveryone/${instance.instanceName}`, {
       data: {
-        number: formattedJid,
-        key: {
-          id: messageId,
-          fromMe: true,
-          remoteJid: formattedJid,
-        },
-      }
+        id: messageId,
+        remoteJid: formattedJid,
+        fromMe: true,
+        participant: '',
+      },
     });
 
     return { success: true };
