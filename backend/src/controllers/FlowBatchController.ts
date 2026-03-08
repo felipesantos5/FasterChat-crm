@@ -169,7 +169,7 @@ export class FlowBatchController {
     batchStore.set(batchId, batchStatus);
 
     // Persiste a config da janela no Redis (usada pelo FlowEngineService ao avançar fila)
-    if (sendWindowEnabled) {
+    if (sendWindow.enabled) {
       await redisConnection.set(
         FlowBatchController.batchConfigKey(batchId),
         JSON.stringify(sendWindow),
