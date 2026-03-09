@@ -28,7 +28,7 @@ interface Company {
   connectedInstancesCount: number;
   totalMessagesSent: number;
   messagesLast7Days: number;
-  plan: "INICIAL" | "NEGOCIOS" | "ESCALA_TOTAL";
+  plan: "FREE" | "INICIAL" | "NEGOCIOS" | "ESCALA_TOTAL";
   createdAt: string;
 }
 
@@ -363,10 +363,12 @@ export default function AdminDashboardPage() {
                             className={cn(
                               "text-xs font-bold py-1.5 px-3 rounded-lg border-2 transition-all outline-none",
                               company.plan === "ESCALA_TOTAL" ? "bg-purple-50 border-purple-200 text-purple-700 font-extrabold" :
-                                company.plan === "NEGOCIOS" ? "bg-green-50 border-green-200 text-green-700" :
-                                  "bg-gray-50 border-gray-200 text-gray-600"
+                              company.plan === "NEGOCIOS" ? "bg-green-50 border-green-200 text-green-700" :
+                              company.plan === "INICIAL" ? "bg-blue-50 border-blue-200 text-blue-700" :
+                                "bg-gray-50 border-gray-200 text-gray-500"
                             )}
                           >
+                            <option value="FREE">FREE</option>
                             <option value="INICIAL">INICIAL</option>
                             <option value="NEGOCIOS">NEGÓCIOS</option>
                             <option value="ESCALA_TOTAL">ESCALA TOTAL</option>

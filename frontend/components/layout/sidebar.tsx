@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Settings,
   Bot,
-  Smartphone,
   BookOpen,
   ChevronDown,
   BarChart3,
@@ -19,8 +18,6 @@ import {
   Link2,
   FunnelPlus,
   X,
-  DollarSign,
-  Zap,
   Network,
   Lock,
 } from "lucide-react";
@@ -100,38 +97,7 @@ const menuItems: MenuItem[] = [
   {
     label: "Configurações",
     icon: Settings,
-    children: [
-      {
-        label: "IA",
-        icon: Bot,
-        href: "/dashboard/settings/ai",
-        permission: "AI_CONFIG",
-      },
-      {
-        label: "WhatsApp",
-        icon: Smartphone,
-        href: "/dashboard/settings/whatsapp",
-        permission: "WHATSAPP_CONFIG",
-      },
-      {
-        label: "Colaboradores",
-        icon: Users,
-        href: "/dashboard/configuracoes/colaboradores",
-        adminOnly: true,
-      },
-      {
-        label: "Precificação",
-        icon: DollarSign,
-        href: "/dashboard/settings/pricing",
-        permission: "AI_CONFIG",
-      },
-      {
-        label: "Scripts de Atendimento",
-        icon: Zap,
-        href: "/dashboard/settings/ai/scripts",
-        permission: "AI_CONFIG",
-      },
-    ],
+    href: "/dashboard/settings",
   },
   {
     label: "IA",

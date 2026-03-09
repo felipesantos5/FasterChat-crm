@@ -4,7 +4,7 @@ import { useAuthStore } from "@/lib/store/auth.store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, CreditCard, X } from "lucide-react";
+import { AlertTriangle, Check, CreditCard, X } from "lucide-react";
 import api from "@/lib/api";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -66,7 +66,7 @@ export default function BillingPage() {
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">Assinatura e Planos</h1>
           <p className="text-gray-500 mt-1">Gerencie seu plano e recursos contratados na FasterChat.</p>
         </div>
-        {user?.subscriptionStatus === "active" && (
+        {(user?.subscriptionStatus === "active" || user?.subscriptionStatus === "past_due") && (
           <Button
             variant="outline"
             onClick={handlePortal}
@@ -82,6 +82,27 @@ export default function BillingPage() {
           </Button>
         )}
       </div>
+
+      {/* Banner past_due */}
+      {user?.subscriptionStatus === "past_due" && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold text-amber-800">Pagamento com problema</p>
+            <p className="text-sm text-amber-700 mt-0.5">
+              Houve uma falha na cobrança da sua assinatura. Acesse o portal do cliente para atualizar seu método de pagamento e regularizar a situação antes que o acesso ao plano seja suspenso.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="bg-amber-500 hover:bg-amber-600 text-white flex-shrink-0"
+            onClick={handlePortal}
+            disabled={loading === "portal"}
+          >
+            {loading === "portal" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Regularizar"}
+          </Button>
+        </div>
+      )}
 
       {/* Planos */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">

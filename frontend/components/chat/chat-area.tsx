@@ -308,7 +308,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     const companyId = getCompanyId();
     if (!companyId) return;
     aiKnowledgeApi.getKnowledge(companyId)
-      .then((data) => setAutoReplyEnabled(data.autoReplyEnabled ?? true))
+      .then((data) => setAutoReplyEnabled(data.autoReplyEnabled === true))
       .catch(() => {/* mantém false — mais seguro que mostrar IA ativa por engano */ });
   }, []);
 

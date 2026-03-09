@@ -6,15 +6,15 @@ export const DelayNode = memo(({ id, data }: any) => {
   const { deleteElements, updateNodeData } = useReactFlow();
 
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    updateNodeData(id, { delayValue: Number(e.target.value) });
+    updateNodeData(id, { delayValue: e.target.value });
   };
 
   const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     updateNodeData(id, { delayUnit: e.target.value });
   };
 
-  const delayValue = data?.delayValue || data?.minutes || 60;
-  const delayUnit = data?.delayUnit || 'minutes';
+  const delayValue = data?.delayValue ?? data?.minutes ?? '';
+  const delayUnit = data?.delayUnit ?? 'minutes';
 
   return (
     <div className="bg-white border-2 border-orange-400 rounded-xl shadow-lg min-w-[220px] overflow-hidden transition-all hover:shadow-orange-100 hover:border-orange-500">

@@ -6,7 +6,7 @@ export const AiConditionNode = memo(({ id, data }: any) => {
   const { deleteElements, updateNodeData } = useReactFlow();
 
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    updateNodeData(id, { waitValue: Number(e.target.value) });
+    updateNodeData(id, { waitValue: e.target.value });
   };
 
   const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -17,8 +17,8 @@ export const AiConditionNode = memo(({ id, data }: any) => {
     updateNodeData(id, { aiPrompt: e.target.value });
   };
 
-  const waitValue = data?.waitValue || data?.waitHours || 24;
-  const waitUnit = data?.waitUnit || (data?.waitHours ? 'hours' : 'hours');
+  const waitValue = data?.waitValue ?? data?.waitHours ?? '';
+  const waitUnit = data?.waitUnit ?? 'hours';
   const aiPrompt = data?.aiPrompt || 'O cliente quer saber mais sobre nossos serviços e está interessado.';
 
   return (
