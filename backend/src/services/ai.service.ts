@@ -789,6 +789,89 @@ Total: R$ 505,00"
       // Decide qual sistema de prompts usar
       let systemPrompt: string;
 
+      // Busca dados de precificação da empresa em paralelo
+      const companyId = customer.companyId;
+      const [companyServices, companyZones, companyCombos, companyAdditionals, companyZoneExceptions] = await Promise.all([
+        prisma.service.findMany({
+          where: { companyId, isActive: true },
+          include: {
+            variables: {
+              include: { options: { orderBy: { order: 'asc' } } },
+              orderBy: { order: 'asc' },
+            },
+            pricingTiers: { orderBy: { minQuantity: 'asc' } },
+          },
+          orderBy: { order: 'asc' },
+        }),
+        prisma.serviceZone.findMany({
+          where: { companyId, isActive: true },
+          orderBy: [{ isDefault: 'desc' }, { order: 'asc' }],
+        }),
+        prisma.serviceCombo.findMany({
+          where: { companyId, isActive: true },
+          include: {
+            items: {
+              include: { service: { select: { name: true } } },
+              orderBy: { order: 'asc' },
+            },
+          },
+          orderBy: { order: 'asc' },
+        }),
+        prisma.serviceAdditional.findMany({
+          where: { companyId, isActive: true },
+          orderBy: { order: 'asc' },
+        }),
+        (prisma.serviceZoneException as any).findMany({
+          where: { companyId, isActive: true },
+          include: { service: { select: { name: true } } },
+        }),
+      ]);
+
+      // Monta o objeto de serviços/precificação no formato esperado pelo prompt builder
+      const pricingData = companyServices.length > 0 || companyZones.length > 0 || companyCombos.length > 0 || companyAdditionals.length > 0
+        ? {
+          services: companyServices.map((s) => ({
+            ...s,
+            basePrice: Number(s.basePrice),
+            variables: s.variables.map((v) => ({
+              ...v,
+              options: v.options.map((o) => ({
+                ...o,
+                priceModifier: Number(o.priceModifier),
+              })),
+            })),
+            pricingTiers: s.pricingTiers.map((t) => ({
+              ...t,
+              pricePerUnit: Number(t.pricePerUnit),
+            })),
+          })),
+          zones: companyZones.map((z) => ({
+            ...z,
+            fixedFee: z.pricingType === 'FIXED' ? Number(z.priceModifier) : undefined,
+            percentageFee: z.pricingType === 'PERCENTAGE' ? Number(z.priceModifier) : undefined,
+            exceptions: companyZoneExceptions
+              .filter((e: any) => e.zoneId === z.id)
+              .map((e: any) => ({
+                ...e,
+                customFee: e.customFee != null ? Number(e.customFee) : undefined,
+                serviceName: e.service?.name || null,
+              })),
+          })),
+          combos: companyCombos.map((c) => ({
+            ...c,
+            fixedPrice: Number(c.fixedPrice),
+            items: c.items.map((i) => ({
+              ...i,
+              serviceName: i.service.name,
+            })),
+          })),
+          additionals: companyAdditionals.map((a) => ({
+            ...a,
+            price: Number(a.price),
+          })),
+        }
+        : undefined;
+
       if (shouldUseModularPrompts(aiKnowledge)) {
         // Usa o novo sistema modular de prompts
         systemPrompt = buildModularPrompt({
@@ -801,6 +884,7 @@ Total: R$ 505,00"
             notes: customer.notes,
             isGroup: customer.isGroup,
           },
+          services: pricingData,
           ragContext: ragContext || undefined,
           calendarConnected: googleCalendarStatus === "conectado e sincronizado",
           // Script ativo persistido na conversa (não detecta novamente aqui — já foi feito acima)

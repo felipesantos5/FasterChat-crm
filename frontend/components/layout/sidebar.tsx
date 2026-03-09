@@ -20,6 +20,8 @@ import {
   X,
   Network,
   Lock,
+  Smartphone,
+  Zap,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import logo from "@/assets/logo2.webp";
@@ -97,7 +99,23 @@ const menuItems: MenuItem[] = [
   {
     label: "Configurações",
     icon: Settings,
-    href: "/dashboard/settings",
+    children: [
+      {
+        label: "Agente",
+        icon: Bot,
+        href: "/dashboard/settings/ai",
+      },
+      {
+        label: "WhatsApp",
+        icon: Smartphone,
+        href: "/dashboard/settings/whatsapp",
+      },
+      {
+        label: "Script de atendimento",
+        icon: Zap,
+        href: "/dashboard/settings/ai/scripts",
+      },
+    ],
   },
   {
     label: "IA",
@@ -107,11 +125,6 @@ const menuItems: MenuItem[] = [
         label: "Insights",
         icon: BarChart3,
         href: "/dashboard/ai/insights",
-      },
-      {
-        label: "Exemplos de Conversas",
-        icon: BookOpen,
-        href: "/dashboard/ai/examples",
       },
     ],
   },

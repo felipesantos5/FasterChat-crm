@@ -40,6 +40,7 @@ flowRouter.delete('/executions/:executionId/cancel', asyncHandler(flowController
 flowRouter.get('/:id', asyncHandler(flowController.getFlowById));
 flowRouter.put('/:id', asyncHandler(flowController.updateFlow));
 flowRouter.get('/:id/variables', asyncHandler(flowController.getFlowVariables));
+flowRouter.post('/:id/execute', asyncHandler(flowController.executeSingle.bind(flowController)));
 flowRouter.get('/:id/executions', asyncHandler(flowController.getFlowExecutions));
 flowRouter.delete('/:id/executions/:executionId', asyncHandler(flowController.cancelExecution.bind(flowController)));
 flowRouter.post('/:id/nodes', asyncHandler(flowController.saveFlowNodes));

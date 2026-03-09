@@ -96,7 +96,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                       <CardTitle className="text-xl font-bold text-gray-900 leading-tight">
                         {plan.name}
                       </CardTitle>
-                      <CardDescription className="text-gray-500 text-xs mt-1 leading-relaxed h-[90px] overflow-hidden">
+                      <CardDescription className="text-gray-500 text-xs mt-1 leading-relaxed h-[93px] overflow-hidden">
                         {plan.subtitle}
                       </CardDescription>
 

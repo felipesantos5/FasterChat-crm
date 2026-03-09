@@ -36,49 +36,89 @@ export interface GetMessagesRequest {
 }
 
 // Evolution API Webhook Payload Types
+
+interface EvolutionQuotedMessage {
+  conversation?: string;
+  extendedTextMessage?: { text?: string };
+  imageMessage?: { caption?: string; fileName?: string };
+  audioMessage?: Record<string, unknown>;
+  videoMessage?: { caption?: string };
+  documentMessage?: { fileName?: string };
+  stickerMessage?: Record<string, unknown>;
+}
+
+interface EvolutionContextInfo {
+  stanzaId?: string;
+  participant?: string;
+  quotedMessage?: EvolutionQuotedMessage;
+}
+
 export interface EvolutionWebhookMessage {
-  lastDisconnect: any;
+  lastDisconnect?: {
+    error?: {
+      output?: {
+        statusCode?: number;
+      };
+    };
+  };
   key?: {
     remoteJid: string;
     fromMe: boolean;
     id: string;
+    participant?: string; // em mensagens de grupo
   };
+  // campos extras retornados pela Evolution API para resolução de LID/JID
+  senderPn?: string;
+  remoteJidAlt?: string;
+  owner?: string;
+  messageStubParameters?: string[];
   message?: {
     conversation?: string;
+    contextInfo?: EvolutionContextInfo; // contextInfo no nível raiz (alguns clientes)
     extendedTextMessage?: {
       text: string;
-      contextInfo?: {
-        stanzaId?: string;
-        participant?: string;
-        quotedMessage?: {
-          conversation?: string;
-          extendedTextMessage?: { text?: string };
-          imageMessage?: { caption?: string };
-          audioMessage?: Record<string, unknown>;
-          videoMessage?: { caption?: string };
-        };
-      };
+      contextInfo?: EvolutionContextInfo;
     };
     imageMessage?: {
       caption?: string;
       url?: string;
       mimetype?: string;
       base64?: string;
-      contextInfo?: {
-        stanzaId?: string;
-        participant?: string;
-        quotedMessage?: {
-          conversation?: string;
-          extendedTextMessage?: { text?: string };
-          imageMessage?: { caption?: string };
-        };
-      };
+      contextInfo?: EvolutionContextInfo;
     };
     audioMessage?: {
       url?: string;
       mimetype?: string;
       base64?: string;
       seconds?: number;
+      contextInfo?: EvolutionContextInfo;
+    };
+    videoMessage?: {
+      caption?: string;
+      url?: string;
+      mimetype?: string;
+      contextInfo?: EvolutionContextInfo;
+    };
+    documentMessage?: {
+      fileName?: string;
+      url?: string;
+      mimetype?: string;
+      contextInfo?: EvolutionContextInfo;
+    };
+    stickerMessage?: {
+      url?: string;
+      mimetype?: string;
+      contextInfo?: EvolutionContextInfo;
+    };
+    locationMessage?: {
+      degreesLatitude?: number;
+      degreesLongitude?: number;
+      name?: string;
+      address?: string;
+    };
+    contactMessage?: {
+      displayName?: string;
+      vcard?: string;
     };
   };
   statusReason?: any;

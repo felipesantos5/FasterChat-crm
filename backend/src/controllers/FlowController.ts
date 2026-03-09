@@ -275,6 +275,27 @@ export class FlowController {
     return res.json({ variables });
   }
 
+  public async executeSingle(req: Request, res: Response): Promise<Response> {
+    const { id } = req.params;
+    const { companyId } = req.user!;
+    const { phone } = req.body;
+
+    if (!phone || typeof phone !== 'string') {
+      return res.status(400).json({ error: 'Número de telefone é obrigatório.' });
+    }
+
+    const flow = await prisma.flow.findUnique({ where: { id, companyId } });
+    if (!flow) {
+      return res.status(404).json({ error: 'Fluxo não encontrado.' });
+    }
+
+    const { FlowEngineService } = await import('../services/FlowEngineService');
+    const engine = new FlowEngineService();
+    await engine.startFlow(id, phone.trim(), { _testDisparo: true });
+
+    return res.json({ success: true });
+  }
+
   public async getFlowExecutions(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
     const { companyId } = req.user!;

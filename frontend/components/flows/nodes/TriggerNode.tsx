@@ -1,6 +1,6 @@
 import { memo, useState, useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Copy, FileSpreadsheet, Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Copy, FileSpreadsheet, Loader2, CheckCircle2, RotateCcw, FlaskConical, Send, X } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/api';
 import { useBatchStore } from '../batchStore';
@@ -8,6 +8,24 @@ import { useBatchStore } from '../batchStore';
 export const TriggerNode = memo(({ data }: any) => {
   const [loadingCsv, setLoadingCsv] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [testOpen, setTestOpen] = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [testLoading, setTestLoading] = useState(false);
+
+  const handleTestDisparo = async () => {
+    if (!flowId || !testPhone.trim()) return;
+    setTestLoading(true);
+    try {
+      await api.post(`/flows/${flowId}/execute`, { phone: testPhone.trim() });
+      toast.success('Fluxo disparado!', { description: `Enviando para ${testPhone.trim()}` });
+      setTestPhone('');
+      setTestOpen(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Erro ao disparar fluxo.');
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const flowId = data?.flowId;
 
@@ -64,7 +82,50 @@ export const TriggerNode = memo(({ data }: any) => {
     <div className="bg-white border-2 border-primary rounded-xl shadow-lg min-w-[300px] max-w-[440px] overflow-hidden">
       <div className="bg-primary/10 px-3 py-2.5 border-b border-primary/20 flex items-center justify-between">
         <span className="text-sm font-bold text-primary">⚡ Gatilho</span>
+        <button
+          onClick={() => { setTestOpen((o) => !o); setTestPhone(''); }}
+          className="nodrag flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300 transition-colors"
+          title="Disparar para número de teste"
+        >
+          <FlaskConical size={11} />
+          Teste
+        </button>
       </div>
+
+      {/* Painel de disparo de teste */}
+      {testOpen && (
+        <div className="px-3 pt-2.5 pb-2 bg-amber-50 border-b border-amber-200 flex flex-col gap-2">
+          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Disparo rápido de teste</p>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleTestDisparo()}
+              placeholder="5511999998888"
+              className="nodrag flex-1 text-xs border border-amber-300 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-amber-400 placeholder:text-gray-400"
+            />
+            <button
+              onClick={handleTestDisparo}
+              disabled={testLoading || !testPhone.trim()}
+              className="nodrag flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50"
+              title="Disparar"
+            >
+              {testLoading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+            </button>
+            <button
+              onClick={() => { setTestOpen(false); setTestPhone(''); }}
+              className="nodrag p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-100 rounded-md transition-colors"
+              title="Fechar"
+            >
+              <X size={12} />
+            </button>
+          </div>
+          <p className="text-[9px] text-amber-600 leading-snug">
+            DDI + DDD + número, sem espaços (ex: 5511999998888)
+          </p>
+        </div>
+      )}
 
       <div className="p-3 flex flex-col gap-3">
         {/* Webhook Section */}

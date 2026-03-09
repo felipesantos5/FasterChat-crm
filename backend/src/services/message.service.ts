@@ -1,6 +1,6 @@
 import { prisma } from "../utils/prisma";
 import { MessageDirection, MessageStatus, MessageFeedback } from "@prisma/client";
-import { CreateMessageRequest, GetMessagesRequest, ConversationSummary } from "../types/message";
+import { CreateMessageRequest, GetMessagesRequest, ConversationSummary, EvolutionWebhookMessage } from "../types/message";
 import openaiService from "./ai-providers/openai.service";
 import geminiService from "./ai-providers/gemini.service";
 import { websocketService } from "./websocket.service";
@@ -543,7 +543,7 @@ class MessageService {
   async processInboundMessage(
     instanceName: string,
     remoteJid: string,
-    data: any // Payload completo da mensagem
+    data: EvolutionWebhookMessage
   ) {
     try {
       const instance = await prisma.whatsAppInstance.findFirst({ where: { instanceName } });
@@ -1236,7 +1236,15 @@ class MessageService {
       // ==================================================================================
       let quotedContent: string | null = null;
       let quotedAuthor: string | null = null;
-      const contextInfo = msgData?.extendedTextMessage?.contextInfo ?? msgData?.imageMessage?.contextInfo;
+      // Extrai contextInfo de qualquer tipo de mensagem que suporte resposta
+      const contextInfo =
+        msgData?.extendedTextMessage?.contextInfo ??
+        msgData?.imageMessage?.contextInfo ??
+        msgData?.audioMessage?.contextInfo ??
+        msgData?.videoMessage?.contextInfo ??
+        msgData?.documentMessage?.contextInfo ??
+        msgData?.stickerMessage?.contextInfo ??
+        msgData?.contextInfo; // fallback: alguns clientes enviam contextInfo no nível raiz
       if (contextInfo?.quotedMessage) {
         const qMsg = contextInfo.quotedMessage;
         quotedContent =
@@ -1244,6 +1252,9 @@ class MessageService {
           qMsg.extendedTextMessage?.text ??
           qMsg.imageMessage?.caption ??
           qMsg.videoMessage?.caption ??
+          (qMsg.audioMessage ? "🎤 Áudio" : undefined) ??
+          (qMsg.documentMessage ? `📄 ${qMsg.documentMessage?.fileName || "Documento"}` : undefined) ??
+          (qMsg.stickerMessage ? "🔖 Sticker" : undefined) ??
           null;
         // Se participant contém o telefone do contato → ele está citando a si mesmo
         // Caso contrário → está citando nossa mensagem
@@ -1263,8 +1274,8 @@ class MessageService {
         whatsappInstanceId: instance.id,
         direction: MessageDirection.INBOUND,
         content,
-        timestamp: new Date((data.messageTimestamp || Date.now() / 1000) * 1000),
-        messageId: data.key.id,
+        timestamp: new Date((Number(data.messageTimestamp) || Date.now() / 1000) * 1000),
+        messageId: data.key!.id,
         status: MessageStatus.DELIVERED,
         mediaType,
         mediaUrl,

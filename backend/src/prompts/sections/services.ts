@@ -114,22 +114,43 @@ export function getAdvancedPricingSection(services: ServicesContext): PromptSect
     for (const zone of zones) {
       content += `**${zone.name}**\n`;
 
-      if (zone.pricingType === "FIXED") {
+      if (zone.isDefault) {
+        content += `- (Zona padrão — sem taxa adicional)\n`;
+      } else if (zone.requiresQuote) {
+        content += `- Requer orçamento especial (não informar preço fechado)\n`;
+      } else if (zone.pricingType === "FIXED") {
         content += `- Taxa fixa: +R$ ${zone.fixedFee?.toFixed(2) || "0.00"}\n`;
       } else if (zone.pricingType === "PERCENTAGE") {
         content += `- Taxa: +${zone.percentageFee || 0}%\n`;
       }
 
       if (zone.neighborhoods && zone.neighborhoods.length > 0) {
-        content += `- Bairros: ${zone.neighborhoods.join(", ")}\n`;
+        content += `- Bairros incluídos: ${zone.neighborhoods.join(", ")}\n`;
       }
 
-      if (zone.isDefault) {
-        content += `- (Zona padrão)\n`;
+      // Exceções de taxa para esta zona
+      if (zone.exceptions && zone.exceptions.length > 0) {
+        content += `- **Exceções desta zona:**\n`;
+        for (const exc of zone.exceptions) {
+          if (exc.exceptionType === "NO_FEE") {
+            const who = exc.category || (exc.serviceName ? exc.serviceName : "serviço específico");
+            const qty = exc.minQuantity ? ` (a partir de ${exc.minQuantity} unidades)` : "";
+            content += `  - ${who}${qty}: **sem taxa** nesta zona\n`;
+          } else if (exc.exceptionType === "CUSTOM_FEE") {
+            const who = exc.category || (exc.serviceName ? exc.serviceName : "serviço específico");
+            const qty = exc.minQuantity ? ` (a partir de ${exc.minQuantity} unidades)` : "";
+            content += `  - ${who}${qty}: taxa especial de R$ ${exc.customFee?.toFixed(2)}\n`;
+          }
+          if (exc.description) {
+            content += `    *(${exc.description})*\n`;
+          }
+        }
       }
 
       content += `\n`;
     }
+
+    content += `> Sempre verifique o bairro do cliente para aplicar a taxa correta antes de informar o preço final.\n\n`;
   }
 
   // Combos/Pacotes
@@ -142,6 +163,14 @@ export function getAdvancedPricingSection(services: ServicesContext): PromptSect
       content += `- Preço fixo: R$ ${combo.fixedPrice?.toFixed(2)}\n`;
       if (combo.description) {
         content += `- ${combo.description}\n`;
+      }
+      if (combo.items && combo.items.length > 0) {
+        const itemsDesc = combo.items
+          .map((item: { serviceName?: string; quantity?: number; notes?: string }) =>
+            `${item.quantity && item.quantity > 1 ? `${item.quantity}x ` : ""}${item.serviceName || "serviço"}${item.notes ? ` (${item.notes})` : ""}`
+          )
+          .join(" + ");
+        content += `- Inclui: ${itemsDesc}\n`;
       }
       content += `\n`;
     }
