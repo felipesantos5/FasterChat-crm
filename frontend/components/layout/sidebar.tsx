@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Settings,
   Bot,
-  BookOpen,
   ChevronDown,
   BarChart3,
   Megaphone,
