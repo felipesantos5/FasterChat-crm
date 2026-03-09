@@ -23,6 +23,8 @@ export interface CreateMessageRequest {
   messageId?: string;
   mediaUrl?: any;
   mediaType?: string;
+  quotedContent?: string;
+  quotedAuthor?: string;
 }
 
 export interface GetMessagesRequest {
@@ -45,17 +47,37 @@ export interface EvolutionWebhookMessage {
     conversation?: string;
     extendedTextMessage?: {
       text: string;
+      contextInfo?: {
+        stanzaId?: string;
+        participant?: string;
+        quotedMessage?: {
+          conversation?: string;
+          extendedTextMessage?: { text?: string };
+          imageMessage?: { caption?: string };
+          audioMessage?: Record<string, unknown>;
+          videoMessage?: { caption?: string };
+        };
+      };
     };
     imageMessage?: {
       caption?: string;
       url?: string;
       mimetype?: string;
-      base64?: string; // Evolution API pode enviar base64 se configurado
+      base64?: string;
+      contextInfo?: {
+        stanzaId?: string;
+        participant?: string;
+        quotedMessage?: {
+          conversation?: string;
+          extendedTextMessage?: { text?: string };
+          imageMessage?: { caption?: string };
+        };
+      };
     };
     audioMessage?: {
       url?: string;
       mimetype?: string;
-      base64?: string; // Evolution API pode enviar base64 se configurado
+      base64?: string;
       seconds?: number;
     };
   };

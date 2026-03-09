@@ -121,7 +121,7 @@ export function ExecutionDrawer({
       case 'FORCE_CANCELLED': return 'Canc. Forçado';
       case 'RUNNING': return 'Rodando';
       case 'WAITING_REPLY': return 'Aguardando';
-      case 'DELAYED': return 'Atrasado';
+      case 'DELAYED': return 'Em andamento';
       default: return status;
     }
   };
@@ -213,7 +213,7 @@ export function ExecutionDrawer({
             {JSON.stringify(
               Object.fromEntries(
                 Object.entries(exe.variables || {}).filter(
-                  ([key]) => !['_batchId', '_batchName', '_batchTotal'].includes(key)
+                  ([key]) => !['_batchId', '_batchName', '_batchTotal', '_activeBranches', '_pendingConditions'].includes(key)
                 )
               ),
               null,

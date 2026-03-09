@@ -39,6 +39,8 @@ class MessageService {
             messageId: data.messageId,
             mediaType: data.mediaType || "text",
             mediaUrl: data.mediaUrl || null,
+            quotedContent: data.quotedContent || null,
+            quotedAuthor: data.quotedAuthor || null,
           },
           include: {
             customer: true,
@@ -62,6 +64,8 @@ class MessageService {
             mediaUrl: message.mediaUrl,
             messageId: message.messageId,
             whatsappInstanceId: message.whatsappInstanceId,
+            quotedContent: message.quotedContent,
+            quotedAuthor: message.quotedAuthor,
           });
         }
 
@@ -80,6 +84,8 @@ class MessageService {
           messageId: data.messageId,
           mediaType: data.mediaType || "text",
           mediaUrl: data.mediaUrl || null,
+          quotedContent: data.quotedContent || null,
+          quotedAuthor: data.quotedAuthor || null,
         },
         include: {
           customer: true,
@@ -103,6 +109,8 @@ class MessageService {
           mediaUrl: message.mediaUrl,
           messageId: message.messageId,
           whatsappInstanceId: message.whatsappInstanceId,
+          quotedContent: message.quotedContent,
+          quotedAuthor: message.quotedAuthor,
         });
       }
 
@@ -1127,7 +1135,7 @@ class MessageService {
 
       // 1. MENSAGEM DE TEXTO
       if (msgData?.conversation || msgData?.extendedTextMessage?.text) {
-        content = msgData.conversation || msgData.extendedTextMessage.text;
+        content = msgData.conversation || msgData.extendedTextMessage!.text;
       }
       // 2. MENSAGEM DE ÁUDIO
       else if (msgData?.audioMessage) {
@@ -1224,6 +1232,30 @@ class MessageService {
       }
 
       // ==================================================================================
+      // MENSAGEM CITADA (quando o cliente responde a uma mensagem)
+      // ==================================================================================
+      let quotedContent: string | null = null;
+      let quotedAuthor: string | null = null;
+      const contextInfo = msgData?.extendedTextMessage?.contextInfo ?? msgData?.imageMessage?.contextInfo;
+      if (contextInfo?.quotedMessage) {
+        const qMsg = contextInfo.quotedMessage;
+        quotedContent =
+          qMsg.conversation ??
+          qMsg.extendedTextMessage?.text ??
+          qMsg.imageMessage?.caption ??
+          qMsg.videoMessage?.caption ??
+          null;
+        // Se participant contém o telefone do contato → ele está citando a si mesmo
+        // Caso contrário → está citando nossa mensagem
+        const participantPhone = contextInfo.participant?.replace(/@.*/, "") ?? "";
+        if (participantPhone && customer.phone.includes(participantPhone.slice(-8))) {
+          quotedAuthor = data.pushName || customer.name;
+        } else {
+          quotedAuthor = "Você";
+        }
+      }
+
+      // ==================================================================================
       // CRIA A MENSAGEM NO BANCO
       // ==================================================================================
       const message = await this.createMessage({
@@ -1236,6 +1268,8 @@ class MessageService {
         status: MessageStatus.DELIVERED,
         mediaType,
         mediaUrl,
+        quotedContent: quotedContent ?? undefined,
+        quotedAuthor: quotedAuthor ?? undefined,
       });
 
       return { message, customer, instance };
@@ -1421,8 +1455,10 @@ class MessageService {
           messageId: result.messageId,
           status: MessageStatus.SENT,
           senderType: sentBy,
-          mediaType: "text", // Mensagens enviadas são sempre texto por enquanto
+          mediaType: "text",
           mediaUrl: null,
+          quotedContent: quotedData?.content || null,
+          quotedAuthor: quotedData ? (quotedData.fromMe ? "Você" : customer.name) : null,
         },
         include: {
           customer: true,
@@ -1446,6 +1482,8 @@ class MessageService {
           mediaUrl: message.mediaUrl,
           messageId: message.messageId,
           whatsappInstanceId: message.whatsappInstanceId,
+          quotedContent: message.quotedContent,
+          quotedAuthor: message.quotedAuthor,
         });
       }
 
@@ -1716,6 +1754,8 @@ class MessageService {
           mediaUrl: message.mediaUrl,
           messageId: message.messageId,
           whatsappInstanceId: message.whatsappInstanceId,
+          quotedContent: message.quotedContent,
+          quotedAuthor: message.quotedAuthor,
         });
       }
 

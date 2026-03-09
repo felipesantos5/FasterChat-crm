@@ -77,10 +77,12 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [activeFlowExecution, setActiveFlowExecution] = useState<{ id: string; flow: { id: string; name: string }; status: string } | null>(null);
   const [cancellingFlow, setCancellingFlow] = useState(false);
   const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
-  const [sendingReactionId, setSendingReactionId] = useState<string | null>(null);
+  const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isInitialScrollRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -315,9 +317,24 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       .catch(() => {/* mantém false — mais seguro que mostrar IA ativa por engano */ });
   }, []);
 
+  // Reseta flag de scroll ao trocar de chat
+  useEffect(() => {
+    isInitialScrollRef.current = true;
+  }, [customerId]);
+
   // Scroll para última mensagem
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length === 0) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    if (isInitialScrollRef.current) {
+      // Carga inicial: vai direto para o fim sem animação
+      container.scrollTop = container.scrollHeight;
+      isInitialScrollRef.current = false;
+    } else {
+      // Nova mensagem durante a conversa: scroll suave
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   // Extrai whatsappInstanceId das mensagens
@@ -446,14 +463,19 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   };
 
   const handleSendReaction = async (messageId: string, emoji: string) => {
-    setSendingReactionId(messageId);
     setReactionPickerId(null);
+    // Optimistic: mostra o emoji imediatamente
+    setMessageReactions((prev) => ({ ...prev, [messageId]: emoji }));
     try {
       await messageApi.sendReaction(messageId, emoji);
     } catch {
       toast.error("Não foi possível enviar a reação");
-    } finally {
-      setSendingReactionId(null);
+      // Reverte em caso de erro
+      setMessageReactions((prev) => {
+        const next = { ...prev };
+        delete next[messageId];
+        return next;
+      });
     }
   };
 
@@ -1022,6 +1044,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
 
       {/* Messages Area - Com Drag and Drop */}
       <div
+        ref={messagesContainerRef}
         className={cn(
           "flex-1 overflow-y-auto p-4 space-y-3 relative transition-colors bg-gray-50 dark:bg-gray-950",
           isDragging && "bg-primary/5 border-2 border-dashed border-primary"
@@ -1152,6 +1175,30 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                       </div>
                     )}
                     <div className="flex flex-col gap-2">
+                      {/* Mensagem citada (reply) */}
+                      {message.quotedContent && (
+                        <div className={cn(
+                          "flex items-stretch rounded overflow-hidden",
+                          isInbound ? "bg-black/5 dark:bg-white/5" : "bg-black/15 dark:bg-black/25"
+                        )}>
+                          <div className="w-1 shrink-0 bg-green-500" />
+                          <div className="flex-1 px-2 py-1.5 min-w-0">
+                            <p className={cn(
+                              "text-[11px] font-semibold leading-none mb-0.5 truncate",
+                              isInbound ? "text-green-600 dark:text-green-400" : "text-green-300"
+                            )}>
+                              {message.quotedAuthor}
+                            </p>
+                            <p className={cn(
+                              "text-[11px] leading-tight line-clamp-2 break-words",
+                              isInbound ? "text-gray-500 dark:text-gray-400" : "text-white/70"
+                            )}>
+                              {message.quotedContent}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Imagem */}
                       {message.mediaType === "image" && message.mediaUrl && (
                         <div className="space-y-2">
@@ -1163,6 +1210,12 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                               src={message.mediaUrl}
                               alt="Imagem enviada"
                               className="max-w-full max-h-[400px] object-contain rounded-lg transition-opacity shadow-md group-hover/img:opacity-90"
+                              onLoad={() => {
+                                const c = messagesContainerRef.current;
+                                if (!c) return;
+                                const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 100;
+                                if (atBottom) c.scrollTop = c.scrollHeight;
+                              }}
                             />
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity">
                               <div className="bg-black/40 rounded-full p-2">
@@ -1285,23 +1338,31 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                   </div>
                 </div>
 
-                {/* Botão de reação — aparece ao hover abaixo da mensagem */}
+                {/* Reação e botão de picker */}
                 {message.messageId && (
-                  <div className={cn("flex -mt-0.5 mb-0.5", isInbound ? "justify-start" : "justify-end")}>
+                  <div className={cn("relative flex -mt-2 mb-1 z-10", isInbound ? "justify-start ml-3" : "justify-end mr-3")}>
                     <div className="relative">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setReactionPickerId(reactionPickerId === message.id ? null : message.id); }}
-                        className={cn(
-                          "text-base leading-none transition-all duration-150 select-none",
-                          "opacity-0 group-hover:opacity-30 hover:!opacity-100 hover:scale-125",
-                          sendingReactionId === message.id && "opacity-50 cursor-wait"
-                        )}
-                        disabled={sendingReactionId === message.id}
-                        title="Reagir"
-                      >
-                        {sendingReactionId === message.id ? "⏳" : "😊"}
-                      </button>
+                      {/* Emoji da reação selecionada — sempre visível */}
+                      {messageReactions[message.id] ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setReactionPickerId(reactionPickerId === message.id ? null : message.id); }}
+                          className="text-sm leading-none bg-white dark:bg-gray-700 rounded-full shadow border border-gray-100 dark:border-gray-600 px-1.5 py-0.5 hover:scale-110 transition-transform"
+                          title="Trocar reação"
+                        >
+                          {messageReactions[message.id]}
+                        </button>
+                      ) : (
+                        /* 😊 hover trigger — só aparece ao hover quando sem reação */
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setReactionPickerId(reactionPickerId === message.id ? null : message.id); }}
+                          className="text-base leading-none opacity-0 group-hover:opacity-30 hover:!opacity-100 hover:scale-125 transition-all duration-150 select-none"
+                          title="Reagir"
+                        >
+                          😊
+                        </button>
+                      )}
 
+                      {/* Picker de emojis */}
                       {reactionPickerId === message.id && (
                         <div
                           onClick={(e) => e.stopPropagation()}

@@ -640,6 +640,38 @@ export class FlowEngineService {
       }
     }
 
+    // 🌿 PARALLEL BRANCHES: se este job é um timeout de condição (_pendingConditions),
+    // remove atomicamente. Se já foi removido pelo handleIncomingMessage, ignora.
+    const execVarsLatest = await prisma.flowExecution.findUnique({
+      where: { id: executionId },
+      select: { variables: true },
+    });
+    const latestVars = (execVarsLatest?.variables || {}) as Record<string, unknown>;
+    const latestPending = (latestVars._pendingConditions as Array<{ nodeId: string }>) || [];
+    const isConditionTimeout = latestPending.some(p => p.nodeId === nodeId);
+
+    if (isConditionTimeout) {
+      const claimed = await prisma.$queryRaw<Array<{ id: string }>>`
+        UPDATE flow_executions
+        SET variables = jsonb_set(
+          COALESCE(variables, '{}')::jsonb,
+          '{_pendingConditions}',
+          (
+            SELECT COALESCE(jsonb_agg(item), '[]'::jsonb)
+            FROM jsonb_array_elements(COALESCE(variables->'_pendingConditions', '[]'::jsonb)) item
+            WHERE item->>'nodeId' != ${nodeId}
+          )
+        )
+        WHERE id = ${executionId}
+          AND COALESCE(variables->'_pendingConditions', '[]'::jsonb) @> ${JSON.stringify([{ nodeId }])}::jsonb
+        RETURNING id
+      `;
+      if (claimed.length === 0) {
+        // Já processado por handleIncomingMessage — não executa timeout
+        return;
+      }
+    }
+
     // Processa os próximos nós a partir deste
     await this.processNextNodes(executionId, nodeId, sourceHandle);
   }
@@ -1270,12 +1302,26 @@ export class FlowEngineService {
     const resumesAt = new Date();
     resumesAt.setSeconds(resumesAt.getSeconds() + delaySeconds);
 
+    const executionId = execution.id as string;
+    const nodeId = node.id as string;
+
+    // 🌿 PARALLEL BRANCHES: registra esta condição em _pendingConditions para que
+    // handleIncomingMessage encontre o nó correto mesmo quando o status for DELAYED
+    // (causado por um nó de delay em outra branch do mesmo fluxo paralelo).
+    await prisma.$executeRaw`
+      UPDATE flow_executions
+      SET variables = jsonb_set(
+        COALESCE(variables, '{}')::jsonb,
+        '{_pendingConditions}',
+        COALESCE(variables->'_pendingConditions', '[]'::jsonb) ||
+        ${JSON.stringify([{ nodeId, resumesAt: resumesAt.toISOString() }])}::jsonb
+      )
+      WHERE id = ${executionId}
+    `;
+
     await prisma.flowExecution.update({
-      where: { id: execution.id as string },
-      data: {
-        status: FlowExecutionStatus.WAITING_REPLY,
-        resumesAt
-      }
+      where: { id: executionId },
+      data: { status: FlowExecutionStatus.WAITING_REPLY, resumesAt }
     });
 
     // 🔗 Contato está aguardando resposta — libera o próximo contato do batch
@@ -1286,8 +1332,6 @@ export class FlowEngineService {
 
     // Agenda job de timeout: quando expirar, segue pelo handle "nao_respondeu"
     const timeoutMs = delaySeconds * 1000;
-    const executionId = execution.id as string;
-    const nodeId = node.id as string;
 
     await flowQueueService.enqueueFlowStep(
       { executionId, nodeId, sourceHandle: 'nao_respondeu' },
@@ -1309,13 +1353,23 @@ export class FlowEngineService {
     const resumesAt = new Date();
     resumesAt.setSeconds(resumesAt.getSeconds() + delaySeconds);
 
-    await prisma.flowExecution.update({
+    // 🌿 PARALLEL BRANCHES: só seta DELAYED se não há condições pendentes de outra branch.
+    // Se há _pendingConditions, o status WAITING_REPLY tem prioridade — o delay job vai
+    // disparar normalmente pelo BullMQ mesmo sem mudar o status agora.
+    const freshForDelay = await prisma.flowExecution.findUnique({
       where: { id: execution.id as string },
-      data: {
-        status: FlowExecutionStatus.DELAYED,
-        resumesAt
-      }
+      select: { variables: true },
     });
+    const varsForDelay = (freshForDelay?.variables || {}) as Record<string, unknown>;
+    const hasPendingConds = Array.isArray(varsForDelay._pendingConditions) &&
+      (varsForDelay._pendingConditions as unknown[]).length > 0;
+
+    if (!hasPendingConds) {
+      await prisma.flowExecution.update({
+        where: { id: execution.id as string },
+        data: { status: FlowExecutionStatus.DELAYED, resumesAt },
+      });
+    }
 
     // Enfileira job BullMQ para retomar após o delay
     const delayMs = delaySeconds * 1000;
@@ -1455,7 +1509,77 @@ export class FlowEngineService {
       }
     }
 
+    // 🌿 PARALLEL BRANCH FALLBACK: quando o delay de outra branch sobrescreveu o status,
+    // a execução não está em WAITING_REPLY mas ainda tem condições pendentes.
     if (executions.length === 0) {
+      const candidatesForPending = await prisma.flowExecution.findMany({
+        where: {
+          contactPhone: cleanPhone,
+          status: { in: [FlowExecutionStatus.RUNNING, FlowExecutionStatus.DELAYED, FlowExecutionStatus.WAITING_REPLY] },
+          flow: { companyId },
+        },
+      });
+
+      for (const exec of candidatesForPending) {
+        const vars = (exec.variables || {}) as Record<string, unknown>;
+        const pendingConds = (vars._pendingConditions as Array<{ nodeId: string }>) || [];
+        if (pendingConds.length === 0) continue;
+
+        for (const pending of pendingConds) {
+          const pendingNodeId = pending.nodeId;
+
+          // Atomic claim: remove do array apenas se ainda estiver lá
+          const claimed = await prisma.$queryRaw<Array<{ id: string }>>`
+            UPDATE flow_executions
+            SET variables = jsonb_set(
+              COALESCE(variables, '{}')::jsonb,
+              '{_pendingConditions}',
+              (
+                SELECT COALESCE(jsonb_agg(item), '[]'::jsonb)
+                FROM jsonb_array_elements(COALESCE(variables->'_pendingConditions', '[]'::jsonb)) item
+                WHERE item->>'nodeId' != ${pendingNodeId}
+              )
+            )
+            WHERE id = ${exec.id}
+              AND COALESCE(variables->'_pendingConditions', '[]'::jsonb) @> ${JSON.stringify([{ nodeId: pendingNodeId }])}::jsonb
+            RETURNING id
+          `;
+
+          if (claimed.length === 0) continue; // Já processado pelo timeout
+
+          // Cancela o timeout job desta condição
+          await flowQueueService.removeTimeoutJob(exec.id, pendingNodeId);
+
+          // Garante que o status é RUNNING para processNextNodes
+          await prisma.flowExecution.update({
+            where: { id: exec.id },
+            data: { status: FlowExecutionStatus.RUNNING, resumesAt: null },
+          });
+
+          const condNode = await prisma.flowNode.findUnique({ where: { id: pendingNodeId } });
+          if (!condNode) continue;
+
+          const nodeData = (condNode.data || {}) as Record<string, unknown>;
+          const text = messageText.toLowerCase().trim();
+          let handle = 'respondeu';
+          const keyword = nodeData?.keyword as string | undefined;
+          if (keyword) {
+            const keywords = keyword.toLowerCase().split(',').map(k => k.trim()).filter(k => k.length > 0);
+            if (keywords.some(k => text.includes(k) || text === k)) {
+              handle = 'palavra_chave';
+            }
+          }
+
+          await flowQueueService.enqueueFlowStep({
+            executionId: exec.id,
+            nodeId: pendingNodeId,
+            sourceHandle: handle,
+          });
+        }
+
+        return true;
+      }
+
       return false;
     }
 

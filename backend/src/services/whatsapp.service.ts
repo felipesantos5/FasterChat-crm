@@ -515,14 +515,19 @@ class WhatsAppService {
 
     const formattedJid = this.formatJid(remoteJid);
 
-    await this.axiosInstance.delete(`/message/delete/${instance.instanceName}`, {
-      data: {
-        id: messageId,
-        remoteJid: formattedJid,
-        fromMe: true,
-        participant: '',
-      },
-    });
+    try {
+      await this.axiosInstance.delete(`/chat/deleteMessageForEveryone/${instance.instanceName}`, {
+        data: {
+          id: messageId,
+          remoteJid: formattedJid,
+          fromMe: true,
+          participant: '',
+        },
+      });
+    } catch (err: any) {
+      console.error(`[WhatsApp:deleteMessage] Evolution API error — instance: ${instance.instanceName}, messageId: ${messageId}, remoteJid: ${formattedJid}, status: ${err?.response?.status}, body:`, err?.response?.data);
+      throw err;
+    }
 
     return { success: true };
   }
