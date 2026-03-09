@@ -515,11 +515,12 @@ class WhatsAppService {
 
     const formattedJid = this.formatJid(remoteJid);
 
-    await this.axiosInstance.delete(`/chat/deleteMessageForEveryone/${instance.instanceName}`, {
+    await this.axiosInstance.delete(`/message/delete/${instance.instanceName}`, {
       data: {
         id: messageId,
         remoteJid: formattedJid,
         fromMe: true,
+        participant: '',
       },
     });
 
