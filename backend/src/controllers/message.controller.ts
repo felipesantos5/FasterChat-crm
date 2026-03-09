@@ -169,7 +169,7 @@ class MessageController {
    */
   async sendMessage(req: Request, res: Response) {
     try {
-      const { customerId, content, sentBy, whatsappInstanceId } = req.body;
+      const { customerId, content, sentBy, whatsappInstanceId, quotedMessageId } = req.body;
 
       if (!customerId || !content) {
         return res.status(400).json({
@@ -182,7 +182,8 @@ class MessageController {
         customerId,
         content,
         sentBy || 'HUMAN',
-        whatsappInstanceId
+        whatsappInstanceId,
+        quotedMessageId,
       );
 
       return res.status(200).json({
@@ -304,6 +305,31 @@ class MessageController {
     } catch (error: any) {
       const status = error.statusCode || 400;
       return res.status(status).json({ success: false, message: error.message || 'Falha ao deletar mensagem' });
+    }
+  }
+
+  /**
+   * POST /api/messages/:id/react
+   * Envia uma reação emoji a uma mensagem
+   */
+  async sendReaction(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Não autenticado' });
+      }
+
+      const { id } = req.params;
+      const { emoji } = req.body;
+
+      if (!emoji) {
+        return res.status(400).json({ success: false, message: 'Emoji é obrigatório' });
+      }
+
+      const result = await messageService.sendReaction(id, emoji, req.user.companyId);
+      return res.status(200).json({ success: true, data: result });
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ success: false, message: error.message || 'Falha ao reagir à mensagem' });
     }
   }
 

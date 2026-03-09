@@ -1291,7 +1291,7 @@ class MessageService {
   /**
    * Envia uma mensagem para um customer via WhatsApp
    */
-  async sendMessage(customerId: string, content: string, sentBy: "HUMAN" | "AI" = "HUMAN", whatsappInstanceId?: string) {
+  async sendMessage(customerId: string, content: string, sentBy: "HUMAN" | "AI" = "HUMAN", whatsappInstanceId?: string, quotedMessageDbId?: string) {
     try {
       // Busca o customer com sua empresa e TODAS as instâncias (sem filtrar status no banco)
       const customer = await prisma.customer.findUnique({
@@ -1370,11 +1370,28 @@ class MessageService {
       // Importa o whatsappService dinamicamente para evitar dependência circular
       const whatsappService = (await import("./whatsapp.service")).default;
 
+      // Resolve a mensagem citada, se fornecida
+      let quotedData: { messageId: string; content: string; fromMe: boolean } | undefined;
+      if (quotedMessageDbId) {
+        const quotedMsg = await prisma.message.findFirst({
+          where: { id: quotedMessageDbId, customerId: customer.id },
+          select: { messageId: true, content: true, direction: true },
+        });
+        if (quotedMsg?.messageId) {
+          quotedData = {
+            messageId: quotedMsg.messageId,
+            content: quotedMsg.content,
+            fromMe: quotedMsg.direction === MessageDirection.OUTBOUND,
+          };
+        }
+      }
+
       // Envia a mensagem via WhatsApp
       const result = await whatsappService.sendMessage({
         instanceId: whatsappInstance.id,
         to: customer.phone,
         text: content,
+        quoted: quotedData,
       });
 
       // 🔗 CAPTURA NATIVA DE LID: Se a API retornou um LID (14+ dígitos), mapeia imediatamente.
@@ -1525,6 +1542,32 @@ class MessageService {
     if (websocketService.isInitialized()) {
       websocketService.emitMessageDeleted(companyId, message.customerId, messageDbId);
     }
+
+    return { success: true };
+  }
+
+  /**
+   * Envia uma reação emoji a uma mensagem existente
+   */
+  async sendReaction(messageDbId: string, emoji: string, companyId: string) {
+    const message = await prisma.message.findUnique({
+      where: { id: messageDbId },
+      include: { customer: true },
+    });
+
+    if (!message) throw Object.assign(new Error("Mensagem não encontrada"), { statusCode: 404 });
+    if (message.customer.companyId !== companyId) throw Object.assign(new Error("Não autorizado"), { statusCode: 403 });
+    if (!message.messageId) throw Object.assign(new Error("Mensagem sem ID do WhatsApp"), { statusCode: 400 });
+
+    const remoteJid = (message.customer as any).lidPhone || message.customer.phone;
+
+    await whatsappService.sendReaction({
+      instanceId: message.whatsappInstanceId,
+      remoteJid,
+      messageId: message.messageId,
+      fromMe: message.direction === MessageDirection.OUTBOUND,
+      emoji,
+    });
 
     return { success: true };
   }

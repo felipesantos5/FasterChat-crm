@@ -17,7 +17,7 @@ import { whatsappApi } from "@/lib/whatsapp";
 import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2 } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -76,6 +76,9 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [lightbox, setLightbox] = useState<{ url: string; type: "image" | "video" } | null>(null);
   const [activeFlowExecution, setActiveFlowExecution] = useState<{ id: string; flow: { id: string; name: string }; status: string } | null>(null);
   const [cancellingFlow, setCancellingFlow] = useState(false);
+  const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
+  const [sendingReactionId, setSendingReactionId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -442,6 +445,18 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     }
   };
 
+  const handleSendReaction = async (messageId: string, emoji: string) => {
+    setSendingReactionId(messageId);
+    setReactionPickerId(null);
+    try {
+      await messageApi.sendReaction(messageId, emoji);
+    } catch {
+      toast.error("Não foi possível enviar a reação");
+    } finally {
+      setSendingReactionId(null);
+    }
+  };
+
   // Envia mensagem
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -449,11 +464,13 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     if (!inputValue.trim() || sending) return;
 
     const messageContent = inputValue.trim();
+    const quotedId = replyingTo?.id;
     setInputValue("");
+    setReplyingTo(null);
     setSending(true);
 
     try {
-      const response = await messageApi.sendMessage(customerId, messageContent, "HUMAN");
+      const response = await messageApi.sendMessage(customerId, messageContent, "HUMAN", quotedId);
 
       // Adiciona a mensagem apenas se não estiver conectado ao WebSocket
       // Se estiver conectado, o WebSocket vai trazer a mensagem automaticamente
@@ -524,6 +541,14 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       }
     }
   }, []);
+
+  // Fecha o picker de reação ao clicar fora
+  useEffect(() => {
+    if (!reactionPickerId) return;
+    const handler = () => setReactionPickerId(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [reactionPickerId]);
 
   // Adiciona listener de paste no documento
   useEffect(() => {
@@ -1038,6 +1063,17 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                   </div>
                 )}
                 <div className={cn("flex items-end gap-1", isInbound ? "justify-start" : "justify-end")}>
+                  {/* Botão responder — inbound: aparece à direita da bolha; outbound: antes do menu */}
+                  {isInbound && (
+                    <button
+                      onClick={() => { setReplyingTo(message); setTimeout(() => inputRef.current?.focus(), 50); }}
+                      className="self-center opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 order-last"
+                      title="Responder"
+                    >
+                      <Reply className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+
                   {/* Botão de menu — aparece ao hover */}
                   {!isInbound && (canEditMessage(message) || canDeleteMessage(message)) && (
                     <div className="relative self-center opacity-0 group-hover:opacity-100 transition-opacity order-first">
@@ -1077,6 +1113,17 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                         </div>
                       )}
                     </div>
+                  )}
+
+                  {/* Botão responder — outbound: aparece antes do menu */}
+                  {!isInbound && (
+                    <button
+                      onClick={() => { setReplyingTo(message); setTimeout(() => inputRef.current?.focus(), 50); }}
+                      className="self-center opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 order-first"
+                      title="Responder"
+                    >
+                      <Reply className="h-3.5 w-3.5" />
+                    </button>
                   )}
 
                   <div
@@ -1237,6 +1284,48 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                     </div>
                   </div>
                 </div>
+
+                {/* Botão de reação — aparece ao hover abaixo da mensagem */}
+                {message.messageId && (
+                  <div className={cn("flex -mt-0.5 mb-0.5", isInbound ? "justify-start" : "justify-end")}>
+                    <div className="relative">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setReactionPickerId(reactionPickerId === message.id ? null : message.id); }}
+                        className={cn(
+                          "text-base leading-none transition-all duration-150 select-none",
+                          "opacity-0 group-hover:opacity-30 hover:!opacity-100 hover:scale-125",
+                          sendingReactionId === message.id && "opacity-50 cursor-wait"
+                        )}
+                        disabled={sendingReactionId === message.id}
+                        title="Reagir"
+                      >
+                        {sendingReactionId === message.id ? "⏳" : "😊"}
+                      </button>
+
+                      {reactionPickerId === message.id && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className={cn(
+                            "absolute bottom-full mb-1 z-30",
+                            "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-full shadow-lg",
+                            "flex items-center gap-0.5 px-2 py-1.5",
+                            isInbound ? "left-0" : "right-0"
+                          )}
+                        >
+                          {['👍','❤️','😂','😮','😢','🙏'].map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => handleSendReaction(message.id, emoji)}
+                              className="text-xl leading-none p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 hover:scale-125 transition-transform"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })
@@ -1321,6 +1410,34 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 </Button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Preview da mensagem sendo respondida */}
+        {replyingTo && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex-1 flex items-center gap-2 min-w-0">
+              <div className="w-0.5 h-8 rounded-full bg-green-500 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-green-600 dark:text-green-400">
+                  {replyingTo.direction === MessageDirection.INBOUND ? customerName : "Você"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {replyingTo.mediaType === "image" ? "🖼️ Imagem"
+                    : replyingTo.mediaType === "audio" ? "🎤 Áudio"
+                    : replyingTo.mediaType === "video" ? "🎥 Vídeo"
+                    : replyingTo.content}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyingTo(null)}
+              className="shrink-0 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors"
+              title="Cancelar resposta"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
         )}
 

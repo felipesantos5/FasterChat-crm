@@ -32,6 +32,9 @@ router.post('/mark-read', asyncHandler(messageController.markAsRead));
 // PUT /api/messages/:id - Edita conteúdo de uma mensagem (janela de 15 min)
 router.put('/:id', asyncHandler(messageController.editMessage));
 
+// POST /api/messages/:id/react - Envia reação emoji a uma mensagem
+router.post('/:id/react', asyncHandler(messageController.sendReaction));
+
 // POST /api/messages/:id/feedback - Adiciona feedback a uma mensagem
 router.post('/:id/feedback', asyncHandler(messageController.addFeedback));
 

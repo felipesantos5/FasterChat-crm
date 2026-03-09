@@ -684,7 +684,7 @@ export class FlowEngineService {
       // Branch terminal — decrementa contador de branches paralelas atomicamente.
       // Só marca COMPLETED quando todas as branches tiverem terminado.
       const countResult = await prisma.$queryRaw<Array<{ new_count: number }>>`
-        UPDATE "FlowExecution"
+        UPDATE flow_executions
         SET variables = jsonb_set(
           COALESCE(variables, '{}')::jsonb,
           '{_activeBranches}',
@@ -715,7 +715,7 @@ export class FlowEngineService {
     // para que nenhuma branch individual encerre o fluxo prematuramente.
     if (edges.length > 1) {
       await prisma.$executeRaw`
-        UPDATE "FlowExecution"
+        UPDATE flow_executions
         SET variables = jsonb_set(
           COALESCE(variables, '{}')::jsonb,
           '{_activeBranches}',

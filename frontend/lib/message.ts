@@ -52,7 +52,7 @@ export const messageApi = {
   /**
    * Envia uma mensagem para um customer
    */
-  async sendMessage(customerId: string, content: string, sentBy: 'HUMAN' | 'AI' = 'HUMAN'): Promise<{
+  async sendMessage(customerId: string, content: string, sentBy: 'HUMAN' | 'AI' = 'HUMAN', quotedMessageId?: string): Promise<{
     success: boolean;
     data: {
       message: Message;
@@ -64,6 +64,7 @@ export const messageApi = {
       customerId,
       content,
       sentBy,
+      ...(quotedMessageId ? { quotedMessageId } : {}),
     });
     return response.data;
   },
@@ -123,6 +124,14 @@ export const messageApi = {
    */
   async deleteMessage(messageId: string): Promise<{ success: boolean }> {
     const response = await api.delete(`/messages/${messageId}`);
+    return response.data;
+  },
+
+  /**
+   * Envia uma reação emoji a uma mensagem
+   */
+  async sendReaction(messageId: string, emoji: string): Promise<{ success: boolean }> {
+    const response = await api.post(`/messages/${messageId}/react`, { emoji });
     return response.data;
   },
 

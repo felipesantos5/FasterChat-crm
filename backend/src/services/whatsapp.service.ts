@@ -397,7 +397,7 @@ class WhatsAppService {
    */
   async sendMessage(data: SendMessageRequest) {
     try {
-      const { instanceId, to, text } = data;
+      const { instanceId, to, text, quoted } = data;
 
       let instance = await prisma.whatsAppInstance.findUnique({
         where: { id: instanceId },
@@ -428,10 +428,22 @@ class WhatsAppService {
       // Usa o helper para formatar corretamente (LID vs Phone)
       const remoteJid = this.formatJid(to);
 
-      const response = await this.axiosInstance.post<EvolutionApiSendMessageResponse>(`/message/sendText/${instance!.instanceName}`, {
-        number: remoteJid,
-        text,
-      });
+      const body: Record<string, unknown> = { number: remoteJid, text };
+
+      if (quoted) {
+        body.quoted = {
+          key: {
+            id: quoted.messageId,
+            fromMe: quoted.fromMe,
+            remoteJid,
+          },
+          message: {
+            conversation: quoted.content,
+          },
+        };
+      }
+
+      const response = await this.axiosInstance.post<EvolutionApiSendMessageResponse>(`/message/sendText/${instance!.instanceName}`, body);
 
       return {
         success: true,

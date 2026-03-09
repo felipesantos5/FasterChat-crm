@@ -22,6 +22,11 @@ export interface SendMessageRequest {
   instanceId: string;
   to: string;
   text: string;
+  quoted?: {
+    messageId: string;
+    content: string;
+    fromMe: boolean;
+  };
 }
 
 // Evolution API Types
