@@ -943,6 +943,34 @@ class WhatsAppService {
   }
 
   /**
+   * Envia uma reação (emoji) para uma mensagem existente no WhatsApp.
+   * Funciona para qualquer tipo de mensagem: texto, imagem, áudio, etc.
+   */
+  async sendReaction(data: {
+    instanceId: string;
+    remoteJid: string;
+    messageId: string;
+    fromMe: boolean;
+    emoji: string;
+  }): Promise<void> {
+    const { instanceId, remoteJid, messageId, fromMe, emoji } = data;
+
+    const instance = await prisma.whatsAppInstance.findUnique({ where: { id: instanceId } });
+    if (!instance) throw Errors.whatsappInstanceNotFound();
+
+    const formattedJid = this.formatJid(remoteJid);
+
+    await this.axiosInstance.post(`/message/sendReaction/${instance.instanceName}`, {
+      key: {
+        remoteJid: formattedJid,
+        fromMe,
+        id: messageId,
+      },
+      reaction: emoji,
+    });
+  }
+
+  /**
    * 🔍 Tenta resolver um LID (Linked Identifier) para um número de telefone real
    * usando o endpoint chat/findContacts da Evolution API.
    *

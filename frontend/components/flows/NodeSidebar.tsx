@@ -170,6 +170,17 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
             </div>
           </button>
 
+          <button
+            onClick={() => addNode('reaction', 'Reagir à Mensagem')}
+            className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-yellow-400 hover:shadow-md transition-all text-center group"
+          >
+            <div className="bg-yellow-100 p-2 rounded-md text-yellow-600 group-hover:bg-yellow-400 group-hover:text-white transition-colors text-lg">👍</div>
+            <div>
+              <p className="font-semibold text-xs text-gray-800">Reagir</p>
+              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Emoji na msg</p>
+            </div>
+          </button>
+
         </div>
       </div>
     </div>

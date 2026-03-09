@@ -306,6 +306,46 @@ export class FlowEngineService {
   }
 
   /**
+   * Envia uma reação emoji para a última mensagem recebida do contato.
+   * Reage à mensagem inbound mais recente encontrada no banco.
+   */
+  private async executeReactionNode(
+    execution: Record<string, unknown>,
+    _node: Record<string, unknown>,
+    data: Record<string, unknown>
+  ): Promise<void> {
+    const emoji = (data.emoji as string) || '👍';
+    const contactPhone = execution.contactPhone as string;
+    const instanceId = (execution.whatsappInstanceId as string) || (execution.whatsappInstance as any)?.id;
+    const flow = execution.flow as Record<string, unknown>;
+    const companyId = flow.companyId as string;
+
+    // Busca a última mensagem recebida (inbound) do contato para saber o messageId
+    const lastInbound = await prisma.message.findFirst({
+      where: {
+        direction: MessageDirection.INBOUND,
+        customer: { companyId, phone: contactPhone },
+        messageId: { not: null },
+      },
+      orderBy: { timestamp: 'desc' },
+      select: { messageId: true },
+    });
+
+    if (!lastInbound?.messageId) {
+      // Sem mensagem inbound para reagir — encerra silenciosamente
+      return;
+    }
+
+    await whatsappService.sendReaction({
+      instanceId,
+      remoteJid: contactPhone,
+      messageId: lastInbound.messageId,
+      fromMe: false,
+      emoji,
+    });
+  }
+
+  /**
    * Enfileira o início de um fluxo para um contato.
    * Este é o ponto de entrada público — apenas enfileira, não executa.
    */
@@ -574,19 +614,28 @@ export class FlowEngineService {
     //
     // Lógica: se o nodeId deste job NÃO é o currentNodeId da execução,
     // e o nodeId já está no history (= já foi processado), este job é stale.
+    //
+    // ⚠️ Em fluxos com branches paralelas (_activeBranches > 1), o history não é linear —
+    // múltiplas branches gravam no mesmo history. O stale guard não se aplica nesse caso.
     if (execution.status === FlowExecutionStatus.RUNNING) {
-      const history = Array.isArray(execution.history) ? execution.history as string[] : [];
-      const currentNodeId = execution.currentNodeId;
+      const execVarsRaw = execution.variables;
+      const execVars = (typeof execVarsRaw === 'string' ? JSON.parse(execVarsRaw) : (execVarsRaw || {})) as Record<string, unknown>;
+      const activeBranches = typeof execVars._activeBranches === 'number' ? execVars._activeBranches : 1;
 
-      // O job é para um nodeId que não é o nó atual da execução
-      if (currentNodeId && currentNodeId !== nodeId) {
-        // Verifica se o nodeId deste job já foi processado (está no history)
-        // E se o nó atual da execução é POSTERIOR ao nodeId (= fluxo avançou)
-        const nodeIdxInHistory = history.lastIndexOf(nodeId);
-        const currentIdxInHistory = history.lastIndexOf(currentNodeId);
+      if (activeBranches <= 1) {
+        const history = Array.isArray(execution.history) ? execution.history as string[] : [];
+        const currentNodeId = execution.currentNodeId;
 
-        if (nodeIdxInHistory >= 0 && currentIdxInHistory > nodeIdxInHistory) {
-          return;
+        // O job é para um nodeId que não é o nó atual da execução
+        if (currentNodeId && currentNodeId !== nodeId) {
+          // Verifica se o nodeId deste job já foi processado (está no history)
+          // E se o nó atual da execução é POSTERIOR ao nodeId (= fluxo avançou)
+          const nodeIdxInHistory = history.lastIndexOf(nodeId);
+          const currentIdxInHistory = history.lastIndexOf(currentNodeId);
+
+          if (nodeIdxInHistory >= 0 && currentIdxInHistory > nodeIdxInHistory) {
+            return;
+          }
         }
       }
     }
@@ -632,7 +681,24 @@ export class FlowEngineService {
     }
 
     if (edges.length === 0) {
-      // Flow ended
+      // Branch terminal — decrementa contador de branches paralelas atomicamente.
+      // Só marca COMPLETED quando todas as branches tiverem terminado.
+      const countResult = await prisma.$queryRaw<Array<{ new_count: number }>>`
+        UPDATE "FlowExecution"
+        SET variables = jsonb_set(
+          COALESCE(variables, '{}')::jsonb,
+          '{_activeBranches}',
+          to_jsonb(GREATEST(COALESCE((variables->>'_activeBranches')::int, 1) - 1, 0))
+        )
+        WHERE id = ${executionId}
+        RETURNING (variables->>'_activeBranches')::int as new_count
+      `;
+      const remaining = countResult[0]?.new_count ?? 0;
+      if (remaining > 0) {
+        // Outras branches ainda ativas — não encerra o fluxo
+        return;
+      }
+
       await prisma.flowExecution.update({
         where: { id: executionId },
         data: { status: FlowExecutionStatus.COMPLETED, completedAt: new Date() }
@@ -643,6 +709,20 @@ export class FlowEngineService {
         : (execution.variables as Record<string, unknown> || {});
       await this.advanceBatchQueue(vars, execution.flowId as string, (execution.flow as any).companyId);
       return;
+    }
+
+    // Quando há múltiplas edges saindo (branches paralelas), incrementa o contador
+    // para que nenhuma branch individual encerre o fluxo prematuramente.
+    if (edges.length > 1) {
+      await prisma.$executeRaw`
+        UPDATE "FlowExecution"
+        SET variables = jsonb_set(
+          COALESCE(variables, '{}')::jsonb,
+          '{_activeBranches}',
+          to_jsonb(COALESCE((variables->>'_activeBranches')::int, 1) + ${edges.length - 1})
+        )
+        WHERE id = ${executionId}
+      `;
     }
 
     // Para cada edge, encontra o nó alvo e executa
@@ -869,6 +949,12 @@ export class FlowEngineService {
 
         case 'update_stage':
           await this.executeUpdateStageNode(execution, node, data);
+          await this.markNodeCompleted(execution.id as string, node.id as string);
+          await this.processNextNodes(execution.id as string, node.id as string);
+          break;
+
+        case 'reaction':
+          await this.executeReactionNode(execution, node, data);
           await this.markNodeCompleted(execution.id as string, node.id as string);
           await this.processNextNodes(execution.id as string, node.id as string);
           break;
