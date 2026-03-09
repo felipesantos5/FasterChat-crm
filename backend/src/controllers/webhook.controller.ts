@@ -217,20 +217,15 @@ class WebhookController {
               }
             } else {
               // NÃO está em fluxo de agendamento, processa normalmente com a IA
-              const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
 
-              // ⏱️ APLICA DELAY DE RESPOSTA (se configurado)
-              const replyDelay = (aiKnowledge?.replyDelay || 30) * 1000;
-              if (replyDelay > 0) {
-                // Emite indicador de "digitando" enquanto espera
-                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, true);
-                
-                // Emite status de "digitando" no WhatsApp
-                await whatsappService.sendPresence(result.instance.id, result.customer.phone, replyDelay, "composing");
-                
-                await new Promise(resolve => setTimeout(resolve, replyDelay));
-                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
-              }
+              // ⏱️ DELAY antes de gerar resposta: random entre 30-60 segundos
+              const replyDelay = Math.floor(Math.random() * 31_000) + 30_000;
+              websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, true);
+              await whatsappService.sendPresence(result.instance.id, result.customer.phone, replyDelay, "composing");
+              await new Promise(resolve => setTimeout(resolve, replyDelay));
+              websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
+
+              const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
 
               // COMANDO ESPECIAL: Agendamento
               if (aiResponse.startsWith("[INICIAR_AGENDAMENTO]")) {
