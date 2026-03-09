@@ -189,7 +189,7 @@ class WebhookController {
         // 2. Auto-reply habilitado na empresa
         // 3. Provedor de IA configurado (OpenAI ou Gemini)
         // 4. Não é grupo
-        const isAutoReplyEnabled = aiKnowledge?.autoReplyEnabled !== false;
+        const isAutoReplyEnabled = aiKnowledge?.autoReplyEnabled === true;
 
         // Provider é definido via .env (AI_PROVIDER), não usa mais o banco
         const aiProvider: AIProvider = (process.env.AI_PROVIDER as AIProvider) || "gemini";
