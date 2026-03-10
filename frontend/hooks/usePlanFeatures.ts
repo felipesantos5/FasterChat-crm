@@ -6,44 +6,48 @@ import { PlanTier } from "@/types/auth";
 /**
  * Features disponíveis por plano:
  *
- * INICIAL (R$ 197/mês):
+ * INICIAL / Essencial (R$ 197/mês):
  *   ✅ 1 WhatsApp Conectado
  *   ✅ Gestão de Clientes (CRM)
  *   ✅ Atendente Virtual com IA
+ *   ✅ Fluxos de Automação
  *   ❌ Disparador de campanhas
  *   ❌ Rastreamento Inteligente de Links
  *   ❌ Integração com Google Agenda
- *   ❌ Geração de Imagem Nativa
- *   ❌ Fluxos de Automação
+ *   ❌ Geração de Imagem com IA no Fluxo
+ *   ❌ Áudio com IA no Fluxo
  *
- * NEGOCIOS (R$ 297/mês):
+ * NEGOCIOS / Growth (R$ 297/mês):
  *   ✅ 5 WhatsApp Conectados
  *   ✅ Gestão de Clientes (CRM)
  *   ✅ Atendente Virtual com IA
+ *   ✅ Fluxos de Automação
  *   ✅ Disparador de campanhas
  *   ✅ Rastreamento Inteligente de Links
- *   ✅ Fluxos de Automação
  *   ❌ Integração com Google Agenda
- *   ❌ Geração de Imagem Nativa
+ *   ❌ Geração de Imagem com IA no Fluxo
+ *   ❌ Áudio com IA no Fluxo
  *
- * ESCALA_TOTAL (R$ 397/mês):
+ * ESCALA_TOTAL / Performance Máxima (R$ 397/mês):
  *   ✅ WhatsApp Ilimitado
  *   ✅ Gestão de Clientes (CRM)
  *   ✅ Atendente Virtual com IA (melhorada)
+ *   ✅ Fluxos de Automação
  *   ✅ Disparador de campanhas
  *   ✅ Rastreamento Inteligente de Links
  *   ✅ Integração com Google Agenda
- *   ✅ Geração de Imagem Nativa
- *   ✅ Fluxos de Automação
+ *   ✅ Geração de Imagem com IA no Fluxo
+ *   ✅ Áudio com IA no Fluxo (ElevenLabs)
  */
 
 export type PlanFeature =
-  | "CAMPAIGNS" // Disparador de campanhas
-  | "WHATSAPP_LINKS" // Rastreamento Inteligente de Links
+  | "CAMPAIGNS"       // Disparador de campanhas
+  | "WHATSAPP_LINKS"  // Rastreamento Inteligente de Links
   | "GOOGLE_CALENDAR" // Integração com Google Agenda
-  | "AI_IMAGE" // Geração de Imagem Nativa
-  | "WORKFLOW" // Fluxos de Automação
-  | "AI_ADVANCED"; // IA Avançada (melhorada)
+  | "AI_IMAGE"        // Geração de Imagem com IA no fluxo
+  | "WORKFLOW"        // Fluxos de Automação
+  | "FLOW_TTS"        // Áudio com IA no fluxo (ElevenLabs)
+  | "AI_ADVANCED";    // IA Avançada (melhorada)
 
 // Mapa de quais planos têm acesso a cada feature
 const PLAN_FEATURE_MAP: Record<PlanFeature, PlanTier[]> = {
@@ -51,7 +55,8 @@ const PLAN_FEATURE_MAP: Record<PlanFeature, PlanTier[]> = {
   WHATSAPP_LINKS: ["NEGOCIOS", "ESCALA_TOTAL"],
   GOOGLE_CALENDAR: ["ESCALA_TOTAL"],
   AI_IMAGE: ["ESCALA_TOTAL"],
-  WORKFLOW: ["NEGOCIOS", "ESCALA_TOTAL"],
+  WORKFLOW: ["INICIAL", "NEGOCIOS", "ESCALA_TOTAL"],
+  FLOW_TTS: ["ESCALA_TOTAL"],
   AI_ADVANCED: ["ESCALA_TOTAL"],
 };
 
@@ -68,8 +73,9 @@ export const FEATURE_LABELS: Record<PlanFeature, string> = {
   CAMPAIGNS: "Disparador de Campanhas",
   WHATSAPP_LINKS: "Rastreamento Inteligente de Links",
   GOOGLE_CALENDAR: "Integração com Google Agenda",
-  AI_IMAGE: "Geração de Imagem Nativa",
+  AI_IMAGE: "Geração de Imagem com IA no Fluxo",
   WORKFLOW: "Fluxos de Automação",
+  FLOW_TTS: "Áudio com IA no Fluxo",
   AI_ADVANCED: "IA Avançada",
 };
 
@@ -79,7 +85,8 @@ export const FEATURE_MIN_PLAN: Record<PlanFeature, PlanTier> = {
   WHATSAPP_LINKS: "NEGOCIOS",
   GOOGLE_CALENDAR: "ESCALA_TOTAL",
   AI_IMAGE: "ESCALA_TOTAL",
-  WORKFLOW: "NEGOCIOS",
+  WORKFLOW: "INICIAL",
+  FLOW_TTS: "ESCALA_TOTAL",
   AI_ADVANCED: "ESCALA_TOTAL",
 };
 

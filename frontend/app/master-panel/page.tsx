@@ -21,6 +21,7 @@ import {
   Mic,
   Hash,
   Cpu,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -71,7 +72,6 @@ export default function AdminDashboardPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [seedingCompanyId, setSeedingCompanyId] = useState<string | null>(null);
   const [aiCostsModal, setAiCostsModal] = useState<{ company: Company; data: AiCosts | null; loading: boolean } | null>(null);
   const [aiCostsPeriod, setAiCostsPeriod] = useState(30);
 
@@ -129,38 +129,9 @@ export default function AdminDashboardPage() {
     });
   };
 
-  const handleSeedHvac = async (companyId: string, companyName: string) => {
-    if (!token) return;
-
-    const confirmed = window.confirm(
-      `Deseja executar o seed HVAC para a empresa "${companyName}"?\n\nIsso irá cadastrar:\n- 12 Serviços de ar condicionado\n- Faixas de preço por quantidade\n- 3 Zonas de atendimento\n- 8 Combos de instalação\n- Adicional de Rapel\n- Exceções de taxa`
-    );
-
-    if (!confirmed) return;
-
-    setSeedingCompanyId(companyId);
-    try {
-      const response = await fetch(`${API_URL}/api/admin/seed-hvac/${companyId}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao executar seed");
-      }
-
-      const result = await response.json();
-      toast.success(
-        `Seed HVAC concluído para ${result.companyName}!\n` +
-        `Serviços: ${result.results.services}, Zonas: ${result.results.zones}, Combos: ${result.results.combos}`
-      );
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao executar seed HVAC");
-      console.error(error);
-    } finally {
-      setSeedingCompanyId(null);
-    }
+  const copyCompanyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    toast.success("ID da empresa copiado!");
   };
 
   const openAiCosts = async (company: Company, period: number = aiCostsPeriod) => {
@@ -314,13 +285,7 @@ export default function AdminDashboardPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Company ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Empresa
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Dono
+                      Empresa / Dono
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Colaboradores
@@ -332,13 +297,13 @@ export default function AdminDashboardPage() {
                       Instâncias
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Msgs (7 dias)
+                      Msgs (7d)
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Msgs (Total)
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Plano Atual
+                      Plano
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Criado em
@@ -352,22 +317,22 @@ export default function AdminDashboardPage() {
                   {companies.map((company) => (
                     <tr key={company.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono text-gray-700">
-                          {company.id}
-                        </code>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                            <Building2 className="w-5 h-5 text-green-600" />
+                          <button
+                            onClick={() => copyCompanyId(company.id)}
+                            className="w-9 h-9 bg-green-100 hover:bg-green-200 rounded-lg flex items-center justify-center shrink-0 transition-colors group"
+                            title="Clique para copiar o ID da empresa"
+                          >
+                            <Building2 className="w-4 h-4 text-green-600 group-hover:hidden" />
+                            <Copy className="w-4 h-4 text-green-600 hidden group-hover:block" />
+                          </button>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-gray-900">{company.name}</span>
+                            <span className="text-gray-300">·</span>
+                            <span className="text-sm text-gray-600">{company.ownerName}</span>
+                            <span className="text-gray-300">·</span>
+                            <span className="text-sm text-gray-400">{company.ownerEmail}</span>
                           </div>
-                          <div className="font-medium text-gray-900">{company.name}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm text-gray-900">{company.ownerName}</div>
-                          <div className="text-sm text-gray-500">{company.ownerEmail}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -430,29 +395,14 @@ export default function AdminDashboardPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => openAiCosts(company)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-sm font-medium transition-colors"
-                            title="Ver gastos com IA"
-                          >
-                            <DollarSign className="w-4 h-4" />
-                            Gastos IA
-                          </button>
-                          <button
-                            onClick={() => handleSeedHvac(company.id, company.name)}
-                            disabled={seedingCompanyId === company.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Cadastrar dados HVAC (Ar Condicionado)"
-                          >
-                            {seedingCompanyId === company.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Database className="w-4 h-4" />
-                            )}
-                            {seedingCompanyId === company.id ? "Executando..." : "Seed HVAC"}
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => openAiCosts(company)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-sm font-medium transition-colors"
+                          title="Ver gastos com IA"
+                        >
+                          <DollarSign className="w-4 h-4" />
+                          Gastos IA
+                        </button>
                       </td>
                     </tr>
                   ))}

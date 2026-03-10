@@ -233,7 +233,7 @@ export default function AIInsightsPage() {
       </Card>
 
       {/* Sugestões Automáticas */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Sugestões de Melhoria</CardTitle>
           <CardDescription>Recomendações baseadas nos padrões de feedback</CardDescription>
@@ -299,7 +299,7 @@ export default function AIInsightsPage() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }

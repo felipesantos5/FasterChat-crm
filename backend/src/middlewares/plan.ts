@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma';
 import { PlanTier } from '@prisma/client';
 
-export const checkPlanFeature = (feature: 'WORKFLOW' | 'AI_ADVANCED' | 'AI_IMAGE' | 'GOOGLE_CALENDAR' | 'CAMPAIGNS' | 'WHATSAPP_LINKS') => {
+export const checkPlanFeature = (feature: 'WORKFLOW' | 'AI_ADVANCED' | 'AI_IMAGE' | 'FLOW_TTS' | 'GOOGLE_CALENDAR' | 'CAMPAIGNS' | 'WHATSAPP_LINKS') => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
@@ -39,15 +39,20 @@ export const checkPlanFeature = (feature: 'WORKFLOW' | 'AI_ADVANCED' | 'AI_IMAGE
 
       // Lógica de Permissões por Plano
       // Baseado na tabela de preços:
-      // INICIAL (R$197):   CRM, IA básica, 1 WhatsApp
-      // NEGOCIOS (R$297):  + Campanhas, Links, Fluxos, 5 WhatsApp
-      // ESCALA_TOTAL (R$397): + Google Agenda, Geração de Imagem, IA avançada, WhatsApp ilimitado
+      // INICIAL (R$197):   CRM, IA básica, 1 WhatsApp, Fluxos
+      // NEGOCIOS (R$297):  + Campanhas, Links, 5 WhatsApp
+      // ESCALA_TOTAL (R$397): + Google Agenda, Imagem IA, Áudio IA, IA avançada, WhatsApp ilimitado
       let allowed = false;
 
       switch (feature) {
         case 'WORKFLOW':
-          // Fluxos de Automação disponíveis para NEGOCIOS e ESCALA_TOTAL
-          allowed = plan === PlanTier.NEGOCIOS || plan === PlanTier.ESCALA_TOTAL;
+          // Fluxos de Automação disponíveis a partir do INICIAL
+          allowed = plan === PlanTier.INICIAL || plan === PlanTier.NEGOCIOS || plan === PlanTier.ESCALA_TOTAL;
+          break;
+
+        case 'FLOW_TTS':
+          // Áudio com IA no fluxo apenas no ESCALA_TOTAL
+          allowed = plan === PlanTier.ESCALA_TOTAL;
           break;
 
         case 'CAMPAIGNS':
@@ -84,7 +89,8 @@ export const checkPlanFeature = (feature: 'WORKFLOW' | 'AI_ADVANCED' | 'AI_IMAGE
         CAMPAIGNS: 'Campanhas',
         WHATSAPP_LINKS: 'Links Rastreados',
         AI_ADVANCED: 'IA Avançada',
-        AI_IMAGE: 'Geração de Imagens',
+        AI_IMAGE: 'Geração de Imagens com IA',
+        FLOW_TTS: 'Áudio com IA no Fluxo',
         GOOGLE_CALENDAR: 'Google Agenda',
       };
       const featureName = featureNames[feature] || feature;

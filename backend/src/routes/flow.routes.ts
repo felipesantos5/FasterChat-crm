@@ -32,7 +32,7 @@ const upload = multer({
 flowRouter.use(authenticate);
 flowRouter.use(checkPlanFeature('WORKFLOW'));
 
-flowRouter.post('/tts-preview', asyncHandler(flowController.generateTtsPreview.bind(flowController)));
+flowRouter.post('/tts-preview', checkPlanFeature('FLOW_TTS'), asyncHandler(flowController.generateTtsPreview.bind(flowController)));
 flowRouter.get('/', asyncHandler(flowController.getFlows));
 flowRouter.post('/', asyncHandler(flowController.createFlow));
 flowRouter.get('/batches/active', asyncHandler(flowBatchController.getActiveBatches.bind(flowBatchController)));

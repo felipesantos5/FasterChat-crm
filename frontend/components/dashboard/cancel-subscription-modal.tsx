@@ -31,23 +31,27 @@ const CANCEL_REASONS = [
 const PLAN_FEATURES_LOSS: Record<string, string[]> = {
   ESCALA_TOTAL: [
     "WhatsApps ilimitados conectados",
-    "Geração de imagem nativa por IA",
+    "Geração de imagem com IA nos fluxos",
+    "Áudio com IA nos fluxos (ElevenLabs)",
     "Integração com Google Agenda",
     "Atendente Virtual com IA avançada",
     "Disparador de campanhas ilimitado",
     "Rastreamento inteligente de links",
+    "Fluxos de automação",
     "CRM completo com funil de vendas",
   ],
   NEGOCIOS: [
-    "Até 3 WhatsApps conectados",
+    "Até 5 WhatsApps conectados",
     "Atendente Virtual com IA",
     "Disparador de campanhas",
     "Rastreamento inteligente de links",
+    "Fluxos de automação",
     "CRM completo com funil de vendas",
   ],
   INICIAL: [
     "1 WhatsApp conectado",
     "Atendente Virtual com IA",
+    "Fluxos de automação",
     "CRM completo com funil de vendas",
   ],
 };

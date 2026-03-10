@@ -1216,6 +1216,16 @@ export class FlowEngineService {
 
     const contactPhone = execution.contactPhone as string;
     const ttsMode = (data.ttsMode || 'dynamic') as string;
+    const flowCompanyId = (execution.flow as Record<string, unknown>).companyId as string;
+
+    // Verifica se o plano da empresa permite Áudio IA (ESCALA_TOTAL apenas)
+    const company = await prisma.company.findUnique({
+      where: { id: flowCompanyId },
+      select: { plan: true },
+    });
+    if (!company || company.plan !== 'ESCALA_TOTAL') {
+      throw new Error('O nó "Áudio com IA" está disponível apenas no plano Performance Máxima (Escala Total).');
+    }
 
     // Exibe "gravando..." antes de enviar
     try {
@@ -1244,9 +1254,8 @@ export class FlowEngineService {
       const voice = (data.ttsVoice || 'EXAVITQu4vr4xnSDxMaL') as string;
       const model = (data.ttsModel || 'eleven_multilingual_v2') as string;
 
-      const companyId = (execution.flow as Record<string, unknown>).companyId as string | undefined;
       const elevenLabsService = (await import('./elevenlabs.service')).default;
-      const mp3Buffer = await elevenLabsService.generateSpeech(resolvedText, voice, model, companyId);
+      const mp3Buffer = await elevenLabsService.generateSpeech(resolvedText, voice, model, flowCompanyId);
 
       // Converte para base64 para envio direto pelo WhatsApp (evita upload extra)
       mediaSource = `data:audio/mp3;base64,${mp3Buffer.toString('base64')}`;
