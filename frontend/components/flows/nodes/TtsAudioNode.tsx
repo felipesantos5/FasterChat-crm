@@ -18,12 +18,12 @@ interface TtsAudioData {
 }
 
 const VOICES: { id: string; label: string; description: string }[] = [
-  { id: 'nova',    label: 'Nova',    description: 'Feminina, suave e clara' },
-  { id: 'alloy',   label: 'Alloy',   description: 'Neutra e equilibrada' },
-  { id: 'shimmer', label: 'Shimmer', description: 'Feminina, expressiva' },
-  { id: 'echo',    label: 'Echo',    description: 'Masculina, moderada' },
-  { id: 'fable',   label: 'Fable',   description: 'Masculina, narrativa' },
-  { id: 'onyx',    label: 'Onyx',    description: 'Masculina, grave' },
+  { id: 'EXAVITQu4vr4xnSDxMaL', label: 'Sarah',   description: 'Feminina, suave e clara' },
+  { id: 'TX3LPaxmHKxFdv7voQ3T',  label: 'Liam',    description: 'Masculina, jovem e natural' },
+  { id: 'pFZP5JQG7iQjIQuC4Bku',  label: 'Lily',    description: 'Feminina, expressiva e calorosa' },
+  { id: 'nPczCjzI2devNBz1zQrb',  label: 'Brian',   description: 'Masculina, grave e confiante' },
+  { id: 'onwK4e9ZLuTAKqWW03F9',  label: 'Daniel',  description: 'Masculina, narração profissional' },
+  { id: 'XB0fDUnXU5powFXDhCwa',  label: 'Charlotte', description: 'Feminina, elegante e clara' },
 ];
 
 export const TtsAudioNode = memo(({ id, data }: { id: string; data: TtsAudioData }) => {
@@ -31,8 +31,8 @@ export const TtsAudioNode = memo(({ id, data }: { id: string; data: TtsAudioData
 
   const [mode, setMode] = useState<TtsMode>(data.ttsMode ?? 'dynamic');
   const [text, setText] = useState(data.ttsText ?? '');
-  const [voice, setVoice] = useState(data.ttsVoice ?? 'nova');
-  const [model, setModel] = useState(data.ttsModel ?? 'tts-1');
+  const [voice, setVoice] = useState(data.ttsVoice ?? 'EXAVITQu4vr4xnSDxMaL');
+  const [model, setModel] = useState(data.ttsModel ?? 'eleven_multilingual_v2');
   const [staticUrl, setStaticUrl] = useState(data.staticAudioUrl ?? '');
   const [staticName, setStaticName] = useState(data.staticAudioName ?? '');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -233,9 +233,9 @@ export const TtsAudioNode = memo(({ id, data }: { id: string; data: TtsAudioData
           <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Qualidade</label>
           <div className="flex rounded-md border border-gray-200 overflow-hidden text-[11px] font-medium nodrag">
             <button
-              onClick={() => setModel('tts-1')}
+              onClick={() => setModel('eleven_multilingual_v2')}
               className={`flex-1 py-1.5 transition-colors ${
-                model === 'tts-1'
+                model === 'eleven_multilingual_v2'
                   ? 'bg-violet-500 text-white'
                   : 'bg-white text-gray-500 hover:bg-gray-50'
               }`}
@@ -243,20 +243,20 @@ export const TtsAudioNode = memo(({ id, data }: { id: string; data: TtsAudioData
               Padrão
             </button>
             <button
-              onClick={() => setModel('tts-1-hd')}
+              onClick={() => setModel('eleven_turbo_v2_5')}
               className={`flex-1 py-1.5 transition-colors ${
-                model === 'tts-1-hd'
+                model === 'eleven_turbo_v2_5'
                   ? 'bg-violet-500 text-white'
                   : 'bg-white text-gray-500 hover:bg-gray-50'
               }`}
             >
-              Alta Qualidade
+              Turbo
             </button>
           </div>
           <p className="text-[9px] text-gray-400">
-            {model === 'tts-1'
-              ? 'tts-1 — mais rápido, ideal para fluxos com variáveis'
-              : 'tts-1-hd — melhor qualidade, recomendado para áudio estático'}
+            {model === 'eleven_turbo_v2_5'
+              ? 'Turbo v2.5 — mais rápido, ideal para fluxos com variáveis'
+              : 'Multilingual v2 — maior qualidade e naturalidade'}
           </p>
         </div>
 
@@ -305,7 +305,7 @@ export const TtsAudioNode = memo(({ id, data }: { id: string; data: TtsAudioData
           <div className="flex items-start gap-1.5 p-2 bg-amber-50 border border-amber-100 rounded text-[10px] text-amber-700 leading-relaxed">
             <span className="shrink-0 mt-0.5">💡</span>
             <span>
-              Custo estimado: ~{charCount > 0 ? `$${((charCount / 1_000_000) * (model === 'tts-1-hd' ? 30 : 15)).toFixed(5)}` : '$0.00000'} por envio (OpenAI TTS)
+              Custo estimado: ~{charCount > 0 ? `$${((charCount / 1_000) * (model === 'eleven_turbo_v2_5' ? 0.00033 : 0.00066)).toFixed(5)}` : '$0.00000'} por envio (ElevenLabs)
             </span>
           </div>
         )}

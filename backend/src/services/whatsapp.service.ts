@@ -923,13 +923,14 @@ class WhatsAppService {
 
       const remoteJid = this.formatJid(to);
 
+      // Timeout precisa ser maior que o delayMs para a Evolution API terminar de "digitar/gravar"
       await this.axiosInstance.post(`/chat/sendPresence/${instance.instanceName}`, {
         number: remoteJid,
         delay: delayMs,
         presence,
-      });
-    } catch (error: any) {
-      console.error("[WhatsApp Service] Error sending presence:", error.message);
+      }, { timeout: delayMs + 8000 });
+    } catch {
+      // Presença não é crítica — erro silenciado intencionalmente
     }
   }
 

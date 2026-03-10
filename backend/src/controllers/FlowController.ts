@@ -528,13 +528,13 @@ export class FlowController {
       return res.status(400).json({ error: 'O texto pode ter no máximo 4096 caracteres.' });
     }
 
-    const openaiService = (await import('../services/ai-providers/openai.service')).default;
+    const elevenLabsService = (await import('../services/elevenlabs.service')).default;
 
-    if (!openaiService.isConfigured()) {
-      return res.status(400).json({ error: 'OpenAI não está configurado. Adicione OPENAI_API_KEY nas variáveis de ambiente.' });
+    if (!elevenLabsService.isConfigured()) {
+      return res.status(400).json({ error: 'ElevenLabs não está configurado. Adicione ELEVENLABS_API_KEY nas variáveis de ambiente.' });
     }
 
-    const mp3Buffer = await openaiService.generateSpeech(text.trim(), voice, model);
+    const mp3Buffer = await elevenLabsService.generateSpeech(text.trim(), voice, model);
 
     const imagekitConfigured =
       process.env.IMAGEKIT_PUBLIC_KEY &&

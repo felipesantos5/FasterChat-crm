@@ -286,49 +286,6 @@ class OpenAIService {
   }
 
   /**
-   * Gera áudio a partir de texto usando OpenAI TTS.
-   * @param text   - Texto a ser convertido (máx ~4096 chars)
-   * @param voice  - Voz: alloy | echo | fable | onyx | nova | shimmer
-   * @param model  - tts-1 (rápido) | tts-1-hd (alta qualidade)
-   * @returns Buffer MP3
-   */
-  async generateSpeech(text: string, voice: string = 'nova', model: string = 'tts-1'): Promise<Buffer> {
-    if (!text || text.trim().length === 0) {
-      throw new Error('Texto para TTS não pode estar vazio');
-    }
-
-    const validVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
-    const validModels = ['tts-1', 'tts-1-hd'];
-
-    const safeVoice = validVoices.includes(voice) ? voice as 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' : 'nova';
-    const safeModel = validModels.includes(model) ? model as 'tts-1' | 'tts-1-hd' : 'tts-1';
-
-    try {
-      const response = await this.client.audio.speech.create({
-        model: safeModel,
-        voice: safeVoice,
-        input: text.trim(),
-        response_format: 'mp3',
-      });
-
-      const arrayBuffer = await response.arrayBuffer();
-      return Buffer.from(arrayBuffer);
-    } catch (error: any) {
-      console.error('[OpenAI] ❌ Error generating TTS speech:', error);
-
-      if (error.code === 'insufficient_quota') {
-        throw new Error('OpenAI API quota exceeded. Please check your billing.');
-      } else if (error.code === 'invalid_api_key') {
-        throw new Error('Invalid OpenAI API key.');
-      } else if (error.status === 429) {
-        throw new Error('OpenAI API rate limit exceeded. Please try again later.');
-      }
-
-      throw new Error(`Failed to generate speech: ${error.message}`);
-    }
-  }
-
-  /**
    * Verifica se a API da OpenAI está configurada
    */
   isConfigured(): boolean {

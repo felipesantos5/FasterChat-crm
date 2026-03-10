@@ -1198,10 +1198,10 @@ export class FlowEngineService {
   }
 
   /**
-   * 🔊 Executa nó TTS Audio (Text-to-Speech via OpenAI).
+   * 🔊 Executa nó TTS Audio (Text-to-Speech via ElevenLabs).
    *
    * Modo ESTÁTICO: usa `staticAudioUrl` — URL já gerada no editor, sem chamar API.
-   * Modo DINÂMICO: substitui variáveis em `ttsText`, chama OpenAI TTS em cada execução.
+   * Modo DINÂMICO: substitui variáveis em `ttsText`, chama ElevenLabs em cada execução.
    */
   private async executeTtsAudioNode(
     execution: Record<string, unknown>,
@@ -1241,11 +1241,11 @@ export class FlowEngineService {
         throw new Error('Texto TTS vazio após substituição de variáveis.');
       }
 
-      const voice = (data.ttsVoice || 'nova') as string;
-      const model = (data.ttsModel || 'tts-1') as string;
+      const voice = (data.ttsVoice || 'EXAVITQu4vr4xnSDxMaL') as string;
+      const model = (data.ttsModel || 'eleven_multilingual_v2') as string;
 
-      const openaiService = (await import('./ai-providers/openai.service')).default;
-      const mp3Buffer = await openaiService.generateSpeech(resolvedText, voice, model);
+      const elevenLabsService = (await import('./elevenlabs.service')).default;
+      const mp3Buffer = await elevenLabsService.generateSpeech(resolvedText, voice, model);
 
       // Converte para base64 para envio direto pelo WhatsApp (evita upload extra)
       mediaSource = `data:audio/mp3;base64,${mp3Buffer.toString('base64')}`;
