@@ -84,6 +84,25 @@ class DashboardController {
       res.status(500).json({ success: false, message: "Erro ao buscar dados dos gráficos" });
     }
   }
+  async getTeamPerformance(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, message: "Não autenticado" });
+        return;
+      }
+
+      const preset = (req.query.preset as string) || "7days";
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+
+      const data = await dashboardService.getTeamPerformance(req.user.companyId, preset, startDate, endDate);
+
+      res.status(200).json({ success: true, data });
+    } catch (error) {
+      console.error("Dashboard team performance error:", error);
+      res.status(500).json({ success: false, message: "Erro ao buscar desempenho da equipe" });
+    }
+  }
 }
 
 export default new DashboardController();

@@ -99,6 +99,22 @@ interface ClientsByStateData {
   count: number;
 }
 
+interface CollaboratorPerformanceData {
+  id: string;
+  name: string;
+  email: string;
+  cargo: string | null;
+  conversationsAssigned: number;
+  messagesSent: number;
+  messagesReceived: number;
+  uniqueCustomers: number;
+}
+
+interface TeamPerformanceData {
+  collaborators: CollaboratorPerformanceData[];
+  hasMultipleCollaborators: boolean;
+}
+
 interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
@@ -1137,6 +1153,92 @@ class DashboardService {
       replies,
       responseRate: Math.round(responseRate * 10) / 10
     };
+  }
+
+  async getTeamPerformance(companyId: string, preset: string, startDate?: string, endDate?: string): Promise<TeamPerformanceData> {
+    const { currentStart, currentEnd } = this.getDateRangeFromPreset(preset, startDate, endDate);
+
+    const users = await prisma.user.findMany({
+      where: { companyId },
+      select: { id: true, name: true, email: true, cargo: true },
+      orderBy: { name: 'asc' },
+    });
+
+    if (users.length <= 1) {
+      return { collaborators: [], hasMultipleCollaborators: false };
+    }
+
+    const conversations = await prisma.conversation.findMany({
+      where: { companyId, assignedToId: { not: null } },
+      select: { customerId: true, assignedToId: true },
+    });
+
+    const customersByUser = new Map<string, string[]>();
+    for (const conv of conversations) {
+      if (!conv.assignedToId) continue;
+      const existing = customersByUser.get(conv.assignedToId) || [];
+      existing.push(conv.customerId);
+      customersByUser.set(conv.assignedToId, existing);
+    }
+
+    const allCustomerIds = [...new Set(conversations.map((c) => c.customerId))];
+
+    const [outboundHuman, inbound] = allCustomerIds.length > 0
+      ? await Promise.all([
+          prisma.message.groupBy({
+            by: ['customerId'],
+            where: {
+              customerId: { in: allCustomerIds },
+              direction: MessageDirection.OUTBOUND,
+              senderType: 'HUMAN',
+              timestamp: { gte: currentStart, lte: currentEnd },
+            },
+            _count: { id: true },
+          }),
+          prisma.message.groupBy({
+            by: ['customerId'],
+            where: {
+              customerId: { in: allCustomerIds },
+              direction: MessageDirection.INBOUND,
+              timestamp: { gte: currentStart, lte: currentEnd },
+            },
+            _count: { id: true },
+          }),
+        ])
+      : [[], []];
+
+    const sentByCustomer = new Map(outboundHuman.map((r) => [r.customerId, r._count.id]));
+    const receivedByCustomer = new Map(inbound.map((r) => [r.customerId, r._count.id]));
+
+    const collaborators: CollaboratorPerformanceData[] = users.map((user) => {
+      const assignedCustomers = customersByUser.get(user.id) || [];
+      let messagesSent = 0;
+      let messagesReceived = 0;
+      let uniqueCustomers = 0;
+
+      for (const customerId of assignedCustomers) {
+        const sent = sentByCustomer.get(customerId) || 0;
+        const received = receivedByCustomer.get(customerId) || 0;
+        messagesSent += sent;
+        messagesReceived += received;
+        if (sent > 0 || received > 0) uniqueCustomers++;
+      }
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        cargo: user.cargo,
+        conversationsAssigned: assignedCustomers.length,
+        messagesSent,
+        messagesReceived,
+        uniqueCustomers,
+      };
+    });
+
+    collaborators.sort((a, b) => b.messagesSent - a.messagesSent);
+
+    return { collaborators, hasMultipleCollaborators: true };
   }
 
   private async getClientsByStateData(companyId: string): Promise<ClientsByStateData[]> {

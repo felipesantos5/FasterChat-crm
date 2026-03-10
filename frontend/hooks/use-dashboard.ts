@@ -1,5 +1,5 @@
 import useSWR from 'swr'
-import { dashboardApi } from '@/lib/dashboard'
+import { dashboardApi, TeamPerformanceData } from '@/lib/dashboard'
 import { DateRangePreset, DateRange } from '@/components/dashboard/date-range-filter'
 
 export function useDashboardStats(preset: DateRangePreset = '7days', customRange?: DateRange) {
@@ -44,4 +44,18 @@ export function useDashboardCharts(preset: DateRangePreset = '30days', customRan
     isError: error,
     mutate,
   }
+}
+
+export function useTeamPerformance(preset: DateRangePreset = '7days', customRange?: DateRange) {
+  const cacheKey = preset === 'custom' && customRange
+    ? `/dashboard/team-performance/${preset}/${customRange.from.toISOString()}/${customRange.to.toISOString()}`
+    : `/dashboard/team-performance/${preset}`;
+
+  const { data, error, isLoading } = useSWR<TeamPerformanceData>(
+    cacheKey,
+    () => dashboardApi.getTeamPerformance(preset, customRange),
+    { dedupingInterval: 60000, refreshInterval: 120000 }
+  );
+
+  return { teamData: data, isLoading, isError: error };
 }

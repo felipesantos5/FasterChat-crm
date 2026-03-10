@@ -36,6 +36,7 @@ import { ValidationNode } from './nodes/ValidationNode';
 import { RandomNode } from './nodes/RandomNode';
 import { UpdateStageNode } from './nodes/UpdateStageNode';
 import { ReactionNode } from './nodes/ReactionNode';
+import { TtsAudioNode } from './nodes/TtsAudioNode';
 import { NodeSidebar } from './NodeSidebar';
 import ButtonEdge from './edges/ButtonEdge';
 import { FlowIdContext } from './FlowIdContext';
@@ -55,6 +56,7 @@ const nodeTypes = {
   random: RandomNode,
   update_stage: UpdateStageNode,
   reaction: ReactionNode,
+  tts_audio: TtsAudioNode,
 };
 
 const edgeTypes = {

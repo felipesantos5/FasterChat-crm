@@ -7,7 +7,7 @@ export default function CollaboratorsRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/dashboard/settings/colaboradores");
+    router.replace("/dashboard/configuracoes");
   }, [router]);
 
   return null;

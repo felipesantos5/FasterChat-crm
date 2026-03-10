@@ -99,7 +99,24 @@ export function ExecutionDrawer({
     .slice(0, MAX_BATCHES_IN_SIDEBAR);
 
   const latestBatchId = sortedBatches[0]?.id ?? null;
-  const hasBatches = sortedBatches.length > 0;
+
+  // Lista unificada ordenada por data desc
+  type UnifiedItem =
+    | { type: 'batch'; batch: typeof sortedBatches[0]; sortDate: number }
+    | { type: 'standalone'; execution: Execution; sortDate: number };
+
+  const unifiedItems: UnifiedItem[] = [
+    ...sortedBatches.map((batch) => ({
+      type: 'batch' as const,
+      batch,
+      sortDate: new Date(batch.startedAt).getTime(),
+    })),
+    ...standaloneExecutions.map((exe) => ({
+      type: 'standalone' as const,
+      execution: exe,
+      sortDate: new Date(exe.startedAt).getTime(),
+    })),
+  ].sort((a, b) => b.sortDate - a.sortDate);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -239,9 +256,9 @@ export function ExecutionDrawer({
         <h2 className="font-bold text-gray-800 flex items-center gap-2">
           <Database size={18} className="text-primary" />
           Execuções Recentes
-          {hasBatches && (
+          {unifiedItems.length > 0 && (
             <span className="text-xs font-normal text-gray-500">
-              ({sortedBatches.length} planilha{sortedBatches.length !== 1 ? 's' : ''})
+              ({unifiedItems.length})
             </span>
           )}
         </h2>
@@ -262,95 +279,88 @@ export function ExecutionDrawer({
           </div>
         ) : (
           <>
-            {/* GRUPOS DE PLANILHA (BATCHES) — últimas 10, mais recente em destaque */}
-            {sortedBatches.map((batch) => {
-              const isLatest = batch.id === latestBatchId;
-              // Mais recente abre automaticamente; demais fecham por padrão
-              const isExpanded = expandedBatches[batch.id] !== undefined
-                ? expandedBatches[batch.id]
-                : isLatest;
-              const totalInBatch = batch.executions.length;
-              const visibleCount = batchVisibleCount[batch.id] || BATCH_PAGE_SIZE;
-              const visibleExecutions = isExpanded ? batch.executions.slice(0, visibleCount) : [];
-              const hasMoreInBatch = visibleCount < totalInBatch;
+            {unifiedItems.map((item) => {
+              if (item.type === 'batch') {
+                const { batch } = item;
+                const isLatest = batch.id === latestBatchId;
+                const isExpanded = expandedBatches[batch.id] !== undefined
+                  ? expandedBatches[batch.id]
+                  : isLatest;
+                const totalInBatch = batch.executions.length;
+                const visibleCount = batchVisibleCount[batch.id] || BATCH_PAGE_SIZE;
+                const visibleExecutions = isExpanded ? batch.executions.slice(0, visibleCount) : [];
+                const hasMoreInBatch = visibleCount < totalInBatch;
 
-              return (
-                <div
-                  key={batch.id}
-                  className={`border rounded-xl overflow-hidden flex flex-col mb-3 shadow-sm transition-all ${
-                    isLatest
-                      ? 'border-green-400 bg-white shadow-green-100 shadow-md ring-1 ring-green-400/30'
-                      : 'border-slate-200 bg-white'
-                  }`}
-                >
+                return (
                   <div
-                    onClick={() => toggleBatch(batch.id)}
-                    className={`flex items-center justify-between cursor-pointer transition-colors border-b ${
+                    key={batch.id}
+                    className={`border rounded-xl overflow-hidden flex flex-col shadow-sm transition-all ${
                       isLatest
-                        ? 'p-4 bg-green-50 hover:bg-green-100/70 border-green-200'
-                        : 'p-3 bg-slate-50 hover:bg-slate-100 border-transparent'
+                        ? 'border-green-400 bg-white shadow-green-100 shadow-md ring-1 ring-green-400/30'
+                        : 'border-slate-200 bg-white'
                     }`}
                   >
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <div className={`p-1.5 rounded-md shrink-0 ${isLatest ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                        <FileSpreadsheet size={isLatest ? 18 : 16} />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`font-semibold truncate ${isLatest ? 'text-base text-green-900' : 'text-sm text-slate-800'}`}
-                            title={batch.name}
-                          >
-                            {batch.name}
-                          </span>
-                          {isLatest && (
-                            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider bg-green-500 text-white px-2 py-0.5 rounded-full">
-                              Mais Recente
+                    <div
+                      onClick={() => toggleBatch(batch.id)}
+                      className={`flex items-center justify-between cursor-pointer transition-colors border-b ${
+                        isLatest
+                          ? 'p-4 bg-green-50 hover:bg-green-100/70 border-green-200'
+                          : 'p-3 bg-slate-50 hover:bg-slate-100 border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className={`p-1.5 rounded-md shrink-0 ${isLatest ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                          <FileSpreadsheet size={isLatest ? 18 : 16} />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`font-semibold truncate ${isLatest ? 'text-base text-green-900' : 'text-sm text-slate-800'}`}
+                              title={batch.name}
+                            >
+                              {batch.name}
                             </span>
-                          )}
-                        </div>
-                        <div className={`flex items-center gap-2 mt-0.5 ${isLatest ? 'text-xs text-green-700' : 'text-xs text-slate-500'}`}>
-                          <span className="flex items-center gap-1">
-                            <Clock size={11} />
-                            {format(new Date(batch.startedAt), "dd/MM HH:mm:ss", { locale: ptBR })}
-                          </span>
-                          <span>•</span>
-                          <span className="font-medium">{totalInBatch} execuções</span>
+                            {isLatest && (
+                              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider bg-green-500 text-white px-2 py-0.5 rounded-full">
+                                Mais Recente
+                              </span>
+                            )}
+                          </div>
+                          <div className={`flex items-center gap-2 mt-0.5 ${isLatest ? 'text-xs text-green-700' : 'text-xs text-slate-500'}`}>
+                            <span className="flex items-center gap-1">
+                              <Clock size={11} />
+                              {format(new Date(batch.startedAt), "dd/MM HH:mm:ss", { locale: ptBR })}
+                            </span>
+                            <span>•</span>
+                            <span className="font-medium">{totalInBatch} execuções</span>
+                          </div>
                         </div>
                       </div>
+                      <div className={isLatest ? 'text-green-500' : 'text-slate-400'}>
+                        {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                      </div>
                     </div>
-                    <div className={isLatest ? 'text-green-500' : 'text-slate-400'}>
-                      {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                    </div>
+
+                    {isExpanded && (
+                      <div className="p-3 flex flex-col gap-3 rounded-b-xl border-t border-slate-100 bg-slate-50/40">
+                        {visibleExecutions.map(renderExecutionCard)}
+                        {hasMoreInBatch && (
+                          <button
+                            onClick={() => showMoreInBatch(batch.id)}
+                            className="w-full py-2 text-xs font-medium text-primary hover:bg-primary/5 border border-dashed border-primary/30 rounded-lg transition-colors flex items-center justify-center gap-1"
+                          >
+                            <ChevronDown size={12} />
+                            Ver mais ({totalInBatch - visibleCount} restantes)
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
+                );
+              }
 
-                  {isExpanded && (
-                    <div className="p-3 flex flex-col gap-3 rounded-b-xl border-t border-slate-100 bg-slate-50/40">
-                      {visibleExecutions.map(renderExecutionCard)}
-                      {hasMoreInBatch && (
-                        <button
-                          onClick={() => showMoreInBatch(batch.id)}
-                          className="w-full py-2 text-xs font-medium text-primary hover:bg-primary/5 border border-dashed border-primary/30 rounded-lg transition-colors flex items-center justify-center gap-1"
-                        >
-                          <ChevronDown size={12} />
-                          Ver mais ({totalInBatch - visibleCount} restantes)
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
+              return renderExecutionCard(item.execution);
             })}
-
-            {hasBatches && standaloneExecutions.length > 0 && (
-              <div className="my-5 flex items-center gap-3">
-                <div className="h-px bg-slate-200 flex-1"></div>
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Execuções Avulsas</span>
-                <div className="h-px bg-slate-200 flex-1"></div>
-              </div>
-            )}
-
-            {standaloneExecutions.map(renderExecutionCard)}
           </>
         )}
       </div>

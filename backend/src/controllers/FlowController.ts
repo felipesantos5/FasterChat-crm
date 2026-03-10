@@ -4,6 +4,7 @@ import { AppError } from '../utils/errors';
 import { FlowExecutionStatus } from '@prisma/client';
 import flowQueueService from '../services/flow-queue.service';
 import { randomUUID } from 'crypto';
+import ImageKit from 'imagekit';
 
 export class FlowController {
   public async getFlows(req: Request, res: Response): Promise<Response> {
@@ -504,5 +505,62 @@ export class FlowController {
     });
 
     return res.status(201).json(duplicate);
+  }
+
+  /**
+   * Pré-gera áudio TTS e faz upload para o ImageKit.
+   * Usado pelo nó TTS Audio no modo "estático" — gera uma vez, reutiliza sempre.
+   * POST /flows/tts-preview
+   * Body: { text, voice, model }
+   */
+  public async generateTtsPreview(req: Request, res: Response): Promise<Response> {
+    const { text, voice = 'nova', model = 'tts-1' } = req.body as {
+      text: string;
+      voice?: string;
+      model?: string;
+    };
+
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      return res.status(400).json({ error: 'O campo "text" é obrigatório.' });
+    }
+
+    if (text.trim().length > 4096) {
+      return res.status(400).json({ error: 'O texto pode ter no máximo 4096 caracteres.' });
+    }
+
+    const openaiService = (await import('../services/ai-providers/openai.service')).default;
+
+    if (!openaiService.isConfigured()) {
+      return res.status(400).json({ error: 'OpenAI não está configurado. Adicione OPENAI_API_KEY nas variáveis de ambiente.' });
+    }
+
+    const mp3Buffer = await openaiService.generateSpeech(text.trim(), voice, model);
+
+    const imagekitConfigured =
+      process.env.IMAGEKIT_PUBLIC_KEY &&
+      process.env.IMAGEKIT_PRIVATE_KEY &&
+      process.env.IMAGEKIT_URL_ENDPOINT;
+
+    if (!imagekitConfigured) {
+      return res.status(500).json({ error: 'Serviço de upload não configurado (ImageKit).' });
+    }
+
+    const imagekit = new ImageKit({
+      publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
+      privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
+      urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT!,
+    });
+
+    const fileName = `tts-${Date.now()}.mp3`;
+    const uploadResponse = await imagekit.upload({
+      file: mp3Buffer,
+      fileName,
+      folder: 'crm-ai/audios',
+    });
+
+    return res.status(200).json({
+      url: uploadResponse.url,
+      fileName,
+    });
   }
 }

@@ -1245,24 +1245,59 @@ class MessageService {
         msgData?.documentMessage?.contextInfo ??
         msgData?.stickerMessage?.contextInfo ??
         msgData?.contextInfo; // fallback: alguns clientes enviam contextInfo no nível raiz
-      if (contextInfo?.quotedMessage) {
+
+      if (contextInfo?.quotedMessage || contextInfo?.stanzaId) {
         const qMsg = contextInfo.quotedMessage;
-        quotedContent =
-          qMsg.conversation ??
-          qMsg.extendedTextMessage?.text ??
-          qMsg.imageMessage?.caption ??
-          qMsg.videoMessage?.caption ??
-          (qMsg.audioMessage ? "🎤 Áudio" : undefined) ??
-          (qMsg.documentMessage ? `📄 ${qMsg.documentMessage?.fileName || "Documento"}` : undefined) ??
-          (qMsg.stickerMessage ? "🔖 Sticker" : undefined) ??
-          null;
-        // Se participant contém o telefone do contato → ele está citando a si mesmo
-        // Caso contrário → está citando nossa mensagem
-        const participantPhone = contextInfo.participant?.replace(/@.*/, "") ?? "";
-        if (participantPhone && customer.phone.includes(participantPhone.slice(-8))) {
-          quotedAuthor = data.pushName || customer.name;
-        } else {
-          quotedAuthor = "Você";
+
+        // Tenta extrair o conteúdo diretamente do payload da Evolution API
+        if (qMsg) {
+          quotedContent =
+            qMsg.conversation ??
+            qMsg.extendedTextMessage?.text ??
+            qMsg.imageMessage?.caption ??
+            qMsg.videoMessage?.caption ??
+            (qMsg.audioMessage ? "🎤 Áudio" : undefined) ??
+            (qMsg.documentMessage ? `📄 ${qMsg.documentMessage?.fileName || "Documento"}` : undefined) ??
+            (qMsg.stickerMessage ? "🔖 Sticker" : undefined) ??
+            null;
+        }
+
+        // Fallback robusto: se o payload não trouxe o conteúdo (comum em alguns clientes
+        // Android/iOS que enviam stanzaId mas quotedMessage vazio), busca a mensagem
+        // original diretamente no banco pelo messageId (stanzaId == messageId da Evolution API)
+        if (!quotedContent && contextInfo.stanzaId) {
+          const originalMsg = await prisma.message.findFirst({
+            where: {
+              messageId: contextInfo.stanzaId,
+              customer: { companyId: instance.companyId },
+            },
+            select: { content: true, direction: true, mediaType: true },
+          });
+          if (originalMsg) {
+            if (originalMsg.mediaType === "audio") {
+              quotedContent = "🎤 Áudio";
+            } else if (originalMsg.mediaType === "image") {
+              quotedContent = originalMsg.content || "🖼️ Imagem";
+            } else if (originalMsg.mediaType === "video") {
+              quotedContent = originalMsg.content || "🎥 Vídeo";
+            } else if (originalMsg.mediaType === "document") {
+              quotedContent = originalMsg.content || "📄 Documento";
+            } else {
+              quotedContent = originalMsg.content;
+            }
+            // Determina o autor pela direção da mensagem original
+            quotedAuthor = originalMsg.direction === MessageDirection.OUTBOUND ? "Você" : customer.name;
+          }
+        }
+
+        // Determina o autor pelo participant se ainda não foi definido pelo fallback do banco
+        if (quotedContent && !quotedAuthor) {
+          const participantPhone = contextInfo.participant?.replace(/@.*/, "") ?? "";
+          if (participantPhone && customer.phone.includes(participantPhone.slice(-8))) {
+            quotedAuthor = data.pushName || customer.name;
+          } else {
+            quotedAuthor = "Você";
+          }
         }
       }
 

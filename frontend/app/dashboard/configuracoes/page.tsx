@@ -3,19 +3,22 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { authApi } from "@/lib/auth";
+import { collaboratorApi, Collaborator, PendingInvite } from "@/lib/collaborator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Save, User, Volume2, Bell, CreditCard, Zap, Sparkles } from "lucide-react";
+import { Loader2, Save, User, Volume2, Bell, CreditCard, Zap, Sparkles, Plus, Trash, Edit, Clock, X, Users } from "lucide-react";
 import { spacing } from "@/lib/design-system";
 import { notificationSound } from "@/lib/notification-sound";
 import { usePlanFeatures } from "@/hooks/usePlanFeatures";
 import { PricingModal } from "@/components/dashboard/pricing-modal";
 import { CancelSubscriptionModal } from "@/components/dashboard/cancel-subscription-modal";
 import { Badge } from "@/components/ui/badge";
+import { InviteCollaboratorModal } from "@/components/collaborators/invite-modal";
+import { EditPermissionsModal } from "@/components/collaborators/edit-permissions-modal";
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
@@ -30,6 +33,13 @@ export default function SettingsPage() {
   const [transbordoSoundEnabled, setTransbordoSoundEnabled] = useState(true);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+
+  // Estados para colaboradores
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null);
 
   const { currentPlanName, isSubscriptionActive, currentPlan } = usePlanFeatures();
   const isAdmin = user?.role === "ADMIN";
@@ -46,6 +56,71 @@ export default function SettingsPage() {
     setNewMessageSoundEnabled(notificationSound.getNewMessageSoundEnabled());
     setTransbordoSoundEnabled(notificationSound.getTransbordoSoundEnabled());
   }, [user]);
+
+  const loadCollaborators = async () => {
+    try {
+      setCollaboratorsLoading(true);
+      const data = await collaboratorApi.list();
+      setCollaborators(data.users);
+      setPendingInvites(data.pendingInvites);
+    } catch (error: any) {
+      console.error("Erro ao carregar colaboradores:", error);
+    } finally {
+      setCollaboratorsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadCollaborators();
+    }
+  }, [isAdmin]);
+
+  const handleInvite = async (data: any) => {
+    try {
+      await collaboratorApi.invite(data);
+      toast.success("Convite enviado com sucesso!");
+      setInviteModalOpen(false);
+      loadCollaborators();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Erro ao enviar convite");
+      throw error;
+    }
+  };
+
+  const handleRemove = async (id: string) => {
+    if (!confirm("Tem certeza que deseja remover este colaborador?")) return;
+    try {
+      await collaboratorApi.remove(id);
+      toast.success("Colaborador removido com sucesso");
+      loadCollaborators();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Erro ao remover colaborador");
+    }
+  };
+
+  const handleCancelInvite = async (id: string) => {
+    if (!confirm("Tem certeza que deseja cancelar este convite?")) return;
+    try {
+      await collaboratorApi.cancelInvite(id);
+      toast.success("Convite cancelado com sucesso");
+      loadCollaborators();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Erro ao cancelar convite");
+    }
+  };
+
+  const handleUpdatePermissions = async (id: string, permissions: any[]) => {
+    try {
+      await collaboratorApi.updatePermissions(id, permissions);
+      toast.success("Permissões atualizadas com sucesso");
+      setEditingCollaborator(null);
+      loadCollaborators();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Erro ao atualizar permissões");
+      throw error;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,7 +374,119 @@ export default function SettingsPage() {
             </Button>
           </div>
         </form>
+
+        {/* Seção de Colaboradores — apenas admins */}
+        {isAdmin && (
+          <div className="mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Users className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle>Colaboradores</CardTitle>
+                      <CardDescription>Gerencie colaboradores e suas permissões</CardDescription>
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={() => setInviteModalOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Convidar Colaborador
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {collaboratorsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <>
+                    {pendingInvites.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Convites Pendentes</h3>
+                        <div className="space-y-3">
+                          {pendingInvites.map((invite) => (
+                            <div key={invite.id} className="flex items-start justify-between p-4 rounded-lg border bg-card">
+                              <div className="flex items-start gap-3">
+                                <div className="p-2 bg-yellow-100 rounded-lg">
+                                  <Clock className="h-4 w-4 text-yellow-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{invite.name}</p>
+                                  <p className="text-sm text-muted-foreground">{invite.email}</p>
+                                  {invite.cargo && <p className="text-xs text-muted-foreground">{invite.cargo}</p>}
+                                  <p className="text-xs text-muted-foreground mt-1">Convidado por {invite.invitedBy.name}</p>
+                                </div>
+                              </div>
+                              <Button variant="ghost" size="sm" onClick={() => handleCancelInvite(invite.id)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Colaboradores Ativos</h3>
+                      <div className="space-y-3">
+                        {collaborators.map((collaborator) => (
+                          <div key={collaborator.id} className="flex items-start justify-between p-4 rounded-lg border bg-card">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 bg-green-100 rounded-lg">
+                                <User className="h-4 w-4 text-green-600" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">{collaborator.name}</p>
+                                  <Badge variant={collaborator.role === "ADMIN" ? "default" : "secondary"} className="text-xs">
+                                    {collaborator.role}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">{collaborator.email}</p>
+                                {collaborator.cargo && <p className="text-xs text-muted-foreground">{collaborator.cargo}</p>}
+                                {collaborator.permissions.length === 0 && (
+                                  <p className="text-xs text-muted-foreground mt-1">Acesso total (Admin)</p>
+                                )}
+                              </div>
+                            </div>
+                            {collaborator.role !== "ADMIN" && (
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="sm" onClick={() => setEditingCollaborator(collaborator)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => handleRemove(collaborator.id)}>
+                                  <Trash className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
+
+      <InviteCollaboratorModal
+        open={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        onSubmit={handleInvite}
+      />
+      {editingCollaborator && (
+        <EditPermissionsModal
+          open={!!editingCollaborator}
+          collaborator={editingCollaborator}
+          onClose={() => setEditingCollaborator(null)}
+          onSubmit={(permissions) => handleUpdatePermissions(editingCollaborator.id, permissions)}
+        />
+      )}
 
       <PricingModal
         isOpen={isPricingModalOpen}

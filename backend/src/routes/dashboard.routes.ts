@@ -15,5 +15,6 @@ router.use(authenticate);
 router.get("/stats", asyncHandler(dashboardController.getStats.bind(dashboardController)));
 router.get("/onboarding", asyncHandler(dashboardController.getOnboardingStatus.bind(dashboardController)));
 router.get("/charts", asyncHandler(dashboardController.getChartsData.bind(dashboardController)));
+router.get("/team-performance", asyncHandler(dashboardController.getTeamPerformance.bind(dashboardController)));
 
 export default router;

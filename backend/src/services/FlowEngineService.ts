@@ -511,7 +511,7 @@ export class FlowEngineService {
           }
         });
         // 🔗 Número inválido: avança o próximo contato do batch
-        await this.advanceBatchQueue(variables, flowId, data.companyId);
+        await this.advanceBatchQueue(variables, flowId, data.companyId, execution.id);
         return;
       }
     } catch (err: any) {
@@ -525,7 +525,7 @@ export class FlowEngineService {
         }
       });
       // 🔗 Erro técnico: avança o próximo contato do batch
-      await this.advanceBatchQueue(variables, flowId, data.companyId);
+      await this.advanceBatchQueue(variables, flowId, data.companyId, execution.id);
       return;
     }
 
@@ -739,7 +739,7 @@ export class FlowEngineService {
       const vars = typeof execution.variables === 'string'
         ? JSON.parse(execution.variables)
         : (execution.variables as Record<string, unknown> || {});
-      await this.advanceBatchQueue(vars, execution.flowId as string, (execution.flow as any).companyId);
+      await this.advanceBatchQueue(vars, execution.flowId as string, (execution.flow as any).companyId, execution.id as string);
       return;
     }
 
@@ -758,7 +758,7 @@ export class FlowEngineService {
     }
 
     // Para cada edge, encontra o nó alvo e executa
-    const outboundTypes = ['message', 'audio', 'image', 'video', 'ai_image'];
+    const outboundTypes = ['message', 'audio', 'image', 'video', 'ai_image', 'tts_audio'];
 
     for (const edge of edges) {
       const targetNode = flow.nodes.find(n => n.id === edge.targetNodeId);
@@ -790,14 +790,26 @@ export class FlowEngineService {
    * 🔗 Avança a fila Redis de um batch: dispara o próximo contato pendente.
    * Chamado quando uma execução termina (COMPLETED/FAILED) ou entra em pausa longa
    * (WAITING_REPLY ou DELAYED > BATCH_LONG_DELAY_THRESHOLD_MS).
+   *
+   * 🛡️ DEDUPLICAÇÃO: cada execução pode avançar a fila APENAS UMA VEZ.
+   * Isso evita o cenário onde WAITING_REPLY avança (Contact B inicia), e depois
+   * o COMPLETED da mesma execução avança novamente (Contact C inicia prematuramente).
    */
   private async advanceBatchQueue(
     variables: Record<string, unknown>,
     flowId: string,
     companyId: string,
+    executionId?: string,
   ): Promise<void> {
     const batchId = variables._batchId as string | undefined;
     if (!batchId) return;
+
+    // Guard de deduplicação por execução: garante avanço único por contato
+    if (executionId) {
+      const guardKey = `batch:${batchId}:advanced:${executionId}`;
+      const isFirst = await redisConnection.set(guardKey, '1', 'EX', 7 * 24 * 3600, 'NX');
+      if (!isFirst) return; // já avançou a fila nesta execução (ex: WAITING_REPLY antes do COMPLETED)
+    }
 
     const { FlowBatchController } = await import('../controllers/FlowBatchController');
     const queueKey = FlowBatchController.batchQueueKey(batchId);
@@ -954,6 +966,12 @@ export class FlowEngineService {
           await this.processNextNodes(execution.id as string, node.id as string);
           break;
 
+        case 'tts_audio':
+          await this.executeTtsAudioNode(execution, node, data, variables);
+          await this.markNodeCompleted(execution.id as string, node.id as string);
+          await this.processNextNodes(execution.id as string, node.id as string);
+          break;
+
         case 'ai_action':
           await this.executeAiActionNode(execution, node, data);
           await this.markNodeCompleted(execution.id as string, node.id as string);
@@ -1007,7 +1025,7 @@ export class FlowEngineService {
       const vars = typeof execution.variables === 'string'
         ? JSON.parse(execution.variables)
         : (execution.variables as Record<string, unknown> || {});
-      await this.advanceBatchQueue(vars, (execution.flow as any).id, (execution.flow as any).companyId);
+      await this.advanceBatchQueue(vars, (execution.flow as any).id, (execution.flow as any).companyId, execution.id as string);
     }
   }
 
@@ -1180,6 +1198,86 @@ export class FlowEngineService {
   }
 
   /**
+   * 🔊 Executa nó TTS Audio (Text-to-Speech via OpenAI).
+   *
+   * Modo ESTÁTICO: usa `staticAudioUrl` — URL já gerada no editor, sem chamar API.
+   * Modo DINÂMICO: substitui variáveis em `ttsText`, chama OpenAI TTS em cada execução.
+   */
+  private async executeTtsAudioNode(
+    execution: Record<string, unknown>,
+    node: Record<string, unknown>,
+    data: Record<string, unknown>,
+    variables: Record<string, unknown>
+  ): Promise<void> {
+    const instance = execution.whatsappInstance as Record<string, unknown> | null;
+    if (!instance) {
+      throw new Error('Nenhuma instância do WhatsApp conectada para enviar áudio TTS');
+    }
+
+    const contactPhone = execution.contactPhone as string;
+    const ttsMode = (data.ttsMode || 'dynamic') as string;
+
+    // Exibe "gravando..." antes de enviar
+    try {
+      await whatsappService.sendPresence(instance.id as string, contactPhone, TYPING_DELAY_AUDIO_MS, 'recording');
+      await new Promise(resolve => setTimeout(resolve, TYPING_DELAY_AUDIO_MS));
+    } catch { /* presença não crítica */ }
+
+    let mediaSource: string;
+
+    if (ttsMode === 'static') {
+      // Modo estático: URL já gerada — envia diretamente como o nó de áudio comum
+      const staticUrl = (data.staticAudioUrl || '') as string;
+      if (!staticUrl) {
+        throw new Error('Nó TTS estático sem URL de áudio. Gere o áudio no editor antes de publicar o fluxo.');
+      }
+      mediaSource = staticUrl;
+    } else {
+      // Modo dinâmico: gera áudio em tempo real com variáveis substituídas
+      const rawText = (data.ttsText || '') as string;
+      const resolvedText = this.replaceVariables(rawText, variables);
+
+      if (!resolvedText.trim()) {
+        throw new Error('Texto TTS vazio após substituição de variáveis.');
+      }
+
+      const voice = (data.ttsVoice || 'nova') as string;
+      const model = (data.ttsModel || 'tts-1') as string;
+
+      const openaiService = (await import('./ai-providers/openai.service')).default;
+      const mp3Buffer = await openaiService.generateSpeech(resolvedText, voice, model);
+
+      // Converte para base64 para envio direto pelo WhatsApp (evita upload extra)
+      mediaSource = `data:audio/mp3;base64,${mp3Buffer.toString('base64')}`;
+    }
+
+    const result = await this.sendWithRetry(
+      (instanceId) => whatsappService.sendMedia({
+        instanceId,
+        to: contactPhone,
+        mediaBase64: mediaSource,
+        mediaType: 'audio',
+      }),
+      `sendTtsAudio(${contactPhone})`,
+      {
+        executionId: execution.id as string,
+        companyId: (execution.flow as any).companyId as string,
+        currentInstanceId: (instance as any).id as string,
+      }
+    );
+
+    await this.storeLidMapping(execution, result?.remoteJid as string | undefined);
+
+    await this.saveFlowMessageToConversation(
+      execution, instance,
+      '[áudio TTS]',
+      result?.messageId as string | undefined,
+      'audio',
+      ttsMode === 'static' ? mediaSource : undefined
+    );
+  }
+
+  /**
    * 🎨 Executa nó de geração de imagem com IA (Gemini).
    * Combina: imagens de referência (upload) + imagem do CSV (link) + prompt
    * Gera a imagem via Gemini e envia pelo WhatsApp.
@@ -1328,7 +1426,7 @@ export class FlowEngineService {
     const condVars = typeof execution.variables === 'string'
       ? JSON.parse(execution.variables)
       : (execution.variables as Record<string, unknown> || {});
-    await this.advanceBatchQueue(condVars, (execution.flow as any).id, (execution.flow as any).companyId);
+    await this.advanceBatchQueue(condVars, (execution.flow as any).id, (execution.flow as any).companyId, executionId);
 
     // Agenda job de timeout: quando expirar, segue pelo handle "nao_respondeu"
     const timeoutMs = delaySeconds * 1000;
@@ -1383,7 +1481,7 @@ export class FlowEngineService {
       const delayVars = typeof execution.variables === 'string'
         ? JSON.parse(execution.variables)
         : (execution.variables as Record<string, unknown> || {});
-      await this.advanceBatchQueue(delayVars, (execution.flow as any).id, (execution.flow as any).companyId);
+      await this.advanceBatchQueue(delayVars, (execution.flow as any).id, (execution.flow as any).companyId, execution.id as string);
     }
   }
 

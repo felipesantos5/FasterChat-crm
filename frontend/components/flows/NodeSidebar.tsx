@@ -70,6 +70,17 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
+            onClick={() => addNode('tts_audio', 'Áudio com IA')}
+            className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-violet-400 hover:shadow-md transition-all text-center group"
+          >
+            <div className="bg-violet-100 p-2 rounded-md text-violet-600 group-hover:bg-violet-500 group-hover:text-white transition-colors text-lg">✨</div>
+            <div>
+              <p className="font-semibold text-xs text-gray-800">Áudio IA</p>
+              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">TTS OpenAI</p>
+            </div>
+          </button>
+
+          <button
             onClick={() => addNode('image', 'Enviar Imagem')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-pink-400 hover:shadow-md transition-all text-center group"
           >

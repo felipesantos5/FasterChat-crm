@@ -122,6 +122,22 @@ export interface DashboardChartsData {
   clientsByState: ClientsByStateData[];
 }
 
+export interface CollaboratorPerformanceData {
+  id: string;
+  name: string;
+  email: string;
+  cargo: string | null;
+  conversationsAssigned: number;
+  messagesSent: number;
+  messagesReceived: number;
+  uniqueCustomers: number;
+}
+
+export interface TeamPerformanceData {
+  collaborators: CollaboratorPerformanceData[];
+  hasMultipleCollaborators: boolean;
+}
+
 export const dashboardApi = {
   async getStats(preset: DateRangePreset, customRange?: DateRange): Promise<DashboardStats> {
     const params: Record<string, string> = { preset };
@@ -152,6 +168,16 @@ export const dashboardApi = {
     }
 
     const response = await api.get<{ data: DashboardChartsData }>('/dashboard/charts', { params });
+    return response.data.data;
+  },
+
+  async getTeamPerformance(preset: DateRangePreset, customRange?: DateRange): Promise<TeamPerformanceData> {
+    const params: Record<string, string> = { preset };
+    if (preset === 'custom' && customRange) {
+      params.startDate = customRange.from.toISOString();
+      params.endDate = customRange.to.toISOString();
+    }
+    const response = await api.get<{ data: TeamPerformanceData }>('/dashboard/team-performance', { params });
     return response.data.data;
   },
 };

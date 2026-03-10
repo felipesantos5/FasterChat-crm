@@ -1,6 +1,6 @@
 "use client";
 
-import { useDashboardStats, useDashboardCharts } from "@/hooks/use-dashboard";
+import { useDashboardStats, useDashboardCharts, useTeamPerformance } from "@/hooks/use-dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModernStatCard } from "@/components/dashboard/modern-stat-card";
 import {
@@ -11,6 +11,7 @@ import {
   ModernConversionCard,
   ModernBatchEngagementCard,
   ModernRegionChart,
+  ModernTeamPerformanceCard,
 } from "@/components/dashboard/charts";
 import { MessageSquare, UserPlus, MessageCircle } from "lucide-react";
 import { ProtectedPage } from "@/components/layout/protected-page";
@@ -37,6 +38,8 @@ function DashboardPageContent() {
     dateFilter.preset,
     dateFilter.customRange
   );
+
+  const { teamData } = useTeamPerformance(dateFilter.preset, dateFilter.customRange);
 
   const statCards = stats
     ? [
@@ -182,6 +185,13 @@ function DashboardPageContent() {
         <div className={`flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 ${bottomColClass} gap-4`}>
           {bottomCards}
         </div>
+
+        {/* Linha 3: Desempenho da equipe — só aparece quando há mais de 1 colaborador */}
+        {teamData?.hasMultipleCollaborators && (
+          <div className="flex-none">
+            <ModernTeamPerformanceCard data={teamData.collaborators} />
+          </div>
+        )}
       </div>
     </div>
   );
