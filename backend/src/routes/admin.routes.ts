@@ -15,6 +15,9 @@ router.get("/stats", adminAuthenticate, asyncHandler(adminController.getStats));
 // Seed de dados HVAC para cliente específico
 router.post("/seed-hvac/:companyId", adminAuthenticate, asyncHandler(adminController.seedHvacData));
 
+// Custos de IA por empresa
+router.get("/companies/:companyId/ai-costs", adminAuthenticate, asyncHandler(adminController.getCompanyAiCosts));
+
 // Atualizar plano de uma empresa
 router.patch("/companies/:companyId/plan", adminAuthenticate, asyncHandler(adminController.updateCompanyPlan));
 

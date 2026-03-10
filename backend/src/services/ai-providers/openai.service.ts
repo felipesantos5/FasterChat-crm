@@ -1,6 +1,7 @@
 import OpenAI, { toFile } from "openai";
 import axios from "axios";
 import { ChatCompletionTool, ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import { logAiUsage } from "../ai-usage-logger.service";
 
 interface GenerateResponseParams {
   systemPrompt: string;
@@ -157,11 +158,18 @@ class OpenAIService {
       }
 
 
-      // Log de custo aproximado (GPT-4o Mini é ~$0.15/1M input tokens, ~$0.60/1M output tokens)
-      if (response.usage) {
+      if (response.usage && context?.companyId) {
         const inputCost = (response.usage.prompt_tokens / 1_000_000) * 0.15;
         const outputCost = (response.usage.completion_tokens / 1_000_000) * 0.6;
-        const totalCost = inputCost + outputCost;
+        logAiUsage({
+          companyId: context.companyId,
+          provider: 'openai',
+          usageType: 'text_generation',
+          model: visionModel,
+          inputTokens: response.usage.prompt_tokens,
+          outputTokens: response.usage.completion_tokens,
+          costUsd: inputCost + outputCost,
+        });
       }
 
       return finalContent;
@@ -208,7 +216,7 @@ class OpenAIService {
    * @param audioInput - Áudio em formato base64 OU URL
    * @returns Texto transcrito
    */
-  async transcribeAudio(audioInput: string): Promise<string> {
+  async transcribeAudio(audioInput: string, companyId?: string): Promise<string> {
     try {
 
       let audioBuffer: Buffer;
@@ -247,6 +255,18 @@ class OpenAIService {
         // Prompt opcional para melhorar contexto (Whisper usa isso como referência)
         prompt: "Conversa de atendimento ao cliente via WhatsApp. Cliente falando em português brasileiro sobre produtos, serviços, dúvidas ou agendamentos.",
       });
+
+      // ~$0.006/minuto Whisper. Estimativa: 1 char ≈ 15ms de áudio
+      if (companyId) {
+        const estimatedMinutes = audioBuffer.length / (16000 * 2 * 60); // PCM 16kHz stereo
+        logAiUsage({
+          companyId,
+          provider: 'openai',
+          usageType: 'transcription',
+          model: 'whisper-1',
+          costUsd: estimatedMinutes * 0.006,
+        });
+      }
 
       // Limpa a transcrição
       const cleanedTranscription = (transcription as string)
@@ -343,7 +363,7 @@ class OpenAIService {
    * @param text - Texto para gerar embedding
    * @returns Array de números representando o embedding
    */
-  async generateEmbedding(text: string): Promise<number[]> {
+  async generateEmbedding(text: string, companyId?: string): Promise<number[]> {
     if (!text || text.trim().length === 0) {
       throw new Error("Text cannot be empty for embedding generation");
     }
@@ -363,9 +383,15 @@ class OpenAIService {
       }
 
 
-      // Log de custo aproximado (text-embedding-3-small: ~$0.02/1M tokens)
-      if (response.usage) {
-        const cost = (response.usage.total_tokens / 1_000_000) * 0.02;
+      if (response.usage && companyId) {
+        logAiUsage({
+          companyId,
+          provider: 'openai',
+          usageType: 'embedding',
+          model: 'text-embedding-3-small',
+          inputTokens: response.usage.total_tokens,
+          costUsd: (response.usage.total_tokens / 1_000_000) * 0.02,
+        });
       }
 
       return embedding;

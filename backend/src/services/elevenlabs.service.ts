@@ -1,6 +1,13 @@
 import axios from 'axios';
+import { logAiUsage } from './ai-usage-logger.service';
 
 const ELEVENLABS_BASE_URL = 'https://api.elevenlabs.io/v1';
+
+// Preço aproximado por 1.000 caracteres
+const ELEVENLABS_PRICE_PER_1K_CHARS: Record<string, number> = {
+  eleven_multilingual_v2: 0.30,
+  eleven_turbo_v2_5: 0.18,
+};
 
 class ElevenLabsService {
   isConfigured(): boolean {
@@ -18,6 +25,7 @@ class ElevenLabsService {
     text: string,
     voiceId: string = 'EXAVITQu4vr4xnSDxMaL',
     modelId: string = 'eleven_multilingual_v2',
+    companyId?: string,
   ): Promise<Buffer> {
     if (!text || text.trim().length === 0) {
       throw new Error('Texto para TTS não pode estar vazio');
@@ -52,7 +60,22 @@ class ElevenLabsService {
         },
       );
 
-      return Buffer.from(response.data);
+      const audioBuffer = Buffer.from(response.data);
+
+      if (companyId) {
+        const charCount = text.trim().length;
+        const pricePerK = ELEVENLABS_PRICE_PER_1K_CHARS[modelId] ?? 0.30;
+        logAiUsage({
+          companyId,
+          provider: 'elevenlabs',
+          usageType: 'tts',
+          model: modelId,
+          characters: charCount,
+          costUsd: (charCount / 1000) * pricePerK,
+        });
+      }
+
+      return audioBuffer;
     } catch (error: unknown) {
       const err = error as { response?: { status?: number }; message?: string };
       console.error('[ElevenLabs] ❌ Error generating speech:', err.message);

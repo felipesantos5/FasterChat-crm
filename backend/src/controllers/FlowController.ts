@@ -534,7 +534,8 @@ export class FlowController {
       return res.status(400).json({ error: 'ElevenLabs não está configurado. Adicione ELEVENLABS_API_KEY nas variáveis de ambiente.' });
     }
 
-    const mp3Buffer = await elevenLabsService.generateSpeech(text.trim(), voice, model);
+    const companyId = req.user?.companyId;
+    const mp3Buffer = await elevenLabsService.generateSpeech(text.trim(), voice, model, companyId);
 
     const imagekitConfigured =
       process.env.IMAGEKIT_PUBLIC_KEY &&

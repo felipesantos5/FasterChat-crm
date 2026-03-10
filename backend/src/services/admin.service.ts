@@ -123,6 +123,42 @@ export const adminService = {
     };
   },
 
+  // Busca custos de IA de uma empresa agrupados por tipo
+  async getCompanyAiCosts(companyId: string, days: number = 30) {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const [breakdown, totals] = await Promise.all([
+      prisma.aIUsageLog.groupBy({
+        by: ['usageType', 'provider', 'model'],
+        where: { companyId, createdAt: { gte: since } },
+        _sum: { costUsd: true, inputTokens: true, outputTokens: true, characters: true },
+        _count: { id: true },
+        orderBy: { _sum: { costUsd: 'desc' } },
+      }),
+      prisma.aIUsageLog.aggregate({
+        where: { companyId, createdAt: { gte: since } },
+        _sum: { costUsd: true },
+      }),
+    ]);
+
+    return {
+      companyId,
+      period: days,
+      totalCostUsd: totals._sum.costUsd ?? 0,
+      breakdown: breakdown.map((b) => ({
+        usageType: b.usageType,
+        provider: b.provider,
+        model: b.model,
+        callCount: b._count.id,
+        inputTokens: b._sum.inputTokens ?? 0,
+        outputTokens: b._sum.outputTokens ?? 0,
+        characters: b._sum.characters ?? 0,
+        costUsd: b._sum.costUsd ?? 0,
+      })),
+    };
+  },
+
   // Atualiza o plano de uma empresa
   async updateCompanyPlan(companyId: string, plan: any) {
     const company = await prisma.company.findUnique({

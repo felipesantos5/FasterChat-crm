@@ -14,6 +14,13 @@ import {
   Database,
   Loader2,
   Zap,
+  DollarSign,
+  X,
+  ChevronDown,
+  Bot,
+  Mic,
+  Hash,
+  Cpu,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -38,6 +45,24 @@ interface Stats {
   totalMessagesLast30Days: number;
 }
 
+interface AiCostBreakdown {
+  usageType: string;
+  provider: string;
+  model: string;
+  callCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  characters: number;
+  costUsd: number;
+}
+
+interface AiCosts {
+  companyId: string;
+  period: number;
+  totalCostUsd: number;
+  breakdown: AiCostBreakdown[];
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030";
 
 export default function AdminDashboardPage() {
@@ -47,6 +72,8 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [seedingCompanyId, setSeedingCompanyId] = useState<string | null>(null);
+  const [aiCostsModal, setAiCostsModal] = useState<{ company: Company; data: AiCosts | null; loading: boolean } | null>(null);
+  const [aiCostsPeriod, setAiCostsPeriod] = useState(30);
 
   const fetchData = async () => {
     if (!token) return;
@@ -133,6 +160,22 @@ export default function AdminDashboardPage() {
       console.error(error);
     } finally {
       setSeedingCompanyId(null);
+    }
+  };
+
+  const openAiCosts = async (company: Company, period: number = aiCostsPeriod) => {
+    if (!token) return;
+    setAiCostsModal({ company, data: null, loading: true });
+    try {
+      const res = await fetch(`${API_URL}/api/admin/companies/${company.id}/ai-costs?days=${period}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Erro ao buscar custos");
+      const data: AiCosts = await res.json();
+      setAiCostsModal({ company, data, loading: false });
+    } catch {
+      toast.error("Erro ao carregar custos de IA");
+      setAiCostsModal(null);
     }
   };
 
@@ -387,19 +430,29 @@ export default function AdminDashboardPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <button
-                          onClick={() => handleSeedHvac(company.id, company.name)}
-                          disabled={seedingCompanyId === company.id}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Cadastrar dados HVAC (Ar Condicionado)"
-                        >
-                          {seedingCompanyId === company.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Database className="w-4 h-4" />
-                          )}
-                          {seedingCompanyId === company.id ? "Executando..." : "Seed HVAC"}
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => openAiCosts(company)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-sm font-medium transition-colors"
+                            title="Ver gastos com IA"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                            Gastos IA
+                          </button>
+                          <button
+                            onClick={() => handleSeedHvac(company.id, company.name)}
+                            disabled={seedingCompanyId === company.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Cadastrar dados HVAC (Ar Condicionado)"
+                          >
+                            {seedingCompanyId === company.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Database className="w-4 h-4" />
+                            )}
+                            {seedingCompanyId === company.id ? "Executando..." : "Seed HVAC"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -409,6 +462,131 @@ export default function AdminDashboardPage() {
           )}
         </div>
       </main>
+
+      {/* AI Costs Modal */}
+      {aiCostsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-green-600" />
+                  Gastos com IA — {aiCostsModal.company.name}
+                </h3>
+                <p className="text-sm text-gray-500 mt-0.5">Últimos {aiCostsPeriod} dias</p>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Period selector */}
+                <div className="relative">
+                  <select
+                    value={aiCostsPeriod}
+                    onChange={(e) => {
+                      const p = Number(e.target.value);
+                      setAiCostsPeriod(p);
+                      openAiCosts(aiCostsModal.company, p);
+                    }}
+                    className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 pr-8 appearance-none focus:outline-none focus:border-green-400"
+                  >
+                    <option value={7}>7 dias</option>
+                    <option value={30}>30 dias</option>
+                    <option value={60}>60 dias</option>
+                    <option value={90}>90 dias</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+                <button
+                  onClick={() => setAiCostsModal(null)}
+                  className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto flex-1 p-6">
+              {aiCostsModal.loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-green-600 animate-spin" />
+                </div>
+              ) : !aiCostsModal.data || aiCostsModal.data.breakdown.length === 0 ? (
+                <div className="text-center py-12">
+                  <DollarSign className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                  <p className="text-gray-500 font-medium">Nenhum gasto registrado</p>
+                  <p className="text-sm text-gray-400 mt-1">Nenhuma chamada de IA nos últimos {aiCostsPeriod} dias.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Total card */}
+                  <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-5 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-green-700 font-medium">Total gasto no período</p>
+                      <p className="text-3xl font-bold text-green-800 mt-1">
+                        ${aiCostsModal.data.totalCostUsd.toFixed(4)}
+                      </p>
+                    </div>
+                    <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center">
+                      <DollarSign className="w-7 h-7 text-green-600" />
+                    </div>
+                  </div>
+
+                  {/* Breakdown table */}
+                  <div className="space-y-2">
+                    {aiCostsModal.data.breakdown.map((b, i) => {
+                      const typeLabels: Record<string, string> = {
+                        text_generation: 'IA de Atendimento',
+                        embedding: 'Busca Semântica',
+                        transcription: 'Transcrição de Áudio',
+                        tts: 'Áudio com IA (TTS)',
+                      };
+                      const typeIcons: Record<string, React.ReactNode> = {
+                        text_generation: <Bot className="w-4 h-4" />,
+                        embedding: <Hash className="w-4 h-4" />,
+                        transcription: <Mic className="w-4 h-4" />,
+                        tts: <Cpu className="w-4 h-4" />,
+                      };
+                      const providerColors: Record<string, string> = {
+                        openai: 'bg-blue-50 text-blue-700 border-blue-100',
+                        gemini: 'bg-purple-50 text-purple-700 border-purple-100',
+                        elevenlabs: 'bg-violet-50 text-violet-700 border-violet-100',
+                      };
+                      return (
+                        <div key={i} className="border border-gray-100 rounded-lg p-3.5 flex items-center gap-3">
+                          <div className={cn(
+                            'w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border',
+                            providerColors[b.provider] ?? 'bg-gray-50 text-gray-600 border-gray-100'
+                          )}>
+                            {typeIcons[b.usageType] ?? <DollarSign className="w-4 h-4" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-800">
+                              {typeLabels[b.usageType] ?? b.usageType}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate">
+                              {b.provider} · {b.model} · {b.callCount.toLocaleString()} chamadas
+                              {b.characters > 0 && ` · ${b.characters.toLocaleString()} chars`}
+                              {b.inputTokens > 0 && ` · ${(b.inputTokens + b.outputTokens).toLocaleString()} tokens`}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-bold text-gray-900">${b.costUsd.toFixed(4)}</p>
+                            <p className="text-xs text-gray-400">
+                              {aiCostsModal.data && aiCostsModal.data.totalCostUsd > 0
+                                ? `${((b.costUsd / aiCostsModal.data.totalCostUsd) * 100).toFixed(0)}%`
+                                : '—'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

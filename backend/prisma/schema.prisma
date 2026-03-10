@@ -66,6 +66,7 @@ model Company {
   serviceAdditionals    ServiceAdditional[]
   serviceZoneExceptions ServiceZoneException[]
   Flow                  Flow[]
+  aiUsageLogs           AIUsageLog[]
 
   whatsappStrategy          String? @default("RANDOM") @map("whatsapp_strategy")
   defaultWhatsappInstanceId String? @map("default_whatsapp_instance_id")
@@ -1076,4 +1077,29 @@ model FlowExecution {
   @@index([status])
   @@index([resumesAt])
   @@map("flow_executions")
+}
+
+// ============================================
+// AI USAGE LOG - Rastreamento de custos IA
+// Registra toda chamada às APIs de IA por empresa
+// ============================================
+
+model AIUsageLog {
+  id           String   @id @default(uuid())
+  companyId    String   @map("company_id")
+  provider     String   // "openai" | "gemini" | "elevenlabs"
+  usageType    String   @map("usage_type") // "text_generation" | "embedding" | "transcription" | "tts"
+  model        String   // nome do modelo usado
+  inputTokens  Int      @default(0) @map("input_tokens")
+  outputTokens Int      @default(0) @map("output_tokens")
+  characters   Int      @default(0) // caracteres (ElevenLabs TTS)
+  costUsd      Float    @default(0) @map("cost_usd")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, createdAt])
+  @@index([createdAt])
+  @@map("ai_usage_logs")
 }

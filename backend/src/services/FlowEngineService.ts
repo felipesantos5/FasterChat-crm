@@ -1244,8 +1244,9 @@ export class FlowEngineService {
       const voice = (data.ttsVoice || 'EXAVITQu4vr4xnSDxMaL') as string;
       const model = (data.ttsModel || 'eleven_multilingual_v2') as string;
 
+      const companyId = (execution.flow as Record<string, unknown>).companyId as string | undefined;
       const elevenLabsService = (await import('./elevenlabs.service')).default;
-      const mp3Buffer = await elevenLabsService.generateSpeech(resolvedText, voice, model);
+      const mp3Buffer = await elevenLabsService.generateSpeech(resolvedText, voice, model, companyId);
 
       // Converte para base64 para envio direto pelo WhatsApp (evita upload extra)
       mediaSource = `data:audio/mp3;base64,${mp3Buffer.toString('base64')}`;

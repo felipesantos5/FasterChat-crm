@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI, Part, Tool, SchemaType } from "@google/generative-ai";
 import axios from "axios";
+import { logAiUsage } from "../ai-usage-logger.service";
 
 /**
  * ============================================
@@ -444,18 +445,19 @@ class GeminiService {
         finalContent = 'Desculpe, não consegui processar sua solicitação no momento. Pode reformular a pergunta ou entrar em contato com nossa equipe?';
       }
 
-      // Log de uso de tokens (apenas em debug)
       const usageMetadata = response.usageMetadata;
-      if (usageMetadata) {
-        logger.debug(`Tokens used - Input: ${usageMetadata.promptTokenCount}, Output: ${usageMetadata.candidatesTokenCount}`);
-
-        // Gemini 2.0 Flash pricing (aproximado):
-        // - Input: $0.075 / 1M tokens
-        // - Output: $0.30 / 1M tokens
+      if (usageMetadata && context?.companyId) {
         const inputCost = ((usageMetadata.promptTokenCount || 0) / 1_000_000) * 0.075;
         const outputCost = ((usageMetadata.candidatesTokenCount || 0) / 1_000_000) * 0.3;
-        const totalCost = inputCost + outputCost;
-        logger.debug(`Estimated cost: $${totalCost.toFixed(6)}`);
+        logAiUsage({
+          companyId: context.companyId,
+          provider: 'gemini',
+          usageType: 'text_generation',
+          model: this.model,
+          inputTokens: usageMetadata.promptTokenCount || 0,
+          outputTokens: usageMetadata.candidatesTokenCount || 0,
+          costUsd: inputCost + outputCost,
+        });
       }
 
       return finalContent;

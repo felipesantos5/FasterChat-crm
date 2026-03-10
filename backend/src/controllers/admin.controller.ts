@@ -96,6 +96,25 @@ export const adminController = {
     }
   },
 
+  // Custos de IA de uma empresa
+  async getCompanyAiCosts(req: Request, res: Response) {
+    try {
+      const { companyId } = req.params;
+      const days = Math.min(parseInt(String(req.query.days ?? '30'), 10) || 30, 365);
+
+      if (!companyId) {
+        return res.status(400).json({ error: 'companyId é obrigatório' });
+      }
+
+      const data = await adminService.getCompanyAiCosts(companyId, days);
+      return res.json(data);
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      console.error('Erro ao buscar custos IA:', error);
+      return res.status(500).json({ error: err.message || 'Erro ao buscar custos de IA' });
+    }
+  },
+
   // Atualizar plano de uma empresa
   async updateCompanyPlan(req: Request, res: Response) {
     try {
