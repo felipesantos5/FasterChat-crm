@@ -19,13 +19,12 @@ import {
   Edit,
   Trash,
   Users,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   MessageSquare,
   Upload,
   X,
   Filter,
+  Loader2,
 } from "lucide-react";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -74,9 +73,9 @@ function CustomersPageContent() {
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const { hasError, handleError, clearError } = useErrorHandler();
 
-  // Paginação
-  const [page, setPage] = useState(1);
-  const [limit] = useState(50);
+  // Load more
+  const [displayLimit, setDisplayLimit] = useState(52);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Data
   const [data, setData] = useState<CustomerListResponse | null>(null);
@@ -88,7 +87,7 @@ function CustomersPageContent() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
-      setPage(1); // Reset page on search
+      setDisplayLimit(52);
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
@@ -145,8 +144,8 @@ function CustomersPageContent() {
         orderBy,
         type: typeFilter,
         pipelineStageId: pipelineStageFilter !== "all" ? pipelineStageFilter : undefined,
-        page,
-        limit,
+        page: 1,
+        limit: displayLimit,
       });
       setData(response);
     } catch (error: any) {
@@ -157,9 +156,31 @@ function CustomersPageContent() {
     }
   };
 
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    const newLimit = displayLimit + 50;
+    try {
+      const response = await customerApi.getAll({
+        search: debouncedSearch || undefined,
+        tags: selectedTags.length > 0 ? selectedTags : undefined,
+        orderBy,
+        type: typeFilter,
+        pipelineStageId: pipelineStageFilter !== "all" ? pipelineStageFilter : undefined,
+        page: 1,
+        limit: newLimit,
+      });
+      setData(response);
+      setDisplayLimit(newLimit);
+    } catch (error: any) {
+      console.error("Error loading more customers:", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     loadCustomers();
-  }, [debouncedSearch, selectedTags, orderBy, typeFilter, pipelineStageFilter, page, limit]);
+  }, [debouncedSearch, selectedTags, orderBy, typeFilter, pipelineStageFilter, displayLimit]);
 
   const handleCreate = async (customerData: any) => {
     await customerApi.create(customerData);
@@ -193,7 +214,7 @@ function CustomersPageContent() {
 
   const toggleTagFilter = (tag: string) => {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
-    setPage(1);
+    setDisplayLimit(52);
   };
 
   const clearFilters = () => {
@@ -202,13 +223,12 @@ function CustomersPageContent() {
     setOrderBy("recent");
     setTypeFilter("all");
     setPipelineStageFilter("all");
-    setPage(1);
+    setDisplayLimit(52);
   };
 
-  // Paginação
-  const totalPages = data ? Math.ceil(data.total / limit) : 0;
   const customers = data?.customers || [];
   const total = data?.total || 0;
+  const hasMore = total > customers.length;
 
   const hasActiveFilters = search || selectedTags.length > 0 || orderBy !== "recent" || typeFilter !== "all" || pipelineStageFilter !== "all";
 
@@ -376,7 +396,8 @@ function CustomersPageContent() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 pb-2">
             {customers.map((customer) => (
               <Card
                 key={customer.id}
@@ -487,54 +508,29 @@ function CustomersPageContent() {
               </Card>
             ))}
           </div>
-        )}
-      </div>
 
-      {/* Paginação */}
-      {totalPages > 1 && (
-        <div className="flex-shrink-0 border-t bg-background px-4 py-3 shadow-[0_-1px_3px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-between max-w-7xl mx-auto">
-            <p className="text-sm text-muted-foreground hidden sm:block">
-              Mostrando <span className="font-medium">{(page - 1) * limit + 1}</span> a <span className="font-medium">{Math.min(page * limit, total)}</span> de <span className="font-medium">{total}</span> clientes
-            </p>
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="h-8">
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Anterior
-              </Button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (page <= 3) {
-                    pageNum = i + 1;
-                  } else if (page >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = page - 2 + i;
-                  }
-                  return (
-                    <Button
-                      key={pageNum}
-                      variant={page === pageNum ? "default" : "outline"}
-                      size="sm"
-                      className={cn("w-8 h-8 p-0", page === pageNum && "shadow-sm")}
-                      onClick={() => setPage(pageNum)}
-                    >
-                      {pageNum}
-                    </Button>
-                  );
-                })}
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="h-8">
-                Próximo
-                <ChevronRight className="h-4 w-4 ml-1" />
+          {hasMore && (
+            <div className="flex justify-center mt-6">
+              <Button
+                variant="outline"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="px-8"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Carregando...
+                  </>
+                ) : (
+                  `Carregar mais (${total - customers.length} restantes)`
+                )}
               </Button>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+          </>
+        )}
+      </div>
 
       {/* Modais */}
       <CustomerFormModal
