@@ -33,6 +33,7 @@ import {
   Mic,
   Loader2,
   Upload,
+  X,
 } from "lucide-react";
 import { QuickMessage, QuickMessageType, CreateQuickMessageData } from "@/types/quick-message";
 import { quickMessageApi } from "@/lib/quick-message";
@@ -291,24 +292,60 @@ export default function MensagensRapidasPage() {
                   onChange={handleFileChange}
                   className="hidden"
                 />
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="w-full border-2 border-dashed rounded-lg p-4 flex flex-col items-center gap-2 hover:bg-accent transition-colors"
-                >
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    {filePreview ? "Trocar arquivo" : "Selecionar arquivo"}
-                  </span>
-                </button>
-                {filePreview && form.type === "MEDIA" && filePreview.startsWith("data:image") && (
-                  <img src={filePreview} alt="preview" className="rounded-lg max-h-32 object-cover w-full" />
-                )}
-                {filePreview && form.type === "AUDIO" && (
-                  <audio controls src={filePreview} className="w-full" />
-                )}
-                {filePreview && form.type === "MEDIA" && filePreview.startsWith("data:video") && (
-                  <video src={filePreview} controls className="w-full rounded-lg max-h-32" />
+
+                {!filePreview ? (
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="w-full border-2 border-dashed rounded-lg p-6 flex flex-col items-center gap-2 hover:bg-accent transition-colors"
+                  >
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Selecionar arquivo</span>
+                  </button>
+                ) : (
+                  <>
+                    {form.type === "MEDIA" && filePreview.startsWith("data:image") && (
+                      <div className="relative rounded-lg overflow-hidden">
+                        <img src={filePreview} alt="preview" className="w-full max-h-56 object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => { setFilePreview(null); setForm((p) => ({ ...p, content: "" })); fileRef.current?.click(); }}
+                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                          title="Trocar imagem"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {form.type === "MEDIA" && filePreview.startsWith("data:video") && (
+                      <div className="relative rounded-lg overflow-hidden bg-black">
+                        <video src={filePreview} controls className="w-full max-h-64 object-contain" />
+                        <button
+                          type="button"
+                          onClick={() => { setFilePreview(null); setForm((p) => ({ ...p, content: "" })); fileRef.current?.click(); }}
+                          className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-colors"
+                          title="Trocar vídeo"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {form.type === "AUDIO" && (
+                      <div className="relative flex items-center gap-2 p-3 border rounded-lg bg-muted/30">
+                        <audio controls src={filePreview} className="flex-1 h-8" />
+                        <button
+                          type="button"
+                          onClick={() => { setFilePreview(null); setForm((p) => ({ ...p, content: "" })); fileRef.current?.click(); }}
+                          className="bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shrink-0 transition-colors"
+                          title="Trocar áudio"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -317,11 +354,20 @@ export default function MensagensRapidasPage() {
             {form.type === "MEDIA" && (
               <div className="space-y-1.5">
                 <Label>Legenda <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                <Input
+                <textarea
                   placeholder="Ex: Confira nossa proposta!"
                   value={form.caption ?? ""}
-                  onChange={(e) => setForm((p) => ({ ...p, caption: e.target.value }))}
+                  rows={2}
+                  onChange={(e) => {
+                    setForm((p) => ({ ...p, caption: e.target.value }));
+                    e.target.style.height = "auto";
+                    e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+                    e.target.style.overflowY = e.target.scrollHeight > 200 ? "auto" : "hidden";
+                  }}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none overflow-y-hidden focus:outline-none focus:ring-1 focus:ring-ring"
+                  style={{ minHeight: "64px" }}
                 />
+                <p className="text-[11px] text-muted-foreground">Enter para nova linha</p>
               </div>
             )}
           </div>

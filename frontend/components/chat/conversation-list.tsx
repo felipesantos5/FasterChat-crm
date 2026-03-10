@@ -5,7 +5,7 @@ import { ConversationSummary } from "@/types/message";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, AlertCircle, Users, Archive, Mic, User } from "lucide-react";
+import { MessageSquare, AlertCircle, Users, Archive, Mic, User, Camera, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConversationListProps {
@@ -131,16 +131,23 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
 
               <p className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1">
                 {conversation.direction === "OUTBOUND" && (
-                  <span className="text-teal-600 dark:text-teal-400 font-medium">Você: </span>
+                  <span className="text-teal-600 dark:text-teal-400 font-medium shrink-0">Você: </span>
                 )}
-                {conversation.lastMessage.toLowerCase().startsWith("[audio") ? (
+                {conversation.lastMediaType === "video" || conversation.lastMessage.toLowerCase().startsWith("[video") ? (
                   <span className="flex items-center gap-1">
-                    <Mic className="h-3.5 w-3.5 text-green-500" />
+                    <Camera className="h-3.5 w-3.5 shrink-0" />
+                    Vídeo
+                  </span>
+                ) : conversation.lastMediaType === "image" || conversation.lastMessage.toLowerCase().startsWith("[imagem") ? (
+                  <span className="flex items-center gap-1">
+                    <ImageIcon className="h-3.5 w-3.5 shrink-0" />
+                    Imagem
+                  </span>
+                ) : conversation.lastMediaType === "audio" || conversation.lastMessage.toLowerCase().startsWith("[audio") ? (
+                  <span className="flex items-center gap-1">
+                    <Mic className="h-3.5 w-3.5 text-green-500 shrink-0" />
                     {(() => {
                       const msg = conversation.lastMessage.toLowerCase();
-                      if (msg === "[audio]") return "Áudio";
-
-                      // Tenta extrair a duração, ex: [audio: 0:04]
                       const match = msg.match(/\[audio:\s*(.+?)\]/);
                       return match && match[1] ? match[1] : "Áudio";
                     })()}

@@ -97,6 +97,7 @@ export interface EvolutionWebhookMessage {
       caption?: string;
       url?: string;
       mimetype?: string;
+      base64?: string;
       contextInfo?: EvolutionContextInfo;
     };
     documentMessage?: {
@@ -164,4 +165,5 @@ export interface ConversationSummary {
   whatsappInstanceId: string; // ID da instância do WhatsApp
   whatsappInstanceName: string; // Nome da instância
   isArchived: boolean; // Contato arquivado
+  lastMediaType: string | null; // Tipo de mídia da última mensagem
 }

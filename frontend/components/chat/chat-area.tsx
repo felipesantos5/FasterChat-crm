@@ -17,7 +17,7 @@ import { whatsappApi } from "@/lib/whatsapp";
 import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Video } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Video, Pause, Play } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -62,12 +62,14 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageCaption, setImageCaption] = useState("");
   const [selectedVideo, setSelectedVideo] = useState<{ dataUrl: string; name: string } | null>(null);
+  const [videoDurations, setVideoDurations] = useState<Record<string, string>>({});
   const [videoCaption, setVideoCaption] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [showImageTooLargeModal, setShowImageTooLargeModal] = useState(false);
   const [showMediaMenu, setShowMediaMenu] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [recordedAudio, setRecordedAudio] = useState<string | null>(null);
@@ -93,6 +95,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const videoInputRef = useRef<HTMLInputElement>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const recordingCancelledRef = useRef(false);
+  const recordingSendRef = useRef(false);
   const editInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Handler para novas mensagens via WebSocket
@@ -747,51 +750,92 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       };
 
       recorder.onstop = () => {
-        // Para o stream imediatamente
         stream.getTracks().forEach(track => track.stop());
 
-        // Se foi cancelado, descarta o áudio
         if (recordingCancelledRef.current) return;
 
         const blob = new Blob(chunks, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.readAsDataURL(blob);
         reader.onloadend = () => {
-          setRecordedAudio(reader.result as string);
+          const base64 = reader.result as string;
+          if (recordingSendRef.current) {
+            recordingSendRef.current = false;
+            handleSendAudio(base64);
+          } else {
+            setRecordedAudio(base64);
+          }
         };
       };
 
       recordingCancelledRef.current = false;
+      recordingSendRef.current = false;
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
+      setIsRecordingPaused(false);
       setRecordingTime(0);
 
-      // Inicia contador de tempo
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
-
-      toast.success("Gravação iniciada");
     } catch (error) {
       console.error("Erro ao iniciar gravação:", error);
       toast.error("Erro ao acessar microfone. Verifique as permissões.");
     }
   };
 
-  // Para e descarta a gravação (sem enviar)
+  // Para e descarta a gravação
   const stopRecording = () => {
     if (mediaRecorder && isRecording) {
       recordingCancelledRef.current = true;
+      recordingSendRef.current = false;
       mediaRecorder.stop();
       setIsRecording(false);
+      setIsRecordingPaused(false);
       setMediaRecorder(null);
       setRecordingTime(0);
-
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
         recordingIntervalRef.current = null;
       }
+    }
+  };
+
+  // Para a gravação e envia o áudio diretamente
+  const finishAndSendRecording = () => {
+    if (mediaRecorder && isRecording) {
+      recordingCancelledRef.current = false;
+      recordingSendRef.current = true;
+      // Se estiver pausado, retoma para garantir que os dados sejam capturados
+      if (mediaRecorder.state === 'paused') mediaRecorder.resume();
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setIsRecordingPaused(false);
+      setMediaRecorder(null);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+    }
+  };
+
+  // Pausa ou retoma a gravação
+  const togglePauseRecording = () => {
+    if (!mediaRecorder) return;
+    if (mediaRecorder.state === 'recording') {
+      mediaRecorder.pause();
+      setIsRecordingPaused(true);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+    } else if (mediaRecorder.state === 'paused') {
+      mediaRecorder.resume();
+      setIsRecordingPaused(false);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
     }
   };
 
@@ -840,6 +884,12 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const formatRecordingTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatVideoDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -1310,30 +1360,55 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                       )}
 
                       {/* Vídeo */}
-                      {message.mediaType === "video" && message.mediaUrl && (
-                        <div className="space-y-2">
-                          <div
-                            className="relative group/vid cursor-pointer"
-                            onClick={() => setLightbox({ url: message.mediaUrl!, type: "video" })}
-                          >
-                            <video
-                              src={message.mediaUrl}
-                              preload="metadata"
-                              className="max-w-full max-h-[400px] object-contain rounded-lg shadow-md bg-black/5 group-hover/vid:opacity-90 transition-opacity"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/vid:opacity-100 transition-opacity">
-                              <div className="bg-black/40 rounded-full p-2">
-                                <ZoomIn className="h-5 w-5 text-white" />
+                      {message.mediaType === "video" && (
+                        message.mediaUrl ? (
+                          <div className="space-y-1.5">
+                            <div
+                              className="relative group/vid cursor-pointer"
+                              onClick={() => setLightbox({ url: message.mediaUrl!, type: "video" })}
+                            >
+                              <video
+                                src={message.mediaUrl}
+                                preload="metadata"
+                                className="max-w-full max-h-[400px] object-contain rounded-lg shadow-md bg-black/10 group-hover/vid:brightness-90 transition-all"
+                                onLoadedMetadata={(e) => {
+                                  const dur = (e.currentTarget as HTMLVideoElement).duration;
+                                  if (dur && isFinite(dur)) {
+                                    setVideoDurations(prev => ({ ...prev, [message.id]: formatVideoDuration(dur) }));
+                                  }
+                                }}
+                              />
+                              {/* Play button — sempre visível */}
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="bg-black/50 rounded-full p-3 backdrop-blur-sm group-hover/vid:scale-110 transition-transform">
+                                  <Play className="h-6 w-6 text-white fill-white" />
+                                </div>
                               </div>
+                              {/* Duração — canto inferior direito */}
+                              {videoDurations[message.id] && (
+                                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
+                                  {videoDurations[message.id]}
+                                </div>
+                              )}
                             </div>
+                            {message.content && !message.content.startsWith("[") && (
+                              <MessageText
+                                content={message.content}
+                                className="text-xs sm:text-sm break-words overflow-wrap-anywhere"
+                              />
+                            )}
                           </div>
-                          {message.content && !message.content.startsWith("[Vídeo") && (
-                            <MessageText
-                              content={message.content}
-                              className="text-xs sm:text-sm break-words overflow-wrap-anywhere"
-                            />
-                          )}
-                        </div>
+                        ) : (
+                          /* Placeholder para vídeos antigos sem mediaUrl */
+                          <div className="flex items-center gap-2.5 bg-black/5 dark:bg-white/5 rounded-lg px-3 py-2.5">
+                            <div className="bg-gray-300 dark:bg-gray-600 rounded-full p-2 shrink-0">
+                              <Video className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                              {message.content && !message.content.startsWith("[") ? message.content : "Vídeo"}
+                            </span>
+                          </div>
+                        )
                       )}
 
                       {/* Áudio com Player Customizado */}
@@ -1415,7 +1490,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                             isInbound ? "left-0" : "right-0"
                           )}
                         >
-                          {['👍','❤️','😂','😮','😢','🙏'].map((emoji) => (
+                          {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) => (
                             <button
                               key={emoji}
                               onClick={() => handleSendReaction(message.id, emoji)}
@@ -1582,8 +1657,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {replyingTo.mediaType === "image" ? "🖼️ Imagem"
                     : replyingTo.mediaType === "audio" ? "🎤 Áudio"
-                    : replyingTo.mediaType === "video" ? "🎥 Vídeo"
-                    : replyingTo.content}
+                      : replyingTo.mediaType === "video" ? "🎥 Vídeo"
+                        : replyingTo.content}
                 </p>
               </div>
             </div>
@@ -1599,7 +1674,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         )}
 
         {/* Input de mensagem */}
-        <form onSubmit={handleSendMessage} className="flex items-end gap-2 p-3 sm:p-4 bg-white dark:bg-gray-900 border-t">
+        <form onSubmit={handleSendMessage} className="flex items-end gap-2 p-3 sm:p-4 bg-white dark:bg-gray-900 border-t items-center">
           {/* Inputs de arquivo ocultos */}
           <input
             ref={fileInputRef}
@@ -1619,25 +1694,59 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           {/* Se estiver gravando, mostra interface de gravação */}
           {isRecording ? (
             <>
-              <div className="flex-1 flex items-center gap-3 bg-gray-100 rounded-full px-4 py-2">
-                <Mic className="h-4 w-4 text-red-500 animate-pulse" />
-                <span className="text-sm font-medium text-red-600 dark:text-red-400">{formatRecordingTime(recordingTime)}</span>
-                <div className="flex-1 flex gap-1">
-                  {Array.from({ length: Math.min(20, recordingTime) }).map((_, i) => (
-                    <div key={i} className="h-3 w-1 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: `${i * 50}ms` }} />
+              {/* Lixeira — descarta */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={stopRecording}
+                title="Descartar gravação"
+                className="rounded-full text-gray-500 hover:text-red-500 shrink-0"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+
+              {/* Pill: indicador + timer + waveform */}
+              <div className="flex-1 flex items-center gap-2 bg-gray-900 dark:bg-gray-800 rounded-full px-4 py-2 min-w-0">
+                <div className={cn("w-2 h-2 rounded-full bg-red-500 shrink-0", !isRecordingPaused && "animate-pulse")} />
+                <span className="text-sm font-medium text-white shrink-0 tabular-nums">{formatRecordingTime(recordingTime)}</span>
+                <div className="flex-1 flex items-end gap-px overflow-hidden h-5">
+                  {[3,5,8,4,9,6,10,7,5,8,4,9,7,6,10,5,8,4,7,9,6,5,8,10,4,7,5,9,6,8].map((h, i) => (
+                    <div
+                      key={i}
+                      className={cn("flex-1 rounded-full transition-all", isRecordingPaused ? "bg-gray-600" : "bg-gray-400")}
+                      style={{
+                        height: `${h * 2}px`,
+                        animationDelay: `${i * 60}ms`,
+                        animation: isRecordingPaused ? 'none' : `pulse 1.2s ease-in-out ${i * 60}ms infinite`,
+                      }}
+                    />
                   ))}
                 </div>
               </div>
 
+              {/* Pausa / Retomar */}
               <Button
                 type="button"
-                variant="destructive"
+                variant="ghost"
                 size="icon"
-                onClick={stopRecording}
-                title="Parar gravação"
-                className="rounded-full"
+                onClick={togglePauseRecording}
+                title={isRecordingPaused ? "Retomar gravação" : "Pausar gravação"}
+                className="rounded-full text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shrink-0"
               >
-                <X className="h-4 w-4" />
+                {isRecordingPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              </Button>
+
+              {/* Enviar */}
+              <Button
+                type="button"
+                size="icon"
+                onClick={finishAndSendRecording}
+                disabled={sending}
+                title="Enviar áudio"
+                className="rounded-full bg-green-500 hover:bg-green-600 shrink-0"
+              >
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </>
           ) : recordedAudio ? (
@@ -1827,9 +1936,11 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 disabled={!!selectedImage || !!selectedVideo}
                 onChange={(e) => {
                   setInputValue(e.target.value);
-                  // Auto-resize: reseta altura para recalcular scrollHeight
                   e.target.style.height = "auto";
-                  e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+                  const newHeight = Math.min(e.target.scrollHeight, 160);
+                  e.target.style.height = `${newHeight}px`;
+                  // Só mostra scroll quando atingir o limite máximo de altura
+                  e.target.style.overflowY = e.target.scrollHeight > 160 ? "auto" : "hidden";
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -1838,7 +1949,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                   }
                   // Enter simples → nova linha (comportamento padrão do textarea)
                 }}
-                className="flex-1 rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm resize-none overflow-y-auto leading-5 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 max-h-40"
+                className="flex-1 rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm resize-none overflow-y-hidden leading-5 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 max-h-40"
                 style={{ height: "36px" }}
               />
 

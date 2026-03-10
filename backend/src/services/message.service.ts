@@ -374,6 +374,7 @@ class MessageService {
             whatsappInstanceId: message.whatsappInstanceId,
             whatsappInstanceName: message.whatsappInstance.instanceName,
             isArchived: message.customer.isArchived ?? false,
+            lastMediaType: message.mediaType ?? null,
           });
         }
       }
@@ -1202,8 +1203,22 @@ class MessageService {
       // 4. MENSAGEM DE VÍDEO
       else if (msgData?.videoMessage) {
         mediaType = "video";
-        content = msgData.videoMessage.caption || "Vídeo recebido";
-        // Vídeos são muito grandes para baixar, apenas registra a mensagem
+
+        try {
+          const mimetype = msgData.videoMessage.mimetype || "video/mp4";
+          let base64Video = msgData.videoMessage.base64;
+
+          if (!base64Video) {
+            const videoBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+            base64Video = videoBuffer.toString("base64");
+          }
+
+          mediaUrl = `data:${mimetype};base64,${base64Video}`;
+          content = msgData.videoMessage.caption || "";
+        } catch (downloadError: any) {
+          console.error(`[MessageService] ❌ Erro ao baixar vídeo:`, downloadError.message);
+          content = msgData.videoMessage.caption || "[Vídeo recebido - erro ao processar]";
+        }
       }
       // 5. MENSAGEM DE DOCUMENTO
       else if (msgData?.documentMessage) {

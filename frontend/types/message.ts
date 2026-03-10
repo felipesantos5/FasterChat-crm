@@ -83,6 +83,7 @@ export interface ConversationSummary {
   whatsappInstanceId: string; // ID da instância do WhatsApp
   whatsappInstanceName: string; // Nome da instância
   isArchived: boolean; // Contato arquivado
+  lastMediaType: string | null;
 }
 
 export interface GetConversationsResponse {
