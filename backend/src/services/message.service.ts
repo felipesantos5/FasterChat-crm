@@ -1670,7 +1670,13 @@ class MessageService {
       // Detecta o tipo de mídia pelo header base64
       const isAudio = mediaBase64.startsWith('data:audio/');
       const isImage = mediaBase64.startsWith('data:image/');
-      const mediaType = isAudio ? 'audio' : isImage ? 'image' : 'image'; // Default para image se não detectar
+      const isVideo = mediaBase64.startsWith('data:video/');
+      const mediaType = isAudio ? 'audio' : isVideo ? 'video' : isImage ? 'image' : 'image';
+
+      // WhatsApp só aceita MP4 e 3GPP para vídeos. WebM não é suportado.
+      if (isVideo && mediaBase64.startsWith('data:video/webm')) {
+        throw new Error('Formato de vídeo não suportado pelo WhatsApp. Converta o vídeo para MP4 antes de enviar.');
+      }
 
       // Busca o customer com sua empresa e instâncias
       const customer = await prisma.customer.findUnique({
@@ -1811,8 +1817,9 @@ class MessageService {
         sentBy,
       };
     } catch (error: any) {
+      if (error instanceof AppError) throw error;
       console.error("Error sending media:", error);
-      throw new Error(`Failed to send media: ${error.message}`);
+      throw new Error(error.message || 'Erro ao enviar mídia. Tente novamente.');
     }
   }
 

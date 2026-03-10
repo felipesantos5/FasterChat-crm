@@ -73,9 +73,10 @@ function CustomersPageContent() {
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const { hasError, handleError, clearError } = useErrorHandler();
 
-  // Load more
-  const [displayLimit, setDisplayLimit] = useState(52);
+  // Load more (paginação real — página atual, limit fixo de 50)
+  const [currentPage, setCurrentPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE_SIZE = 50;
 
   // Data
   const [data, setData] = useState<CustomerListResponse | null>(null);
@@ -87,7 +88,6 @@ function CustomersPageContent() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
-      setDisplayLimit(52);
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
@@ -133,21 +133,22 @@ function CustomersPageContent() {
     loadPipelineStages();
   }, []);
 
-  // Load customers
+  const buildFilters = () => ({
+    search: debouncedSearch || undefined,
+    tags: selectedTags.length > 0 ? selectedTags : undefined,
+    orderBy,
+    type: typeFilter,
+    pipelineStageId: pipelineStageFilter !== "all" ? pipelineStageFilter : undefined,
+  });
+
+  // Load customers — sempre reseta para página 1
   const loadCustomers = async () => {
     setIsLoading(true);
     clearError();
     try {
-      const response = await customerApi.getAll({
-        search: debouncedSearch || undefined,
-        tags: selectedTags.length > 0 ? selectedTags : undefined,
-        orderBy,
-        type: typeFilter,
-        pipelineStageId: pipelineStageFilter !== "all" ? pipelineStageFilter : undefined,
-        page: 1,
-        limit: displayLimit,
-      });
+      const response = await customerApi.getAll({ ...buildFilters(), page: 1, limit: PAGE_SIZE });
       setData(response);
+      setCurrentPage(1);
     } catch (error: any) {
       console.error("Error loading customers:", error);
       handleError(error);
@@ -156,21 +157,17 @@ function CustomersPageContent() {
     }
   };
 
+  // Carrega próxima página e acumula os resultados
   const handleLoadMore = async () => {
     setLoadingMore(true);
-    const newLimit = displayLimit + 50;
+    const nextPage = currentPage + 1;
     try {
-      const response = await customerApi.getAll({
-        search: debouncedSearch || undefined,
-        tags: selectedTags.length > 0 ? selectedTags : undefined,
-        orderBy,
-        type: typeFilter,
-        pipelineStageId: pipelineStageFilter !== "all" ? pipelineStageFilter : undefined,
-        page: 1,
-        limit: newLimit,
-      });
-      setData(response);
-      setDisplayLimit(newLimit);
+      const response = await customerApi.getAll({ ...buildFilters(), page: nextPage, limit: PAGE_SIZE });
+      setData((prev) => prev
+        ? { ...response, customers: [...prev.customers, ...response.customers] }
+        : response
+      );
+      setCurrentPage(nextPage);
     } catch (error: any) {
       console.error("Error loading more customers:", error);
     } finally {
@@ -180,7 +177,8 @@ function CustomersPageContent() {
 
   useEffect(() => {
     loadCustomers();
-  }, [debouncedSearch, selectedTags, orderBy, typeFilter, pipelineStageFilter, displayLimit]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, selectedTags, orderBy, typeFilter, pipelineStageFilter]);
 
   const handleCreate = async (customerData: any) => {
     await customerApi.create(customerData);
@@ -214,7 +212,6 @@ function CustomersPageContent() {
 
   const toggleTagFilter = (tag: string) => {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
-    setDisplayLimit(52);
   };
 
   const clearFilters = () => {
@@ -223,7 +220,6 @@ function CustomersPageContent() {
     setOrderBy("recent");
     setTypeFilter("all");
     setPipelineStageFilter("all");
-    setDisplayLimit(52);
   };
 
   const customers = data?.customers || [];

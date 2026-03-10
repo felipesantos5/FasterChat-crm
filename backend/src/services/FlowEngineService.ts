@@ -1756,11 +1756,127 @@ export class FlowEngineService {
           sourceHandle: handle,
         });
       } else if (execution.currentNode?.type === 'ai_condition') {
-        // AI condition processing
-        await flowQueueService.removeTimeoutJob(execution.id, execution.currentNode.id);
+        // AI condition processing — acumula até 5 mensagens antes de decidir
+
+        const MAX_AI_MESSAGES = 5;
+
+        // 1. Carrega mensagens acumuladas das variáveis da execução
+        const execVars = typeof (execution as any).variables === 'string'
+          ? JSON.parse((execution as any).variables as string)
+          : ((execution as any).variables as Record<string, unknown> || {});
+
+        const aiMessages: string[] = Array.isArray(execVars._aiConditionMessages)
+          ? [...(execVars._aiConditionMessages as string[])]
+          : [];
+
+        if (messageText.trim()) aiMessages.push(messageText.trim());
+
+        // 2. Busca contexto: última mensagem enviada pela empresa
+        let contextMessage = '';
+        try {
+          const customer = await prisma.customer.findUnique({
+            where: { companyId_phone: { companyId, phone: execution.contactPhone as string } },
+            select: { id: true }
+          });
+          if (customer) {
+            const lastOutbound = await prisma.message.findFirst({
+              where: { customerId: customer.id, direction: MessageDirection.OUTBOUND },
+              orderBy: { timestamp: 'desc' },
+              select: { content: true }
+            });
+            if (lastOutbound) contextMessage = lastOutbound.content;
+          }
+        } catch { /* contexto não disponível */ }
+
+        // 3. Monta prompt com todas as mensagens acumuladas
+        const nodeData = typeof execution.currentNode.data === 'string'
+          ? JSON.parse(execution.currentNode.data as string)
+          : (execution.currentNode.data || {});
+        const aiPrompt = (nodeData as Record<string, unknown>)?.aiPrompt as string || 'Classifique a intenção do usuário.';
+
+        let handle = 'other';
+
+        try {
+          const messagesText = aiMessages.map((m, i) => `${i + 1}. "${m}"`).join('\n');
+          const systemPrompt = `Você é um classificador de intenções especializado em atendimento via WhatsApp.
+Sua tarefa é analisar as últimas mensagens de um cliente e determinar sua intenção geral com base no contexto da conversa.
+
+CONTEXTO (última mensagem enviada pela empresa antes das respostas do cliente):
+"${contextMessage || 'Sem contexto disponível'}"
+
+ÚLTIMAS MENSAGENS DO CLIENTE (em ordem cronológica, analise o conjunto):
+${messagesText}
+
+INSTRUÇÃO DE CLASSIFICAÇÃO ADICIONAL:
+"${aiPrompt}"
+
+IMPORTANTE: Considere o conjunto completo de mensagens para entender a intenção geral do cliente.
+Mensagens como "pode me explicar", "claro", "como funciona?", "me conta mais", "ok", "tô interessado" indicam INTERESSE.
+Mensagens como "não obrigado", "não tenho interesse", "me tira da lista", "para de me mandar mensagem" indicam DESINTERESSE.
+
+Classifique a intenção do cliente em APENAS UMA das categorias abaixo:
+- "interested": O cliente demonstra interesse, quer saber mais, aceita uma proposta, quer agendar, quer saber preços, diz que sim, ou respondeu positivamente ao contexto — mesmo que de forma implícita.
+- "not_interested": O cliente recusa, diz que não quer, pede para parar de enviar mensagens, ou demonstra desinteresse claro e explícito.
+- "already_has": O cliente informa que já possui o produto/serviço, já é cliente da empresa, ou já resolveu sua necessidade.
+- "other": Apenas use esta categoria se for absolutamente impossível determinar se o cliente tem interesse ou não com as mensagens disponíveis.
+
+Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
+
+          const classification = await geminiService.generateResponse({
+            systemPrompt,
+            userPrompt: "Classifique a intenção do cliente com base no conjunto de mensagens fornecido.",
+            temperature: 0.1,
+            maxTokens: 15,
+            enableTools: false,
+          });
+
+          const cleanClassification = classification.toLowerCase().trim();
+
+          if (cleanClassification.includes('not_interested') || cleanClassification.includes('não interessado') || cleanClassification.includes('nao interessado')) {
+            handle = 'not_interested';
+          } else if (cleanClassification.includes('already_has') || cleanClassification.includes('já possui') || cleanClassification.includes('ja possui') || cleanClassification.includes('já tem')) {
+            handle = 'already_has';
+          } else if (cleanClassification.includes('interested') || cleanClassification.includes('interessado')) {
+            handle = 'interested';
+          } else if (cleanClassification.includes('other') || cleanClassification.includes('outros')) {
+            handle = 'other';
+          }
+        } catch (error) {
+          console.error(`[FlowEngine] ❌ Erro ao classificar resposta na AI Condition. Fallback para 'other'.`, error);
+        }
+
+        const isClearSignal = handle !== 'other';
+        const maxReached = aiMessages.length >= MAX_AI_MESSAGES;
+
+        if (!isClearSignal && !maxReached) {
+          // Ainda não temos sinal claro e não atingimos o limite — continua acumulando
+          const updatedVars = { ...execVars, _aiConditionMessages: aiMessages };
+          await prisma.flowExecution.update({
+            where: { id: execution.id as string },
+            data: { variables: updatedVars }
+          });
+
+          // Remove o timeout antigo e re-arma com o tempo restante original
+          await flowQueueService.removeTimeoutJob(execution.id as string, execution.currentNode.id as string);
+          const resumesAt = (execution as any).resumesAt;
+          const remaining = resumesAt
+            ? Math.max(10000, new Date(resumesAt as string).getTime() - Date.now())
+            : 0;
+          if (remaining > 10000) {
+            await flowQueueService.enqueueFlowStep(
+              { executionId: execution.id as string, nodeId: execution.currentNode.id as string, sourceHandle: 'nao_respondeu' },
+              { delay: remaining, jobId: `timeout_${execution.id}_${execution.currentNode.id}` }
+            );
+          }
+          // Mantém status WAITING_REPLY — aguarda próxima mensagem
+          continue;
+        }
+
+        // Sinal claro OU limite de 5 mensagens atingido — procede com a decisão
+        await flowQueueService.removeTimeoutJob(execution.id as string, execution.currentNode.id as string);
 
         const updated = await prisma.flowExecution.updateMany({
-          where: { id: execution.id, status: FlowExecutionStatus.WAITING_REPLY },
+          where: { id: execution.id as string, status: FlowExecutionStatus.WAITING_REPLY },
           data: { status: FlowExecutionStatus.RUNNING, resumesAt: null }
         });
 
@@ -1768,94 +1884,17 @@ export class FlowEngineService {
           continue;
         }
 
-        const nodeData = typeof execution.currentNode.data === 'string'
-          ? JSON.parse(execution.currentNode.data)
-          : (execution.currentNode.data || {});
-          
-        const aiPrompt = (nodeData as Record<string, unknown>)?.aiPrompt as string || 'Classifique a intenção do usuário.';
-        
-        let handle = 'other'; // Default se a IA falhar ou não souber
-
-        // 🧠 BUSCA DE CONTEXTO: Encontra a última mensagem enviada para este cliente
-        // Isso ajuda a IA a entender o que o cliente está respondendo (ex: se disse "sim", sim para o que?)
-        let contextMessage = '';
-        try {
-          const customer = await prisma.customer.findUnique({
-            where: {
-              companyId_phone: {
-                companyId,
-                phone: execution.contactPhone,
-              }
-            },
-            select: { id: true }
-          });
-
-          if (customer) {
-            const lastOutbound = await prisma.message.findFirst({
-              where: {
-                customerId: customer.id,
-                direction: MessageDirection.OUTBOUND,
-              },
-              orderBy: { timestamp: 'desc' },
-              select: { content: true }
-            });
-            if (lastOutbound) {
-              contextMessage = lastOutbound.content;
-            }
-          }
-        } catch { /* contexto não disponível */ }
-        
-        try {
-          // Usa o geminiService já importado no topo do arquivo
-          const systemPrompt = `Você é um classificador de intenções especializado em atendimento via WhatsApp.
-Sua tarefa é analisar a resposta de um cliente e determinar sua intenção baseando-se no contexto da última mensagem enviada pela empresa.
-
-CONTEXTO (O que a empresa perguntou ou disse por último):
-"${contextMessage || 'Sem contexto disponível'}"
-
-MENSAGEM DO CLIENTE (A resposta que você deve classificar):
-"${messageText}"
-
-INSTRUÇÃO DE CLASSIFICAÇÃO ADICIONAL:
-"${aiPrompt}"
-
-Classifique a intenção do cliente em APENAS UMA das categorias abaixo:
-- "interested": O cliente demonstra interesse, aceita uma proposta, quer agendar, quer saber preços, diz que sim, ou respondeu positivamente ao contexto.
-- "not_interested": O cliente recusa, diz que não quer, pede para parar de enviar mensagens, ou demonstra desinteresse claro.
-- "already_has": O cliente informa que já possui o produto/serviço, já é cliente da empresa, ou já resolveu sua necessidade.
-- "other": Dúvidas que não indicam claramente interesse ou desinteresse, mensagens neutras, ou assuntos fora do contexto.
-
-Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
-
-          const classification = await geminiService.generateResponse({
-            systemPrompt,
-            userPrompt: "Classifique a intenção do cliente com base no contexto fornecido.",
-            temperature: 0.1,
-            maxTokens: 15,
-            enableTools: false,
-          });
-          
-          const cleanClassification = classification.toLowerCase().trim();
-          
-          // Mapeamento robusto para garantir que o handle seja válido
-          if (cleanClassification.includes('not_interested') || cleanClassification.includes('não interessado') || cleanClassification.includes('nao interessado')) {
-             handle = 'not_interested';
-          } else if (cleanClassification.includes('already_has') || cleanClassification.includes('já possui') || cleanClassification.includes('ja possui') || cleanClassification.includes('já tem')) {
-             handle = 'already_has';
-          } else if (cleanClassification.includes('interested') || cleanClassification.includes('interessado')) {
-             handle = 'interested';
-          } else if (cleanClassification.includes('other') || cleanClassification.includes('outros')) {
-             handle = 'other';
-          }
-          
-          
-        } catch (error) {
-           console.error(`[FlowEngine] ❌ Erro ao classificar resposta na AI Condition. Fallback para 'other'.`, error);
-        }
+        // Limpa mensagens acumuladas das variáveis
+        const cleanVars = { ...execVars };
+        delete cleanVars._aiConditionMessages;
+        await prisma.flowExecution.update({
+          where: { id: execution.id as string },
+          data: { variables: cleanVars }
+        });
 
         await flowQueueService.enqueueFlowStep({
-          executionId: execution.id,
-          nodeId: execution.currentNode.id,
+          executionId: execution.id as string,
+          nodeId: execution.currentNode.id as string,
           sourceHandle: handle,
         });
       }

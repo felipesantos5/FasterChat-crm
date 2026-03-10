@@ -70,6 +70,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [recordedAudio, setRecordedAudio] = useState<string | null>(null);
   const [isContactOnline, setIsContactOnline] = useState(false);
   const [whatsappInstanceId, setWhatsappInstanceId] = useState<string | null>(null);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false); // começa false até confirmar config global
@@ -87,10 +88,11 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isInitialScrollRef = useRef(true);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingCancelledRef = useRef(false);
   const editInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Handler para novas mensagens via WebSocket
@@ -495,6 +497,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     setInputValue("");
     setReplyingTo(null);
     setSending(true);
+    // Reseta altura do textarea
+    if (inputRef.current) inputRef.current.style.height = "36px";
 
     try {
       const response = await messageApi.sendMessage(customerId, messageContent, "HUMAN", quotedId);
@@ -554,6 +558,11 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const processVideoFile = (file: File) => {
     if (!file.type.startsWith("video/")) {
       toast.error("Por favor, selecione apenas arquivos de vídeo.");
+      return;
+    }
+    // WhatsApp não suporta WebM — só MP4 e 3GPP
+    if (file.type === "video/webm") {
+      toast.error("Formato WebM não é suportado pelo WhatsApp. Converta o vídeo para MP4 antes de enviar.");
       return;
     }
     // Limite de 16MB (limite do WhatsApp para vídeos)
@@ -737,19 +746,22 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         }
       };
 
-      recorder.onstop = async () => {
+      recorder.onstop = () => {
+        // Para o stream imediatamente
+        stream.getTracks().forEach(track => track.stop());
+
+        // Se foi cancelado, descarta o áudio
+        if (recordingCancelledRef.current) return;
+
         const blob = new Blob(chunks, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.readAsDataURL(blob);
-        reader.onloadend = async () => {
-          const base64Audio = reader.result as string;
-          await handleSendAudio(base64Audio);
+        reader.onloadend = () => {
+          setRecordedAudio(reader.result as string);
         };
-
-        // Para o stream
-        stream.getTracks().forEach(track => track.stop());
       };
 
+      recordingCancelledRef.current = false;
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
@@ -767,12 +779,14 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     }
   };
 
-  // Para gravação
+  // Para e descarta a gravação (sem enviar)
   const stopRecording = () => {
     if (mediaRecorder && isRecording) {
+      recordingCancelledRef.current = true;
       mediaRecorder.stop();
       setIsRecording(false);
       setMediaRecorder(null);
+      setRecordingTime(0);
 
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
@@ -781,21 +795,18 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     }
   };
 
-  // Cancela gravação
-  const cancelRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stream.getTracks().forEach(track => track.stop());
-      setMediaRecorder(null);
-      setIsRecording(false);
-      setRecordingTime(0);
+  // Envia o áudio gravado que está em preview
+  const sendRecordedAudio = async () => {
+    if (!recordedAudio) return;
+    const audio = recordedAudio;
+    setRecordedAudio(null);
+    await handleSendAudio(audio);
+  };
 
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-        recordingIntervalRef.current = null;
-      }
-
-      toast.info("Gravação cancelada");
-    }
+  // Descarta o áudio gravado (preview → volta ao normal)
+  const discardRecordedAudio = () => {
+    setRecordedAudio(null);
+    setRecordingTime(0);
   };
 
   // Envia áudio
@@ -1292,7 +1303,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                           {message.content && !message.content.startsWith("[Imagem") && (
                             <MessageText
                               content={message.content}
-                              className={cn("text-xs italic", isInbound ? "text-muted-foreground" : "text-white/80")}
+                              className="text-xs sm:text-sm break-words overflow-wrap-anywhere"
                             />
                           )}
                         </div>
@@ -1319,7 +1330,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                           {message.content && !message.content.startsWith("[Vídeo") && (
                             <MessageText
                               content={message.content}
-                              className={cn("text-xs italic", isInbound ? "text-muted-foreground" : "text-white/80")}
+                              className="text-xs sm:text-sm break-words overflow-wrap-anywhere"
                             />
                           )}
                         </div>
@@ -1335,44 +1346,9 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                         </div>
                       ) : null}
 
-                      {/* Texto — modo normal ou modo de edição */}
+                      {/* Texto — modo normal */}
                       {message.mediaType !== "audio" && message.mediaType !== "image" && message.mediaType !== "video" && message.content && (
-                        editingMessageId === message.id ? (
-                          <div className="flex flex-col gap-2 min-w-[200px]">
-                            <textarea
-                              ref={editInputRef}
-                              value={editingContent}
-                              onChange={(e) => setEditingContent(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                  e.preventDefault();
-                                  saveEdit(message.id);
-                                }
-                                if (e.key === "Escape") cancelEdit();
-                              }}
-                              rows={Math.min(editingContent.split("\n").length + 1, 5)}
-                              className="w-full text-xs sm:text-sm bg-white/20 dark:bg-black/20 text-white placeholder-white/60 border border-white/30 rounded-md px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-white/50"
-                            />
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={cancelEdit}
-                                className="text-[10px] text-white/70 hover:text-white px-2 py-0.5 rounded"
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                onClick={() => saveEdit(message.id)}
-                                disabled={savingEdit || !editingContent.trim()}
-                                className="text-[10px] bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded flex items-center gap-1 disabled:opacity-50"
-                              >
-                                {savingEdit ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
-                                Salvar
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
-                        )
+                        <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
                       )}
                     </div>
                     <div className="flex items-center justify-end gap-2 mt-1">
@@ -1623,7 +1599,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         )}
 
         {/* Input de mensagem */}
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-3 sm:p-4 bg-white dark:bg-gray-900 border-t">
+        <form onSubmit={handleSendMessage} className="flex items-end gap-2 p-3 sm:p-4 bg-white dark:bg-gray-900 border-t">
           {/* Inputs de arquivo ocultos */}
           <input
             ref={fileInputRef}
@@ -1643,18 +1619,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           {/* Se estiver gravando, mostra interface de gravação */}
           {isRecording ? (
             <>
-              <Button
-                type="button"
-                variant="destructive"
-                size="icon"
-                onClick={cancelRecording}
-                title="Cancelar gravação"
-                className="rounded-full"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-
-              <div className="flex-1 flex items-center gap-3 bg-gray-100rounded-full px-4 py-2">
+              <div className="flex-1 flex items-center gap-3 bg-gray-100 rounded-full px-4 py-2">
                 <Mic className="h-4 w-4 text-red-500 animate-pulse" />
                 <span className="text-sm font-medium text-red-600 dark:text-red-400">{formatRecordingTime(recordingTime)}</span>
                 <div className="flex-1 flex gap-1">
@@ -1666,9 +1631,40 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
 
               <Button
                 type="button"
-                variant="default"
+                variant="destructive"
                 size="icon"
                 onClick={stopRecording}
+                title="Parar gravação"
+                className="rounded-full"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </>
+          ) : recordedAudio ? (
+            <>
+              <div className="flex-1 flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-full px-4 py-2">
+                <Mic className="h-4 w-4 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Áudio gravado · {formatRecordingTime(recordingTime)}
+                </span>
+              </div>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={discardRecordedAudio}
+                title="Descartar áudio"
+                className="rounded-full text-gray-500 hover:text-red-500"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+
+              <Button
+                type="button"
+                variant="default"
+                size="icon"
+                onClick={sendRecordedAudio}
                 disabled={sending}
                 title="Enviar áudio"
                 className="rounded-full bg-green-500 hover:bg-green-600"
@@ -1823,14 +1819,27 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 </PopoverContent>
               </Popover>
 
-              <Input
+              <textarea
                 ref={inputRef}
-                type="text"
                 placeholder="Digite uma mensagem"
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                rows={1}
                 disabled={!!selectedImage || !!selectedVideo}
-                className="flex-1 rounded-full border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus-visible:ring-1"
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  // Auto-resize: reseta altura para recalcular scrollHeight
+                  e.target.style.height = "auto";
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    handleSendMessage(e as any);
+                  }
+                  // Enter simples → nova linha (comportamento padrão do textarea)
+                }}
+                className="flex-1 rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm resize-none overflow-y-auto leading-5 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 max-h-40"
+                style={{ height: "36px" }}
               />
 
               {/* Botão Send (aparece quando tem texto) ou Microfone (quando não tem) */}
@@ -1861,6 +1870,52 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           )}
         </form>
       </div>
+
+      {/* Modal de edição de mensagem */}
+      <Dialog open={!!editingMessageId} onOpenChange={(open) => { if (!open) cancelEdit(); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" />
+              Editar mensagem
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <textarea
+              ref={editInputRef}
+              value={editingContent}
+              onChange={(e) => setEditingContent(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (editingMessageId) saveEdit(editingMessageId);
+                }
+                if (e.key === "Escape") cancelEdit();
+              }}
+              rows={Math.max(4, Math.min(editingContent.split("\n").length + 1, 12))}
+              placeholder="Conteúdo da mensagem..."
+              className="w-full text-sm border border-input rounded-md px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Enter para salvar · Shift+Enter para nova linha · Esc para cancelar</p>
+          </div>
+          <DialogFooter>
+            <button
+              onClick={cancelEdit}
+              className="px-4 py-2 text-sm rounded-md border border-input hover:bg-accent transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => { if (editingMessageId) saveEdit(editingMessageId); }}
+              disabled={savingEdit || !editingContent.trim()}
+              className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50"
+            >
+              {savingEdit && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Salvar
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal para Marcar como Exemplo */}
       <Dialog open={showExampleModal} onOpenChange={setShowExampleModal}>

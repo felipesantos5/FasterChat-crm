@@ -160,6 +160,7 @@ function ConversationsPageContent() {
     }
   }, [filterType]);
 
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("conversations_sort_type", sortType);
@@ -334,6 +335,13 @@ function ConversationsPageContent() {
     };
   }, [allConversations]);
 
+  // Se o filtro "Aguardando" estiver ativo mas não houver mais nenhum, volta para "all"
+  useEffect(() => {
+    if (filterType === "needsHelp" && stats.needsHelp === 0) {
+      setFilterType("all");
+    }
+  }, [stats.needsHelp, filterType]);
+
   // Handler para selecionar conversa (muda view no mobile)
   const handleSelectConversation = (customerId: string) => {
     setSelectedCustomerId(customerId);
@@ -463,10 +471,12 @@ function ConversationsPageContent() {
                 <Button variant={filterType === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterType("all")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
                   Todas {stats.total}
                 </Button>
-                <Button variant={filterType === "needsHelp" ? "default" : "outline"} size="sm" onClick={() => setFilterType("needsHelp")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
-                  <Clock className="h-3 w-3 mr-1" />
-                  Aguardando {stats.needsHelp}
-                </Button>
+                {stats.needsHelp > 0 && (
+                  <Button variant={filterType === "needsHelp" ? "default" : "outline"} size="sm" onClick={() => setFilterType("needsHelp")} className="h-7 text-[11px] px-1.5 shrink-0 gap-1">
+                    <Clock className="h-3 w-3 mr-1" />
+                    Aguardando {stats.needsHelp}
+                  </Button>
+                )}
                 {stats.unread > 0 && (
                   <Button variant={filterType === "unread" ? "default" : "outline"} size="sm" onClick={() => setFilterType("unread")} className="h-7 text-[11px] px-2 shrink-0 gap-1.5">
                     Notificações

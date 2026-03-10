@@ -793,14 +793,18 @@ class WhatsAppService {
       // ========================================
       const isVideo = mediaType === "video";
       let mimetype = isVideo ? "video/mp4" : "image/jpeg";
-      
+
       if (!isVideo) {
         if (mediaBase64.includes("data:image/png")) mimetype = "image/png";
         else if (mediaBase64.includes("data:image/gif")) mimetype = "image/gif";
         else if (mediaBase64.includes("data:image/webp")) mimetype = "image/webp";
       } else {
+        // WhatsApp só suporta MP4 e 3GPP — WebM deve ser rejeitado antes de chegar aqui
+        if (mediaBase64.includes("data:video/webm")) {
+          throw new Error("Formato de vídeo não suportado pelo WhatsApp. Converta o vídeo para MP4 antes de enviar.");
+        }
         if (mediaBase64.includes("data:video/quicktime")) mimetype = "video/quicktime";
-        else if (mediaBase64.includes("data:video/webm")) mimetype = "video/webm";
+        // Demais video/* ficam como video/mp4 (padrão mais compatível)
       }
 
 

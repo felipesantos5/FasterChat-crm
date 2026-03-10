@@ -87,9 +87,17 @@ export function MessageText({ content, className = "" }: MessageTextProps) {
     return parts.length > 0 ? parts : [text];
   };
 
+  // Divide por linhas para preservar quebras de linha do texto original
+  const lines = content.split('\n');
+
   return (
     <span className={className}>
-      {parseWhatsAppFormatting(content)}
+      {lines.map((line, lineIndex) => (
+        <React.Fragment key={lineIndex}>
+          {lineIndex > 0 && <br />}
+          {parseWhatsAppFormatting(line)}
+        </React.Fragment>
+      ))}
     </span>
   );
 }

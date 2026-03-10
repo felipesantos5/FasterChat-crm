@@ -937,7 +937,7 @@ export default function CustomerDetailPage() {
       {/* Avatar Lightbox */}
       {avatarZoomOpen && customer.profilePicUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 !mt-0"
           onClick={() => setAvatarZoomOpen(false)}
         >
           <button
