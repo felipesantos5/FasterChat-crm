@@ -51,9 +51,11 @@ interface BatchStatusData {
   errors: Array<{ row: number; phone: string; error: string }>;
   startedAt: string;
   completedAt: string | null;
+  allDispatchedAt: string | null; // quando a fila ficou vazia (todos iniciados)
   pausedUntil: string | null;
   consecutiveErrors: number;
   pauseCount: number;
+  queueRemaining?: number; // contatos ainda aguardando na fila
   executionCounts?: ExecutionCounts;
 }
 
@@ -194,13 +196,14 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
 
   if (!visible || !batchId) return null;
 
-  const isProcessing = !status || (status.status === "PROCESSING" && status.processed < status.total);
+  const isProcessing = !status || status.status === "PROCESSING";
   const isPaused = status?.status === "PAUSED";
-  const isCompleted = status?.status === "COMPLETED" || (status && status.processed >= status.total && status.status !== "CANCELLED" && status.status !== "FAILED");
+  const isCompleted = status?.status === "COMPLETED";
   const isFailed = status?.status === "FAILED";
   const isCancelled = status?.status === "CANCELLED";
   const isActive = isProcessing || isPaused;
-  const showCancelButton = !status || (status.processed < status.total && !isCancelled);
+  const showCancelButton = !status || (status.status !== "CANCELLED" && status.status !== "COMPLETED" && status.status !== "FAILED");
+  // Progresso baseado em quantos já foram disparados pelo FlowEngine
   const progressPercent = status
     ? Math.round((status.processed / status.total) * 100)
     : 0;
@@ -217,8 +220,14 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
     return `${mins}min ${secs}s`;
   };
 
+  // O timer para quando todos os contatos foram iniciados no fluxo (fila Redis esvaziou)
+  const elapsedEndMs = status?.allDispatchedAt
+    ? new Date(status.allDispatchedAt).getTime()
+    : status?.completedAt && status.status !== "PROCESSING"
+    ? new Date(status.completedAt).getTime()
+    : Date.now();
   const elapsed = status?.startedAt
-    ? Math.round((Date.now() - new Date(status.startedAt).getTime()) / 1000)
+    ? Math.round((elapsedEndMs - new Date(status.startedAt).getTime()) / 1000)
     : 0;
 
   return (
@@ -249,7 +258,9 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
           {isPaused
             ? `⏸️ Pausado ${status?.processed ?? 0}/${status?.total ?? "..."}`
             : isProcessing
-              ? `Enviando ${status?.processed ?? 0}/${status?.total ?? "..."}`
+              ? (status?.queueRemaining ?? 0) > 0
+                ? `Na fila: ${status!.queueRemaining}/${status!.total}`
+                : `Enviando ${status?.processed ?? 0}/${status?.total ?? "..."}`
               : isCompleted
                 ? `Disparo concluído (${status?.total})`
                 : isCancelled
@@ -308,13 +319,15 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-blue-50 rounded-lg p-3 text-center">
                   <p className="text-lg font-bold text-blue-800">
-                    {status.processed}/{status.total}
+                    {(status.queueRemaining ?? 0) > 0 ? status.queueRemaining : status.processed}/{status.total}
                   </p>
-                  <p className="text-xs text-blue-600">Processados</p>
+                  <p className="text-xs text-blue-600">
+                    {(status.queueRemaining ?? 0) > 0 ? "Na fila" : "Disparados"}
+                  </p>
                 </div>
                 <div className="bg-green-50 rounded-lg p-3 text-center">
                   <p className="text-lg font-bold text-green-800">
-                    {status.executionCounts?.completed ?? status.succeeded}
+                    {status.succeeded}
                   </p>
                   <p className="text-xs text-green-600">Sucesso</p>
                 </div>
@@ -326,12 +339,12 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                 </div>
               </div>
 
-              {/* Detalhamento de status das execuções */}
-              {status.executionCounts && (status.executionCounts.running > 0 || status.executionCounts.waitingReply > 0 || status.executionCounts.delayed > 0 || status.executionCounts.paused > 0) && (
+              {/* Detalhamento informativo das execuções em andamento */}
+              {status.executionCounts && (status.executionCounts.waitingReply > 0 || status.executionCounts.delayed > 0 || status.executionCounts.completed > 0) && (
                 <div className="flex flex-wrap gap-2 text-[11px]">
-                  {status.executionCounts.running > 0 && (
-                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                      {status.executionCounts.running} rodando
+                  {status.executionCounts.completed > 0 && (
+                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                      {status.executionCounts.completed} concluídos
                     </span>
                   )}
                   {status.executionCounts.waitingReply > 0 && (
@@ -342,11 +355,6 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                   {status.executionCounts.delayed > 0 && (
                     <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
                       {status.executionCounts.delayed} com delay
-                    </span>
-                  )}
-                  {status.executionCounts.paused > 0 && (
-                    <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
-                      {status.executionCounts.paused} cancelados
                     </span>
                   )}
                 </div>
@@ -417,7 +425,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                       ? "Todos os disparos foram realizados com sucesso!"
                       : isCancelled
                         ? "Os disparos foram cancelados pelo usuário."
-                        : `${status.executionCounts?.completed ?? status.succeeded} disparos OK, ${status.failed} falhas`}
+                        : `${status.succeeded} disparos OK, ${status.failed} falhas`}
                   </p>
                 </div>
               )}

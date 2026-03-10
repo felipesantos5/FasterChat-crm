@@ -32,6 +32,7 @@ interface BatchStatus {
   errors: Array<{ row: number; phone: string; error: string }>;
   startedAt: Date;
   completedAt: Date | null;
+  allDispatchedAt: Date | null;  // Quando a fila Redis ficou vazia (todos iniciados)
   pausedUntil: Date | null;     // Se pausado, quando retoma
   consecutiveErrors: number;     // Erros seguidos no batch
   pauseCount: number;            // Quantas vezes já pausou
@@ -161,6 +162,7 @@ export class FlowBatchController {
       errors: [],
       startedAt: new Date(),
       completedAt: null,
+      allDispatchedAt: null,
       pausedUntil: null,
       consecutiveErrors: 0,
       pauseCount: 0,
@@ -305,38 +307,56 @@ export class FlowBatchController {
 
     // Busca contadores reais das execuções no banco (status atualizado pelo FlowEngine)
     try {
-      const executionCounts = await prisma.flowExecution.groupBy({
-        by: ['status'],
-        where: {
-          variables: { path: ['_batchId'], equals: batchId },
-        },
-        _count: true,
-      });
+      const [executionCounts, queueRemaining] = await Promise.all([
+        prisma.flowExecution.groupBy({
+          by: ['status'],
+          where: {
+            variables: { path: ['_batchId'], equals: batchId },
+          },
+          _count: true,
+        }),
+        redisConnection.llen(FlowBatchController.batchQueueKey(batchId)),
+      ]);
 
       const realCounts: Record<string, number> = {};
-      let realTotal = 0;
       for (const row of executionCounts) {
         realCounts[row.status] = row._count;
-        realTotal += row._count;
       }
 
-      const realFailed = (realCounts['FAILED'] || 0) + (realCounts['FORCE_CANCELLED'] || 0) + (realCounts['PAUSED'] || 0);
-      const realSucceeded = (realCounts['COMPLETED'] || 0) + (realCounts['WAITING_REPLY'] || 0);
-      const realActive = (realCounts['RUNNING'] || 0) + (realCounts['DELAYED'] || 0);
+      // Sucesso = qualquer contato cujo envio inicial foi feito com êxito
+      // (rodando, aguardando resposta, com delay programado ou já concluído)
+      const realSucceeded =
+        (realCounts['COMPLETED'] || 0) +
+        (realCounts['WAITING_REPLY'] || 0) +
+        (realCounts['RUNNING'] || 0) +
+        (realCounts['DELAYED'] || 0);
+
+      // Falha = contato que não conseguiu iniciar o fluxo
+      const realFailed =
+        (realCounts['FAILED'] || 0) +
+        (realCounts['FORCE_CANCELLED'] || 0) +
+        (realCounts['PAUSED'] || 0) +
+        batch.failed; // falhas de enfileiramento (telefone inválido etc.)
+
+      // Registra quando a fila ficou vazia pela primeira vez (timer para no frontend)
+      if (queueRemaining === 0 && !batch.allDispatchedAt && (realSucceeded + realFailed) > 0) {
+        batch.allDispatchedAt = new Date();
+      }
 
       let derivedStatus = batch.status;
-      // Se terminou de enfileirar mas ainda tem execuções ativas (rodando ou no metrônomo), mantemos como PROCESSING
-      if (batch.status === 'COMPLETED' && realActive > 0) {
+      // Mantém PROCESSING enquanto ainda há contatos aguardando na fila Redis
+      if (batch.status === 'COMPLETED' && queueRemaining > 0) {
         derivedStatus = 'PROCESSING';
       }
 
       return res.json({
         ...batch,
         status: derivedStatus,
-        processed: realSucceeded + realFailed + batch.failed, // Processados = Sucessos + Falhas Reais + Falhas de Enfileiramento
+        // processed = quantos foram disparados pelo FlowEngine (independente do resultado)
+        processed: realSucceeded + realFailed,
         succeeded: realSucceeded,
-        failed: realFailed + batch.failed,
-        // Detalhe granular para o frontend usar se quiser
+        failed: realFailed,
+        queueRemaining, // contatos ainda aguardando na fila para ser iniciados
         executionCounts: {
           completed: realCounts['COMPLETED'] || 0,
           running: realCounts['RUNNING'] || 0,

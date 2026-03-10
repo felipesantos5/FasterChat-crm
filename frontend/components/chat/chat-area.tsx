@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MessageFeedbackComponent } from "@/components/chat/message-feedback";
 import { AudioPlayer } from "@/components/chat/audio-player";
 import { MessageText } from "@/components/chat/message-text";
+import { QuickMessagePopover } from "@/components/chat/QuickMessagePopover";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { toast } from "sonner";
 import { ChatAreaSkeleton } from "@/components/ui/skeletons";
@@ -1710,6 +1711,30 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                   </button>
                 </PopoverContent>
               </Popover>
+
+              {/* Botão de Mensagens Rápidas */}
+              <QuickMessagePopover
+                disabled={sending || !!selectedImage || !!selectedVideo}
+                onSelectText={(text) => {
+                  setInputValue(text);
+                  setTimeout(() => inputRef.current?.focus(), 0);
+                }}
+                onSelectMedia={(base64, caption) => {
+                  messageApi.sendMedia(customerId, base64, caption, "HUMAN")
+                    .then((res) => {
+                      if (!isConnected || !isAuthenticated) {
+                        setMessages((prev) => {
+                          const exists = prev.some((m) => m.id === res.data.message.id);
+                          if (exists) return prev;
+                          return [...prev, res.data.message];
+                        });
+                      }
+                      toast.success("Mídia enviada!");
+                    })
+                    .catch((err: any) => showErrorToast(err, router, "Erro ao enviar mídia"));
+                }}
+                onSelectAudio={(base64) => handleSendAudio(base64)}
+              />
 
               {/* Botão de Emojis */}
               <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>

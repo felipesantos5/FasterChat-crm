@@ -24,6 +24,7 @@ import adminRoutes from "./admin.routes";
 import serviceRoutes from "./service.routes";
 import customFieldRoutes from "./custom-field.routes";
 import stripeRoutes from "./stripe.routes";
+import quickMessageRoutes from "./quick-message.routes";
 import conversationExampleController from "../controllers/conversation-example.controller";
 import { authenticate } from "../middlewares/auth";
 import { asyncHandler } from "../middlewares/errorHandler";
@@ -57,6 +58,7 @@ router.use("/services", serviceRoutes);
 router.use("/custom-fields", customFieldRoutes);
 router.use("/flows", flowRouter);
 router.use("/stripe", stripeRoutes);
+router.use("/quick-messages", quickMessageRoutes);
 
 // Rotas públicas (sem /api prefix) - devem ser registradas no server.ts
 // router.use('/l', linkRedirectRoutes);

@@ -227,6 +227,20 @@ export const errorHandler = (
     return;
   }
 
+  // 4b. PayloadTooLargeError - arquivo enviado excede o limite configurado
+  if ((err as any).status === 413 || (err as any).type === "entity.too.large" || err.message?.includes("request entity too large")) {
+    console.warn(`[UnhandledError] PayloadTooLargeError: request entity too large`, errorContext);
+
+    res.status(413).json({
+      success: false,
+      error: {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "Arquivo muito grande. O limite para envio de mídia é de 100MB.",
+      },
+    });
+    return;
+  }
+
   // 5. Timeout errors
   if (err.name === "TimeoutError" || err.message.includes("timeout")) {
     console.error(`[TimeoutError] Request timeout`, errorContext);

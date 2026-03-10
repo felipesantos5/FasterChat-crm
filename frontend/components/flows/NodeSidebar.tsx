@@ -1,23 +1,40 @@
 import { useAuthStore } from "@/lib/store/auth.store";
 import { Lock } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 type NodeSidebarProps = {
   handleAddNode: (type: string, name: string) => void;
 };
 
+/** Card bloqueado por plano — cadeado centralizado, card cinza, não clicável */
+function LockedNodeCard({ emoji, label, sublabel }: { emoji: string; label: string; sublabel: string }) {
+  return (
+    <div
+      title="Disponível apenas no plano Escala Total"
+      className="relative flex flex-col items-center justify-center gap-1.5 p-2 bg-gray-100 border border-gray-200 rounded-lg shadow-sm text-center cursor-not-allowed select-none overflow-hidden"
+    >
+      {/* Conteúdo desfocado atrás */}
+      <div className="opacity-25 grayscale flex flex-col items-center gap-1.5 pointer-events-none">
+        <div className="bg-gray-200 p-2 rounded-md text-gray-400 text-lg">{emoji}</div>
+        <div>
+          <p className="font-semibold text-xs text-gray-500">{label}</p>
+          <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{sublabel}</p>
+        </div>
+      </div>
+
+      {/* Overlay com cadeado centralizado */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+        <div className="bg-white rounded-full p-1.5 shadow border border-gray-300">
+          <Lock className="h-4 w-4 text-gray-500" />
+        </div>
+        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wide leading-tight">Escala Total</span>
+      </div>
+    </div>
+  );
+}
+
 export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
   const { user } = useAuthStore();
   const isEscalaTotal = user?.plan === 'ESCALA_TOTAL';
-
-  const addNode = (type: string, name: string) => {
-    if ((type === 'ai_image' || type === 'tts_audio') && !isEscalaTotal) {
-      toast.error(`O bloco '${name}' está disponível apenas no plano Performance Máxima.`);
-      return;
-    }
-    handleAddNode(type, name);
-  };
 
   return (
     <div className="p-4 flex flex-col gap-4 h-full">
@@ -26,7 +43,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
         <div className="grid grid-cols-2 gap-2">
 
           <button
-            onClick={() => addNode('message', 'Enviar Mensagem')}
+            onClick={() => handleAddNode('message', 'Enviar Mensagem')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-primary hover:shadow-md transition-all text-center group"
           >
             <div className="bg-blue-100 p-2 rounded-md text-blue-600 group-hover:bg-blue-500 group-hover:text-white transition-colors text-lg">💬</div>
@@ -37,7 +54,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
-            onClick={() => addNode('delay', 'Aguardar Tempo')}
+            onClick={() => handleAddNode('delay', 'Aguardar Tempo')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-orange-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-orange-100 p-2 rounded-md text-orange-600 group-hover:bg-orange-500 group-hover:text-white transition-colors text-lg">⏳</div>
@@ -48,7 +65,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
-            onClick={() => addNode('condition', 'Verificar Resposta')}
+            onClick={() => handleAddNode('condition', 'Verificar Resposta')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-purple-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-purple-100 p-2 rounded-md text-purple-600 group-hover:bg-purple-500 group-hover:text-white transition-colors text-lg">🔀</div>
@@ -59,7 +76,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
-            onClick={() => addNode('audio', 'Enviar Áudio')}
+            onClick={() => handleAddNode('audio', 'Enviar Áudio')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-green-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-green-100 p-2 rounded-md text-green-600 group-hover:bg-green-500 group-hover:text-white transition-colors text-lg">🎙️</div>
@@ -69,32 +86,23 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
             </div>
           </button>
 
-          <button
-            onClick={() => addNode('tts_audio', 'Áudio com IA')}
-            className={cn(
-              "flex flex-col items-center justify-center gap-1.5 p-2 border rounded-lg shadow-sm transition-all text-center group relative",
-              isEscalaTotal
-                ? "bg-white hover:border-violet-400 hover:shadow-md"
-                : "bg-gray-50 border-gray-200 grayscale opacity-80 cursor-not-allowed"
-            )}
-          >
-            {!isEscalaTotal && (
-              <div className="absolute top-1 right-1">
-                <Lock className="h-2.5 w-2.5 text-gray-400" />
+          {isEscalaTotal ? (
+            <button
+              onClick={() => handleAddNode('tts_audio', 'Áudio com IA')}
+              className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-violet-400 hover:shadow-md transition-all text-center group"
+            >
+              <div className="bg-violet-100 p-2 rounded-md text-violet-600 group-hover:bg-violet-500 group-hover:text-white transition-colors text-lg">🎤</div>
+              <div>
+                <p className="font-semibold text-xs text-gray-800">Áudio IA</p>
+                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">ElevenLabs</p>
               </div>
-            )}
-            <div className={cn(
-              "p-2 rounded-md text-lg transition-colors",
-              isEscalaTotal ? "bg-violet-100 text-violet-600 group-hover:bg-violet-500 group-hover:text-white" : "bg-gray-200 text-gray-400"
-            )}>🎤</div>
-            <div>
-              <p className="font-semibold text-xs text-gray-800">Áudio IA</p>
-              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">ElevenLabs</p>
-            </div>
-          </button>
+            </button>
+          ) : (
+            <LockedNodeCard emoji="🎤" label="Áudio IA" sublabel="ElevenLabs" />
+          )}
 
           <button
-            onClick={() => addNode('image', 'Enviar Imagem')}
+            onClick={() => handleAddNode('image', 'Enviar Imagem')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-pink-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-pink-100 p-2 rounded-md text-pink-600 group-hover:bg-pink-500 group-hover:text-white transition-colors text-lg">🖼️</div>
@@ -105,7 +113,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
-            onClick={() => addNode('video', 'Enviar Vídeo')}
+            onClick={() => handleAddNode('video', 'Enviar Vídeo')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-indigo-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-indigo-100 p-2 rounded-md text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors text-lg">🎥</div>
@@ -116,7 +124,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
-            onClick={() => addNode('ai_action', 'Ação da IA')}
+            onClick={() => handleAddNode('ai_action', 'Ação da IA')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-emerald-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-emerald-100 p-2 rounded-md text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors text-lg">🤖</div>
@@ -126,32 +134,23 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
             </div>
           </button>
 
-          <button
-            onClick={() => addNode('ai_image', 'Imagem IA')}
-            className={cn(
-              "flex flex-col items-center justify-center gap-1.5 p-2 border rounded-lg shadow-sm transition-all text-center group relative",
-              isEscalaTotal
-                ? "bg-white hover:border-violet-400 hover:shadow-md"
-                : "bg-gray-50 border-gray-200 grayscale opacity-80 cursor-not-allowed"
-            )}
-          >
-            {!isEscalaTotal && (
-              <div className="absolute top-1 right-1">
-                <Lock className="h-2.5 w-2.5 text-gray-400" />
+          {isEscalaTotal ? (
+            <button
+              onClick={() => handleAddNode('ai_image', 'Imagem IA')}
+              className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-violet-400 hover:shadow-md transition-all text-center group"
+            >
+              <div className="bg-violet-100 p-2 rounded-md text-violet-600 group-hover:bg-violet-500 group-hover:text-white transition-colors text-lg">✨</div>
+              <div>
+                <p className="font-semibold text-xs text-gray-800">Imagem IA</p>
+                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Gerar imagem</p>
               </div>
-            )}
-            <div className={cn(
-              "p-2 rounded-md text-lg transition-colors",
-              isEscalaTotal ? "bg-violet-100 text-violet-600 group-hover:bg-violet-500 group-hover:text-white" : "bg-gray-200 text-gray-400"
-            )}>✨</div>
-            <div>
-              <p className="font-semibold text-xs text-gray-800 text-center">Imagem IA</p>
-              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight text-center">Gerar imagem</p>
-            </div>
-          </button>
+            </button>
+          ) : (
+            <LockedNodeCard emoji="✨" label="Imagem IA" sublabel="Gerar imagem" />
+          )}
 
           <button
-            onClick={() => addNode('validation', 'Validação')}
+            onClick={() => handleAddNode('validation', 'Validação')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-amber-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-amber-100 p-2 rounded-md text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors text-lg">🛡️</div>
@@ -162,7 +161,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
-            onClick={() => addNode('ai_condition', 'Validação IA')}
+            onClick={() => handleAddNode('ai_condition', 'Validação IA')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-blue-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-indigo-100 p-2 rounded-md text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors text-lg">🧠</div>
@@ -173,7 +172,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
-            onClick={() => addNode('random', 'Randomização')}
+            onClick={() => handleAddNode('random', 'Randomização')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-teal-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-teal-100 p-2 rounded-md text-teal-600 group-hover:bg-teal-500 group-hover:text-white transition-colors text-lg">🎲</div>
@@ -184,7 +183,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
-            onClick={() => addNode('update_stage', 'Alterar Status')}
+            onClick={() => handleAddNode('update_stage', 'Alterar Status')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-sky-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-sky-100 p-2 rounded-md text-sky-600 group-hover:bg-sky-500 group-hover:text-white transition-colors text-lg">📉</div>
@@ -195,7 +194,7 @@ export function NodeSidebar({ handleAddNode }: NodeSidebarProps) {
           </button>
 
           <button
-            onClick={() => addNode('reaction', 'Reagir à Mensagem')}
+            onClick={() => handleAddNode('reaction', 'Reagir à Mensagem')}
             className="flex flex-col items-center justify-center gap-1.5 p-2 bg-white border rounded-lg shadow-sm hover:border-yellow-400 hover:shadow-md transition-all text-center group"
           >
             <div className="bg-yellow-100 p-2 rounded-md text-yellow-600 group-hover:bg-yellow-400 group-hover:text-white transition-colors text-lg">👍</div>

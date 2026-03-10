@@ -220,6 +220,9 @@ app.use("/api", apiLimiter);
 // ===========================================
 
 // Webhooks recebem payloads menores (1MB); rotas de API precisam de mais (10MB para áudios base64)
+// Rotas com upload de base64 pesado (vídeos, áudios, imagens)
+app.use("/api/messages/send-media", express.json({ limit: "100mb" }));
+app.use("/api/quick-messages", express.json({ limit: "100mb" }));
 app.use("/webhooks", express.json({ limit: "1mb" }));
 app.use("/api", express.json({ limit: "10mb" }));
 app.use(express.json({ limit: "1mb" })); // fallback geral

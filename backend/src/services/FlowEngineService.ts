@@ -499,28 +499,38 @@ export class FlowEngineService {
     });
 
     // ✅ Valida se o número existe no WhatsApp
+    const batchId = variables?._batchId as string | undefined;
+    const batchTag = batchId ? ` | batch: ${batchId}` : '';
+
     try {
       const numberOnWhatsApp = await whatsappService.numberExists(selectedInstance.instanceName, cleanPhone);
       if (!numberOnWhatsApp) {
+        console.log(
+          `[FlowEngine] ⏭️  Número ${cleanPhone} não é WhatsApp — pulando para o próximo contato` +
+          `${batchTag} | execução: ${execution.id}`
+        );
         await prisma.flowExecution.update({
           where: { id: execution.id },
           data: {
             status: FlowExecutionStatus.FAILED,
-            error: `O número ${cleanPhone} não possui WhatsApp ou é inválido.`,
+            error: `Número ${cleanPhone} não possui WhatsApp. Contato pulado no disparo.`,
             completedAt: new Date()
           }
         });
-        // 🔗 Número inválido: avança o próximo contato do batch
+        // 🔗 Número sem WhatsApp: avança o próximo contato do batch
         await this.advanceBatchQueue(variables, flowId, data.companyId, execution.id);
         return;
       }
     } catch (err: any) {
-      console.error(`[FlowEngine] ❌ Erro ao validar número ${cleanPhone} na Evolution:`, err.message);
+      console.error(
+        `[FlowEngine] ❌ Erro ao validar se ${cleanPhone} é WhatsApp na Evolution API` +
+        `${batchTag} | execução: ${execution.id} | motivo: ${err.message}`
+      );
       await prisma.flowExecution.update({
         where: { id: execution.id },
         data: {
           status: FlowExecutionStatus.FAILED,
-          error: `Falha técnica ao validar número: ${err.message}`,
+          error: `Falha ao verificar WhatsApp para ${cleanPhone}: ${err.message}`,
           completedAt: new Date()
         }
       });

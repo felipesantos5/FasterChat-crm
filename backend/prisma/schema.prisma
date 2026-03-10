@@ -15,6 +15,12 @@ enum UserRole {
   USER
 }
 
+enum QuickMessageType {
+  TEXT
+  MEDIA
+  AUDIO
+}
+
 enum PlanTier {
   FREE
   INICIAL
@@ -67,6 +73,7 @@ model Company {
   serviceZoneExceptions ServiceZoneException[]
   Flow                  Flow[]
   aiUsageLogs           AIUsageLog[]
+  quickMessages         QuickMessage[]
 
   whatsappStrategy          String? @default("RANDOM") @map("whatsapp_strategy")
   defaultWhatsappInstanceId String? @map("default_whatsapp_instance_id")
@@ -1102,4 +1109,20 @@ model AIUsageLog {
   @@index([companyId, createdAt])
   @@index([createdAt])
   @@map("ai_usage_logs")
+}
+
+model QuickMessage {
+  id        String           @id @default(uuid())
+  companyId String           @map("company_id")
+  title     String
+  type      QuickMessageType
+  content   String           @db.Text  // texto, base64 de imagem/áudio/vídeo
+  caption   String?                    // legenda para MEDIA
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("quick_messages")
 }
