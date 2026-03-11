@@ -25,6 +25,7 @@ export interface CreateMessageRequest {
   mediaType?: string;
   quotedContent?: string;
   quotedAuthor?: string;
+  senderType?: "HUMAN" | "AI" | "FLOW";
 }
 
 export interface GetMessagesRequest {

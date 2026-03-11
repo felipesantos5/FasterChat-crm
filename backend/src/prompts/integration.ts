@@ -76,6 +76,14 @@ interface BuildModularPromptOptions {
    * Dados coletados pelo script até o momento.
    */
   intentScriptCollectedData?: Record<string, string>;
+  /**
+   * Dados de feedback learning (likes/dislikes) para melhorar respostas.
+   */
+  feedbackLearning?: {
+    goodExamples: string[];
+    badExamples: string[];
+    insights: string[];
+  };
 }
 
 /**
@@ -84,7 +92,8 @@ interface BuildModularPromptOptions {
 export function buildModularPrompt(options: BuildModularPromptOptions): string {
   const {
     companyName, aiKnowledge, customer, services, ragContext, conversationContext,
-    calendarConnected, currentMessage, forceIntentScriptId, companyScripts, intentScriptCollectedData
+    calendarConnected, currentMessage, forceIntentScriptId, companyScripts, intentScriptCollectedData,
+    feedbackLearning,
   } = options;
 
   // ============================================
@@ -192,6 +201,7 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
       companyScripts: options.companyScripts,
       intentScriptCollectedData: options.intentScriptCollectedData,
       conversationContext,
+      feedbackLearning,
     },
     includeTools: objectiveType === "sales_scheduling" || objectiveType === "scheduling" || objectiveType === "support",
     includeTransbordo: true,
@@ -224,19 +234,13 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
  * - A feature flag USE_MODULAR_PROMPTS está ativa
  */
 export function shouldUseModularPrompts(aiKnowledge: AIKnowledgeData | null): boolean {
-  // Feature flag via variável de ambiente
-  const featureFlag = process.env.USE_MODULAR_PROMPTS === "true";
-
-  if (featureFlag) {
-    return true;
+  // Feature flag para forçar desativar (escape hatch)
+  if (process.env.USE_MODULAR_PROMPTS === "false") {
+    return false;
   }
 
-  // Usa modular se tem objectiveType definido
-  if (aiKnowledge?.objectiveType) {
-    return true;
-  }
-
-  return false;
+  // Modular é o padrão — inclui pricing avançado (zonas, combos, exceções)
+  return true;
 }
 
 /**

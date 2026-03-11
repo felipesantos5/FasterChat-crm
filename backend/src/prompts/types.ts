@@ -98,6 +98,11 @@ export interface KnowledgeContext {
     recentTopics?: string[];
     intent?: string;
   };
+  feedbackLearning?: {
+    goodExamples: string[];
+    badExamples: string[];
+    insights: string[];
+  };
 }
 
 /**

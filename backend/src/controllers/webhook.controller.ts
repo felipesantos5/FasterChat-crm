@@ -300,6 +300,7 @@ class WebhookController {
             const isSilentError =
               aiError.message?.includes("FREE plan") ||
               aiError.message?.includes("Auto-reply is disabled") ||
+              aiError.message?.includes("AI is disabled") ||
               aiError.message?.includes("not configured");
 
             if (isSilentError) {

@@ -1198,6 +1198,9 @@ export class FlowEngineService {
       await new Promise(resolve => setTimeout(resolve, TYPING_DELAY_TEXT_MS));
     } catch { /* presença não crítica */ }
 
+    // Captura timestamp ANTES do envio para garantir ordem cronológica correta no chat
+    const sentAt = new Date();
+
     const result = await this.sendWithRetry(
       (instanceId) => whatsappService.sendMessage({
         instanceId,
@@ -1216,7 +1219,7 @@ export class FlowEngineService {
     await this.storeLidMapping(execution, result?.remoteJid as string | undefined);
 
     // 💾 Salvar a mensagem no banco para aparecer na aba de conversas
-    await this.saveFlowMessageToConversation(execution, instance, text, result?.messageId as string | undefined, 'text');
+    await this.saveFlowMessageToConversation(execution, instance, text, result?.messageId as string | undefined, 'text', undefined, sentAt);
   }
 
   private async executeMediaNode(execution: Record<string, unknown>, node: Record<string, unknown>, data: Record<string, unknown>, variables: Record<string, unknown>): Promise<void> {
@@ -1248,6 +1251,9 @@ export class FlowEngineService {
         caption = this.replaceVariables(caption, variables);
       }
 
+      // Captura timestamp ANTES do envio para garantir ordem cronológica correta no chat
+      const sentAt = new Date();
+
       const result = await this.sendWithRetry(
         (instanceId) => whatsappService.sendMedia({
           instanceId,
@@ -1273,7 +1279,8 @@ export class FlowEngineService {
         caption || `[${nodeType}]`,
         result?.messageId as string | undefined,
         nodeType, // 'audio', 'image', 'video'
-        mediaSource
+        mediaSource,
+        sentAt
       );
     }
   }
@@ -1342,6 +1349,9 @@ export class FlowEngineService {
       mediaSource = `data:audio/mp3;base64,${mp3Buffer.toString('base64')}`;
     }
 
+    // Captura timestamp ANTES do envio para garantir ordem cronológica correta no chat
+    const sentAt = new Date();
+
     const result = await this.sendWithRetry(
       (instanceId) => whatsappService.sendMedia({
         instanceId,
@@ -1364,7 +1374,8 @@ export class FlowEngineService {
       '[áudio TTS]',
       result?.messageId as string | undefined,
       'audio',
-      ttsMode === 'static' ? mediaSource : undefined
+      ttsMode === 'static' ? mediaSource : undefined,
+      sentAt
     );
   }
 
@@ -1444,6 +1455,9 @@ export class FlowEngineService {
     }
 
     // 8. Envia pelo WhatsApp com Failover
+    // Captura timestamp ANTES do envio para garantir ordem cronológica correta no chat
+    const sentAt = new Date();
+
     const result = await this.sendWithRetry(
       (instanceId) => whatsappService.sendMedia({
         instanceId,
@@ -1469,7 +1483,8 @@ export class FlowEngineService {
       caption || '[Imagem gerada por IA]',
       result?.messageId as string | undefined,
       'image',
-      mediaBase64
+      mediaBase64,
+      sentAt
     );
 
     // Logging omitted
@@ -2123,7 +2138,8 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
     content: string,
     externalMessageId?: string,
     mediaType: string = 'text',
-    mediaUrl?: string
+    mediaUrl?: string,
+    sentAt?: Date
   ): Promise<void> {
     try {
       // Busca o companyId do fluxo
@@ -2140,16 +2156,18 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
       if (!customer) return;
 
       // Salva a mensagem na tabela de mensagens
+      // Usa o timestamp capturado ANTES do envio para garantir ordem cronológica correta
       await messageService.createMessage({
         customerId: customer.id,
         whatsappInstanceId: instance.id as string,
         direction: MessageDirection.OUTBOUND,
         content: content,
-        timestamp: new Date(),
+        timestamp: sentAt || new Date(),
         status: MessageStatus.SENT,
         messageId: externalMessageId || undefined,
         mediaType: mediaType,
         mediaUrl: mediaUrl || null,
+        senderType: "FLOW",
       });
 
     } catch { /* falha ao salvar mensagem na conversa — não falha o fluxo */ }

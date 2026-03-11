@@ -1176,6 +1176,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           messages.map((message, index) => {
             const isInbound = message.direction === MessageDirection.INBOUND;
             const isAi = message.senderType === SenderType.AI;
+            const isFlow = message.senderType === SenderType.FLOW;
             const previousMessage = index > 0 ? messages[index - 1] : null;
             const showDateSeparator = shouldShowDateSeparator(message, previousMessage);
 
@@ -1260,7 +1261,9 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                         ? "bg-white dark:bg-gray-800 text-foreground rounded-tl-none"
                         : isAi
                           ? "bg-[#DCF8C6] dark:bg-green-900/40 text-gray-900 dark:text-white rounded-tr-none"
-                          : "bg-[#446b26] dark:bg-green-900/20 text-white dark:text-white rounded-tr-none"
+                          : isFlow
+                            ? "bg-[#FFF3E0] dark:bg-orange-900/30 text-gray-900 dark:text-white rounded-tr-none"
+                            : "bg-[#446b26] dark:bg-green-900/20 text-white dark:text-white rounded-tr-none"
                     )}
                   >
                     {!isInbound && (
@@ -1269,6 +1272,11 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                           <Badge variant="secondary" className="text-xs h-4">
                             <Bot className="h-3 w-3 mr-1" />
                             IA
+                          </Badge>
+                        ) : isFlow ? (
+                          <Badge variant="secondary" className="text-xs h-4 bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border-orange-200 dark:border-orange-800">
+                            <Zap className="h-3 w-3 mr-1" />
+                            Fluxo
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-xs h-4 bg-white">
@@ -1904,6 +1912,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 placeholder="Digite uma mensagem"
                 value={inputValue}
                 rows={1}
+                spellCheck={true}
+                lang="pt-BR"
                 disabled={!!selectedImage || !!selectedVideo}
                 onChange={(e) => {
                   setInputValue(e.target.value);
@@ -1966,6 +1976,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
             <textarea
               ref={editInputRef}
               value={editingContent}
+              spellCheck={true}
+              lang="pt-BR"
               onChange={(e) => setEditingContent(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {

@@ -37,6 +37,7 @@ import { getServicesSection, getAdvancedPricingSection } from "./sections/servic
 import {
   getFAQSection,
   getRAGSection,
+  getFeedbackLearningSection,
   getConversationContextSection,
   getCustomerContextSection,
 } from "./sections/knowledge";
@@ -109,8 +110,11 @@ export class PromptBuilder {
       );
     }
 
-    // 7.2. Regras de venda consultiva (para objetivos de vendas)
-    if (objectiveType === "sales" || objectiveType === "sales_scheduling") {
+    // 7.2. Regras de venda consultiva
+    // Injeta sempre que houver serviços cadastrados, não apenas para objetivos de vendas
+    const hasServices = this.options.services &&
+      ((this.options.services.services?.length ?? 0) > 0 || (this.options.services.combos?.length ?? 0) > 0);
+    if (objectiveType === "sales" || objectiveType === "sales_scheduling" || hasServices) {
       this.addSection(getConsultativeSalesRulesSection());
     }
 
@@ -145,6 +149,11 @@ export class PromptBuilder {
       this.addSection(
         getConversationContextSection(this.options.knowledge.conversationContext)
       );
+    }
+
+    // 13. Feedback Learning (aprendizado com likes/dislikes)
+    if (this.options.knowledge?.feedbackLearning) {
+      this.addSection(getFeedbackLearningSection(this.options.knowledge.feedbackLearning));
     }
 
     // 14. Restrições

@@ -41,6 +41,7 @@ class MessageService {
             mediaUrl: data.mediaUrl || null,
             quotedContent: data.quotedContent || null,
             quotedAuthor: data.quotedAuthor || null,
+            ...(data.senderType && { senderType: data.senderType }),
           },
           include: {
             customer: true,
@@ -86,6 +87,7 @@ class MessageService {
           mediaUrl: data.mediaUrl || null,
           quotedContent: data.quotedContent || null,
           quotedAuthor: data.quotedAuthor || null,
+          ...(data.senderType && { senderType: data.senderType }),
         },
         include: {
           customer: true,

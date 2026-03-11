@@ -270,6 +270,15 @@ export class AIAppointmentService {
     companyId: string,
     message: string
   ): Promise<{ response?: string }> {
+    // Guard: verifica se IA está habilitada antes de iniciar agendamento
+    const conversation = await prisma.conversation.findUnique({
+      where: { customerId },
+      select: { aiEnabled: true },
+    });
+    if (conversation && conversation.aiEnabled === false) {
+      return {};
+    }
+
     // Verificação se Google Calendar está configurado
     const { googleCalendarService } = await import('./google-calendar.service');
     await googleCalendarService.isConfigured(companyId);
@@ -1088,6 +1097,17 @@ export class AIAppointmentService {
     companyId: string,
     message: string
   ): Promise<{ shouldContinue: boolean; response?: string }> {
+    // Guard: verifica se IA está habilitada antes de continuar agendamento
+    const conversation = await prisma.conversation.findUnique({
+      where: { customerId },
+      select: { aiEnabled: true },
+    });
+    if (conversation && conversation.aiEnabled === false) {
+      // Limpa o estado de agendamento para não ficar preso
+      await this.clearAppointmentState(customerId);
+      return { shouldContinue: false };
+    }
+
     const lowerMessage = message.toLowerCase();
 
     // 🚪 COMANDO DE ESCAPE: Cliente quer sair do fluxo

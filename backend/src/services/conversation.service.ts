@@ -14,13 +14,30 @@ class ConversationService {
         select: { id: true },
       });
 
+      // Herda o estado global de auto-reply da empresa para novas conversas
+      // Se a empresa desligou autoReply, conversas novas já nascem com IA desligada
+      let defaultAiEnabled = true;
+      if (!existedBefore) {
+        try {
+          const aiKnowledge = await prisma.aIKnowledge.findUnique({
+            where: { companyId },
+            select: { autoReplyEnabled: true },
+          });
+          if (aiKnowledge?.autoReplyEnabled === false) {
+            defaultAiEnabled = false;
+          }
+        } catch {
+          // Se falhar ao buscar config, mantém default true
+        }
+      }
+
       const conversation = await prisma.conversation.upsert({
         where: { customerId },
         update: {}, // Não altera nada se já existe
         create: {
           customerId,
           companyId,
-          aiEnabled: true,
+          aiEnabled: defaultAiEnabled,
         },
         include: {
           customer: true,

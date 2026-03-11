@@ -72,6 +72,14 @@ export function getServicesSection(services: ServicesContext): PromptSection {
     content += `\n`;
   }
 
+  content += `\n### Como apresentar serviços/produtos
+- Fale com segurança, como quem conhece profundamente cada item
+- Destaque os BENEFÍCIOS e o que o cliente ganha, não apenas o preço
+- Quando o serviço tiver variações, pergunte a necessidade do cliente ANTES de listar tudo
+- Se tiver faixas de preço por quantidade, informe a economia ao cliente
+- Nunca invente preços, condições ou características que não estão listados acima
+`;
+
   return {
     id: "section_services",
     title: "SERVIÇOS",
@@ -188,6 +196,35 @@ export function getAdvancedPricingSection(services: ServicesContext): PromptSect
       }
     }
   }
+
+  // Instruções de venda inteligente para precificação avançada
+  content += `\n\n### REGRAS DE VENDA INTELIGENTE (PRIORIDADE ALTA)
+
+**Combos e Pacotes — Oferta Proativa:**
+- Quando o cliente mencionar QUANTIDADE (ex: "quero 3 ar condicionados", "preciso de 2 limpezas") → verifique IMEDIATAMENTE se existe um combo/pacote que cubra essa necessidade
+- Se existir combo compatível, **SEMPRE ofereça** mostrando a economia: "Temos o pacote X que inclui exatamente isso por R$ Y — você economiza R$ Z comparado ao valor individual!"
+- Apresente o combo como uma OPORTUNIDADE, não como obrigação: "Uma ótima opção pra você seria..."
+- Compare o preço do combo vs serviços avulsos para o cliente ver a vantagem
+
+**Faixas de Quantidade — Desconto Automático:**
+- Se o serviço tem preço por quantidade e o cliente pede múltiplas unidades → aplique o desconto correto e DESTAQUE a economia
+- Ex: "Como são 6 unidades, o valor cai de R$ 400 pra R$ 350 cada — uma economia de R$ 300 no total!"
+
+**Zonas — Transparência:**
+- SEMPRE pergunte o bairro/região ANTES de fechar preço se houver zonas configuradas
+- Aplique a taxa correta e explique de forma natural: "Para a região X, há uma taxa de deslocamento de R$ Y"
+- Se a zona tem exceção (sem taxa, taxa especial), aplique e informe
+
+**Adicionais — Sugestão Natural:**
+- Ofereça adicionais que fazem sentido para o contexto, sem empurrar
+- Ex: "Muitos clientes que fazem instalação também aproveitam pra adicionar X por apenas +R$ Y"
+
+**Postura de Vendedor Experiente:**
+- Fale com segurança e conhecimento sobre cada produto/serviço
+- Destaque BENEFÍCIOS, não apenas características
+- Use linguagem de oportunidade: "aproveitar", "condição especial", "melhor opção pra esse caso"
+- Nunca invente preço, desconto ou condição que não esteja listada acima
+`;
 
   return {
     id: "section_advanced_pricing",

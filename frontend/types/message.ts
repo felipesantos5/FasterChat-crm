@@ -13,6 +13,7 @@ export enum MessageStatus {
 export enum SenderType {
   HUMAN = 'HUMAN',
   AI = 'AI',
+  FLOW = 'FLOW',
 }
 
 export enum MessageFeedback {

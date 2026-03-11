@@ -17,6 +17,7 @@ import ragService from "./rag.service";
 import conversationContextService from "./conversation-context.service";
 import { buildModularPrompt, shouldUseModularPrompts } from "../prompts";
 import { detectIntentScriptFromConfig, detectScriptExit, IntentScriptsCompanyConfig } from "../prompts/sections/intent-scripts";
+import feedbackLearningService from "./feedback-learning.service";
 
 /**
  * ============================================
@@ -481,6 +482,33 @@ Total: R$ 505,00"
   ): Promise<string> {
     try {
       // ========================================
+      // GUARD: Verifica se IA está habilitada ANTES de qualquer processamento
+      // ========================================
+      const guardCustomer = await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { companyId: true },
+      });
+      if (!guardCustomer) throw new Error("Customer not found");
+
+      const guardConversation = await prisma.conversation.findUnique({
+        where: { customerId },
+        select: { aiEnabled: true },
+      });
+      // Se a conversa existe e a IA está desligada nela, bloqueia
+      if (guardConversation && guardConversation.aiEnabled === false) {
+        throw new Error("AI is disabled for this conversation");
+      }
+
+      const guardAiKnowledge = await prisma.aIKnowledge.findUnique({
+        where: { companyId: guardCustomer.companyId },
+        select: { autoReplyEnabled: true },
+      });
+      // Se autoReply está desligado globalmente, bloqueia
+      if (guardAiKnowledge?.autoReplyEnabled === false) {
+        throw new Error("Auto-reply is disabled for this company");
+      }
+
+      // ========================================
       // ROTEADOR DE INTENÇÃO (GUARDRAIL)
       // Política "Limited Use" do Google
       // ========================================
@@ -720,6 +748,30 @@ Total: R$ 505,00"
         // Continua sem contexto em caso de erro
       }
 
+      // ============================================
+      // FEEDBACK LEARNING: Busca feedbacks para melhorar respostas
+      // ============================================
+      let feedbackLearning: { goodExamples: string[]; badExamples: string[]; insights: string[] } | undefined;
+      try {
+        const feedbackCtx = await feedbackLearningService.getFeedbackContext(customer.companyId);
+        if (feedbackCtx.goodExamples.length > 0 || feedbackCtx.badExamples.length > 0) {
+          feedbackLearning = {
+            goodExamples: feedbackCtx.goodExamples.map(
+              (e) => `Cliente: "${e.customerMessage}" → IA: "${e.aiResponse}"`
+            ),
+            badExamples: feedbackCtx.badExamples
+              .filter((e) => e.feedbackNote)
+              .map(
+                (e) => `Cliente: "${e.customerMessage}" → IA: "${e.aiResponse}" (Problema: ${e.feedbackNote})`
+              ),
+            insights: feedbackCtx.learningInsights,
+          };
+        }
+      } catch (feedbackError: unknown) {
+        const errMsg = feedbackError instanceof Error ? feedbackError.message : String(feedbackError);
+        console.warn("[AIService] Feedback learning failed (continuing without):", errMsg);
+      }
+
       // Formata horário de funcionamento (prioriza campos estruturados)
       let workingHours: string | null = null;
       const businessHoursStart = (aiKnowledge as any)?.businessHoursStart;
@@ -827,6 +879,9 @@ Total: R$ 505,00"
       ]);
 
       // Monta o objeto de serviços/precificação no formato esperado pelo prompt builder
+      // Mapa rápido serviceId → name para zone exceptions (não tem relation no schema)
+      const serviceNameMap = new Map(companyServices.map((s) => [s.id, s.name]));
+
       const pricingData = companyServices.length > 0 || companyZones.length > 0 || companyCombos.length > 0 || companyAdditionals.length > 0
         ? {
           services: companyServices.map((s) => ({
@@ -853,7 +908,7 @@ Total: R$ 505,00"
               .map((e: any) => ({
                 ...e,
                 customFee: e.customFee != null ? Number(e.customFee) : undefined,
-                serviceName: e.service?.name || null,
+                serviceName: (e.serviceId ? serviceNameMap.get(e.serviceId) : null) || e.category || null,
               })),
           })),
           combos: companyCombos.map((c) => ({
@@ -890,6 +945,7 @@ Total: R$ 505,00"
           forceIntentScriptId: intentScriptActive ? activeScriptId : null,
           companyScripts,
           intentScriptCollectedData: collectedData,
+          feedbackLearning,
         });
       } else {
         // Usa o sistema legado de prompts

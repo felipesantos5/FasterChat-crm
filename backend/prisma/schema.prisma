@@ -230,6 +230,7 @@ enum MessageStatus {
 enum SenderType {
   HUMAN
   AI
+  FLOW
 }
 
 enum MessageFeedback {
