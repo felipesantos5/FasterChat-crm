@@ -318,7 +318,11 @@ export const notFoundHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
-  console.warn(`[404] Route not found: ${req.method} ${req.path}`);
+  const isBotScan = req.path.match(/\.(php|env|json|yaml|yml|ini|conf|sql|tar|gz|zip|git)$/i) || req.path.includes("phpinfo");
+
+  if (!isBotScan) {
+    console.warn(`[404] Route not found: ${req.method} ${req.path}`);
+  }
 
   res.status(404).json({
     success: false,

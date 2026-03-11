@@ -471,12 +471,22 @@ export class FlowController {
 
       for (const node of original.nodes) {
         const newId = randomUUID();
+        
+        // Se for um nó de gatilho, atualiza a descrição (que exibe a URL do webhook no frontend)
+        let nodeData = node.data;
+        if (node.type === 'trigger' && typeof nodeData === 'object' && nodeData !== null) {
+          nodeData = {
+            ...(nodeData as any),
+            description: `/api/webhooks/flow/${webhookSlug}`
+          };
+        }
+
         await tx.flowNode.create({
           data: {
             id: newId,
             flowId: newFlow.id,
             type: node.type,
-            data: node.data ?? {},
+            data: nodeData ?? {},
             positionX: node.positionX,
             positionY: node.positionY,
           },

@@ -304,9 +304,9 @@ app.get("/health/ready", async (_req, res) => {
   }
 });
 
-// Debug: Log todas as requisições para /l
+// Debug: Log todas as requisições para /l (Comentado para evitar ruído de bots de scan)
 app.use("/l", (req, _res, next) => {
-  console.log(`[LinkRedirect] Request: ${req.method} ${req.path} from ${req.headers.host}`);
+  // console.log(`[LinkRedirect] Request: ${req.method} ${req.path} from ${req.headers.host}`);
   next();
 });
 
@@ -348,16 +348,18 @@ app.use("/", (req: any, res, next) => {
     return next();
   }
 
-  // Ignora requisições de recursos estáticos (favicon, robots, etc)
+  // Ignora requisições de recursos estáticos, arquivos sensíveis e scanners de bots
   const staticPaths = ["/favicon", "/robots.txt", "/sitemap", "/.well-known"];
-  if (staticPaths.some((p) => req.path.startsWith(p))) {
+  const isBotScan = req.path.match(/\.(php|env|json|yaml|yml|ini|conf|sql|tar|gz|zip|git)$/i) || req.path.includes("phpinfo");
+
+  if (staticPaths.some((p) => req.path.startsWith(p)) || isBotScan) {
     return next();
   }
 
   // Trata como slug de redirect
   // Redireciona internamente para /l/:slug
   const newUrl = `/l${req.path}`;
-  console.log(`[LinkRedirect] Rewriting ${req.path} -> ${newUrl} (host: ${req.headers.host})`);
+  // console.log(`[LinkRedirect] Rewriting ${req.path} -> ${newUrl} (host: ${req.headers.host})`); // Comentado para evitar ruído
   req.url = newUrl;
   req._redirectRewritten = true; // Marca para evitar reprocessamento
   return app._router.handle(req, res, next);

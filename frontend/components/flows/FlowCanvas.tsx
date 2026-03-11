@@ -148,12 +148,20 @@ export function FlowCanvas({ flowId }: FlowCanvasProps) {
         ];
 
         if (flow.nodes && flow.nodes.length > 0) {
-          loadedNodes = flow.nodes.map((n: any) => ({
-            id: n.id,
-            type: n.type,
-            position: { x: n.positionX, y: n.positionY },
-            data: { ...n.data, flowId },
-          }));
+          loadedNodes = flow.nodes.map((n: any) => {
+            const data = { ...n.data, flowId };
+            // Força a URL atualizada no nó de gatilho de acordo com o slug mais recente do fluxo, caso tenha mudado
+            if (n.type === 'trigger' && flow.webhookSlug) {
+              data.description = `/api/webhooks/flow/${flow.webhookSlug}`;
+            }
+
+            return {
+              id: n.id,
+              type: n.type,
+              position: { x: n.positionX, y: n.positionY },
+              data,
+            };
+          });
         }
 
         setNodes(loadedNodes);
