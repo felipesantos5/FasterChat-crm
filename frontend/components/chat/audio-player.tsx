@@ -119,8 +119,8 @@ export function AudioPlayer({ audioUrl, transcription, isInbound }: AudioPlayerP
         </div>
       </div>
 
-      {/* Transcription */}
-      {transcription && (
+      {/* Transcription — apenas para áudios recebidos */}
+      {transcription && isInbound && (
         <div
           className={cn(
             "text-xs p-2 rounded-md italic border-l-2",

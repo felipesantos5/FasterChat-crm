@@ -47,7 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <WebSocketProvider>
       <SidebarProvider>
         <DashboardFilterProvider>
-          <div className="flex h-screen overflow-hidden bg-gray-50">
+          <div className="flex h-dvh overflow-hidden bg-gray-50">
             <Sidebar />
 
             {/* Main Content - responsivo */}

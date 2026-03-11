@@ -362,7 +362,7 @@ function ConversationsPageContent() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-muted/30">
+      <div className="flex h-[calc(100dvh-4rem)] overflow-hidden bg-muted/30">
         {/* Sidebar com loading */}
         <div className="w-96 border-r bg-background flex flex-col">
           <div className="p-4 border-b">
@@ -390,7 +390,7 @@ function ConversationsPageContent() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-muted/30">
+    <div className="flex h-[calc(100dvh-4rem)] overflow-hidden bg-muted/30">
       {/* Sidebar Esquerda: Lista de Conversas */}
       <div
         className={cn(

@@ -1782,8 +1782,8 @@ class MessageService {
         }
       }
 
-      // Define conteúdo padrão baseado no tipo
-      const defaultContent = isAudio ? "[Áudio enviado]" : "[Imagem enviada]";
+      // Áudios enviados não precisam de conteúdo textual
+      const defaultContent = isAudio ? "" : "[Imagem enviada]";
 
       // Salva a mensagem no banco
       const message = await prisma.message.create({

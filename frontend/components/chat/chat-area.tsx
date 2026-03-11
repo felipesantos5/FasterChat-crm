@@ -1054,57 +1054,49 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header Compacto */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b bg-muted/30">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b bg-muted/30">
+        {/* Avatar + Nome + Telefone */}
         <div
-          className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-1 -ml-1 rounded-md transition-colors"
+          className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-1 -ml-1 rounded-md transition-colors"
           onClick={() => router.push(`/dashboard/customers/${customerId}`)}
         >
-          <Avatar className="h-10 w-10 border border-muted">
+          <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 border border-muted">
             {customerProfilePic && (
               <AvatarImage src={customerProfilePic} alt={customerName} className="object-cover" />
             )}
             <AvatarFallback className="bg-gray-200 dark:bg-gray-600">
-              <UserIcon className="h-6 w-6 text-gray-400 dark:text-gray-300" />
+              <UserIcon className="h-4 w-4 sm:h-6 sm:w-6 text-gray-400 dark:text-gray-300" />
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <h2 className="font-semibold text-sm truncate">{customerName}</h2>
               {isContactOnline && (
-                <span className="h-2 w-2 rounded-full bg-green-500" title="Online" />
+                <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" title="Online" />
               )}
             </div>
-            <p className="text-xs text-muted-foreground">{formatPhoneNumber(customerPhone)}</p>
+            <p className="text-xs text-muted-foreground truncate">{formatPhoneNumber(customerPhone)}</p>
           </div>
         </div>
 
         {/* Ações */}
-        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {/* Toggle IA */}
-          <div className="flex flex-col items-center border-r pr-3 mr-1">
-            <span className="text-[10px] text-muted-foreground mb-0.5">Ativação IA</span>
-            <div className="flex items-center gap-2">
-              <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={handleToggleAi} disabled={togglingAi} className="scale-75 sm:scale-90" />
-              <Label htmlFor="ai-toggle" className="text-xs cursor-pointer whitespace-nowrap">
-                {togglingAi ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : isAiEnabled ? (
-                  <span className="flex items-center gap-1 text-green-600">
-                    <Bot className="h-3 w-3" />
-                    IA
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1">
-                    <UserIcon className="h-3 w-3" />
-                    Manual
-                  </span>
-                )}
-              </Label>
-            </div>
+          <div className="flex items-center gap-1.5 border-r pr-2 mr-0.5">
+            <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={handleToggleAi} disabled={togglingAi} className="scale-75" />
+            <Label htmlFor="ai-toggle" className="cursor-pointer">
+              {togglingAi ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : isAiEnabled ? (
+                <Bot className="h-3.5 w-3.5 text-green-600" />
+              ) : (
+                <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+            </Label>
           </div>
 
-          {/* Botão Fluxo Ativo */}
+          {/* Fluxo Ativo */}
           {activeFlowExecution && (
             <Button
               onClick={handleCancelFlow}
@@ -1119,48 +1111,32 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
               ) : (
                 <>
                   <Zap className="h-3 w-3" />
-                  <span className="hidden sm:inline text-[11px]">Parar Fluxo</span>
+                  <span className="hidden sm:inline text-[11px]">Parar</span>
                   <Square className="h-2.5 w-2.5" />
                 </>
               )}
             </Button>
           )}
 
-          {/* Botão Arquivar/Desarquivar */}
+          {/* Arquivar/Desarquivar */}
           {isArchived ? (
             onUnarchive && (
-              <Button onClick={onUnarchive} size="sm" variant="outline" className="h-7 px-2 text-green-600 hover:text-green-700" title="Desarquivar">
-                <ArchiveRestore className="h-3 w-3" />
+              <Button onClick={onUnarchive} size="sm" variant="outline" className="h-7 w-7 p-0 text-green-600 hover:text-green-700" title="Desarquivar">
+                <ArchiveRestore className="h-3.5 w-3.5" />
               </Button>
             )
           ) : (
             onArchive && (
-              <Button onClick={onArchive} size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-destructive gap-1" title="Arquivar">
-                <Archive className="h-3 w-3" />
-                arquivar
+              <Button onClick={onArchive} size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" title="Arquivar">
+                <Archive className="h-3.5 w-3.5" />
               </Button>
             )
           )}
 
-          {/* Botão Marcar como Exemplo */}
-          {/* <Button
-            onClick={isExample ? handleMarkAsExample : handleOpenExampleModal}
-            disabled={markingExample}
-            size="sm"
-            variant={isExample ? "default" : "ghost"}
-            className={cn("h-7 px-2", isExample && "bg-yellow-500 hover:bg-yellow-600")}
-          >
-            {markingExample ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Star className={cn("h-3 w-3", isExample && "fill-current")} />
-            )}
-          </Button> */}
-
-          {/* Botão Mostrar Detalhes */}
+          {/* Detalhes */}
           {showDetailsButton && onToggleDetails && (
-            <Button onClick={onToggleDetails} size="sm" variant="outline" className="h-7 px-2">
-              <PanelRightOpen className="h-3 w-3" />
+            <Button onClick={onToggleDetails} size="sm" variant="outline" className="h-7 w-7 p-0">
+              <PanelRightOpen className="h-3.5 w-3.5" />
             </Button>
           )}
         </div>
@@ -1674,7 +1650,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         )}
 
         {/* Input de mensagem */}
-        <form onSubmit={handleSendMessage} className="flex items-end gap-2 p-3 sm:p-4 bg-white dark:bg-gray-900 border-t items-center">
+        <form onSubmit={handleSendMessage} className="flex items-end gap-2 p-2 sm:p-4 bg-white dark:bg-gray-900 border-t">
           {/* Inputs de arquivo ocultos */}
           <input
             ref={fileInputRef}
