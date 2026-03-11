@@ -823,7 +823,6 @@ Total: R$ 505,00"
         }),
         (prisma.serviceZoneException as any).findMany({
           where: { companyId, isActive: true },
-          include: { service: { select: { name: true } } },
         }),
       ]);
 

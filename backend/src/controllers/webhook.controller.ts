@@ -17,6 +17,10 @@ import { websocketService } from "../services/websocket.service";
 const recentlyProcessedAI = new Map<string, number>();
 const AI_DEDUP_TTL_MS = 120_000; // 2 minutos
 
+// Dedup de fallback de erro para não enviar a mesma mensagem de erro em loop
+const recentlyFallbackSent = new Map<string, number>();
+const FALLBACK_DEDUP_TTL_MS = 300_000; // 5 minutos por conversa
+
 class WebhookController {
   /**
    * POST /api/webhooks/whatsapp
@@ -302,14 +306,20 @@ class WebhookController {
               console.error("AI skipped (business rule):", aiError.message);
             } else {
               console.error("Error processing AI response:", aiError.message);
-              try {
-                await messageService.sendMessage(
-                  result.customer.id,
-                  "Desculpe, tive um problema técnico momentâneo. Pode repetir sua mensagem? 🙏",
-                  "AI"
-                );
-              } catch (fallbackSendError: any) {
-                console.error("Failed to send AI fallback message:", fallbackSendError.message);
+              const fallbackKey = result.customer.id;
+              const lastFallback = recentlyFallbackSent.get(fallbackKey);
+              const nowFallback = Date.now();
+              if (!lastFallback || nowFallback - lastFallback > FALLBACK_DEDUP_TTL_MS) {
+                recentlyFallbackSent.set(fallbackKey, nowFallback);
+                try {
+                  await messageService.sendMessage(
+                    result.customer.id,
+                    "Desculpe, tive um problema técnico momentâneo. Pode repetir sua mensagem? 🙏",
+                    "AI"
+                  );
+                } catch (fallbackSendError: any) {
+                  console.error("Failed to send AI fallback message:", fallbackSendError.message);
+                }
               }
             }
           }

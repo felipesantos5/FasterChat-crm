@@ -934,6 +934,7 @@ model DomainSynonym {
 
   @@index([companyId])
   @@index([canonicalTerm])
+  @@map("domain_synonyms")
 }
 
 // ============================================
