@@ -799,10 +799,14 @@ class GeminiService {
 
         logger.debug(`Embedding generated successfully: ${embedding.length} dimensions`);
 
-        // Garante que o embedding tenha 1536 dimensões (pad ou truncate se necessário)
-        // O text-embedding-004 do Gemini retorna 768 dimensões por padrão
-        // Para compatibilidade com OpenAI, podemos usar task_type para ajustar
-        return embedding;
+        // gemini-embedding-001 retorna 3072 dimensões, mas o banco usa vector(1536)
+        // Trunca para 1536 para manter compatibilidade com o schema do pgvector
+        const TARGET_DIMS = 1536;
+        const normalized = embedding.length > TARGET_DIMS
+          ? embedding.slice(0, TARGET_DIMS)
+          : embedding;
+
+        return normalized;
       } catch (error: any) {
         lastError = error;
         logger.warn(`Embedding attempt ${attempt} failed: ${error.message}`);

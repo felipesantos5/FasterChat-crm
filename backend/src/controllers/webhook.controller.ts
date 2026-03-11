@@ -12,6 +12,11 @@ import { linkConversionService } from "../services/link-conversion.service";
 import { AIProvider } from "../types/ai-provider";
 import { websocketService } from "../services/websocket.service";
 
+// Dedup de eventos de mensagem para evitar processamento duplo de AI
+// (Evolution API pode reenviar o mesmo webhook)
+const recentlyProcessedAI = new Map<string, number>();
+const AI_DEDUP_TTL_MS = 120_000; // 2 minutos
+
 class WebhookController {
   /**
    * POST /api/webhooks/whatsapp
@@ -198,6 +203,20 @@ class WebhookController {
           : geminiService.isConfigured();
 
         if (conversation.aiEnabled && isAutoReplyEnabled && isAIConfigured && !result.customer.isGroup) {
+          // Dedup: ignora se este messageId já foi enviado para IA recentemente
+          const aiDedupKey = `${result.instance.id}:${result.message.messageId || result.message.id}`;
+          const now = Date.now();
+          const lastProcessed = recentlyProcessedAI.get(aiDedupKey);
+          if (lastProcessed && now - lastProcessed < AI_DEDUP_TTL_MS) {
+            console.error(`[Webhook] AI dedup: skipping duplicate event for message ${aiDedupKey}`);
+            return res.status(200).json({ success: true, message: "Duplicate event ignored" });
+          }
+          recentlyProcessedAI.set(aiDedupKey, now);
+          // Limpa entradas expiradas para não acumular memória
+          for (const [key, ts] of recentlyProcessedAI.entries()) {
+            if (now - ts > AI_DEDUP_TTL_MS) recentlyProcessedAI.delete(key);
+          }
+
           try {
             // 📅 PRIORITY CHECK: Verifica se JÁ ESTÁ em fluxo de agendamento ativo
             // Import dinâmico para evitar dependência circular se houver
@@ -273,16 +292,25 @@ class WebhookController {
               }
             }
           } catch (aiError: any) {
-            console.error("Error processing AI response:", aiError.message);
-            // Envia mensagem de fallback ao cliente para que a conversa não fique em silêncio
-            try {
-              await messageService.sendMessage(
-                result.customer.id,
-                "Desculpe, tive um problema técnico momentâneo. Pode repetir sua mensagem? 🙏",
-                "AI"
-              );
-            } catch (fallbackSendError: any) {
-              console.error("Failed to send AI fallback message:", fallbackSendError.message);
+            // Erros de regra de negócio: não enviar fallback ao cliente
+            const isSilentError =
+              aiError.message?.includes("FREE plan") ||
+              aiError.message?.includes("Auto-reply is disabled") ||
+              aiError.message?.includes("not configured");
+
+            if (isSilentError) {
+              console.error("AI skipped (business rule):", aiError.message);
+            } else {
+              console.error("Error processing AI response:", aiError.message);
+              try {
+                await messageService.sendMessage(
+                  result.customer.id,
+                  "Desculpe, tive um problema técnico momentâneo. Pode repetir sua mensagem? 🙏",
+                  "AI"
+                );
+              } catch (fallbackSendError: any) {
+                console.error("Failed to send AI fallback message:", fallbackSendError.message);
+              }
             }
           }
 
