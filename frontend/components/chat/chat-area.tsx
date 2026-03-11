@@ -1312,7 +1312,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                             <img
                               src={message.mediaUrl}
                               alt="Imagem enviada"
-                              className="max-w-full max-h-[400px] object-contain rounded-lg transition-opacity shadow-md group-hover/img:opacity-90"
+                              className="max-w-full max-h-[400px] m-auto object-contain rounded-lg transition-opacity shadow-md group-hover/img:opacity-90"
                               onLoad={() => {
                                 const c = messagesContainerRef.current;
                                 if (!c) return;
@@ -1346,7 +1346,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                               <video
                                 src={message.mediaUrl}
                                 preload="metadata"
-                                className="max-w-full max-h-[400px] object-contain rounded-lg shadow-md bg-black/10 group-hover/vid:brightness-90 transition-all"
+                                className="max-w-full max-h-[400px] m-auto object-contain rounded-lg shadow-md bg-black/10 group-hover/vid:brightness-90 transition-all"
                                 onLoadedMetadata={(e) => {
                                   const dur = (e.currentTarget as HTMLVideoElement).duration;
                                   if (dur && isFinite(dur)) {
@@ -1687,7 +1687,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 <div className={cn("w-2 h-2 rounded-full bg-red-500 shrink-0", !isRecordingPaused && "animate-pulse")} />
                 <span className="text-sm font-medium text-white shrink-0 tabular-nums">{formatRecordingTime(recordingTime)}</span>
                 <div className="flex-1 flex items-end gap-px overflow-hidden h-5">
-                  {[3,5,8,4,9,6,10,7,5,8,4,9,7,6,10,5,8,4,7,9,6,5,8,10,4,7,5,9,6,8].map((h, i) => (
+                  {[3, 5, 8, 4, 9, 6, 10, 7, 5, 8, 4, 9, 7, 6, 10, 5, 8, 4, 7, 9, 6, 5, 8, 10, 4, 7, 5, 9, 6, 8].map((h, i) => (
                     <div
                       key={i}
                       className={cn("flex-1 rounded-full transition-all", isRecordingPaused ? "bg-gray-600" : "bg-gray-400")}

@@ -288,19 +288,48 @@ export class FlowEngineService {
     data: Record<string, unknown>
   ): Promise<void> {
     const stageId = data.stageId as string;
-    const customerId = execution.customerId as string;
+    const contactPhone = execution.contactPhone as string;
+    const companyId = (execution.flow as any)?.companyId as string;
 
-    if (!stageId) return;
-    if (!customerId) return;
+    if (!stageId) {
+      console.error(`[FlowEngine] ⚠️ update_stage: stageId não configurado no nó ${node.id as string}`);
+      return;
+    }
+    if (!contactPhone || !companyId) {
+      console.error(`[FlowEngine] ⚠️ update_stage: contactPhone ou companyId ausente na execução`);
+      return;
+    }
 
     try {
+      // Busca o cliente pelo telefone dentro da empresa (mesmo padrão dos outros nós)
+      const customer = await prisma.customer.findFirst({
+        where: { companyId, phone: contactPhone },
+        select: { id: true },
+      });
+
+      if (!customer) {
+        console.error(`[FlowEngine] ⚠️ update_stage: cliente não encontrado para phone=${contactPhone} companyId=${companyId}`);
+        return;
+      }
+
+      // Valida que o estágio pertence à mesma empresa antes de atualizar
+      const stage = await prisma.pipelineStage.findFirst({
+        where: { id: stageId, companyId },
+        select: { id: true },
+      });
+
+      if (!stage) {
+        console.error(`[FlowEngine] ⚠️ update_stage: estágio ${stageId} não encontrado para companyId=${companyId}`);
+        return;
+      }
+
       await prisma.customer.update({
-        where: { id: customerId },
-        data: { pipelineStageId: stageId }
+        where: { id: customer.id },
+        data: { pipelineStageId: stageId },
       });
 
     } catch (err: any) {
-      console.error(`[FlowEngine] ❌ Erro ao mover cliente ${customerId} para estágio ${stageId}:`, err.message);
+      console.error(`[FlowEngine] ❌ Erro ao mover cliente ${contactPhone} para estágio ${stageId}:`, err.message);
       throw new Error(`Falha ao alterar estágio no funil: ${err.message}`);
     }
   }
