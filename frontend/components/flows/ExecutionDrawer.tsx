@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Play, Clock, CheckCircle2, XCircle, AlertCircle, Phone, Database, StopCircle, Loader2, ExternalLink, ChevronDown, ChevronRight, FileSpreadsheet } from 'lucide-react';
+import { X, Play, Clock, CheckCircle2, XCircle, AlertCircle, Phone, Database, StopCircle, Loader2, ExternalLink, ChevronDown, ChevronRight, FileSpreadsheet, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
@@ -47,9 +47,14 @@ export function ExecutionDrawer({
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [expandedBatches, setExpandedBatches] = useState<Record<string, boolean>>({});
   const [batchVisibleCount, setBatchVisibleCount] = useState<Record<string, number>>({});
+  const [phoneSearch, setPhoneSearch] = useState('');
   const router = useRouter();
 
   if (!isOpen) return null;
+
+  const searchDigits = phoneSearch.replace(/\D/g, '');
+  const matchesPhone = (phone: string) =>
+    !searchDigits || phone.replace(/\D/g, '').includes(searchDigits);
 
   const toggleBatch = (batchId: string) => {
     setExpandedBatches((prev) => ({ ...prev, [batchId]: !prev[batchId] }));
@@ -100,23 +105,36 @@ export function ExecutionDrawer({
 
   const latestBatchId = sortedBatches[0]?.id ?? null;
 
+  // Aplica filtro de telefone
+  const filteredStandalone = standaloneExecutions.filter((exe) => matchesPhone(exe.contactPhone));
+  const filteredBatches = sortedBatches
+    .map((batch) => ({
+      ...batch,
+      executions: batch.executions.filter((exe) => matchesPhone(exe.contactPhone)),
+    }))
+    .filter((batch) => batch.executions.length > 0);
+
   // Lista unificada ordenada por data desc
   type UnifiedItem =
     | { type: 'batch'; batch: typeof sortedBatches[0]; sortDate: number }
     | { type: 'standalone'; execution: Execution; sortDate: number };
 
   const unifiedItems: UnifiedItem[] = [
-    ...sortedBatches.map((batch) => ({
+    ...filteredBatches.map((batch) => ({
       type: 'batch' as const,
       batch,
       sortDate: new Date(batch.startedAt).getTime(),
     })),
-    ...standaloneExecutions.map((exe) => ({
+    ...filteredStandalone.map((exe) => ({
       type: 'standalone' as const,
       execution: exe,
       sortDate: new Date(exe.startedAt).getTime(),
     })),
   ].sort((a, b) => b.sortDate - a.sortDate);
+
+  const totalSearchResults = searchDigits
+    ? filteredStandalone.length + filteredBatches.reduce((acc, b) => acc + b.executions.length, 0)
+    : null;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -252,30 +270,67 @@ export function ExecutionDrawer({
 
   return (
     <div className="fixed inset-y-0 right-0 w-[400px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200 animate-in slide-in-from-right duration-300">
-      <div className="p-4 border-b flex items-center justify-between bg-gray-50">
-        <h2 className="font-bold text-gray-800 flex items-center gap-2">
-          <Database size={18} className="text-primary" />
-          Execuções Recentes
-          {unifiedItems.length > 0 && (
-            <span className="text-xs font-normal text-gray-500">
-              ({unifiedItems.length})
-            </span>
+      <div className="p-4 border-b bg-gray-50 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-gray-800 flex items-center gap-2">
+            <Database size={18} className="text-primary" />
+            Execuções Recentes
+            {totalSearchResults !== null ? (
+              <span className="text-xs font-normal text-primary">
+                {totalSearchResults} resultado{totalSearchResults !== 1 ? 's' : ''}
+              </span>
+            ) : unifiedItems.length > 0 ? (
+              <span className="text-xs font-normal text-gray-500">
+                ({unifiedItems.length})
+              </span>
+            ) : null}
+          </h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Busca por número */}
+        <div className="relative">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="Filtrar por número..."
+            value={phoneSearch}
+            onChange={(e) => setPhoneSearch(e.target.value)}
+            className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-gray-400"
+          />
+          {phoneSearch && (
+            <button
+              onClick={() => setPhoneSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={14} />
+            </button>
           )}
-        </h2>
-        <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
-          <X size={20} />
-        </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {startedExecutions.length === 0 ? (
+        {unifiedItems.length === 0 ? (
           <div className="text-center py-10 text-gray-400">
             <Database size={40} className="mx-auto mb-2 opacity-20" />
             <p className="text-sm">
-              {executions.length > 0
-                ? 'Aguardando início das execuções...'
-                : 'Nenhuma execução encontrada ainda.'}
+              {searchDigits
+                ? `Nenhuma execução encontrada para "${phoneSearch}".`
+                : executions.length > 0
+                  ? 'Aguardando início das execuções...'
+                  : 'Nenhuma execução encontrada ainda.'}
             </p>
+            {searchDigits && (
+              <button
+                onClick={() => setPhoneSearch('')}
+                className="mt-2 text-xs text-primary hover:underline"
+              >
+                Limpar filtro
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -283,9 +338,11 @@ export function ExecutionDrawer({
               if (item.type === 'batch') {
                 const { batch } = item;
                 const isLatest = batch.id === latestBatchId;
-                const isExpanded = expandedBatches[batch.id] !== undefined
-                  ? expandedBatches[batch.id]
-                  : isLatest;
+                const isExpanded = searchDigits
+                  ? true // sempre expandido durante busca
+                  : expandedBatches[batch.id] !== undefined
+                    ? expandedBatches[batch.id]
+                    : isLatest;
                 const totalInBatch = batch.executions.length;
                 const visibleCount = batchVisibleCount[batch.id] || BATCH_PAGE_SIZE;
                 const visibleExecutions = isExpanded ? batch.executions.slice(0, visibleCount) : [];

@@ -1053,7 +1053,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const isAiEnabled = conversation?.aiEnabled ?? false;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b bg-muted/30">
         {/* Avatar + Nome + Telefone */}

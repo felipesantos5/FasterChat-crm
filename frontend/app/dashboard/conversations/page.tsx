@@ -525,15 +525,14 @@ function ConversationsPageContent() {
       {/* Área Central: Chat */}
       <div
         className={cn(
-          "flex-1 bg-background overflow-hidden flex flex-col",
-          // Mobile: mostra apenas quando em view de chat
-          mobileView === "chat" ? "block" : "hidden lg:flex"
+          "flex-1 bg-background overflow-hidden flex-col",
+          mobileView === "chat" ? "flex" : "hidden lg:flex"
         )}
       >
         {selectedConversation ? (
           <>
             {/* Botão voltar - apenas mobile */}
-            <div className="lg:hidden border-b p-2">
+            <div className="lg:hidden shrink-0 border-b px-2 py-1 bg-background">
               <Button
                 variant="ghost"
                 size="sm"
@@ -544,7 +543,9 @@ function ConversationsPageContent() {
                 Voltar
               </Button>
             </div>
+            <div className="flex-1 min-h-0">
             <ChatArea
+              key={selectedConversation.customerId}
               customerId={selectedConversation.customerId}
               customerName={selectedConversation.customerName}
               customerPhone={selectedConversation.customerPhone}
@@ -582,6 +583,7 @@ function ConversationsPageContent() {
                 }
               }}
             />
+            </div>
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-6">
