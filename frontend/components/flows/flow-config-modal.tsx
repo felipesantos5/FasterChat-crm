@@ -15,7 +15,9 @@ import { TagSelector } from "@/components/forms/tag-selector";
 import { Tag, tagApi } from "@/lib/tag";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Globe } from "lucide-react";
+import { Globe, Smartphone } from "lucide-react";
+import { useAuthStore } from "@/lib/store/auth.store";
+import { whatsappApi } from "@/lib/whatsapp";
 
 interface FlowConfigModalProps {
   open: boolean;
@@ -26,7 +28,8 @@ interface FlowConfigModalProps {
   initialSendWindowEnabled?: boolean;
   initialSendWindowStart?: number;
   initialSendWindowEnd?: number;
-  onSave: (tags: string[], status: string, sendWindowEnabled: boolean, sendWindowStart: number, sendWindowEnd: number) => void;
+  initialWhatsappInstanceId?: string | null;
+  onSave: (tags: string[], status: string, sendWindowEnabled: boolean, sendWindowStart: number, sendWindowEnd: number, whatsappInstanceId: string | null) => void;
 }
 
 export function FlowConfigModal({
@@ -38,8 +41,10 @@ export function FlowConfigModal({
   initialSendWindowEnabled = false,
   initialSendWindowStart = 8,
   initialSendWindowEnd = 21,
+  initialWhatsappInstanceId = null,
   onSave,
 }: FlowConfigModalProps) {
+  const { user } = useAuthStore();
   const [tags, setTags] = useState<string[]>([]);
   const [status, setStatus] = useState<string>("DRAFT");
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
@@ -47,6 +52,8 @@ export function FlowConfigModal({
   const [sendWindowEnabled, setSendWindowEnabled] = useState(false);
   const [sendWindowStart, setSendWindowStart] = useState(8);
   const [sendWindowEnd, setSendWindowEnd] = useState(21);
+  const [whatsappInstanceId, setWhatsappInstanceId] = useState<string>("ALL");
+  const [instances, setInstances] = useState<any[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -55,9 +62,13 @@ export function FlowConfigModal({
       setSendWindowEnabled(initialSendWindowEnabled);
       setSendWindowStart(initialSendWindowStart);
       setSendWindowEnd(initialSendWindowEnd);
+      setWhatsappInstanceId(initialWhatsappInstanceId || "ALL");
       fetchTags();
+      if (user?.companyId) {
+        fetchInstances(user.companyId);
+      }
     }
-  }, [open, initialTags, initialStatus, initialSendWindowEnabled, initialSendWindowStart, initialSendWindowEnd]);
+  }, [open, initialTags, initialStatus, initialSendWindowEnabled, initialSendWindowStart, initialSendWindowEnd, initialWhatsappInstanceId, user?.companyId]);
 
   const fetchTags = async () => {
     try {
@@ -66,6 +77,18 @@ export function FlowConfigModal({
     } catch (error) {
       console.error("Error fetching tags", error);
       toast.error("Erro ao carregar tags disponíveis.");
+    }
+  };
+
+  const fetchInstances = async (companyId: string) => {
+    try {
+      const response = await whatsappApi.getInstances(companyId);
+      if (response && Array.isArray(response.data)) {
+        setInstances(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching instances", error);
+      toast.error("Erro ao carregar WhatsApps conectados.");
     }
   };
 
@@ -78,9 +101,10 @@ export function FlowConfigModal({
         sendWindowEnabled,
         sendWindowStart,
         sendWindowEnd,
+        whatsappInstanceId: whatsappInstanceId === "ALL" ? null : whatsappInstanceId,
       });
       toast.success("Configuração do fluxo salva com sucesso.");
-      onSave(tags, status, sendWindowEnabled, sendWindowStart, sendWindowEnd);
+      onSave(tags, status, sendWindowEnabled, sendWindowStart, sendWindowEnd, whatsappInstanceId === "ALL" ? null : whatsappInstanceId);
       onClose();
     } catch (error) {
       console.error("Error saving flow config", error);
@@ -128,6 +152,36 @@ export function FlowConfigModal({
             />
             <p className="text-xs text-muted-foreground">
               Selecione tags existentes ou crie novas para organizar clientes vindos deste fluxo.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-muted-foreground" />
+              <Label>Conexão WhatsApp</Label>
+            </div>
+            <Select
+              value={whatsappInstanceId}
+              onValueChange={setWhatsappInstanceId}
+              disabled={isSubmitting}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione uma conexão..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">
+                  Divisão Inteligente (Todas as Conexões)
+                </SelectItem>
+                {instances.map((instance) => (
+                  <SelectItem key={instance.id} value={instance.id}>
+                    {instance.displayName || instance.instanceName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Selecione "Divisão Inteligente" para distribuir os disparos e reduzir risco de bloqueio, 
+              ou fixe uma central específica para este fluxo.
             </p>
           </div>
 

@@ -9,6 +9,7 @@ import type { FlowStartJobData } from './flow-queue.service';
 import geminiService from './ai-providers/gemini.service';
 import redisConnection from '../config/redis';
 import { Errors } from '../utils/errors';
+import Bottleneck from 'bottleneck';
 
 // ==================================================================================
 // 🛡️ CIRCUIT BREAKER: Protege a Evolution API contra sobrecarga.
@@ -53,6 +54,20 @@ const CB_RETRY_BASE_DELAY_MS = 3_000;    // 3s base para retry (exponencial)
 // 🔄 ROUND ROBIN: Índice global para alternar entre instâncias conectadas
 // Mantido em memória para garantir distribuição exata e justa em disparos em massa.
 let nextInstanceIndex = 0;
+
+// 🚦 PER-INSTANCE RATE LIMITER
+// Garante que cada conexão do WhatsApp processe no máximo 1 mensagem por vez
+// com um delay randômico de 20 a 40 segundos.
+const instanceLimiters = new Map<string, Bottleneck>();
+
+function getInstanceLimiter(instanceId: string): Bottleneck {
+  if (!instanceLimiters.has(instanceId)) {
+    instanceLimiters.set(instanceId, new Bottleneck({
+      maxConcurrent: 1, // Envia 1 mensagem de cada vez por número
+    }));
+  }
+  return instanceLimiters.get(instanceId)!;
+}
 
 export class FlowEngineService {
   constructor() {
@@ -133,7 +148,21 @@ export class FlowEngineService {
 
     for (let attempt = 0; attempt <= CB_MAX_RETRIES; attempt++) {
       try {
-        const result = await sendFn(activeInstanceId);
+        // Usa o Rate Limiter da Instância atual para agendar o disparo em fila controlada e segura
+        const limiter = getInstanceLimiter(activeInstanceId);
+        const result = await limiter.schedule(async () => {
+          const res = await sendFn(activeInstanceId);
+
+          // DELAY HUMANO: Randomiza de 20s a 40s após o envio
+          // O limiter (Bottleneck) segura a próxima chamada deste WhatsApp até finalizar essa Promise
+          const minDelay = 20000; // 20 segundos
+          const maxDelay = 40000; // 40 segundos
+          const delayDeEspera = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+          await new Promise(resolve => setTimeout(resolve, delayDeEspera));
+
+          return res;
+        });
+        
         this.recordSuccess();
         return result;
       } catch (err: unknown) {
@@ -492,8 +521,21 @@ export class FlowEngineService {
       } catch { /* falha ao desativar IA — não crítico */ }
     }
 
-    // Seleciona a instância WhatsApp UMA VEZ no início do fluxo (respeita estratégia RANDOM/SPECIFIC)
-    const selectedInstance = await this.getInstanceForCompany(flow.companyId);
+    // Seleciona a instância WhatsApp UMA VEZ no início do fluxo (respeita estratégia RANDOM/SPECIFIC ou Instância Fixa do Fluxo)
+    let selectedInstance = null;
+    
+    // Se o fluxo tem uma instância WhatsApp específica configurada, tentamos usá-la
+    if (flow.whatsappInstanceId) {
+      selectedInstance = await prisma.whatsAppInstance.findFirst({
+        where: { id: flow.whatsappInstanceId, companyId: flow.companyId, status: { in: ['CONNECTED', 'CONNECTING'] } }
+      });
+    }
+
+    // Se não tinha uma específica ou ela estava offline/inexistente, faz o fallback para a estratégia genérica da empresa (Divisão Inteligente)
+    if (!selectedInstance) {
+      selectedInstance = await this.getInstanceForCompany(flow.companyId);
+    }
+
     if (!selectedInstance) {
       console.error(`[FlowEngine] ❌ Nenhuma instância WhatsApp conectada para companyId ${flow.companyId}`);
       throw new Error(`Nenhuma instância WhatsApp conectada para iniciar o fluxo`);
@@ -1717,11 +1759,15 @@ export class FlowEngineService {
             }
           }
 
+          const minUserDelay = 5000; // 5s
+          const maxUserDelay = 15000; // 15s
+          const delaySimulado = Math.floor(Math.random() * (maxUserDelay - minUserDelay + 1)) + minUserDelay;
+
           await flowQueueService.enqueueFlowStep({
             executionId: exec.id,
             nodeId: pendingNodeId,
             sourceHandle: handle,
-          });
+          }, { delay: delaySimulado });
         }
 
         return true;
@@ -1778,12 +1824,16 @@ export class FlowEngineService {
           }
         }
 
-        // Enfileira próximo step via BullMQ (sem delay — resposta humana deve ser processada rápido)
+        // Enfileira próximo step via BullMQ com delay humano de leitura (10s a 20s)
+        const minUserDelay = 10000; // 10s
+        const maxUserDelay = 20000; // 20s
+        const delaySimulado = Math.floor(Math.random() * (maxUserDelay - minUserDelay + 1)) + minUserDelay;
+
         await flowQueueService.enqueueFlowStep({
           executionId: execution.id,
           nodeId: execution.currentNode.id,
           sourceHandle: handle,
-        });
+        }, { delay: delaySimulado });
       } else if (execution.currentNode?.type === 'ai_condition') {
         // AI condition processing — acumula até 5 mensagens antes de decidir
 

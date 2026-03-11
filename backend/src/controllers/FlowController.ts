@@ -79,7 +79,7 @@ export class FlowController {
   public async updateFlow(req: Request, res: Response): Promise<Response> {
     const { id } = req.params;
     const { companyId } = req.user!;
-    const { name, description, status, webhookSlug, autoTags, sendWindowEnabled, sendWindowStart, sendWindowEnd } = req.body;
+    const { name, description, status, webhookSlug, autoTags, sendWindowEnabled, sendWindowStart, sendWindowEnd, whatsappInstanceId } = req.body;
 
     const flowExists = await prisma.flow.findUnique({
       where: { id, companyId },
@@ -105,6 +105,7 @@ export class FlowController {
         ...(sendWindowEnabled !== undefined ? { sendWindowEnabled: Boolean(sendWindowEnabled) } : {}),
         ...(sendWindowStart !== undefined ? { sendWindowStart: Number(sendWindowStart) } : {}),
         ...(sendWindowEnd !== undefined ? { sendWindowEnd: Number(sendWindowEnd) } : {}),
+        ...(whatsappInstanceId !== undefined ? { whatsappInstanceId: whatsappInstanceId || null } : {}),
       },
     });
 

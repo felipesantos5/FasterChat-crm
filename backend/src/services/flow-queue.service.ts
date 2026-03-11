@@ -226,11 +226,7 @@ class FlowQueueService {
       },
       {
         connection: redisConnection,
-        concurrency: 3,
-        limiter: {
-          max: 20,        // Máximo 20 mensagens
-          duration: 60000, // Por minuto (evita ban do WhatsApp)
-        },
+        concurrency: 200,
       }
     );
 
