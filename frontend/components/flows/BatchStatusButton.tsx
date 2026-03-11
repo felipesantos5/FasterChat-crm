@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -91,6 +92,51 @@ function clearStoredBatch(flowId: string) {
   }
 }
 
+function playCompletionSound(success: boolean) {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    if (success) {
+      // Fanfare ascendente: C5 → E5 → G5 → C6
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.14;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.28, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+        osc.start(t);
+        osc.stop(t + 0.45);
+      });
+    } else {
+      // Dois tons descendentes para falha
+      [440, 330].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.22;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.25, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        osc.start(t);
+        osc.stop(t + 0.5);
+      });
+    }
+  } catch {
+    // Web Audio não disponível — ignora silenciosamente
+  }
+}
+
 export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonProps) {
   const [batchId, setBatchId] = useState<string | null>(null);
   const [status, setStatus] = useState<BatchStatusData | null>(null);
@@ -100,6 +146,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
   const [isCanceling, setIsCanceling] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const prevStatusRef = useRef<string | null>(null);
 
   // Initialize from prop or localStorage or API
   useEffect(() => {
@@ -139,10 +186,40 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
     if (!batchId) return;
     try {
       const res = await api.get(`/flows/${flowId}/batch/${batchId}`);
-      setStatus(res.data);
+      const data: BatchStatusData = res.data;
+      setStatus(data);
 
       const finalStatuses = ["COMPLETED", "FAILED", "CANCELLED"];
-      if (finalStatuses.includes(res.data.status)) {
+      const wasProcessing = prevStatusRef.current === "PROCESSING" || prevStatusRef.current === "PAUSED" || prevStatusRef.current === null;
+
+      // Detecta transição para estado final e notifica
+      if (wasProcessing && finalStatuses.includes(data.status)) {
+        if (data.status === "COMPLETED") {
+          const allOk = data.failed === 0;
+          playCompletionSound(allOk);
+          if (allOk) {
+            toast.success("🎉 Disparo concluído!", {
+              description: `${data.succeeded} de ${data.total} contatos disparados com sucesso.`,
+              duration: 8000,
+            });
+          } else {
+            toast.warning("⚠️ Disparo concluído com falhas", {
+              description: `${data.succeeded} enviados, ${data.failed} falhas.`,
+              duration: 8000,
+            });
+          }
+        } else if (data.status === "FAILED") {
+          playCompletionSound(false);
+          toast.error("❌ Disparo falhou", {
+            description: "Ocorreu um erro durante o disparo em massa.",
+            duration: 8000,
+          });
+        }
+      }
+
+      prevStatusRef.current = data.status;
+
+      if (finalStatuses.includes(data.status)) {
         // Stop polling
         if (pollRef.current) {
           clearInterval(pollRef.current);
