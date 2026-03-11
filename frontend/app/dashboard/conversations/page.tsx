@@ -72,17 +72,7 @@ function ConversationsPageContent() {
     return "recent";
   });
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersType>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("conversations_advanced_filters");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (error) {
-          console.error("Erro ao carregar filtros avançados:", error);
-        }
-      }
-    }
-    return {
+    const defaults: AdvancedFiltersType = {
       excludeGroups: false,
       selectedTags: [],
       onlyNeedsHelp: false,
@@ -91,6 +81,17 @@ function ConversationsPageContent() {
       selectedInstanceId: null,
       selectedStageIds: [],
     };
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("conversations_advanced_filters");
+      if (saved) {
+        try {
+          return { ...defaults, ...JSON.parse(saved) };
+        } catch (error) {
+          console.error("Erro ao carregar filtros avançados:", error);
+        }
+      }
+    }
+    return defaults;
   });
 
   // Layout
