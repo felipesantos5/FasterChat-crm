@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { mutate as globalMutate } from "swr";
 import { ConversationList } from "@/components/chat/conversation-list";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { ConversationListSkeleton } from "@/components/ui/skeletons";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { LoadingErrorState } from "@/components/ui/error-state";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 type FilterType = "all" | "unread" | "needsHelp" | "archived";
 type SortType = "recent" | "oldest" | "name";
@@ -48,6 +49,7 @@ function ConversationsPageContent() {
   const [pendingConversation, setPendingConversation] = useState<PendingConversation | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
+  const [aiThinkingIds, setAiThinkingIds] = useState<Set<string>>(new Set());
 
   // Filtros e busca - carrega do localStorage se disponível
   const [searchTerm, setSearchTerm] = useState(() => {
@@ -110,6 +112,44 @@ function ConversationsPageContent() {
   };
 
   const companyId = getCompanyId();
+
+  // Rastreia quais conversas estão com IA pensando (via WebSocket typing events)
+  const handleTyping = useCallback((data: { customerId: string; isTyping: boolean }) => {
+    setAiThinkingIds((prev) => {
+      const next = new Set(prev);
+      if (data.isTyping) {
+        next.add(data.customerId);
+      } else {
+        next.delete(data.customerId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleNewMessageForThinking = useCallback((message: any) => {
+    // Quando chega mensagem do cliente, antecipa o indicador (IA ainda não respondeu)
+    if (message.direction === "INBOUND" && message.aiEnabled && message.customerId) {
+      setAiThinkingIds((prev) => new Set(prev).add(message.customerId));
+      // Fallback: remove após 90s caso o evento typing:false não chegue
+      setTimeout(() => {
+        setAiThinkingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(message.customerId);
+          return next;
+        });
+      }, 90_000);
+    }
+    // Quando a IA responde, remove o indicador
+    if (message.direction === "OUTBOUND" && message.senderType === "AI" && message.customerId) {
+      setAiThinkingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(message.customerId);
+        return next;
+      });
+    }
+  }, []);
+
+  useWebSocket({ autoConnect: true, onTyping: handleTyping, onNewMessage: handleNewMessageForThinking });
 
   // Usa SWR para gerenciar conversas com cache automático
   // Buscamos sempre todas as conversas para as estatísticas globais estarem corretas
@@ -517,6 +557,7 @@ function ConversationsPageContent() {
                   conversations={filteredConversations}
                   selectedCustomerId={selectedCustomerId}
                   onSelectConversation={handleSelectConversation}
+                  aiThinkingIds={aiThinkingIds}
                 />
               )}
             </div>

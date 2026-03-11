@@ -775,7 +775,7 @@ Total: R$ 505,00"
           : (process.env.OPENAI_MODEL_MINI || "gpt-4o-mini");
       } else {
         modelConfig = (plan === PlanTier.ESCALA_TOTAL && (subStatus === 'active' || subStatus === 'trailing'))
-          ? (process.env.GEMINI_MODEL_PRO || "gemini-1.5-pro") 
+          ? (process.env.GEMINI_MODEL_PRO || "gemini-2.5-flash")
           : (process.env.GEMINI_MODEL || "gemini-2.0-flash");
       }
       

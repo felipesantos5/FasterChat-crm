@@ -5,16 +5,17 @@ import { ConversationSummary } from "@/types/message";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, AlertCircle, Users, Archive, Mic, User, Camera, ImageIcon } from "lucide-react";
+import { MessageSquare, AlertCircle, Users, Archive, Mic, User, Camera, ImageIcon, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConversationListProps {
   conversations: ConversationSummary[];
   selectedCustomerId?: string | null;
   onSelectConversation: (customerId: string) => void;
+  aiThinkingIds?: Set<string>;
 }
 
-export function ConversationList({ conversations, selectedCustomerId, onSelectConversation }: ConversationListProps) {
+export function ConversationList({ conversations, selectedCustomerId, onSelectConversation, aiThinkingIds }: ConversationListProps) {
   // Força re-render a cada 5 minutos para atualizar os tempos relativos
   const [, setTick] = useState(0);
 
@@ -54,6 +55,7 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
         const needsHelp = conversation.needsHelp;
         const isGroup = conversation.isGroup;
         const isArchived = conversation.isArchived;
+        const isAiThinking = conversation.aiEnabled && (aiThinkingIds?.has(conversation.customerId) ?? false);
 
         return (
           <div
@@ -135,33 +137,45 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1">
-                {conversation.direction === "OUTBOUND" && (
-                  <span className="text-teal-600 dark:text-teal-400 font-medium shrink-0">Você: </span>
-                )}
-                {conversation.lastMediaType === "video" || conversation.lastMessage.toLowerCase().startsWith("[video") ? (
-                  <span className="flex items-center gap-1">
-                    <Camera className="h-3.5 w-3.5 shrink-0" />
-                    Vídeo
+              {isAiThinking ? (
+                <p className="text-xs mt-0.5 flex items-center gap-1 text-violet-600 dark:text-violet-400 font-medium">
+                  <Bot className="h-3 w-3 shrink-0" />
+                  IA pensando
+                  <span className="flex gap-0.5 items-center">
+                    <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:0ms]" />
+                    <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:300ms]" />
                   </span>
-                ) : conversation.lastMediaType === "image" || conversation.lastMessage.toLowerCase().startsWith("[imagem") ? (
-                  <span className="flex items-center gap-1">
-                    <ImageIcon className="h-3.5 w-3.5 shrink-0" />
-                    Imagem
-                  </span>
-                ) : conversation.lastMediaType === "audio" || conversation.lastMessage.toLowerCase().startsWith("[audio") ? (
-                  <span className="flex items-center gap-1">
-                    <Mic className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                    {(() => {
-                      const msg = conversation.lastMessage.toLowerCase();
-                      const match = msg.match(/\[audio:\s*(.+?)\]/);
-                      return match && match[1] ? match[1] : "Áudio";
-                    })()}
-                  </span>
-                ) : (
-                  <span className="truncate">{conversation.lastMessage}</span>
-                )}
-              </p>
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1">
+                  {conversation.direction === "OUTBOUND" && (
+                    <span className="text-teal-600 dark:text-teal-400 font-medium shrink-0">Você: </span>
+                  )}
+                  {conversation.lastMediaType === "video" || conversation.lastMessage.toLowerCase().startsWith("[video") ? (
+                    <span className="flex items-center gap-1">
+                      <Camera className="h-3.5 w-3.5 shrink-0" />
+                      Vídeo
+                    </span>
+                  ) : conversation.lastMediaType === "image" || conversation.lastMessage.toLowerCase().startsWith("[imagem") ? (
+                    <span className="flex items-center gap-1">
+                      <ImageIcon className="h-3.5 w-3.5 shrink-0" />
+                      Imagem
+                    </span>
+                  ) : conversation.lastMediaType === "audio" || conversation.lastMessage.toLowerCase().startsWith("[audio") ? (
+                    <span className="flex items-center gap-1">
+                      <Mic className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                      {(() => {
+                        const msg = conversation.lastMessage.toLowerCase();
+                        const match = msg.match(/\[audio:\s*(.+?)\]/);
+                        return match && match[1] ? match[1] : "Áudio";
+                      })()}
+                    </span>
+                  ) : (
+                    <span className="truncate">{conversation.lastMessage}</span>
+                  )}
+                </p>
+              )}
             </div>
           </div>
         );
