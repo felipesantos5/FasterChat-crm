@@ -43,9 +43,10 @@ interface ChatAreaProps {
   isArchived?: boolean;
   onArchive?: () => void;
   onUnarchive?: () => void;
+  isAiThinking?: boolean;
 }
 
-export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, onToggleDetails, showDetailsButton, onMarkAsRead, isArchived, onArchive, onUnarchive }: ChatAreaProps) {
+export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, onToggleDetails, showDetailsButton, onMarkAsRead, isArchived, onArchive, onUnarchive, isAiThinking }: ChatAreaProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -1485,25 +1486,19 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           })
         )}
 
-        {/* AI Processing/Typing Indicator - só aparece se IA estiver habilitada globalmente e no chat */}
-        {isAiEnabled && autoReplyEnabled && (aiProcessing || isTyping) && (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] sm:max-w-[75%] md:max-w-[70%] rounded-lg px-3 py-2 sm:px-4 bg-green-100 dark:bg-green-900/30">
-              <div className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <div className="flex gap-1">
-                  <span className="animate-bounce" style={{ animationDelay: "0ms" }}>
-                    ●
-                  </span>
-                  <span className="animate-bounce" style={{ animationDelay: "150ms" }}>
-                    ●
-                  </span>
-                  <span className="animate-bounce" style={{ animationDelay: "300ms" }}>
-                    ●
-                  </span>
-                </div>
-                <span className="text-sm text-green-600 dark:text-green-400">{isTyping ? "IA está digitando..." : "IA está pensando..."}</span>
-              </div>
+        {/* AI Processing/Typing Indicator */}
+        {(isAiThinking || (isAiEnabled && autoReplyEnabled && (aiProcessing || isTyping))) && (
+          <div className="flex justify-start px-3 pb-1">
+            <div className="flex items-center gap-2 rounded-full px-3 py-1.5 bg-violet-100 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700">
+              <Bot className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+              <span className="text-xs font-medium text-violet-600 dark:text-violet-400">
+                {isTyping ? "IA está digitando" : "IA pensando"}
+              </span>
+              <span className="flex gap-0.5 items-center">
+                <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:0ms]" />
+                <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:150ms]" />
+                <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:300ms]" />
+              </span>
             </div>
           </div>
         )}

@@ -49,7 +49,37 @@ function ConversationsPageContent() {
   const [pendingConversation, setPendingConversation] = useState<PendingConversation | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
-  const [aiThinkingIds, setAiThinkingIds] = useState<Set<string>>(new Set());
+  const AI_THINKING_TTL = 90_000; // 90 segundos
+  const AI_THINKING_KEY = "ai_thinking_ids";
+
+  const readThinkingFromStorage = (): Set<string> => {
+    try {
+      const raw = sessionStorage.getItem(AI_THINKING_KEY);
+      if (!raw) return new Set();
+      const parsed: Record<string, number> = JSON.parse(raw);
+      const now = Date.now();
+      const valid = Object.entries(parsed)
+        .filter(([, ts]) => now - ts < AI_THINKING_TTL)
+        .map(([id]) => id);
+      return new Set(valid);
+    } catch { return new Set(); }
+  };
+
+  const writeThinkingToStorage = (ids: Set<string>) => {
+    try {
+      const existing: Record<string, number> = (() => {
+        try { return JSON.parse(sessionStorage.getItem(AI_THINKING_KEY) || "{}"); } catch { return {}; }
+      })();
+      const now = Date.now();
+      const next: Record<string, number> = {};
+      for (const id of ids) {
+        next[id] = existing[id] && now - existing[id] < AI_THINKING_TTL ? existing[id] : now;
+      }
+      sessionStorage.setItem(AI_THINKING_KEY, JSON.stringify(next));
+    } catch { /* sessionStorage indisponível */ }
+  };
+
+  const [aiThinkingIds, setAiThinkingIds] = useState<Set<string>>(() => readThinkingFromStorage());
 
   // Filtros e busca - carrega do localStorage se disponível
   const [searchTerm, setSearchTerm] = useState(() => {
@@ -113,41 +143,45 @@ function ConversationsPageContent() {
 
   const companyId = getCompanyId();
 
-  // Rastreia quais conversas estão com IA pensando (via WebSocket typing events)
-  const handleTyping = useCallback((data: { customerId: string; isTyping: boolean }) => {
+  // Persiste no sessionStorage toda vez que aiThinkingIds muda
+  useEffect(() => {
+    writeThinkingToStorage(aiThinkingIds);
+  }, [aiThinkingIds]);
+
+  const addThinking = useCallback((customerId: string) => {
     setAiThinkingIds((prev) => {
       const next = new Set(prev);
-      if (data.isTyping) {
-        next.add(data.customerId);
-      } else {
-        next.delete(data.customerId);
-      }
+      next.add(customerId);
       return next;
     });
   }, []);
 
-  const handleNewMessageForThinking = useCallback((message: any) => {
-    // Quando chega mensagem do cliente, antecipa o indicador (IA ainda não respondeu)
-    if (message.direction === "INBOUND" && message.aiEnabled && message.customerId) {
-      setAiThinkingIds((prev) => new Set(prev).add(message.customerId));
-      // Fallback: remove após 90s caso o evento typing:false não chegue
-      setTimeout(() => {
-        setAiThinkingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(message.customerId);
-          return next;
-        });
-      }, 90_000);
-    }
-    // Quando a IA responde, remove o indicador
-    if (message.direction === "OUTBOUND" && message.senderType === "AI" && message.customerId) {
-      setAiThinkingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(message.customerId);
-        return next;
-      });
-    }
+  const removeThinking = useCallback((customerId: string) => {
+    setAiThinkingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(customerId);
+      return next;
+    });
   }, []);
+
+  // Rastreia quais conversas estão com IA pensando (via WebSocket typing events)
+  const handleTyping = useCallback((data: { customerId: string; isTyping: boolean }) => {
+    if (data.isTyping) {
+      addThinking(data.customerId);
+    } else {
+      removeThinking(data.customerId);
+    }
+  }, [addThinking, removeThinking]);
+
+  const handleNewMessageForThinking = useCallback((message: any) => {
+    if (message.direction === "INBOUND" && message.aiEnabled && message.customerId) {
+      addThinking(message.customerId);
+      setTimeout(() => removeThinking(message.customerId), AI_THINKING_TTL);
+    }
+    if (message.direction === "OUTBOUND" && message.senderType === "AI" && message.customerId) {
+      removeThinking(message.customerId);
+    }
+  }, [addThinking, removeThinking]);
 
   useWebSocket({ autoConnect: true, onTyping: handleTyping, onNewMessage: handleNewMessageForThinking });
 
@@ -605,6 +639,7 @@ function ConversationsPageContent() {
               onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
               showDetailsButton={true}
               isArchived={selectedConversation.isArchived ?? false}
+              isAiThinking={aiThinkingIds.has(selectedConversation.customerId)}
               onArchive={async () => {
                 try {
                   await customerApi.archive(selectedConversation.customerId);
