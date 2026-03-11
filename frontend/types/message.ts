@@ -84,6 +84,7 @@ export interface ConversationSummary {
   whatsappInstanceName: string; // Nome da instância
   isArchived: boolean; // Contato arquivado
   lastMediaType: string | null;
+  pipelineStageColor: string | null; // Cor do estágio atual no funil
 }
 
 export interface GetConversationsResponse {

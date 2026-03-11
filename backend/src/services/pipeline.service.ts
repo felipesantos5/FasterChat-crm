@@ -20,11 +20,12 @@ export class PipelineService {
    */
   async createDefaultStages(companyId: string): Promise<PipelineStage[]> {
     const defaultStages = [
-      { name: 'Novo Lead', color: '#86EFAC', order: 0, description: 'Novos contatos', isFixed: true },
-      { name: 'Qualificado', color: '#22C55E', order: 1, description: 'Leads qualificados', isFixed: true },
-      { name: 'Negociação', color: '#16A34A', order: 2, description: 'Em negociação' },
-      { name: 'Fechado - Perdido', color: '#EF4444', order: 3, description: 'Vendas perdidas', isFixed: true },
-      { name: 'Fechado - Ganho', color: '#15803D', order: 4, description: 'Vendas concluídas', isFixed: true },
+      { name: 'Lead', color: '#3B82F6', order: 0, description: 'Novos contatos entrantes', isFixed: true },
+      { name: 'Qualificado', color: '#06B6D4', order: 1, description: 'Lead com potencial confirmado', isFixed: true },
+      { name: 'Proposta Enviada', color: '#8B5CF6', order: 2, description: 'Proposta ou orçamento enviado', isFixed: false },
+      { name: 'Negociação', color: '#F59E0B', order: 3, description: 'Em processo de negociação', isFixed: false },
+      { name: 'Perdido', color: '#EF4444', order: 4, description: 'Negociação não convertida', isFixed: true },
+      { name: 'Ganho', color: '#22C55E', order: 5, description: 'Venda concluída com sucesso', isFixed: true },
     ];
 
     const stages: PipelineStage[] = [];

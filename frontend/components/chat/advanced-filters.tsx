@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Filter, X } from "lucide-react";
 import { tagApi, Tag } from "@/lib/tag";
+import { pipelineApi } from "@/lib/pipeline";
+import { PipelineStage } from "@/types/pipeline";
+import { useAuthStore } from "@/lib/store/auth.store";
 import { cn } from "@/lib/utils";
 import { WhatsAppInstance } from "@/types/whatsapp";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,6 +23,7 @@ export interface AdvancedFilters {
   onlyAiEnabled: boolean; // Mostra apenas conversas com IA ativa
   onlyHumanEnabled: boolean; // Mostra apenas conversas humanas (sem IA)
   selectedInstanceId: string | null; // Filtro por instância do WhatsApp
+  selectedStageIds: string[]; // Filtro por estágio do funil
 }
 
 interface AdvancedFiltersProps {
@@ -34,6 +38,9 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
+  const [stages, setStages] = useState<PipelineStage[]>([]);
+  const [loadingStages, setLoadingStages] = useState(false);
+  const { user } = useAuthStore();
 
   // Carrega as tags disponíveis
   useEffect(() => {
@@ -56,13 +63,27 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
       }
     };
 
+    const loadStages = async () => {
+      if (!user?.companyId) return;
+      try {
+        setLoadingStages(true);
+        const allStages = await pipelineApi.getStages(user.companyId);
+        setStages(allStages);
+      } catch (error) {
+        console.error("Error loading stages:", error);
+      } finally {
+        setLoadingStages(false);
+      }
+    };
+
     if (open) {
       loadTags();
+      loadStages();
     }
   }, [open]);
 
   // Verifica se há filtros ativos
-  const hasActiveFilters = filters.excludeGroups || filters.selectedTags.length > 0 || filters.onlyNeedsHelp || filters.onlyAiEnabled || filters.onlyHumanEnabled || filters.selectedInstanceId !== null;
+  const hasActiveFilters = filters.excludeGroups || filters.selectedTags.length > 0 || filters.onlyNeedsHelp || filters.onlyAiEnabled || filters.onlyHumanEnabled || filters.selectedInstanceId !== null || filters.selectedStageIds.length > 0;
 
   const handleToggleGroup = () => {
     onFiltersChange({
@@ -113,6 +134,18 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
     });
   };
 
+  const handleToggleStage = (stageId: string) => {
+    const isSelected = filters.selectedStageIds.includes(stageId);
+    const newStageIds = isSelected
+      ? filters.selectedStageIds.filter((id) => id !== stageId)
+      : [...filters.selectedStageIds, stageId];
+
+    onFiltersChange({
+      ...filters,
+      selectedStageIds: newStageIds,
+    });
+  };
+
   const handleClearFilters = () => {
     onFiltersChange({
       excludeGroups: false,
@@ -121,6 +154,7 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
       onlyAiEnabled: false,
       onlyHumanEnabled: false,
       selectedInstanceId: null,
+      selectedStageIds: [],
     });
   };
 
@@ -142,7 +176,7 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
               variant="secondary"
               className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full bg-white text-primary"
             >
-              {(filters.excludeGroups ? 1 : 0) + filters.selectedTags.length + (filters.selectedInstanceId ? 1 : 0)}
+              {(filters.excludeGroups ? 1 : 0) + filters.selectedTags.length + (filters.selectedInstanceId ? 1 : 0) + filters.selectedStageIds.length}
             </Badge>
           )}
         </Button>
@@ -324,7 +358,7 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
                         style={isSelected ? {
                           backgroundColor: tagColor,
                           borderColor: tagColor,
-                          color: "#fff", // Sempre branco quando selecionado para contraste
+                          color: "#fff",
                           boxShadow: `0 0 0 1px ${tagColor}40`
                         } : {
                           backgroundColor: `${tagColor}10`,
@@ -334,6 +368,48 @@ export function AdvancedFilters({ filters, onFiltersChange, instances, sortType,
                       >
                         {tag.name}
                         {isSelected && <X className="h-3 w-3" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Filtro de Estágio do Funil */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">
+              FILTRAR POR ESTÁGIO
+            </Label>
+            <div className="space-y-1">
+              {loadingStages ? (
+                <div className="text-xs text-muted-foreground text-center py-4">
+                  Carregando estágios...
+                </div>
+              ) : stages.length === 0 ? (
+                <div className="text-xs text-muted-foreground text-center py-4">
+                  Nenhum estágio cadastrado
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1 max-h-[200px] overflow-y-auto">
+                  {stages.map((stage) => {
+                    const isSelected = filters.selectedStageIds.includes(stage.id);
+                    return (
+                      <button
+                        key={stage.id}
+                        onClick={() => handleToggleStage(stage.id)}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all text-left",
+                          "border hover:bg-muted/50",
+                          isSelected && "bg-muted"
+                        )}
+                      >
+                        <span
+                          className="h-3 w-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: stage.color }}
+                        />
+                        <span className="flex-1 truncate">{stage.name}</span>
+                        {isSelected && <X className="h-3 w-3 flex-shrink-0 text-muted-foreground" />}
                       </button>
                     );
                   })}

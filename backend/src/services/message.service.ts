@@ -298,7 +298,13 @@ class MessageService {
           },
         },
         include: {
-          customer: true,
+          customer: {
+            include: {
+              pipelineStage: {
+                select: { color: true },
+              },
+            },
+          },
           whatsappInstance: {
             select: {
               id: true,
@@ -375,6 +381,7 @@ class MessageService {
             whatsappInstanceName: message.whatsappInstance.instanceName,
             isArchived: message.customer.isArchived ?? false,
             lastMediaType: message.mediaType ?? null,
+            pipelineStageColor: message.customer.pipelineStage?.color ?? null,
           });
         }
       }

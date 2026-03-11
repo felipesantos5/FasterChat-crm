@@ -100,6 +100,12 @@ export function ConversationList({ conversations, selectedCustomerId, onSelectCo
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
                   <h3 className="font-medium text-sm truncate">{conversation.customerName}</h3>
+                  {conversation.pipelineStageColor && (
+                    <span
+                      className="h-2 w-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: conversation.pipelineStageColor }}
+                    />
+                  )}
                   {isGroup && (
                     <Badge className="bg-blue-500 text-white text-[10px] h-4 px-1 flex-shrink-0">
                       Grupo

@@ -89,6 +89,7 @@ function ConversationsPageContent() {
       onlyAiEnabled: false,
       onlyHumanEnabled: false,
       selectedInstanceId: null,
+      selectedStageIds: [],
     };
   });
 
@@ -282,6 +283,15 @@ function ConversationsPageContent() {
           // Filtro por instância do WhatsApp
           if (advancedFilters.selectedInstanceId) {
             return conv.whatsappInstanceId === advancedFilters.selectedInstanceId;
+          }
+          return true;
+        })
+        .filter((conv) => {
+          // Filtro por estágio do funil
+          if (advancedFilters.selectedStageIds.length > 0) {
+            const customer = customers.find((c) => c.id === conv.customerId);
+            if (!customer) return false;
+            return advancedFilters.selectedStageIds.includes(customer.pipelineStageId ?? "");
           }
           return true;
         })
