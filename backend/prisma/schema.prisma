@@ -163,8 +163,10 @@ model Customer {
   conversations     Conversation[]
   appointments      Appointment[]
   customerNotes     CustomerNote[]
-  customFieldValues CustomerCustomFieldValue[]
-  dealValues        DealValue[]
+  customFieldValues    CustomerCustomFieldValue[]
+  dealValues           DealValue[]
+  customerAddresses    CustomerAddress[]
+  customerServiceCards CustomerServiceCard[]
 
   @@unique([companyId, phone])
   @@index([companyId])
@@ -1162,4 +1164,48 @@ model QuickMessage {
 
   @@index([companyId])
   @@map("quick_messages")
+}
+
+model CustomerAddress {
+  id           String   @id @default(uuid())
+  customerId   String   @map("customer_id")
+  companyId    String   @map("company_id")
+  label        String
+  street       String
+  number       String
+  complement   String?
+  neighborhood String
+  city         String
+  state        String
+  zipCode      String   @map("zip_code")
+  isDefault    Boolean  @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([companyId])
+  @@map("customer_addresses")
+}
+
+model CustomerServiceCard {
+  id          String   @id @default(uuid())
+  customerId  String   @map("customer_id")
+  companyId   String   @map("company_id")
+  title       String
+  description String   @db.Text
+  serviceDate DateTime @map("service_date")
+  rating      Int?
+  price       Decimal? @db.Decimal(10, 2)
+  status      String   @default("scheduled")
+  tags        String[] @default([])
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([companyId])
+  @@map("customer_service_cards")
 }

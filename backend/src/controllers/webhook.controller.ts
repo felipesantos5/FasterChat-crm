@@ -448,7 +448,7 @@ class WebhookController {
                 await whatsappService.updateConnectionStatus(instance.id, WhatsAppStatus.DISCONNECTED);
                 
                 // Limpa dados de conexão
-                await prisma.whatsAppInstance.update({
+                await prisma.whatsAppInstance.updateMany({
                   where: { id: instance.id },
                   data: { qrCode: null, phoneNumber: null },
                 });

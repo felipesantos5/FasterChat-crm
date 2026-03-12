@@ -376,14 +376,15 @@ class WhatsAppService {
         timestamp: Date.now(),
       });
 
-      // Atualiza o banco
-      await prisma.whatsAppInstance.update({
+      const clearQr = status === WhatsAppStatus.CONNECTED || status === WhatsAppStatus.DISCONNECTED;
+
+      // Atualiza o banco usando updateMany para evitar erro se o registro foi deletado entre o findUnique e o update
+      await prisma.whatsAppInstance.updateMany({
         where: { id: instanceId },
         data: {
           status,
-          phoneNumber: phoneNumber || instance.phoneNumber,
-          qrCode: status === WhatsAppStatus.CONNECTED || status === WhatsAppStatus.DISCONNECTED ? null : instance.qrCode,
-          // Define connectedAt quando conectar pela primeira vez
+          phoneNumber: phoneNumber ?? instance.phoneNumber,
+          qrCode: clearQr ? null : instance.qrCode,
           connectedAt: status === WhatsAppStatus.CONNECTED && !instance.connectedAt ? new Date() : instance.connectedAt,
         },
       });
