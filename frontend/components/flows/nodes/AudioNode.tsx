@@ -156,13 +156,24 @@ export const AudioNode = memo(({ id, data }: any) => {
     }
   };
 
+  const ALLOWED_MIME = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/ogg', 'audio/vorbis'];
+  const ALLOWED_EXT = ['.mp3', '.wav', '.ogg'];
+
+  const isAllowedAudio = (file: File) => {
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+    return ALLOWED_MIME.includes(file.type) || ALLOWED_EXT.includes(ext);
+  };
+
   const onFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
 
-    if (!file.type.startsWith('audio/')) {
-      toast.error('Por favor, selecione um arquivo de áudio');
+    if (!isAllowedAudio(file)) {
+      toast.error('Formato de áudio inválido. Use apenas MP3, WAV ou OGG.', {
+        description: 'Outros formatos não são suportados pelo WhatsApp e causam erro no envio.',
+        duration: 5000,
+      });
       return;
     }
 
@@ -363,7 +374,7 @@ export const AudioNode = memo(({ id, data }: any) => {
           type="file"
           ref={fileInputRef}
           onChange={onFileUpload}
-          accept="audio/*"
+          accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg"
           className="hidden"
         />
       </div>

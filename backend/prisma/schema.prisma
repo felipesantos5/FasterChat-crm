@@ -264,6 +264,7 @@ model Message {
   feedbackNote       String?          @map("feedback_note") @db.Text
   mediaType          String?          @default("text") @map("media_type") // text, audio, image, video, document
   mediaUrl           String?          @map("media_url") @db.Text // URL ou base64 da mídia
+  isEdited           Boolean          @default(false) @map("is_edited")
   quotedContent      String?          @map("quoted_content") @db.Text // Conteúdo da mensagem citada (reply)
   quotedAuthor       String?          @map("quoted_author") // Nome de quem disse a mensagem citada
   createdAt          DateTime         @default(now()) @map("created_at")

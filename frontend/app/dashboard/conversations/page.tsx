@@ -81,6 +81,11 @@ function ConversationsPageContent() {
 
   const [aiThinkingIds, setAiThinkingIds] = useState<Set<string>>(() => readThinkingFromStorage());
 
+  // Paginação da sidebar
+  const INITIAL_LIMIT = 75;
+  const LOAD_MORE_STEP = 100;
+  const [displayLimit, setDisplayLimit] = useState(INITIAL_LIMIT);
+
   // Filtros e busca - carrega do localStorage se disponível
   const [searchTerm, setSearchTerm] = useState(() => {
     if (typeof window !== "undefined") {
@@ -107,11 +112,13 @@ function ConversationsPageContent() {
     const defaults: AdvancedFiltersType = {
       excludeGroups: false,
       selectedTags: [],
+      tagFilterMode: "include",
       onlyNeedsHelp: false,
       onlyAiEnabled: false,
       onlyHumanEnabled: false,
       selectedInstanceId: null,
       selectedStageIds: [],
+      stageFilterMode: "include",
     };
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("conversations_advanced_filters");
@@ -193,7 +200,7 @@ function ConversationsPageContent() {
 
   // Usa SWR para gerenciar conversas com cache automático
   // Buscamos sempre todas as conversas para as estatísticas globais estarem corretas
-  const { conversations: allConversations, total: totalConversations, isLoading, isError, mutate } = useConversations(companyId, selectedCustomerId);
+  const { conversations: allConversations, isLoading, isError, mutate } = useConversations(companyId, selectedCustomerId);
 
   // As conversas exibidas na lista (se arquivados ou não)
   const conversations = useMemo(() => {
@@ -333,12 +340,22 @@ function ConversationsPageContent() {
           // Instância
           if (advancedFilters.selectedInstanceId && conv.whatsappInstanceId !== advancedFilters.selectedInstanceId) return false;
 
-          // Tags e estágio (usa o mapa para O(1) em vez de O(n))
+          // Tags e estágio com whitelist/blacklist
           if (advancedFilters.selectedTags.length > 0 || advancedFilters.selectedStageIds.length > 0) {
             const customer = customerMap.get(conv.customerId);
             if (!customer) return false;
-            if (advancedFilters.selectedTags.length > 0 && !advancedFilters.selectedTags.some((tag) => customer.tags.includes(tag))) return false;
-            if (advancedFilters.selectedStageIds.length > 0 && !advancedFilters.selectedStageIds.includes(customer.pipelineStageId ?? "")) return false;
+
+            if (advancedFilters.selectedTags.length > 0) {
+              const hasTag = advancedFilters.selectedTags.some(tag => customer.tags.includes(tag));
+              if (advancedFilters.tagFilterMode === "include" && !hasTag) return false;
+              if (advancedFilters.tagFilterMode === "exclude" && hasTag) return false;
+            }
+
+            if (advancedFilters.selectedStageIds.length > 0) {
+              const inStage = advancedFilters.selectedStageIds.includes(customer.pipelineStageId ?? "");
+              if (advancedFilters.stageFilterMode === "include" && !inStage) return false;
+              if (advancedFilters.stageFilterMode === "exclude" && inStage) return false;
+            }
           }
 
           return true;
@@ -351,6 +368,29 @@ function ConversationsPageContent() {
         }),
     [conversations, searchTerm, filterType, sortType, advancedFilters, customerMap]
   );
+
+  // Quando qualquer filtro/busca muda, reseta o limite de exibição
+  const hasActiveFilters =
+    !!searchTerm ||
+    filterType !== "all" ||
+    advancedFilters.excludeGroups ||
+    advancedFilters.selectedTags.length > 0 ||
+    advancedFilters.selectedStageIds.length > 0 ||
+    advancedFilters.onlyNeedsHelp ||
+    advancedFilters.onlyAiEnabled ||
+    advancedFilters.onlyHumanEnabled ||
+    !!advancedFilters.selectedInstanceId;
+
+  useEffect(() => {
+    setDisplayLimit(INITIAL_LIMIT);
+  }, [searchTerm, filterType, sortType, advancedFilters]);
+
+  // Conversas exibidas: sem filtro = slice limitado; com filtro = todos os resultados
+  const displayedConversations = hasActiveFilters
+    ? filteredConversations
+    : filteredConversations.slice(0, displayLimit);
+
+  const remaining = filteredConversations.length - displayLimit;
 
   // Encontra a conversa selecionada
   // Encontra a conversa selecionada na lista OU usa a conversa pendente
@@ -552,17 +592,19 @@ function ConversationsPageContent() {
               ) : (
                 <>
                   <ConversationList
-                    conversations={filteredConversations}
+                    conversations={displayedConversations}
                     selectedCustomerId={selectedCustomerId}
                     onSelectConversation={handleSelectConversation}
                     aiThinkingIds={aiThinkingIds}
                   />
-                  {totalConversations > 100 && !searchTerm && filterType === "all" && (
-                    <div className="px-3 py-2.5 border-t bg-muted/40 flex items-center gap-2 shrink-0">
-                      <div className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
-                      <p className="text-[11px] text-muted-foreground leading-tight">
-                        Exibindo as <span className="font-semibold text-foreground">100</span> conversas mais recentes de <span className="font-semibold text-foreground">{totalConversations}</span>. Use a busca ou filtros para encontrar outras.
-                      </p>
+                  {!hasActiveFilters && remaining > 0 && (
+                    <div className="px-3 py-2.5 border-t shrink-0">
+                      <button
+                        onClick={() => setDisplayLimit(prev => prev + LOAD_MORE_STEP)}
+                        className="w-full text-xs font-medium text-primary hover:text-primary/80 py-1.5 rounded-lg hover:bg-primary/5 transition-colors"
+                      >
+                        Carregar + {Math.min(remaining, LOAD_MORE_STEP)} contatos
+                      </button>
                     </div>
                   )}
                 </>

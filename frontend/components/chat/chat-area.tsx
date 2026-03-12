@@ -17,7 +17,7 @@ import { whatsappApi } from "@/lib/whatsapp";
 import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Video, Pause, Play } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Video, Pause, Play, FileText, ExternalLink } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -103,7 +103,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [editingContent, setEditingContent] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [lightbox, setLightbox] = useState<{ url: string; type: "image" | "video" } | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; type: "image" | "video" | "document"; filename?: string } | null>(null);
   const [activeFlowExecution, setActiveFlowExecution] = useState<{ id: string; flow: { id: string; name: string }; status: string } | null>(null);
   const [cancellingFlow, setCancellingFlow] = useState(false);
   const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
@@ -262,8 +262,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       // Backend já retorna ordenado por timestamp ascendente (cronologia correta)
       const messages = response.data.messages.map((m) => ({
         ...m,
-        // Detecta mensagens editadas: updatedAt significativamente depois de createdAt
-        isEdited: m.isEdited || (new Date(m.updatedAt).getTime() - new Date(m.createdAt).getTime() > 3000),
+        isEdited: m.isEdited ?? false,
       }));
 
       // Marca mensagens como lidas (fire-and-forget)
@@ -418,14 +417,14 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox]);
 
-  const handleDownload = async (url: string, type: "image" | "video") => {
+  const handleDownload = async (url: string, type: "image" | "video" | "document", filename?: string) => {
     try {
       const res = await fetch(url);
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = objectUrl;
-      a.download = type === "image" ? "imagem.jpg" : "video.mp4";
+      a.download = type === "image" ? "imagem.jpg" : type === "document" ? (filename || "documento.pdf") : "video.mp4";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1430,8 +1429,49 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                         </div>
                       ) : null}
 
+                      {/* Documento / PDF */}
+                      {message.mediaType === "document" && (
+                        <div
+                          className={cn(
+                            "flex items-center gap-3 rounded-xl px-3 py-2.5 min-w-[200px] max-w-[280px] transition-all",
+                            message.mediaUrl
+                              ? "cursor-pointer hover:brightness-95 active:scale-[0.98]"
+                              : "cursor-default",
+                            isInbound
+                              ? "bg-gray-100 dark:bg-gray-700"
+                              : "bg-white/20"
+                          )}
+                          onClick={() => {
+                            if (message.mediaUrl) {
+                              setLightbox({ url: message.mediaUrl, type: "document", filename: message.content || undefined });
+                            }
+                          }}
+                        >
+                          <div className="shrink-0 p-2 rounded-lg bg-red-100 dark:bg-red-900/40">
+                            <FileText className="h-5 w-5 text-red-500 dark:text-red-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={cn(
+                              "text-xs font-semibold truncate leading-tight",
+                              isInbound ? "text-gray-800 dark:text-gray-100" : "text-white"
+                            )}>
+                              {message.content && !message.content.startsWith("[") ? message.content : "Documento"}
+                            </p>
+                            <p className={cn(
+                              "text-[10px] mt-0.5",
+                              isInbound ? "text-gray-500 dark:text-gray-400" : "text-white/70"
+                            )}>
+                              {message.mediaUrl ? "Toque para abrir" : "PDF"}
+                            </p>
+                          </div>
+                          {message.mediaUrl && (
+                            <ExternalLink className={cn("h-3.5 w-3.5 shrink-0", isInbound ? "text-gray-400" : "text-white/70")} />
+                          )}
+                        </div>
+                      )}
+
                       {/* Texto — modo normal */}
-                      {message.mediaType !== "audio" && message.mediaType !== "image" && message.mediaType !== "video" && message.content && (
+                      {message.mediaType !== "audio" && message.mediaType !== "image" && message.mediaType !== "video" && message.mediaType !== "document" && message.content && (
                         <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
                       )}
                     </div>
@@ -2120,7 +2160,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         </DialogContent>
       </Dialog>
 
-      {/* Lightbox — visualização ampliada de imagem ou vídeo */}
+      {/* Lightbox — visualização ampliada de imagem, vídeo ou documento */}
       {lightbox && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
@@ -2128,24 +2168,45 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         >
           {/* Barra superior */}
           <div
-            className="absolute top-0 left-0 right-0 flex items-center justify-end gap-2 p-3"
+            className="absolute top-0 left-0 right-0 flex items-center justify-between gap-2 p-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={() => handleDownload(lightbox.url, lightbox.type)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
-              title="Baixar"
-            >
-              <Download className="h-4 w-4" />
-              Baixar
-            </button>
-            <button
-              onClick={() => setLightbox(null)}
-              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-              title="Fechar"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            {/* Nome do arquivo (documento) */}
+            {lightbox.type === "document" && lightbox.filename && (
+              <div className="flex items-center gap-2 text-white/80 text-sm font-medium truncate max-w-[60%]">
+                <FileText className="h-4 w-4 shrink-0 text-red-400" />
+                <span className="truncate">{lightbox.filename}</span>
+              </div>
+            )}
+            {lightbox.type !== "document" && <div />}
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleDownload(lightbox.url, lightbox.type, lightbox.filename)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
+                title="Baixar"
+              >
+                <Download className="h-4 w-4" />
+                Baixar
+              </button>
+              {lightbox.type === "document" && (
+                <button
+                  onClick={() => window.open(lightbox.url, "_blank")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
+                  title="Abrir em nova aba"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Nova aba
+                </button>
+              )}
+              <button
+                onClick={() => setLightbox(null)}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                title="Fechar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Conteúdo */}
@@ -2159,12 +2220,18 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 alt="Visualização"
                 className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
               />
-            ) : (
+            ) : lightbox.type === "video" ? (
               <video
                 src={lightbox.url}
                 controls
                 autoPlay
                 className="max-w-full max-h-full rounded-lg shadow-2xl"
+              />
+            ) : (
+              <iframe
+                src={lightbox.url}
+                className="w-full h-full rounded-lg bg-white shadow-2xl"
+                title={lightbox.filename || "Documento"}
               />
             )}
           </div>

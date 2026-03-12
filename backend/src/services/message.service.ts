@@ -333,11 +333,11 @@ class MessageService {
         },
       });
 
-      // Conta mensagens INBOUND não lidas agrupadas por (customerId, whatsappInstanceId)
+      // Conta mensagens INBOUND não lidas agrupadas por customerId (somando todas as instâncias)
       const unreadGroups = await prisma.message.groupBy({
-        by: ['customerId', 'whatsappInstanceId'],
+        by: ['customerId'],
         where: {
-          customer: { 
+          customer: {
             companyId,
             isArchived: false, // Só conta não lidas de conversas ATIVAS
           },
@@ -349,18 +349,18 @@ class MessageService {
 
       const unreadMap = new Map<string, number>();
       for (const row of unreadGroups) {
-        unreadMap.set(`${row.customerId}-${row.whatsappInstanceId}`, row._count.id);
+        unreadMap.set(row.customerId, row._count.id);
       }
 
       // Cria um mapa de conversações para acesso rápido
       const conversationMap = new Map(conversations.map((c) => [c.customerId, c]));
 
-      // Agrupa por customer E instância e pega a última mensagem de cada combinação
+      // Agrupa por customer (uma entrada por cliente, usando a última mensagem de qualquer instância)
       const conversationsMap = new Map<string, ConversationSummary>();
 
       for (const message of messages) {
-        // Cria chave única combinando customerId e whatsappInstanceId
-        const conversationKey = `${message.customerId}-${message.whatsappInstanceId}`;
+        // Chave única por cliente — evita duplicatas quando o mesmo cliente tem mensagens de 2 instâncias
+        const conversationKey = message.customerId;
 
         if (!conversationsMap.has(conversationKey)) {
           const conversation = conversationMap.get(message.customerId);
@@ -372,7 +372,7 @@ class MessageService {
             customerProfilePic: message.customer.profilePicUrl ?? null,
             lastMessage: message.content,
             lastMessageTimestamp: message.timestamp,
-            unreadCount: unreadMap.get(conversationKey) ?? 0,
+            unreadCount: unreadMap.get(message.customerId) ?? 0,
             direction: message.direction,
             aiEnabled: conversation?.aiEnabled ?? true, // Default para true se não houver conversa
             needsHelp: conversation?.needsHelp ?? false,
@@ -408,7 +408,7 @@ class MessageService {
   async getUnreadConversationsCount(companyId: string): Promise<number> {
     try {
       const result = await prisma.message.groupBy({
-        by: ['customerId', 'whatsappInstanceId'],
+        by: ['customerId'],
         where: {
           customer: {
             companyId,
@@ -1619,7 +1619,7 @@ class MessageService {
     // Atualiza no banco
     const updated = await prisma.message.update({
       where: { id: messageDbId },
-      data: { content: newContent },
+      data: { content: newContent, isEdited: true },
     });
 
     // Emite evento WebSocket para atualizar o chat em tempo real
