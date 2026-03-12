@@ -218,7 +218,9 @@ export class FlowBatchController {
   }
 
   /**
-   * Valida todos os contatos, armazena os válidos na fila Redis e dispara o primeiro.
+   * Valida todos os contatos, armazena os válidos na fila Redis e dispara
+   * N contatos iniciais em paralelo (1 por instância WhatsApp conectada).
+   * Cada cadeia avança independentemente quando termina, maximizando velocidade.
    */
   private async processRows(
     batch: BatchStatus,
@@ -243,7 +245,7 @@ export class FlowBatchController {
       variables._batchName = fileName;
       variables._batchTotal = batch.total;
 
-      // 🛡️ Validação sintática: pula números impossíveis
+      // Validação sintática: pula números impossíveis
       if (phone.length < 10 || phone.length > 15) {
         batch.failed++;
         batch.errors.push({
@@ -278,11 +280,32 @@ export class FlowBatchController {
     // TTL de 7 dias — tempo suficiente para batchs longos terminarem
     await redisConnection.expire(queueKey, 7 * 24 * 3600);
 
-    // Dispara o primeiro contato da fila; os demais serão disparados em cadeia pelo FlowEngine
-    const firstJson = await redisConnection.lpop(queueKey);
-    if (firstJson) {
-      const firstContact = JSON.parse(firstJson) as FlowStartJobData;
-      await flowQueueService.enqueueFlowStart(firstContact);
+    // Determina quantas instâncias WhatsApp estão conectadas para disparar em paralelo
+    // Cada instância inicia 1 cadeia independente, maximizando a velocidade
+    let parallelCount = 1;
+    try {
+      const connectedInstances = await prisma.whatsAppInstance.findMany({
+        where: { companyId: flow.companyId as string, status: { in: ['CONNECTED', 'CONNECTING'] } },
+        select: { id: true },
+      });
+      parallelCount = Math.max(1, connectedInstances.length);
+    } catch {
+      console.error(`[FlowBatch] Falha ao contar instâncias, usando 1 cadeia`);
+    }
+
+    // Dispara N contatos iniciais em paralelo (1 por instância)
+    // Cada contato, ao terminar, puxa o próximo da fila Redis automaticamente
+    const initialContacts = Math.min(parallelCount, batch.total);
+    for (let i = 0; i < initialContacts; i++) {
+      const nextJson = await redisConnection.lpop(queueKey);
+      if (!nextJson) break;
+      try {
+        const contact = JSON.parse(nextJson) as FlowStartJobData;
+        await flowQueueService.enqueueFlowStart(contact);
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error(`[FlowBatch] ❌ Erro ao disparar contato inicial ${i + 1}: ${errMsg}`);
+      }
     }
 
     batch.status = 'COMPLETED';

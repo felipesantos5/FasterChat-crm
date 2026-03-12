@@ -12,6 +12,7 @@ import { DashboardFilterProvider } from "@/contexts/DashboardFilterContext";
 import { usePlanFeatures, isPageAllowedForFree } from "@/hooks/usePlanFeatures";
 import { usePathname } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
+import { GlobalBatchMonitor } from "@/components/flows/GlobalBatchMonitor";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -68,6 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               )}
               <Header />
               <main className="flex-1 overflow-y-auto bg-gray-50">{children}</main>
+              <GlobalBatchMonitor />
             </div>
           </div>
         </DashboardFilterProvider>

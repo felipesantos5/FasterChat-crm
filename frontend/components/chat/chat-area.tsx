@@ -241,7 +241,11 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     try {
       const response = await messageApi.getCustomerMessages(customerId, 100);
       // Backend já retorna ordenado por timestamp ascendente (cronologia correta)
-      const messages = response.data.messages;
+      const messages = response.data.messages.map((m) => ({
+        ...m,
+        // Detecta mensagens editadas: updatedAt significativamente depois de createdAt
+        isEdited: m.isEdited || (new Date(m.updatedAt).getTime() - new Date(m.createdAt).getTime() > 3000),
+      }));
 
       // Marca mensagens como lidas (fire-and-forget)
       const msgWithInstance = messages.find((m) => m.whatsappInstanceId);
@@ -442,7 +446,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     try {
       await messageApi.editMessage(messageId, editingContent.trim());
       setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? { ...m, content: editingContent.trim() } : m))
+        prev.map((m) => (m.id === messageId ? { ...m, content: editingContent.trim(), isEdited: true } : m))
       );
       cancelEdit();
     } catch (error: any) {
@@ -1291,19 +1295,19 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                       {message.quotedContent && (
                         <div className={cn(
                           "flex items-stretch rounded overflow-hidden",
-                          isInbound ? "bg-black/5 dark:bg-white/5" : "bg-black/15 dark:bg-black/25"
+                          isInbound || isFlow ? "bg-black/5 dark:bg-white/5" : "bg-black/15 dark:bg-black/25"
                         )}>
                           <div className="w-1 shrink-0 bg-green-500" />
                           <div className="flex-1 px-2 py-1.5 min-w-0">
                             <p className={cn(
                               "text-[11px] font-semibold leading-none mb-0.5 truncate",
-                              isInbound ? "text-green-600 dark:text-green-400" : "text-green-300"
+                              isInbound || isFlow ? "text-green-600 dark:text-green-400" : "text-green-300"
                             )}>
                               {message.quotedAuthor}
                             </p>
                             <p className={cn(
                               "text-[11px] leading-tight line-clamp-2 break-words",
-                              isInbound ? "text-gray-500 dark:text-gray-400" : "text-white/70"
+                              isInbound || isFlow ? "text-gray-500 dark:text-gray-400" : "text-white/70"
                             )}>
                               {message.quotedContent}
                             </p>
@@ -1398,7 +1402,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
 
                       {/* Áudio com Player Customizado */}
                       {message.mediaType === "audio" && message.mediaUrl ? (
-                        <AudioPlayer audioUrl={message.mediaUrl} transcription={message.content} isInbound={isInbound} />
+                        <AudioPlayer audioUrl={message.mediaUrl} transcription={message.content} isInbound={isInbound} isFlow={isFlow} />
                       ) : message.mediaType === "audio" && !message.mediaUrl ? (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-secondary/50 rounded-md">
                           <span className="text-xs">🎤 Áudio indisponível para reprodução</span>
@@ -1413,7 +1417,10 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                     </div>
                     <div className="flex items-center justify-end gap-2 mt-1">
                       <div className="flex items-center gap-1">
-                        <p className={cn("text-xs", isInbound || isAi ? "text-gray-600" : "text-white")}>{formatMessageTime(message.timestamp)}</p>
+                        {message.isEdited && (
+                          <span className={cn("text-[10px] italic", isInbound || isAi || isFlow ? "text-gray-400" : "text-white/60")}>editada</span>
+                        )}
+                        <p className={cn("text-xs", isInbound || isAi || isFlow ? "text-gray-600" : "text-white")}>{formatMessageTime(message.timestamp)}</p>
                         {!isInbound && (
                           <>
                             {message.status === "FAILED" ? (
@@ -1924,11 +1931,30 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                   e.target.style.overflowY = e.target.scrollHeight > 160 ? "auto" : "hidden";
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    handleSendMessage(e as any);
+                  if (e.key === "Enter") {
+                    if (e.ctrlKey || e.metaKey) {
+                      // Ctrl+Enter → quebra de linha manual
+                      e.preventDefault();
+                      const target = e.currentTarget;
+                      const start = target.selectionStart;
+                      const end = target.selectionEnd;
+                      const val = target.value;
+                      const newVal = val.substring(0, start) + "\n" + val.substring(end);
+                      setInputValue(newVal);
+                      // Atualiza cursor e altura
+                      requestAnimationFrame(() => {
+                        target.selectionStart = target.selectionEnd = start + 1;
+                        target.style.height = "auto";
+                        const newHeight = Math.min(target.scrollHeight, 160);
+                        target.style.height = `${newHeight}px`;
+                        target.style.overflowY = target.scrollHeight > 160 ? "auto" : "hidden";
+                      });
+                    } else {
+                      // Enter simples → envia mensagem
+                      e.preventDefault();
+                      handleSendMessage(e as any);
+                    }
                   }
-                  // Enter simples → nova linha (comportamento padrão do textarea)
                 }}
                 className="flex-1 rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm resize-none overflow-y-hidden leading-5 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 max-h-40"
                 style={{ height: "36px" }}

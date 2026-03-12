@@ -66,6 +66,8 @@ interface BatchStatusButtonProps {
 }
 
 const STORAGE_KEY = "flow_active_batch";
+// Flag global: indica que o BatchStatusButton está montado e já cuida de notificações
+const NOTIFIED_KEY = "flow_batch_notified";
 
 function getStoredBatch(flowId: string): string | null {
   try {
@@ -86,7 +88,11 @@ function storeBatch(flowId: string, batchId: string) {
 
 function clearStoredBatch(flowId: string) {
   try {
+    const batchId = localStorage.getItem(`${STORAGE_KEY}_${flowId}`);
     localStorage.removeItem(`${STORAGE_KEY}_${flowId}`);
+    if (batchId) {
+      localStorage.removeItem(`${NOTIFIED_KEY}_${batchId}`);
+    }
   } catch {
     // ignore
   }
@@ -194,20 +200,17 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
 
       // Detecta transição para estado final e notifica
       if (wasProcessing && finalStatuses.includes(data.status)) {
+        // Marca como notificado para o GlobalBatchMonitor não duplicar
+        try { localStorage.setItem(`${NOTIFIED_KEY}_${data.batchId}`, "1"); } catch {}
+
         if (data.status === "COMPLETED") {
-          const allOk = data.failed === 0;
-          playCompletionSound(allOk);
-          if (allOk) {
-            toast.success("🎉 Disparo concluído!", {
-              description: `${data.succeeded} de ${data.total} contatos disparados com sucesso.`,
-              duration: 8000,
-            });
-          } else {
-            toast.warning("⚠️ Disparo concluído com falhas", {
-              description: `${data.succeeded} enviados, ${data.failed} falhas.`,
-              duration: 8000,
-            });
-          }
+          // COMPLETED é sempre sucesso — falhas pontuais são normais
+          playCompletionSound(true);
+          const failNote = data.failed > 0 ? ` (${data.failed} falhas)` : "";
+          toast.success("🎉 Disparo concluído!", {
+            description: `${data.succeeded} de ${data.total} contatos disparados com sucesso.${failNote}`,
+            duration: 8000,
+          });
         } else if (data.status === "FAILED") {
           playCompletionSound(false);
           toast.error("❌ Disparo falhou", {
@@ -316,19 +319,23 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
           ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
           : isProcessing
             ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-            : isCompleted && status?.failed === 0
+            : isCompleted
               ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-              : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+              : isCancelled
+                ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
           }`}
       >
         {isPaused ? (
           <AlertTriangle size={14} className="animate-pulse" />
         ) : isProcessing ? (
           <Loader2 size={14} className="animate-spin" />
-        ) : isCompleted && status?.failed === 0 ? (
+        ) : isCompleted ? (
           <CheckCircle2 size={14} />
-        ) : (
+        ) : isCancelled ? (
           <AlertTriangle size={14} />
+        ) : (
+          <XCircle size={14} />
         )}
 
         <span>
@@ -380,9 +387,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
                 <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                   <div
                     className={`h-3 rounded-full transition-all duration-500 ${isCompleted
-                      ? status.failed > 0
-                        ? "bg-amber-500"
-                        : "bg-green-500"
+                      ? "bg-green-500"
                       : isFailed
                         ? "bg-red-500"
                         : "bg-primary animate-pulse"
@@ -490,19 +495,21 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
               {/* Done indicator */}
               {(isCompleted || isFailed || isCancelled) && (
                 <div className="flex flex-col items-center gap-2 py-1">
-                  {isCompleted && status.failed === 0 ? (
+                  {isCompleted ? (
                     <CheckCircle2 size={32} className="text-green-500" />
                   ) : isCancelled ? (
                     <Ban size={32} className="text-red-500" />
                   ) : (
-                    <XCircle size={32} className="text-amber-500" />
+                    <XCircle size={32} className="text-red-500" />
                   )}
                   <p className="text-sm font-semibold text-gray-700 text-center">
-                    {isCompleted && status.failed === 0
-                      ? "Todos os disparos foram realizados com sucesso!"
+                    {isCompleted
+                      ? status.failed > 0
+                        ? `Disparos concluídos! ${status.succeeded} enviados, ${status.failed} falhas.`
+                        : "Todos os disparos foram realizados com sucesso!"
                       : isCancelled
                         ? "Os disparos foram cancelados pelo usuário."
-                        : `${status.succeeded} disparos OK, ${status.failed} falhas`}
+                        : `Disparo falhou. ${status.succeeded} enviados, ${status.failed} falhas.`}
                   </p>
                 </div>
               )}

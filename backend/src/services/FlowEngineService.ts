@@ -885,37 +885,59 @@ export class FlowEngineService {
     const batchId = variables._batchId as string | undefined;
     if (!batchId) return;
 
+    // Verifica se o batch foi cancelado antes de avançar
+    try {
+      const cancelKey = `batch:${batchId}:cancelled`;
+      const cancelled = await redisConnection.get(cancelKey);
+      if (cancelled) return;
+    } catch { /* ignora — tenta avançar mesmo assim */ }
+
     // Guard de deduplicação por execução: garante avanço único por contato
     if (executionId) {
       const guardKey = `batch:${batchId}:advanced:${executionId}`;
       const isFirst = await redisConnection.set(guardKey, '1', 'EX', 7 * 24 * 3600, 'NX');
-      if (!isFirst) return; // já avançou a fila nesta execução (ex: WAITING_REPLY antes do COMPLETED)
+      if (!isFirst) return;
     }
 
     const { FlowBatchController } = await import('../controllers/FlowBatchController');
     const queueKey = FlowBatchController.batchQueueKey(batchId);
 
-    try {
-      const nextJson = await redisConnection.lpop(queueKey);
-      if (!nextJson) return; // fila esgotada
-      const nextContact = JSON.parse(nextJson) as FlowStartJobData;
-
-      // Verifica janela de envio por fuso horário
-      let windowDelay = 0;
+    // Retry: tenta até 3 vezes avançar a fila para não perder contatos
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const configJson = await redisConnection.get(FlowBatchController.batchConfigKey(batchId));
-        if (configJson) {
-          const config = JSON.parse(configJson) as { enabled: boolean; start: number; end: number };
-          if (config.enabled) {
-            const { getTimezoneFromPhone, getDelayUntilWindow } = await import('../utils/phone-timezone');
-            const tz = getTimezoneFromPhone(nextContact.contactPhone);
-            windowDelay = getDelayUntilWindow(tz, config.start, config.end);
-          }
-        }
-      } catch { /* falha na verificação de janela — envia sem delay de janela */ }
+        const nextJson = await redisConnection.lpop(queueKey);
+        if (!nextJson) return; // fila esgotada — todos os contatos já foram disparados
 
-      await flowQueueService.enqueueFlowStart(nextContact, { delay: windowDelay });
-    } catch { /* falha ao avançar fila do batch — não crítico */ }
+        const nextContact = JSON.parse(nextJson) as FlowStartJobData;
+
+        // Verifica janela de envio por fuso horário
+        let windowDelay = 0;
+        try {
+          const configJson = await redisConnection.get(FlowBatchController.batchConfigKey(batchId));
+          if (configJson) {
+            const config = JSON.parse(configJson) as { enabled: boolean; start: number; end: number };
+            if (config.enabled) {
+              const { getTimezoneFromPhone, getDelayUntilWindow } = await import('../utils/phone-timezone');
+              const tz = getTimezoneFromPhone(nextContact.contactPhone);
+              windowDelay = getDelayUntilWindow(tz, config.start, config.end);
+            }
+          }
+        } catch {
+          console.error(`[FlowBatch] Falha ao verificar janela de envio (batch: ${batchId}), enviando sem delay`);
+        }
+
+        await flowQueueService.enqueueFlowStart(nextContact, { delay: windowDelay });
+        return; // sucesso — sai do retry loop
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error(`[FlowBatch] ❌ Falha ao avançar fila (batch: ${batchId}, tentativa ${attempt}/3): ${errMsg}`);
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 2000 * attempt)); // backoff: 2s, 4s
+        }
+      }
+    }
+    // Se todas as tentativas falharam, loga erro crítico
+    console.error(`[FlowBatch] ❌❌ CRÍTICO: Não foi possível avançar batch ${batchId} após 3 tentativas. Contatos podem estar parados na fila.`);
   }
 
   /**

@@ -37,6 +37,7 @@ export interface Message {
   feedbackNote?: string | null;
   quotedContent?: string | null;
   quotedAuthor?: string | null;
+  isEdited?: boolean;
   createdAt: string;
   updatedAt: string;
   customer?: {

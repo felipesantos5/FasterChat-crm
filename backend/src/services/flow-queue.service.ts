@@ -209,7 +209,7 @@ class FlowQueueService {
       },
       {
         connection: redisConnection,
-        concurrency: 3,
+        concurrency: 10, // Suporta múltiplas instâncias WhatsApp em paralelo
       }
     );
 

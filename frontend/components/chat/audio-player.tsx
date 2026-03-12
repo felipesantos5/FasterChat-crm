@@ -9,9 +9,10 @@ interface AudioPlayerProps {
   audioUrl: string;
   transcription?: string;
   isInbound: boolean;
+  isFlow?: boolean;
 }
 
-export function AudioPlayer({ audioUrl, transcription, isInbound }: AudioPlayerProps) {
+export function AudioPlayer({ audioUrl, transcription, isInbound, isFlow }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -72,7 +73,7 @@ export function AudioPlayer({ audioUrl, transcription, isInbound }: AudioPlayerP
       <div
         className={cn(
           "flex items-center gap-2 p-2 rounded-lg min-w-[240px]",
-          isInbound ? "bg-background/50" : "bg-white/10"
+          isInbound || isFlow ? "bg-background/50" : "bg-white/10"
         )}
       >
         <audio ref={audioRef} src={audioUrl} preload="metadata" />
@@ -84,7 +85,7 @@ export function AudioPlayer({ audioUrl, transcription, isInbound }: AudioPlayerP
           onClick={togglePlay}
           className={cn(
             "h-8 w-8 rounded-full flex-shrink-0",
-            isInbound
+            isInbound || isFlow
               ? "hover:bg-primary/10"
               : "hover:bg-white/20 text-white"
           )}
@@ -103,7 +104,7 @@ export function AudioPlayer({ audioUrl, transcription, isInbound }: AudioPlayerP
             <div
               className={cn(
                 "absolute h-full transition-all duration-100",
-                isInbound ? "bg-primary" : "bg-white"
+                isInbound || isFlow ? "bg-primary" : "bg-white"
               )}
               style={{ width: `${progressPercentage}%` }}
             />
@@ -112,7 +113,7 @@ export function AudioPlayer({ audioUrl, transcription, isInbound }: AudioPlayerP
           {/* Time */}
           <div className={cn(
             "text-xs",
-            isInbound ? "text-muted-foreground" : "text-white/70"
+            isInbound || isFlow ? "text-muted-foreground" : "text-white/70"
           )}>
             {formatTime(currentTime)} / {formatTime(duration)}
           </div>
