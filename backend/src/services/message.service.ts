@@ -306,7 +306,7 @@ class MessageService {
                 select: { color: true },
               },
             },
-          },
+          } as const,
           whatsappInstance: {
             select: {
               id: true,
@@ -384,6 +384,7 @@ class MessageService {
             isArchived: message.customer.isArchived ?? false,
             lastMediaType: message.mediaType ?? null,
             pipelineStageColor: message.customer.pipelineStage?.color ?? null,
+            temperature: message.customer.temperature ?? null,
           });
         }
       }
@@ -1177,9 +1178,9 @@ class MessageService {
           // Transcreve o áudio com o provedor configurado (Gemini é o padrão)
           try {
             if (aiProvider === "openai" && openaiService.isConfigured()) {
-              content = await openaiService.transcribeAudio(base64Audio);
+              content = await openaiService.transcribeAudio(base64Audio, instance.companyId);
             } else {
-              content = await geminiService.transcribeAudio(base64Audio, mimetype);
+              content = await geminiService.transcribeAudio(base64Audio, mimetype, instance.companyId);
             }
           } catch (transcribeError: any) {
             console.error(`[MessageService] ❌ Erro ao transcrever áudio:`, transcribeError.message);

@@ -25,4 +25,9 @@ router.patch('/customers/:customerId/stage', checkPermission('PIPELINE', true), 
 // Inicializar pipeline
 router.post('/init', checkPermission('PIPELINE', true), asyncHandler(pipelineController.initPipeline));
 
+// Deal Values (Lucro/Receita)
+router.post('/deal-values', checkPermission('PIPELINE', true), asyncHandler(pipelineController.createDealValue));
+router.get('/deal-values/stats', asyncHandler(pipelineController.getDealValueStats));
+router.get('/deal-values', asyncHandler(pipelineController.listDealValues));
+
 export default router;

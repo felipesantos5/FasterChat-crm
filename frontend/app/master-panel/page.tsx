@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 interface Company {
   id: string;
@@ -60,7 +61,9 @@ interface AiCosts {
   companyId: string;
   period: number;
   totalCostUsd: number;
+  totalCalls: number;
   breakdown: AiCostBreakdown[];
+  dailyBreakdown: { date: string; costUsd: number }[];
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030";
@@ -465,18 +468,58 @@ export default function AdminDashboardPage() {
                 </div>
               ) : (
                 <>
-                  {/* Total card */}
-                  <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-5 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-green-700 font-medium">Total gasto no período</p>
-                      <p className="text-3xl font-bold text-green-800 mt-1">
+                  {/* Total cards */}
+                  <div className="grid grid-cols-2 gap-3 mb-5">
+                    <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                      <p className="text-xs text-green-700 font-medium">Total gasto no período</p>
+                      <p className="text-2xl font-bold text-green-800 mt-1">
                         ${aiCostsModal.data.totalCostUsd.toFixed(4)}
                       </p>
+                      <p className="text-xs text-green-600 mt-0.5">
+                        ≈ R${(aiCostsModal.data.totalCostUsd * 5.7).toFixed(2)}
+                      </p>
                     </div>
-                    <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center">
-                      <DollarSign className="w-7 h-7 text-green-600" />
+                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                      <p className="text-xs text-gray-600 font-medium">Total de chamadas IA</p>
+                      <p className="text-2xl font-bold text-gray-800 mt-1">
+                        {(aiCostsModal.data.totalCalls ?? 0).toLocaleString('pt-BR')}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        ~${aiCostsModal.data.totalCalls > 0
+                          ? (aiCostsModal.data.totalCostUsd / aiCostsModal.data.totalCalls * 1000).toFixed(4)
+                          : '0.0000'} por mil
+                      </p>
                     </div>
                   </div>
+
+                  {/* Daily cost chart */}
+                  {aiCostsModal.data.dailyBreakdown.length > 1 && (
+                    <div className="mb-5 border border-gray-100 rounded-xl p-4">
+                      <p className="text-xs font-semibold text-gray-600 mb-3">Evolução diária de gastos</p>
+                      <ResponsiveContainer width="100%" height={140}>
+                        <BarChart data={aiCostsModal.data.dailyBreakdown} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis
+                            dataKey="date"
+                            tick={{ fontSize: 10 }}
+                            tickFormatter={(v: string) => {
+                              const [, m, d] = v.split('-');
+                              return `${d}/${m}`;
+                            }}
+                          />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => `$${v.toFixed(3)}`} />
+                          <Tooltip
+                            formatter={(v: number) => [`$${v.toFixed(4)}`, 'Gasto']}
+                            labelFormatter={(l: string) => {
+                              const [y, m, d] = l.split('-');
+                              return `${d}/${m}/${y}`;
+                            }}
+                          />
+                          <Bar dataKey="costUsd" fill="#16a34a" radius={[3, 3, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
 
                   {/* Breakdown table */}
                   <div className="space-y-2">

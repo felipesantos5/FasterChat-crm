@@ -445,17 +445,24 @@ class GeminiService {
         finalContent = 'Desculpe, não consegui processar sua solicitação no momento. Pode reformular a pergunta ou entrar em contato com nossa equipe?';
       }
 
-      const usageMetadata = response.usageMetadata;
-      if (usageMetadata && context?.companyId) {
-        const inputCost = ((usageMetadata.promptTokenCount || 0) / 1_000_000) * 0.075;
-        const outputCost = ((usageMetadata.candidatesTokenCount || 0) / 1_000_000) * 0.3;
+      // Sempre registra o uso quando companyId está disponível.
+      // Usa usageMetadata do Gemini quando presente (preciso); caso contrário estima
+      // pelos tamanhos do prompt/resposta para não perder nenhuma chamada dos logs.
+      if (context?.companyId) {
+        const usageMetadata = response.usageMetadata;
+        const inputTokens = usageMetadata?.promptTokenCount
+          ?? Math.ceil((params.systemPrompt.length + params.userPrompt.length) / 4);
+        const outputTokens = usageMetadata?.candidatesTokenCount
+          ?? Math.ceil(finalContent.length / 4);
+        const inputCost = (inputTokens / 1_000_000) * 0.075;
+        const outputCost = (outputTokens / 1_000_000) * 0.3;
         logAiUsage({
           companyId: context.companyId,
           provider: 'gemini',
           usageType: 'text_generation',
-          model: this.model,
-          inputTokens: usageMetadata.promptTokenCount || 0,
-          outputTokens: usageMetadata.candidatesTokenCount || 0,
+          model: params.model || this.model,
+          inputTokens,
+          outputTokens,
           costUsd: inputCost + outputCost,
         });
       }
@@ -513,7 +520,7 @@ class GeminiService {
    * Transcreve áudio usando Gemini com retry automático
    * Gemini pode processar áudio diretamente e entender o conteúdo
    */
-  async transcribeAudio(audioInput: string, mimeType: string = "audio/ogg"): Promise<string> {
+  async transcribeAudio(audioInput: string, mimeType: string = "audio/ogg", companyId?: string): Promise<string> {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= GEMINI_CONFIG.MAX_RETRIES; attempt++) {
@@ -564,6 +571,23 @@ class GeminiService {
         }
 
         logger.info(`Audio transcription completed (${transcription.length} chars)`);
+
+        // Registra uso de transcrição no log de custos (gemini-2.0-flash cobra por token de áudio)
+        if (companyId) {
+          const usageMeta = result.response.usageMetadata;
+          const inputTokens = usageMeta?.promptTokenCount ?? 0;
+          const outputTokens = usageMeta?.candidatesTokenCount ?? Math.ceil(transcription.length / 4);
+          logAiUsage({
+            companyId,
+            provider: 'gemini',
+            usageType: 'transcription',
+            model: this.model,
+            inputTokens,
+            outputTokens,
+            costUsd: ((inputTokens + outputTokens) / 1_000_000) * 0.075,
+          });
+        }
+
         return transcription;
       } catch (error: any) {
         lastError = error;

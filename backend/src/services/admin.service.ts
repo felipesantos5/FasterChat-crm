@@ -123,12 +123,11 @@ export const adminService = {
     };
   },
 
-  // Busca custos de IA de uma empresa agrupados por tipo
+  // Busca custos de IA de uma empresa agrupados por tipo + breakdown diário
   async getCompanyAiCosts(companyId: string, days: number = 30) {
-    const since = new Date();
-    since.setDate(since.getDate() - days);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-    const [breakdown, totals] = await Promise.all([
+    const [breakdown, totals, dailyLogs] = await Promise.all([
       prisma.aIUsageLog.groupBy({
         by: ['usageType', 'provider', 'model'],
         where: { companyId, createdAt: { gte: since } },
@@ -139,13 +138,30 @@ export const adminService = {
       prisma.aIUsageLog.aggregate({
         where: { companyId, createdAt: { gte: since } },
         _sum: { costUsd: true },
+        _count: { id: true },
+      }),
+      prisma.aIUsageLog.findMany({
+        where: { companyId, createdAt: { gte: since } },
+        select: { createdAt: true, costUsd: true },
+        orderBy: { createdAt: 'asc' },
       }),
     ]);
+
+    // Agrupa logs por dia (YYYY-MM-DD) para o gráfico de evolução
+    const dailyMap = new Map<string, number>();
+    for (const log of dailyLogs) {
+      const dateKey = log.createdAt.toISOString().split('T')[0];
+      dailyMap.set(dateKey, (dailyMap.get(dateKey) ?? 0) + log.costUsd);
+    }
+    const dailyBreakdown = Array.from(dailyMap.entries())
+      .map(([date, costUsd]) => ({ date, costUsd }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     return {
       companyId,
       period: days,
       totalCostUsd: totals._sum.costUsd ?? 0,
+      totalCalls: totals._count.id,
       breakdown: breakdown.map((b) => ({
         usageType: b.usageType,
         provider: b.provider,
@@ -156,6 +172,7 @@ export const adminService = {
         characters: b._sum.characters ?? 0,
         costUsd: b._sum.costUsd ?? 0,
       })),
+      dailyBreakdown,
     };
   },
 

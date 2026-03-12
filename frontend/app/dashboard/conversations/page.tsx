@@ -609,6 +609,7 @@ function ConversationsPageContent() {
               customerName={selectedConversation.customerName}
               customerPhone={selectedConversation.customerPhone}
               customerProfilePic={selectedConversation.customerProfilePic}
+              customerTemperature={'temperature' in selectedConversation ? selectedConversation.temperature : null}
               onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
               showDetailsButton={true}
               isArchived={selectedConversation.isArchived ?? false}

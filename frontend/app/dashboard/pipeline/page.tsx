@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ManageStagesModal } from "@/components/pipeline/manage-stages-modal";
+import { DealValueModal } from "@/components/pipeline/deal-value-modal";
 import { Settings2, GripVertical, Phone, Calendar, Users, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -41,6 +42,11 @@ function PipelinePageContent() {
   const [manageStagesOpen, setManageStagesOpen] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
+
+  // Deal value modal state
+  const [dealValueModalOpen, setDealValueModalOpen] = useState(false);
+  const [dealValueCustomer, setDealValueCustomer] = useState<{ id: string; name: string } | null>(null);
+  const [dealValueStageId, setDealValueStageId] = useState<string | null>(null);
 
   const [titlePortalNode, setTitlePortalNode] = useState<HTMLElement | null>(null);
   const [actionsPortalNode, setActionsPortalNode] = useState<HTMLElement | null>(null);
@@ -236,7 +242,16 @@ function PipelinePageContent() {
       await pipelineApi.moveCustomer(customerToMove.id, cId, {
         stageId: toStageId,
       });
-      // Sucesso - não precisa fazer nada, UI já está atualizada
+
+      // Se moveu para estágio "Ganho", abre o modal para registrar valor
+      if (toStageId) {
+        const targetStage = board.stages.find(s => s.stage.id === toStageId);
+        if (targetStage && targetStage.stage.name.toLowerCase().includes('ganho')) {
+          setDealValueCustomer({ id: customerToMove.id, name: customerToMove.name });
+          setDealValueStageId(toStageId);
+          setDealValueModalOpen(true);
+        }
+      }
     } catch (err: any) {
       console.error("Error moving customer:", err);
       // Rollback: reverte para o estado anterior
@@ -484,6 +499,18 @@ function PipelinePageContent() {
           companyId={companyId}
           stages={stagesList}
           onStagesUpdated={loadBoard}
+        />
+      )}
+
+      {/* Modal de Valor da Venda */}
+      {companyId && dealValueCustomer && dealValueStageId && (
+        <DealValueModal
+          open={dealValueModalOpen}
+          onOpenChange={setDealValueModalOpen}
+          customerName={dealValueCustomer.name}
+          customerId={dealValueCustomer.id}
+          stageId={dealValueStageId}
+          companyId={companyId}
         />
       )}
     </div>

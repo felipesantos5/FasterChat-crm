@@ -99,4 +99,42 @@ export const pipelineApi = {
     const response = await api.post('/pipeline/init', { companyId });
     return response.data.data;
   },
+
+  /**
+   * Registra o valor de uma venda fechada
+   */
+  async createDealValue(
+    companyId: string,
+    data: { customerId: string; stageId: string; value: number; notes?: string }
+  ): Promise<any> {
+    const response = await api.post('/pipeline/deal-values', {
+      companyId,
+      ...data,
+    });
+    return response.data.data;
+  },
+
+  /**
+   * Obtém estatísticas de lucro/receita
+   */
+  async getDealValueStats(
+    preset: string = '30days',
+    customRange?: { from: Date; to: Date }
+  ): Promise<DealValueStats> {
+    const params: Record<string, string> = { preset };
+    if (preset === 'custom' && customRange) {
+      params.startDate = customRange.from.toISOString();
+      params.endDate = customRange.to.toISOString();
+    }
+    const response = await api.get<{ data: DealValueStats }>('/pipeline/deal-values/stats', { params });
+    return response.data.data;
+  },
 };
+
+export interface DealValueStats {
+  totalRevenue: number;
+  dealsCount: number;
+  previousRevenue: number;
+  previousDealsCount: number;
+  percentageChange: number;
+}

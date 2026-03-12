@@ -28,15 +28,37 @@ import { MessageFeedbackComponent } from "@/components/chat/message-feedback";
 import { AudioPlayer } from "@/components/chat/audio-player";
 import { MessageText } from "@/components/chat/message-text";
 import { QuickMessagePopover } from "@/components/chat/QuickMessagePopover";
+import { SpellCheckTextarea } from "@/components/chat/SpellCheckTextarea";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { toast } from "sonner";
 import { ChatAreaSkeleton } from "@/components/ui/skeletons";
+
+const TEMPERATURE_CONFIG: Record<string, { emoji: string; label: string; className: string }> = {
+  HOT: { emoji: "🔥", label: "Quente", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+  WARM: { emoji: "🌡️", label: "Morno", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+  COLD: { emoji: "❄️", label: "Frio", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+};
+
+function TemperatureBadge({ temperature }: { temperature: string | null | undefined }) {
+  if (!temperature || temperature === "UNKNOWN") return null;
+  const config = TEMPERATURE_CONFIG[temperature];
+  if (!config) return null;
+  return (
+    <span
+      title={`Temperatura comercial: ${config.label}`}
+      className={`inline-flex items-center gap-1 text-[10px] h-5 px-1.5 rounded-full font-medium ${config.className}`}
+    >
+      {config.emoji} {config.label}
+    </span>
+  );
+}
 
 interface ChatAreaProps {
   customerId: string;
   customerName: string;
   customerPhone: string;
   customerProfilePic?: string | null;
+  customerTemperature?: string | null;
   onToggleDetails?: () => void;
   showDetailsButton?: boolean;
   onMarkAsRead?: () => void;
@@ -46,7 +68,7 @@ interface ChatAreaProps {
   isAiThinking?: boolean;
 }
 
-export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, onToggleDetails, showDetailsButton, onMarkAsRead, isArchived, onArchive, onUnarchive, isAiThinking }: ChatAreaProps) {
+export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, customerTemperature, onToggleDetails, showDetailsButton, onMarkAsRead, isArchived, onArchive, onUnarchive, isAiThinking }: ChatAreaProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -1074,6 +1096,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1.5">
               <h2 className="font-semibold text-sm truncate">{customerName}</h2>
+              <TemperatureBadge temperature={customerTemperature} />
               {isContactOnline && (
                 <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" title="Online" />
               )}
@@ -1911,22 +1934,12 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 </PopoverContent>
               </Popover>
 
-              <textarea
-                ref={inputRef}
-                placeholder="Digite uma mensagem"
+              <SpellCheckTextarea
+                textareaRef={inputRef}
                 value={inputValue}
-                rows={1}
-                spellCheck={true}
-                lang="pt-BR"
+                placeholder="Digite uma mensagem"
                 disabled={!!selectedImage || !!selectedVideo}
-                onChange={(e) => {
-                  setInputValue(e.target.value);
-                  e.target.style.height = "auto";
-                  const newHeight = Math.min(e.target.scrollHeight, 160);
-                  e.target.style.height = `${newHeight}px`;
-                  // Só mostra scroll quando atingir o limite máximo de altura
-                  e.target.style.overflowY = e.target.scrollHeight > 160 ? "auto" : "hidden";
-                }}
+                onChange={setInputValue}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     if (e.ctrlKey || e.metaKey) {
@@ -1938,7 +1951,6 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                       const val = target.value;
                       const newVal = val.substring(0, start) + "\n" + val.substring(end);
                       setInputValue(newVal);
-                      // Atualiza cursor e altura
                       requestAnimationFrame(() => {
                         target.selectionStart = target.selectionEnd = start + 1;
                         target.style.height = "auto";
@@ -1953,8 +1965,6 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                     }
                   }
                 }}
-                className="flex-1 rounded-2xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm resize-none overflow-y-hidden leading-5 focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 max-h-40"
-                style={{ height: "36px" }}
               />
 
               {/* Botão Send (aparece quando tem texto) ou Microfone (quando não tem) */}

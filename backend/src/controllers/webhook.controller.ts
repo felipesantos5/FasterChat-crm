@@ -11,6 +11,7 @@ import whatsappService from "../services/whatsapp.service";
 import { linkConversionService } from "../services/link-conversion.service";
 import { AIProvider } from "../types/ai-provider";
 import { websocketService } from "../services/websocket.service";
+import { customerTemperatureService } from "../services/customer-temperature.service";
 
 // Dedup de eventos de mensagem para evitar processamento duplo de AI
 // (Evolution API pode reenviar o mesmo webhook)
@@ -165,6 +166,13 @@ class WebhookController {
         // Se não conseguiu processar (mensagem sem conteúdo válido)
         if (!result) {
           return res.status(200).json({ success: true, message: "No valid content to process" });
+        }
+
+        // 🌡️ TEMPERATURA: Atualiza temperatura do cliente em background (fire-and-forget)
+        if (!result.customer.isGroup) {
+          customerTemperatureService
+            .analyzeAndUpdate(result.customer.id, result.customer.companyId)
+            .catch(() => {});
         }
 
         // 🔗 LINK CONVERSION: Verifica se a mensagem veio de um link rastreado

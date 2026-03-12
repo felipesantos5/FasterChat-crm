@@ -1,6 +1,6 @@
 "use client";
 
-import { useDashboardStats, useDashboardCharts, useTeamPerformance } from "@/hooks/use-dashboard";
+import { useDashboardStats, useDashboardCharts, useTeamPerformance, useDealValueStats } from "@/hooks/use-dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModernStatCard } from "@/components/dashboard/modern-stat-card";
 import {
@@ -12,6 +12,7 @@ import {
   ModernBatchEngagementCard,
   ModernRegionChart,
   ModernTeamPerformanceCard,
+  ModernProfitCard,
 } from "@/components/dashboard/charts";
 import { MessageSquare, UserPlus, MessageCircle } from "lucide-react";
 import { ProtectedPage } from "@/components/layout/protected-page";
@@ -40,6 +41,8 @@ function DashboardPageContent() {
   );
 
   const { teamData } = useTeamPerformance(dateFilter.preset, dateFilter.customRange);
+
+  const { dealStats } = useDealValueStats(dateFilter.preset, dateFilter.customRange);
 
   const statCards = stats
     ? [
@@ -133,7 +136,10 @@ function DashboardPageContent() {
       ...(chartsData.batchEngagement?.hasBatchExecutions
         ? [<ModernBatchEngagementCard key="batch" data={chartsData.batchEngagement} />]
         : []),
-    ].slice(0, 4)
+      ...(dealStats && dealStats.dealsCount > 0
+        ? [<ModernProfitCard key="profit" data={dealStats} />]
+        : []),
+    ].slice(0, 5)
     : [];
 
   // Classe de colunas para desktop — sempre preenche a linha inteira
@@ -143,6 +149,7 @@ function DashboardPageContent() {
       2: "lg:grid-cols-2",
       3: "lg:grid-cols-3",
       4: "lg:grid-cols-4",
+      5: "lg:grid-cols-5",
     } as Record<number, string>
   )[bottomCards.length] ?? "lg:grid-cols-4";
 

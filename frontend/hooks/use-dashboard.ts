@@ -1,5 +1,6 @@
 import useSWR from 'swr'
 import { dashboardApi, TeamPerformanceData } from '@/lib/dashboard'
+import { pipelineApi, DealValueStats } from '@/lib/pipeline'
 import { DateRangePreset, DateRange } from '@/components/dashboard/date-range-filter'
 
 export function useDashboardStats(preset: DateRangePreset = '7days', customRange?: DateRange) {
@@ -58,4 +59,26 @@ export function useTeamPerformance(preset: DateRangePreset = '7days', customRang
   );
 
   return { teamData: data, isLoading, isError: error };
+}
+
+export function useDealValueStats(preset: DateRangePreset = '30days', customRange?: DateRange) {
+  const cacheKey = preset === 'custom' && customRange
+    ? `/pipeline/deal-values/stats/${preset}/${customRange.from.toISOString()}/${customRange.to.toISOString()}`
+    : `/pipeline/deal-values/stats/${preset}`;
+
+  const { data, error, isLoading, mutate } = useSWR<DealValueStats>(
+    cacheKey,
+    () => pipelineApi.getDealValueStats(preset, customRange),
+    {
+      dedupingInterval: 30000,
+      refreshInterval: 120000,
+    }
+  );
+
+  return {
+    dealStats: data,
+    isLoading,
+    isError: error,
+    mutate,
+  };
 }

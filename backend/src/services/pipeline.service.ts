@@ -217,6 +217,110 @@ export class PipelineService {
       customersWithoutStage,
     };
   }
+
+  /**
+   * Registra o valor de uma venda fechada
+   */
+  async createDealValue(
+    companyId: string,
+    customerId: string,
+    stageId: string,
+    value: number,
+    notes?: string
+  ) {
+    return prisma.dealValue.create({
+      data: {
+        companyId,
+        customerId,
+        stageId,
+        value,
+        notes,
+      },
+    });
+  }
+
+  /**
+   * Retorna o lucro total e quantidade de vendas em um período
+   */
+  async getDealValueStats(
+    companyId: string,
+    startDate?: Date,
+    endDate?: Date
+  ) {
+    const where: any = { companyId };
+    if (startDate && endDate) {
+      where.closedAt = { gte: startDate, lte: endDate };
+    }
+
+    const [aggregate, count, previousAggregate, previousCount] = await Promise.all([
+      prisma.dealValue.aggregate({
+        where,
+        _sum: { value: true },
+      }),
+      prisma.dealValue.count({ where }),
+      // Período anterior para comparação
+      startDate && endDate
+        ? prisma.dealValue.aggregate({
+            where: {
+              companyId,
+              closedAt: {
+                gte: new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime())),
+                lt: startDate,
+              },
+            },
+            _sum: { value: true },
+          })
+        : prisma.dealValue.aggregate({
+            where: { companyId, closedAt: { lt: new Date() } },
+            _sum: { value: true },
+          }),
+      startDate && endDate
+        ? prisma.dealValue.count({
+            where: {
+              companyId,
+              closedAt: {
+                gte: new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime())),
+                lt: startDate,
+              },
+            },
+          })
+        : 0,
+    ]);
+
+    const currentTotal = Number(aggregate._sum.value || 0);
+    const previousTotal = Number(previousAggregate._sum.value || 0);
+    const percentageChange =
+      previousTotal === 0
+        ? currentTotal > 0 ? 100 : 0
+        : Number((((currentTotal - previousTotal) / previousTotal) * 100).toFixed(1));
+
+    return {
+      totalRevenue: currentTotal,
+      dealsCount: count,
+      previousRevenue: previousTotal,
+      previousDealsCount: previousCount,
+      percentageChange,
+    };
+  }
+
+  /**
+   * Lista os deal values recentes de uma empresa
+   */
+  async listDealValues(companyId: string, limit: number = 10) {
+    return prisma.dealValue.findMany({
+      where: { companyId },
+      orderBy: { closedAt: 'desc' },
+      take: limit,
+      include: {
+        customer: {
+          select: { id: true, name: true, phone: true },
+        },
+        stage: {
+          select: { id: true, name: true, color: true },
+        },
+      },
+    });
+  }
 }
 
 export const pipelineService = new PipelineService();

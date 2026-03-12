@@ -15,6 +15,26 @@ interface ConversationListProps {
   aiThinkingIds?: Set<string>;
 }
 
+const TEMPERATURE_CONFIG: Record<string, { emoji: string; label: string; className: string }> = {
+  HOT: { emoji: "🔥", label: "Quente", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+  WARM: { emoji: "🌡️", label: "Morno", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+  COLD: { emoji: "❄️", label: "Frio", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+};
+
+function TemperatureBadge({ temperature }: { temperature: string | null | undefined }) {
+  if (!temperature || temperature === "UNKNOWN") return null;
+  const config = TEMPERATURE_CONFIG[temperature];
+  if (!config) return null;
+  return (
+    <span
+      title={`Temperatura: ${config.label}`}
+      className={`inline-flex items-center gap-0.5 text-[10px] h-4 px-1 rounded-full font-medium flex-shrink-0 ${config.className}`}
+    >
+      {config.emoji}
+    </span>
+  );
+}
+
 function formatTime(timestamp: string): string {
   try {
     return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: ptBR });
@@ -119,6 +139,7 @@ const ConversationItem = memo(function ConversationItem({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <h3 className="font-medium text-sm truncate">{customerName}</h3>
+            <TemperatureBadge temperature={conversation.temperature} />
             {conversation.pipelineStageColor && (
               <span
                 className="h-2 w-2 rounded-full flex-shrink-0"

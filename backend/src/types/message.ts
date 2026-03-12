@@ -168,4 +168,5 @@ export interface ConversationSummary {
   isArchived: boolean; // Contato arquivado
   lastMediaType: string | null; // Tipo de mídia da última mensagem
   pipelineStageColor: string | null; // Cor do estágio atual no funil
+  temperature: string | null; // Temperatura comercial do cliente: HOT | WARM | COLD | UNKNOWN
 }

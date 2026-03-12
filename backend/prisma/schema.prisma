@@ -28,6 +28,13 @@ enum PlanTier {
   ESCALA_TOTAL
 }
 
+enum CustomerTemperature {
+  HOT
+  WARM
+  COLD
+  UNKNOWN
+}
+
 enum InviteStatus {
   PENDING
   ACCEPTED
@@ -142,9 +149,11 @@ model Customer {
   address         String?  @db.Text // Endereço do cliente
   state           String?  // Estado (UF) deduzido do DDD
   neighborhood    String? // Bairro do cliente (para cálculo automático de zona)
-  lidPhone        String?  @map("lid_phone") // LID alternativo do WhatsApp Business (mapeamento LID↔phone)
-  isArchived      Boolean  @default(false) @map("is_archived") // Contato arquivado (não aparece na lista de conversas)
-  createdAt       DateTime @default(now()) @map("created_at")
+  lidPhone             String?              @map("lid_phone") // LID alternativo do WhatsApp Business (mapeamento LID↔phone)
+  isArchived           Boolean              @default(false) @map("is_archived") // Contato arquivado (não aparece na lista de conversas)
+  temperature          CustomerTemperature  @default(UNKNOWN) @map("temperature") // Temperatura comercial do cliente
+  temperatureUpdatedAt DateTime?            @map("temperature_updated_at") // Última vez que a temperatura foi calculada
+  createdAt            DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -155,6 +164,7 @@ model Customer {
   appointments      Appointment[]
   customerNotes     CustomerNote[]
   customFieldValues CustomerCustomFieldValue[]
+  dealValues        DealValue[]
 
   @@unique([companyId, phone])
   @@index([companyId])
@@ -458,13 +468,35 @@ model PipelineStage {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  customers Customer[]
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customers  Customer[]
+  dealValues DealValue[]
 
   @@unique([companyId, name])
   @@index([companyId])
   @@index([order])
   @@map("pipeline_stages")
+}
+
+model DealValue {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  customerId  String   @map("customer_id")
+  stageId     String   @map("stage_id") // Estágio em que a venda foi fechada (ex: "Ganho")
+  value       Decimal  @db.Decimal(12, 2) // Valor da venda/lucro
+  notes       String?  @db.Text // Observações opcionais
+  closedAt    DateTime @default(now()) @map("closed_at") // Data do fechamento
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  customer Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  stage    PipelineStage  @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([stageId])
+  @@index([closedAt])
+  @@map("deal_values")
 }
 
 model GoogleCalendar {
