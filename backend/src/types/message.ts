@@ -105,8 +105,21 @@ export interface EvolutionWebhookMessage {
       fileName?: string;
       url?: string;
       mimetype?: string;
+      caption?: string;
       contextInfo?: EvolutionContextInfo;
     };
+    documentWithCaptionMessage?: {
+      message?: {
+        documentMessage?: {
+          fileName?: string;
+          url?: string;
+          mimetype?: string;
+          caption?: string;
+          contextInfo?: EvolutionContextInfo;
+        };
+      };
+    };
+    messageType?: string;
     stickerMessage?: {
       url?: string;
       mimetype?: string;

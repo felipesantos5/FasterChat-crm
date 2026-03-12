@@ -585,6 +585,8 @@ class MessageService {
       const msgText = data.message?.conversation
         || data.message?.extendedTextMessage?.text
         || data.message?.imageMessage?.caption
+        || data.message?.documentMessage?.fileName
+        || data.message?.documentWithCaptionMessage?.message?.documentMessage?.fileName
         || '[mídia sem texto]';
       const msgPreview = String(msgText).substring(0, 80);
       // Logging omitted for brevity
@@ -1236,10 +1238,16 @@ class MessageService {
           content = msgData.videoMessage.caption || "[Vídeo recebido - erro ao processar]";
         }
       }
-      // 5. MENSAGEM DE DOCUMENTO
+      // 5. DOCUMENTO COM LEGENDA (Evolution API v2 - estrutura aninhada)
+      else if (msgData?.documentWithCaptionMessage?.message?.documentMessage) {
+        const innerDoc = msgData.documentWithCaptionMessage.message.documentMessage;
+        mediaType = "document";
+        content = innerDoc.caption || innerDoc.fileName || "Documento recebido";
+      }
+      // 6. MENSAGEM DE DOCUMENTO (simples)
       else if (msgData?.documentMessage) {
         mediaType = "document";
-        content = msgData.documentMessage.fileName || "Documento recebido";
+        content = msgData.documentMessage.caption || msgData.documentMessage.fileName || "Documento recebido";
       }
       // 6. MENSAGEM DE STICKER
       else if (msgData?.stickerMessage) {

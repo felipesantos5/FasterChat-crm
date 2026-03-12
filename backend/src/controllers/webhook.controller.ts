@@ -138,9 +138,16 @@ class WebhookController {
                 }
               }
 
-              // Tenta extrair conteúdo textual do payload bruto
+              // Tenta extrair conteúdo de qualquer tipo de mensagem
               messageContent = data.message?.conversation
                 || data.message?.extendedTextMessage?.text
+                || data.message?.imageMessage?.caption
+                || data.message?.videoMessage?.caption
+                || data.message?.documentMessage?.fileName
+                || data.message?.documentWithCaptionMessage?.message?.documentMessage?.fileName
+                || (data.message?.audioMessage ? '[Áudio]' : undefined)
+                || (data.message?.stickerMessage ? '[Sticker]' : undefined)
+                || (data.message ? '[Mídia]' : '')
                 || "";
             }
 
