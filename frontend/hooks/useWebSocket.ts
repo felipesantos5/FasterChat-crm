@@ -2,166 +2,199 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { MessageStatus } from '@/types/message';
 
-// Usa NEXT_PUBLIC_WS_URL se definido, senão deriva da API_URL
 const getWebSocketUrl = (): string => {
-  // Variável específica para WebSocket (prioridade)
-  if (process.env.NEXT_PUBLIC_WS_URL) {
-    return process.env.NEXT_PUBLIC_WS_URL;
-  }
-
-  // Fallback: deriva da API_URL
+  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3051';
-
-  // Remove /api do final se existir
-  const baseUrl = apiUrl.replace(/\/api\/?$/, '');
-
-  return baseUrl;
+  return apiUrl.replace(/\/api\/?$/, '');
 };
 
 const BACKEND_URL = getWebSocketUrl();
 
+// ─── Módulo singleton ────────────────────────────────────────────────────────
+// Uma única conexão WebSocket é compartilhada por todas as instâncias do hook
+// no mesmo contexto de módulo (mesma aba do browser). Isso elimina o problema
+// de 2-3 sockets simultâneos que causavam eventos duplicados e instabilidade.
+
+let sharedSocket: Socket | null = null;
+let moduleAuthenticated = false;
+
+type ModuleState = { connected: boolean; authenticated: boolean };
+const stateSubscribers = new Set<(state: ModuleState) => void>();
+
+function notifySubscribers(): void {
+  const state: ModuleState = {
+    connected: sharedSocket?.connected ?? false,
+    authenticated: moduleAuthenticated,
+  };
+  stateSubscribers.forEach(cb => cb(state));
+}
+
+function ensureSocket(): Socket {
+  // Reutiliza o socket se já existe e está ativo (conectado ou reconectando)
+  if (sharedSocket?.active) return sharedSocket;
+
+  if (sharedSocket) sharedSocket.removeAllListeners();
+
+  sharedSocket = io(BACKEND_URL, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1000,
+    timeout: 20000,
+  });
+
+  moduleAuthenticated = false;
+
+  sharedSocket.on('connect', () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (token) sharedSocket!.emit('authenticate', token);
+    notifySubscribers();
+  });
+
+  sharedSocket.on('authenticated', () => {
+    moduleAuthenticated = true;
+    notifySubscribers();
+  });
+
+  sharedSocket.on('auth_error', (error: unknown) => {
+    console.error('[WebSocket] Authentication error:', error);
+    moduleAuthenticated = false;
+    notifySubscribers();
+  });
+
+  sharedSocket.on('disconnect', () => {
+    moduleAuthenticated = false;
+    notifySubscribers();
+  });
+
+  sharedSocket.on('connect_error', (error: Error) => {
+    console.error('[WebSocket] Connection error:', error.message);
+  });
+
+  sharedSocket.on('reconnect_error', (error: Error) => {
+    console.error('[WebSocket] Reconnection error:', error.message);
+  });
+
+  return sharedSocket;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface UseWebSocketOptions {
   autoConnect?: boolean;
-  onNewMessage?: (message: any) => void;
-  onConversationUpdate?: (update: any) => void;
+  onNewMessage?: (message: {
+    id: string;
+    customerId: string;
+    customerName?: string;
+    direction?: string;
+    content?: string;
+    timestamp?: string;
+    status?: string;
+    senderType?: string | null;
+    mediaType?: string | null;
+    aiEnabled?: boolean;
+    whatsappInstanceId?: string;
+  }) => void;
+  onConversationUpdate?: (update: Record<string, unknown>) => void;
   onTyping?: (data: { customerId: string; isTyping: boolean }) => void;
-  onStatsUpdate?: (stats: any) => void;
+  onStatsUpdate?: (stats: Record<string, unknown>) => void;
   onMessageStatus?: (data: { messageId: string; status: MessageStatus; timestamp: Date }) => void;
   onMessageEdited?: (data: { messageId: string; newContent: string; customerId: string }) => void;
   onMessageDeleted?: (data: { messageId: string; customerId: string }) => void;
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
-  const {
-    autoConnect = true,
-    onNewMessage,
-    onConversationUpdate,
-    onTyping,
-    onStatsUpdate,
-    onMessageStatus,
-    onMessageEdited,
-    onMessageDeleted,
-  } = options;
+  const { autoConnect = true } = options;
 
-  const socketRef = useRef<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isConnected, setIsConnected] = useState(() => sharedSocket?.connected ?? false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => moduleAuthenticated);
 
-  const connect = useCallback(() => {
-    if (socketRef.current?.connected) {
-      return;
-    }
+  // Mantém sempre a versão mais recente dos callbacks sem recriar listeners
+  const callbacksRef = useRef(options);
+  callbacksRef.current = options;
 
-    const socket = io(BACKEND_URL, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      // Configurações para melhor suporte a proxies
-      timeout: 20000,
-      forceNew: true,
-    });
-
-    socket.on('connect', () => {
-      setIsConnected(true);
-
-      // Autentica automaticamente se houver token
-      const token = localStorage.getItem('token');
-      if (token) {
-        socket.emit('authenticate', token);
-      } else {
-        console.warn('[WebSocket] No token found for authentication');
-      }
-    });
-
-    socket.on('authenticated', () => {
-      setIsAuthenticated(true);
-    });
-
-    socket.on('auth_error', (error) => {
-      console.error('[WebSocket] Authentication error:', error);
-      setIsAuthenticated(false);
-    });
-
-    socket.on('disconnect', (_reason) => {
-      setIsConnected(false);
-      setIsAuthenticated(false);
-    });
-
-    socket.on('connect_error', (error) => {
-      console.error('[WebSocket] Connection error:', error.message);
-    });
-
-    socket.on('reconnect', (_attemptNumber) => {
-    });
-
-    socket.on('reconnect_error', (error) => {
-      console.error('[WebSocket] Reconnection error:', error.message);
-    });
-
-    // Event listeners personalizados
-    if (onNewMessage) {
-      socket.on('new_message', onNewMessage);
-    }
-
-    if (onConversationUpdate) {
-      socket.on('conversation_update', onConversationUpdate);
-    }
-
-    if (onTyping) {
-      socket.on('typing', onTyping);
-    }
-
-    if (onStatsUpdate) {
-      socket.on('stats_update', onStatsUpdate);
-    }
-
-    if (onMessageStatus) {
-      socket.on('message_status', onMessageStatus);
-    }
-
-    if (onMessageEdited) {
-      socket.on('message_edited', onMessageEdited);
-    }
-
-    if (onMessageDeleted) {
-      socket.on('message_deleted', onMessageDeleted);
-    }
-
-    socketRef.current = socket;
-  }, [onNewMessage, onConversationUpdate, onTyping, onStatsUpdate, onMessageStatus, onMessageEdited]);
-
-  const disconnect = useCallback(() => {
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-      socketRef.current = null;
-      setIsConnected(false);
-      setIsAuthenticated(false);
-    }
-  }, []);
-
-  const subscribeToConversation = useCallback((customerId: string) => {
-    if (socketRef.current && isAuthenticated) {
-      socketRef.current.emit('subscribe_conversation', customerId);
-    }
-  }, [isAuthenticated]);
-
-  const unsubscribeFromConversation = useCallback((customerId: string) => {
-    if (socketRef.current && isAuthenticated) {
-      socketRef.current.emit('unsubscribe_conversation', customerId);
-    }
-  }, [isAuthenticated]);
-
-  // Auto-conecta se a opção estiver ativa
   useEffect(() => {
-    if (autoConnect) {
-      connect();
+    if (!autoConnect) return;
+
+    const socket = ensureSocket();
+
+    // Sincroniza estado inicial imediatamente
+    setIsConnected(socket.connected);
+    setIsAuthenticated(moduleAuthenticated);
+
+    // Se já conectado mas não autenticado ainda, tenta autenticar agora
+    if (socket.connected && !moduleAuthenticated) {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (token) socket.emit('authenticate', token);
+    }
+
+    // Assina mudanças de estado do singleton
+    const onState = ({ connected, authenticated }: ModuleState) => {
+      setIsConnected(connected);
+      setIsAuthenticated(authenticated);
+    };
+    stateSubscribers.add(onState);
+
+    // Registra os event listeners do caller usando wrappers que acessam o ref
+    // Isso garante que a versão mais recente do callback é sempre chamada,
+    // sem precisar re-registrar os listeners quando as funções mudam.
+    type EventKey = keyof Pick<UseWebSocketOptions,
+      'onNewMessage' | 'onConversationUpdate' | 'onTyping' |
+      'onStatsUpdate' | 'onMessageStatus' | 'onMessageEdited' | 'onMessageDeleted'
+    >;
+    const eventMap: Record<string, EventKey> = {
+      'new_message': 'onNewMessage',
+      'conversation_update': 'onConversationUpdate',
+      'typing': 'onTyping',
+      'stats_update': 'onStatsUpdate',
+      'message_status': 'onMessageStatus',
+      'message_edited': 'onMessageEdited',
+      'message_deleted': 'onMessageDeleted',
+    };
+
+    const registeredHandlers: Array<[string, (data: unknown) => void]> = [];
+
+    for (const [event, callbackName] of Object.entries(eventMap)) {
+      if (options[callbackName]) {
+        const handler = (data: unknown) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (callbacksRef.current[callbackName] as ((d: any) => void) | undefined)?.(data);
+        };
+        socket.on(event, handler);
+        registeredHandlers.push([event, handler]);
+      }
     }
 
     return () => {
-      disconnect();
+      stateSubscribers.delete(onState);
+      for (const [event, handler] of registeredHandlers) {
+        socket.off(event, handler);
+      }
     };
-  }, [autoConnect, connect, disconnect]);
+  // Só roda uma vez por mount — callbacks são lidos via ref e não causam re-runs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect]);
+
+  const subscribeToConversation = useCallback((customerId: string) => {
+    if (sharedSocket && moduleAuthenticated) {
+      sharedSocket.emit('subscribe_conversation', customerId);
+    }
+  }, []);
+
+  const unsubscribeFromConversation = useCallback((customerId: string) => {
+    if (sharedSocket) {
+      sharedSocket.emit('unsubscribe_conversation', customerId);
+    }
+  }, []);
+
+  const connect = useCallback(() => { ensureSocket(); }, []);
+
+  const disconnect = useCallback(() => {
+    if (sharedSocket) {
+      sharedSocket.disconnect();
+      sharedSocket = null;
+      moduleAuthenticated = false;
+    }
+  }, []);
 
   return {
     isConnected,
@@ -170,16 +203,16 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     disconnect,
     subscribeToConversation,
     unsubscribeFromConversation,
-    socket: socketRef.current,
+    socket: sharedSocket,
   };
 }
 
 // Hook especializado para mensagens de uma conversa específica
 export function useConversationMessages(customerId: string | null) {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<unknown[]>([]);
   const [isTyping, setIsTyping] = useState(false);
 
-  const handleNewMessage = useCallback((message: any) => {
+  const handleNewMessage = useCallback((message: { customerId?: string }) => {
     if (message.customerId === customerId) {
       setMessages(prev => [...prev, message]);
     }
@@ -196,14 +229,10 @@ export function useConversationMessages(customerId: string | null) {
     onTyping: handleTyping,
   });
 
-  // Se inscreve na conversa quando autenticado e customerId está disponível
   useEffect(() => {
     if (isAuthenticated && customerId) {
       subscribeToConversation(customerId);
-
-      return () => {
-        unsubscribeFromConversation(customerId);
-      };
+      return () => { unsubscribeFromConversation(customerId); };
     }
     return undefined;
   }, [isAuthenticated, customerId, subscribeToConversation, unsubscribeFromConversation]);
@@ -212,7 +241,6 @@ export function useConversationMessages(customerId: string | null) {
     messages,
     isTyping,
     isConnected,
-    setMessages, // Para permitir inicialização com mensagens existentes
+    setMessages,
   };
 }
-

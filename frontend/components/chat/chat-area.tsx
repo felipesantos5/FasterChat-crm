@@ -141,12 +141,10 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const handleWebSocketConversationUpdate = useCallback(
     (update: any) => {
       if (update.customerId === customerId) {
-        console.log("🔄 Atualização de conversa WebSocket recebida:", update);
         setConversation((prev) => (prev ? { ...prev, ...update } : null));
 
         // Se a IA foi desativada (transbordo), limpa os indicadores
         if (update.aiEnabled === false) {
-          console.log("🚨 IA desativada via WebSocket - limpando indicadores");
           setIsTyping(false);
           setAiProcessing(false);
         }
@@ -159,7 +157,6 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const handleWebSocketTyping = useCallback(
     (data: any) => {
       if (data.customerId === customerId && conversation?.aiEnabled && autoReplyEnabled) {
-        console.log("⌨️ Indicador de digitação:", data.isTyping);
         setIsTyping(data.isTyping);
       }
     },

@@ -51,11 +51,12 @@ class MessageController {
       }
 
       const archived = req.query.archived === 'true';
-      const conversations = await messageService.getConversations(companyId, archived ? true : undefined);
+      const { conversations, total } = await messageService.getConversations(companyId, archived ? true : undefined);
 
       return res.status(200).json({
         success: true,
         data: conversations,
+        total,
       });
     } catch (error: any) {
       console.error('Error in getConversations controller:', error);

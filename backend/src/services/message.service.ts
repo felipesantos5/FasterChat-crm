@@ -289,7 +289,7 @@ class MessageService {
   /**
    * Obtém resumo de conversas (última mensagem por customer)
    */
-  async getConversations(companyId: string, includeArchived?: boolean): Promise<ConversationSummary[]> {
+  async getConversations(companyId: string, includeArchived?: boolean): Promise<{ conversations: ConversationSummary[]; total: number }> {
     try {
       // Busca todas as mensagens da empresa ordenadas por timestamp e createdAt
       const messages = await prisma.message.findMany({
@@ -388,7 +388,13 @@ class MessageService {
         }
       }
 
-      return Array.from(conversationsMap.values());
+      const all = Array.from(conversationsMap.values())
+        .sort((a, b) => new Date(b.lastMessageTimestamp).getTime() - new Date(a.lastMessageTimestamp).getTime());
+
+      return {
+        conversations: all.slice(0, 100),
+        total: all.length,
+      };
     } catch (error: any) {
       console.error("Error getting conversations:", error);
       throw new Error(`Failed to get conversations: ${error.message}`);

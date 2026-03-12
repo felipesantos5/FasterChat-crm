@@ -92,6 +92,7 @@ export interface ConversationSummary {
 export interface GetConversationsResponse {
   success: boolean;
   data: ConversationSummary[];
+  total: number;
 }
 
 export interface MarkAsReadRequest {

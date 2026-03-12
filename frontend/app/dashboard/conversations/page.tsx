@@ -173,10 +173,16 @@ function ConversationsPageContent() {
     }
   }, [addThinking, removeThinking]);
 
-  const handleNewMessageForThinking = useCallback((message: any) => {
+  const handleNewMessageForThinking = useCallback((message: {
+    direction?: string;
+    aiEnabled?: boolean;
+    customerId?: string;
+    senderType?: string | null;
+  }) => {
     if (message.direction === "INBOUND" && message.aiEnabled && message.customerId) {
-      addThinking(message.customerId);
-      setTimeout(() => removeThinking(message.customerId), AI_THINKING_TTL);
+      const id = message.customerId;
+      addThinking(id);
+      setTimeout(() => removeThinking(id), AI_THINKING_TTL);
     }
     if (message.direction === "OUTBOUND" && message.senderType === "AI" && message.customerId) {
       removeThinking(message.customerId);
@@ -187,7 +193,7 @@ function ConversationsPageContent() {
 
   // Usa SWR para gerenciar conversas com cache automático
   // Buscamos sempre todas as conversas para as estatísticas globais estarem corretas
-  const { conversations: allConversations, isLoading, isError, mutate } = useConversations(companyId, selectedCustomerId);
+  const { conversations: allConversations, total: totalConversations, isLoading, isError, mutate } = useConversations(companyId, selectedCustomerId);
 
   // As conversas exibidas na lista (se arquivados ou não)
   const conversations = useMemo(() => {
@@ -202,7 +208,7 @@ function ConversationsPageContent() {
     try {
       const response = await customerApi.getAll();
       setCustomers(response.customers);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error loading customers:", err);
     }
   };
@@ -213,7 +219,7 @@ function ConversationsPageContent() {
     try {
       const response = await whatsappApi.getInstances(companyId);
       setInstances(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error loading instances:", err);
     }
   };
@@ -289,101 +295,61 @@ function ConversationsPageContent() {
     }
   }, [conversations, pendingConversation]);
 
+  // Mapa de cliente por id para filtros de tag/estágio — evita findIndex em cada iteração
+  const customerMap = useMemo(() => {
+    const map = new Map(customers.map((c) => [c.id, c]));
+    return map;
+  }, [customers]);
+
   // Filtra e ordena conversas com useMemo para otimização
   const filteredConversations = useMemo(
     () =>
       conversations
         .filter((conv) => {
-          // Filtro de busca
+          // Busca
           if (searchTerm) {
-            const searchLower = searchTerm.toLowerCase();
-            return (
-              conv.customerName.toLowerCase().includes(searchLower) ||
-              conv.customerPhone.includes(searchLower) ||
-              conv.lastMessage?.toLowerCase().includes(searchLower)
-            );
+            const q = searchTerm.toLowerCase();
+            if (
+              !conv.customerName.toLowerCase().includes(q) &&
+              !conv.customerPhone.includes(q) &&
+              !(conv.lastMessage?.toLowerCase().includes(q))
+            ) return false;
           }
-          return true;
-        })
-        .filter((conv) => {
-          // Filtro por tipo rápido
-          if (filterType === "unread") {
-            return conv.unreadCount && conv.unreadCount > 0;
-          }
-          if (filterType === "needsHelp") {
-            return conv.needsHelp;
-          }
-          return true;
-        })
-        .filter((conv) => {
-          // Filtro avançado: Excluir grupos
-          if (advancedFilters.excludeGroups) {
-            // Debug: verificar grupos
-            const hasGroupPattern = conv.customerPhone.includes("@g.us");
-            if (hasGroupPattern || conv.isGroup) {
-              return false;
-            }
-          }
-          return true;
-        })
-        .filter((conv) => {
-          // Filtro avançado: Filtrar por tags
-          if (advancedFilters.selectedTags.length > 0) {
-            const customer = customers.find((c) => c.id === conv.customerId);
-            if (!customer) return false;
 
-            // Verifica se o cliente tem pelo menos uma das tags selecionadas
-            return advancedFilters.selectedTags.some((tag) => customer.tags.includes(tag));
-          }
-          return true;
-        })
-        .filter((conv) => {
-          // Filtro avançado: Apenas conversas que precisam de ajuda
-          if (advancedFilters.onlyNeedsHelp) {
-            return conv.needsHelp === true;
-          }
-          return true;
-        })
-        .filter((conv) => {
-          // Filtro avançado: IA vs Humano
-          if (advancedFilters.onlyAiEnabled && !advancedFilters.onlyHumanEnabled) {
-            return conv.aiEnabled === true;
-          }
-          if (advancedFilters.onlyHumanEnabled && !advancedFilters.onlyAiEnabled) {
-            return conv.aiEnabled === false;
-          }
-          return true;
-        })
-        .filter((conv) => {
-          // Filtro por instância do WhatsApp
-          if (advancedFilters.selectedInstanceId) {
-            return conv.whatsappInstanceId === advancedFilters.selectedInstanceId;
-          }
-          return true;
-        })
-        .filter((conv) => {
-          // Filtro por estágio do funil
-          if (advancedFilters.selectedStageIds.length > 0) {
-            const customer = customers.find((c) => c.id === conv.customerId);
+          // Filtro rápido
+          if (filterType === "unread" && !(conv.unreadCount && conv.unreadCount > 0)) return false;
+          if (filterType === "needsHelp" && !conv.needsHelp) return false;
+
+          // Excluir grupos
+          if (advancedFilters.excludeGroups && (conv.isGroup || conv.customerPhone.includes("@g.us"))) return false;
+
+          // Precisa de ajuda
+          if (advancedFilters.onlyNeedsHelp && !conv.needsHelp) return false;
+
+          // IA vs Humano
+          if (advancedFilters.onlyAiEnabled && !advancedFilters.onlyHumanEnabled && !conv.aiEnabled) return false;
+          if (advancedFilters.onlyHumanEnabled && !advancedFilters.onlyAiEnabled && conv.aiEnabled) return false;
+
+          // Instância
+          if (advancedFilters.selectedInstanceId && conv.whatsappInstanceId !== advancedFilters.selectedInstanceId) return false;
+
+          // Tags e estágio (usa o mapa para O(1) em vez de O(n))
+          if (advancedFilters.selectedTags.length > 0 || advancedFilters.selectedStageIds.length > 0) {
+            const customer = customerMap.get(conv.customerId);
             if (!customer) return false;
-            return advancedFilters.selectedStageIds.includes(customer.pipelineStageId ?? "");
+            if (advancedFilters.selectedTags.length > 0 && !advancedFilters.selectedTags.some((tag) => customer.tags.includes(tag))) return false;
+            if (advancedFilters.selectedStageIds.length > 0 && !advancedFilters.selectedStageIds.includes(customer.pipelineStageId ?? "")) return false;
           }
+
           return true;
         })
         .sort((a, b) => {
-          // Ordenação
-          if (sortType === "recent") {
-            return new Date(b.lastMessageTimestamp).getTime() - new Date(a.lastMessageTimestamp).getTime();
-          }
-          if (sortType === "oldest") {
-            return new Date(a.lastMessageTimestamp).getTime() - new Date(b.lastMessageTimestamp).getTime();
-          }
-          if (sortType === "name") {
-            return a.customerName.localeCompare(b.customerName);
-          }
+          if (sortType === "recent") return new Date(b.lastMessageTimestamp).getTime() - new Date(a.lastMessageTimestamp).getTime();
+          if (sortType === "oldest") return new Date(a.lastMessageTimestamp).getTime() - new Date(b.lastMessageTimestamp).getTime();
+          if (sortType === "name") return a.customerName.localeCompare(b.customerName);
           return 0;
         }),
-    [conversations, searchTerm, filterType, sortType, advancedFilters, customers]
+    [conversations, searchTerm, filterType, sortType, advancedFilters, customerMap]
   );
 
   // Encontra a conversa selecionada
@@ -433,9 +399,9 @@ function ConversationsPageContent() {
     setMobileView("chat");
     // Atualização otimista: zera dot imediatamente sem esperar API
     mutate(
-      (current) => current?.map((c) =>
-        c.customerId === customerId ? { ...c, unreadCount: 0 } : c
-      ),
+      (current) => current
+        ? { ...current, items: current.items.map((c) => c.customerId === customerId ? { ...c, unreadCount: 0 } : c) }
+        : current,
       false
     );
   };
@@ -513,8 +479,6 @@ function ConversationsPageContent() {
                     </Button>
                   }
                   onConversationCreated={async (customer) => {
-                    console.log("[Conversations] New conversation created for customer:", customer);
-
                     // Define a conversa pendente (cliente sem mensagens ainda)
                     setPendingConversation({
                       customerId: customer.id,
@@ -525,7 +489,6 @@ function ConversationsPageContent() {
 
                     // Seleciona o cliente
                     setSelectedCustomerId(customer.id);
-                    console.log("[Conversations] Customer selected:", customer.id);
 
                     // Recarrega a lista de conversas em background
                     mutate();
@@ -577,9 +540,9 @@ function ConversationsPageContent() {
             </div>
 
             {/* Lista de Conversas */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto flex flex-col">
               {filteredConversations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                <div className="flex flex-col items-center justify-center flex-1 p-6 text-center">
                   <MessageSquare className="h-12 w-12 text-muted-foreground mb-3" />
                   <p className="text-sm font-medium">{searchTerm || filterType !== "all" ? "Nenhuma conversa encontrada" : "Nenhuma conversa"}</p>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -587,12 +550,22 @@ function ConversationsPageContent() {
                   </p>
                 </div>
               ) : (
-                <ConversationList
-                  conversations={filteredConversations}
-                  selectedCustomerId={selectedCustomerId}
-                  onSelectConversation={handleSelectConversation}
-                  aiThinkingIds={aiThinkingIds}
-                />
+                <>
+                  <ConversationList
+                    conversations={filteredConversations}
+                    selectedCustomerId={selectedCustomerId}
+                    onSelectConversation={handleSelectConversation}
+                    aiThinkingIds={aiThinkingIds}
+                  />
+                  {totalConversations > 100 && !searchTerm && filterType === "all" && (
+                    <div className="px-3 py-2.5 border-t bg-muted/40 flex items-center gap-2 shrink-0">
+                      <div className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        Exibindo as <span className="font-semibold text-foreground">100</span> conversas mais recentes de <span className="font-semibold text-foreground">{totalConversations}</span>. Use a busca ou filtros para encontrar outras.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </>
@@ -660,9 +633,9 @@ function ConversationsPageContent() {
               }}
               onMarkAsRead={() => {
                 mutate(
-                  (current) => current?.map((c) =>
-                    c.customerId === selectedConversation.customerId ? { ...c, unreadCount: 0 } : c
-                  ),
+                  (current) => current
+                    ? { ...current, items: current.items.map((c) => c.customerId === selectedConversation.customerId ? { ...c, unreadCount: 0 } : c) }
+                    : current,
                   false
                 );
                 if (companyId) {
