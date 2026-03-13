@@ -38,6 +38,7 @@ export interface AIKnowledgeData {
   workingHours?: string | null;
   businessHoursStart?: number | null;
   businessHoursEnd?: number | null;
+  is24Hours?: boolean | null;
   paymentMethods?: string | null;
   deliveryInfo?: string | null;
   warrantyInfo?: string | null;
@@ -92,6 +93,7 @@ export interface UpdateAIKnowledgeRequest {
   workingHours?: string;
   businessHoursStart?: number;
   businessHoursEnd?: number;
+  is24Hours?: boolean;
   paymentMethods?: string;
   deliveryInfo?: string;
   warrantyInfo?: string;

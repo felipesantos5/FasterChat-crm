@@ -53,6 +53,7 @@ export interface AIKnowledge {
   workingHours?: string | null; // texto legado
   businessHoursStart?: number | null; // hora de início (0-23)
   businessHoursEnd?: number | null; // hora de fim (0-23)
+  is24Hours?: boolean | null;
   paymentMethods?: string | null;
   deliveryInfo?: string | null;
   warrantyInfo?: string | null;
@@ -118,6 +119,7 @@ export interface UpdateAIKnowledgeRequest {
   workingHours?: string; // texto legado
   businessHoursStart?: number; // hora de início (0-23)
   businessHoursEnd?: number; // hora de fim (0-23)
+  is24Hours?: boolean;
   paymentMethods?: string;
   deliveryInfo?: string;
   warrantyInfo?: string;

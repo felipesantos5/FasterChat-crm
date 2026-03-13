@@ -279,7 +279,7 @@ export default function MensagensRapidasPage() {
                   placeholder="Digite a mensagem..."
                   value={form.content}
                   onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))}
-                  rows={4}
+                  className="min-h-[100px] max-h-[500px] resize-y overflow-auto field-sizing-content"
                 />
               </div>
             ) : (

@@ -127,13 +127,14 @@ class AIKnowledgeService {
           workingHours: data.workingHours,
           businessHoursStart: data.businessHoursStart,
           businessHoursEnd: data.businessHoursEnd,
+          is24Hours: data.is24Hours,
           paymentMethods: data.paymentMethods,
           deliveryInfo: data.deliveryInfo,
           warrantyInfo: data.warrantyInfo,
           serviceArea: data.serviceArea,
 
-          productsServices: data.productsServices, // Texto livre (fallback)
-          products: productsJson,                  // JSON Estruturado (PRIORITÁRIO)
+          productsServices: data.productsServices,
+          products: productsJson,
 
           negativeExamples: data.negativeExamples,
           faq: faqJson,
@@ -166,6 +167,7 @@ class AIKnowledgeService {
           workingHours: data.workingHours,
           businessHoursStart: data.businessHoursStart,
           businessHoursEnd: data.businessHoursEnd,
+          is24Hours: data.is24Hours,
           paymentMethods: data.paymentMethods,
           deliveryInfo: data.deliveryInfo,
           warrantyInfo: data.warrantyInfo,

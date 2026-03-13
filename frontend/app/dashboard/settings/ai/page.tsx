@@ -189,6 +189,7 @@ function AISettingsPageContent() {
 
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(true);
   const [replyDelay, setReplyDelay] = useState<number>(10);
+  const [is24Hours, setIs24Hours] = useState(false);
 
   // Estados para Serviços com Variações
   const [services, setServices] = useState<Service[]>([]);
@@ -325,6 +326,7 @@ function AISettingsPageContent() {
         setWorkingHours(response.data.workingHours || "");
         setBusinessHoursStart(response.data.businessHoursStart ?? 9);
         setBusinessHoursEnd(response.data.businessHoursEnd ?? 18);
+        setIs24Hours(response.data.is24Hours ?? false);
         setPaymentMethods(response.data.paymentMethods || "");
         setDeliveryInfo(response.data.deliveryInfo || "");
         setWarrantyInfo(response.data.warrantyInfo || "");
@@ -370,13 +372,13 @@ function AISettingsPageContent() {
         aiCustomInstructions,
         aiShowPrices,
         workingHours,
-        businessHoursStart,
-        businessHoursEnd,
+        businessHoursStart: is24Hours ? 0 : businessHoursStart,
+        businessHoursEnd: is24Hours ? 24 : businessHoursEnd,
+        is24Hours,
         paymentMethods,
         deliveryInfo,
         warrantyInfo,
-        products, // Importante: Salva os produtos atuais
-        // Preserva o FAQ se existir no objeto knowledge original
+        products,
         faq: knowledge?.faq || undefined,
         autoReplyEnabled: overrides?.autoReplyEnabled ?? autoReplyEnabled,
         replyDelay: replyDelay,
@@ -430,17 +432,18 @@ function AISettingsPageContent() {
           objectiveType,
           aiObjective: objectiveType === "custom" ? aiObjective : undefined,
           workingHours,
-          businessHoursStart,
-          businessHoursEnd,
+          businessHoursStart: is24Hours ? 0 : businessHoursStart,
+          businessHoursEnd: is24Hours ? 24 : businessHoursEnd,
+          is24Hours,
           paymentMethods,
           deliveryInfo,
           warrantyInfo,
-          products, // <--- OBRIGATÓRIO PARA NÃO APAGAR OS PRODUTOS
-          faq: knowledge?.faq || undefined, // Preserva FAQ
+          products,
+          faq: knowledge?.faq || undefined,
           autoReplyEnabled,
           replyDelay,
           setupStep: 4,
-          setupCompleted: true, // Força o status de completo
+          setupCompleted: true,
         });
 
         toast.success("Contexto gerado com sucesso! Sua IA está pronta para atender.");
@@ -800,42 +803,42 @@ function AISettingsPageContent() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Configurações da IA</h1>
-          <p className="text-muted-foreground">Personalize a identidade, regras e o catálogo do seu assistente.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => loadKnowledge()} disabled={loading}>
-            Descartar Alterações
-          </Button>
-          <Button
-            onClick={async () => {
-              setSaving(true);
-              if (services.length > 0) await saveServices();
-              await saveKnowledge(undefined, undefined, true);
-              await handleGenerateContext();
-            }}
-            disabled={saving || generatingContext}
-            className="shadow-lg shadow-primary/20"
-          >
-            {saving || generatingContext ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-            Salvar e Publicar
-          </Button>
+    <div className="max-w-7xl mx-auto">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b px-4 sm:px-6 py-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Personalize a identidade, regras e o catálogo do seu assistente.</p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => loadKnowledge()} disabled={loading}>
+              Descartar
+            </Button>
+            <Button
+              size="sm"
+              onClick={async () => {
+                setSaving(true);
+                if (services.length > 0) await saveServices();
+                await saveKnowledge(undefined, undefined, true);
+                await handleGenerateContext();
+              }}
+              disabled={saving || generatingContext}
+              className="shadow-lg shadow-primary/20"
+            >
+              {saving || generatingContext ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+              Salvar e Publicar
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div>
-        <Tabs defaultValue="identity" className="w-full">
+      <div className="p-4 sm:p-6">
+        <Tabs defaultValue="policies" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-8 h-12 p-1 bg-muted/50 rounded-xl">
+            <TabsTrigger value="policies" className="rounded-lg data-[state=active]:shadow-sm">
+              <Building2 className="h-4 w-4 mr-2" />
+              Operação
+            </TabsTrigger>
             <TabsTrigger value="identity" className="rounded-lg data-[state=active]:shadow-sm">
               <Target className="h-4 w-4 mr-2" />
               Identidade
-            </TabsTrigger>
-            <TabsTrigger value="policies" className="rounded-lg data-[state=active]:shadow-sm">
-              <FileText className="h-4 w-4 mr-2" />
-              Operação
             </TabsTrigger>
             <TabsTrigger value="inventory" className="rounded-lg data-[state=active]:shadow-sm">
               <Package className="h-4 w-4 mr-2" />
@@ -1028,31 +1031,45 @@ function AISettingsPageContent() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="font-bold text-sm flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      Janela Comercial
-                    </Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Início</p>
-                        <select value={businessHoursStart} onChange={(e) => setBusinessHoursStart(parseInt(e.target.value))} className="w-full h-10 border-2 rounded-xl px-2 font-bold text-sm">
-                          {Array.from({ length: 24 }).map((_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>)}
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Fim</p>
-                        <select value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(parseInt(e.target.value))} className="w-full h-10 border-2 rounded-xl px-2 font-bold text-sm">
-                          {Array.from({ length: 24 }).map((_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>)}
-                        </select>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-bold text-sm flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        Janela Comercial
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground">Atendimento 24h</Label>
+                        <Switch checked={is24Hours} onCheckedChange={setIs24Hours} />
                       </div>
                     </div>
-                    <Input
-                      value={workingHours}
-                      onChange={(e) => setWorkingHours(e.target.value)}
-                      placeholder="Ex: Seg a Sex 09h-18h, Sáb 09h-13h"
-                      className="h-10"
-                    />
+                    {!is24Hours ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Início</p>
+                            <select value={businessHoursStart} onChange={(e) => setBusinessHoursStart(parseInt(e.target.value))} className="w-full h-10 border-2 rounded-xl px-2 font-bold text-sm">
+                              {Array.from({ length: 24 }).map((_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>)}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Fim</p>
+                            <select value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(parseInt(e.target.value))} className="w-full h-10 border-2 rounded-xl px-2 font-bold text-sm">
+                              {Array.from({ length: 24 }).map((_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <Input
+                          value={workingHours}
+                          onChange={(e) => setWorkingHours(e.target.value)}
+                          placeholder="Ex: Seg a Sex 09h-18h, Sáb 09h-13h"
+                          className="h-10"
+                        />
+                      </>
+                    ) : (
+                      <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-sm text-green-700 dark:text-green-400 font-medium">
+                        A IA estará disponível 24 horas por dia, 7 dias por semana.
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -1109,7 +1126,7 @@ function AISettingsPageContent() {
                         </div>
                         <div className="space-y-2">
                           <Label className="font-bold">Descrição</Label>
-                          <Textarea placeholder="Descreva os benefícios e características..." value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} rows={3} className="rounded-xl" />
+                          <Textarea placeholder="Descreva os benefícios e características..." value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} className="min-h-[100px] max-h-[400px] resize-y overflow-auto field-sizing-content rounded-xl" />
                         </div>
                         <div className="space-y-2">
                           <Label className="font-bold">Link de Venda (Opcional)</Label>

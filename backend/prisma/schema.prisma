@@ -337,6 +337,7 @@ model AIKnowledge {
   workingHours       String? @map("working_hours") // Horário de atendimento (texto legado)
   businessHoursStart Int?    @default(9) @map("business_hours_start") // Hora de início do expediente (0-23)
   businessHoursEnd   Int?    @default(18) @map("business_hours_end") // Hora de fim do expediente (0-23)
+  is24Hours          Boolean @default(false) @map("is_24_hours") // Atendimento 24h
   paymentMethods     String? @map("payment_methods") // Formas de pagamento
   deliveryInfo       String? @map("delivery_info") @db.Text // Info de entrega/prazos
   warrantyInfo       String? @map("warranty_info") @db.Text // Garantias
