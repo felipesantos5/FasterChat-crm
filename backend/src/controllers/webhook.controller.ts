@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import messageService from "../services/message.service";
 import conversationService from "../services/conversation.service";
-import aiService from "../services/ai.service";
 import openaiService from "../services/ai-providers/openai.service";
 import geminiService from "../services/ai-providers/gemini.service";
 import { prisma } from "../utils/prisma";
@@ -12,21 +11,14 @@ import { linkConversionService } from "../services/link-conversion.service";
 import { AIProvider } from "../types/ai-provider";
 import { websocketService } from "../services/websocket.service";
 import { customerTemperatureService } from "../services/customer-temperature.service";
-import {
-  detectDirectHandoffIntent,
-  parseHandoffTokens,
-  detectLoopAndRecord,
-  clearLoopCache,
-} from "../services/handoff-detector.service";
+import { aiDebounceService } from "../services/ai-debounce.service";
 
 // Dedup de eventos de mensagem para evitar processamento duplo de AI
 // (Evolution API pode reenviar o mesmo webhook)
 const recentlyProcessedAI = new Map<string, number>();
 const AI_DEDUP_TTL_MS = 120_000; // 2 minutos
 
-// Dedup de fallback de erro para não enviar a mesma mensagem de erro em loop
-const recentlyFallbackSent = new Map<string, number>();
-const FALLBACK_DEDUP_TTL_MS = 300_000; // 5 minutos por conversa
+// (Fallback de erro movido para ai-debounce.service.ts)
 
 class WebhookController {
   /**
@@ -239,14 +231,13 @@ class WebhookController {
           },
         });
 
-        // Processamento de IA em background (resposta HTTP já foi enviada)
+        // Processamento de IA via debounce (resposta HTTP já foi enviada)
         if (shouldProcessAI) {
           // Dedup: ignora se este messageId já foi enviado para IA recentemente
           const aiDedupKey = `${result.instance.id}:${result.message.messageId || result.message.id}`;
           const now = Date.now();
           const lastProcessed = recentlyProcessedAI.get(aiDedupKey);
           if (lastProcessed && now - lastProcessed < AI_DEDUP_TTL_MS) {
-            // Dedup funcionando corretamente — Evolution API envia eventos duplicados
             return;
           }
           recentlyProcessedAI.set(aiDedupKey, now);
@@ -255,154 +246,17 @@ class WebhookController {
             if (now - ts > AI_DEDUP_TTL_MS) recentlyProcessedAI.delete(key);
           }
 
-          try {
-            // 📅 PRIORITY CHECK: Verifica se JÁ ESTÁ em fluxo de agendamento ativo
-            const { aiAppointmentService } = await import("../services/ai-appointment.service");
-            const hasActiveFlow = await aiAppointmentService.hasActiveAppointmentFlow(result.customer.id);
-
-            if (hasActiveFlow) {
-              // Cliente está EM MEIO a um agendamento, continua o fluxo
-              const appointmentResult = await aiAppointmentService.processAppointmentMessage(
-                result.customer.id,
-                result.customer.companyId,
-                result.message.content
-              );
-
-              if (appointmentResult.shouldContinue && appointmentResult.response) {
-                await messageService.sendMessage(result.customer.id, appointmentResult.response, "AI");
-              }
-            } else {
-              // NÃO está em fluxo de agendamento, processa normalmente com a IA
-
-              // ═══════════════════════════════════════════════════════════════
-              // 🛡️ CAMADA 1: Detecção de intenção direta (ANTES da IA)
-              // ═══════════════════════════════════════════════════════════════
-              if (detectDirectHandoffIntent(result.message.content)) {
-                const handoffMessage = "Entendi! Vou te transferir para um atendente agora. Aguarde um momento, por favor. 🙏";
-                await messageService.sendMessage(result.customer.id, handoffMessage, "AI");
-                await conversationService.toggleAI(result.customer.id, false);
-                await prisma.conversation.update({
-                  where: { customerId: result.customer.id },
-                  data: { needsHelp: true },
-                });
-                clearLoopCache(result.customer.id);
-                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
-                websocketService.emitConversationUpdate(result.customer.companyId, result.customer.id, {
-                  aiEnabled: false,
-                  needsHelp: true,
-                  handoffReason: "Solicitação direta do cliente para falar com humano",
-                });
-              } else {
-                // ⏱️ Gera resposta da IA em paralelo com o "digitando"
-                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, true);
-                whatsappService.sendPresence(result.instance.id, result.customer.phone, 25_000, "composing").catch(() => {});
-
-                const aiStartTime = Date.now();
-                const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
-                const aiElapsed = Date.now() - aiStartTime;
-
-                // Delay proporcional ao tamanho da resposta para parecer natural
-                const baseDelay = Math.floor(Math.random() * 3_000) + 3_000;
-                const charDelay = Math.min(aiResponse.length * 30, 12_000);
-                const targetDelay = baseDelay + charDelay;
-                const remainingDelay = Math.max(0, targetDelay - aiElapsed);
-
-                if (remainingDelay > 0) {
-                  whatsappService.sendPresence(result.instance.id, result.customer.phone, remainingDelay, "composing").catch(() => {});
-                  await new Promise(resolve => setTimeout(resolve, remainingDelay));
-                }
-
-                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
-
-                // COMANDO ESPECIAL: Agendamento
-                if (aiResponse.startsWith("[INICIAR_AGENDAMENTO]")) {
-                  const aiMessage = aiResponse.replace("[INICIAR_AGENDAMENTO]", "").trim();
-
-                  if (aiMessage) {
-                    await messageService.sendMessage(result.customer.id, aiMessage, "AI");
-                  }
-
-                  const appointmentResult = await aiAppointmentService.startAppointmentFlow(
-                    result.customer.id,
-                    result.customer.companyId,
-                    result.message.content
-                  );
-
-                  if (appointmentResult.response) {
-                    await messageService.sendMessage(result.customer.id, appointmentResult.response, "AI");
-                  }
-                } else {
-                  // ═══════════════════════════════════════════════════════════
-                  // 🛡️ CAMADA 2: Tokens de handoff na resposta da IA
-                  // ═══════════════════════════════════════════════════════════
-                  const handoff = parseHandoffTokens(aiResponse);
-
-                  // ═══════════════════════════════════════════════════════════
-                  // 🛡️ CAMADA 3: Detecção de loop semântico
-                  // ═══════════════════════════════════════════════════════════
-                  const isLoop = !handoff.shouldHandoff && detectLoopAndRecord(result.customer.id, handoff.cleanMessage);
-
-                  if (handoff.shouldHandoff || isLoop) {
-                    const reason = isLoop ? "Loop de IA detectado — respostas repetitivas" : handoff.reason;
-
-                    const messageToSend = isLoop && !handoff.shouldHandoff
-                      ? "Percebi que não estou conseguindo resolver sua dúvida da melhor forma. Vou transferir você para um atendente que poderá te ajudar. Aguarde um momento! 🙏"
-                      : handoff.cleanMessage;
-
-                    await messageService.sendMessage(result.customer.id, messageToSend, "AI");
-                    await conversationService.toggleAI(result.customer.id, false);
-                    await prisma.conversation.update({
-                      where: { customerId: result.customer.id },
-                      data: { needsHelp: true },
-                    });
-                    clearLoopCache(result.customer.id);
-                    websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
-                    websocketService.emitConversationUpdate(result.customer.companyId, result.customer.id, {
-                      aiEnabled: false,
-                      needsHelp: true,
-                      handoffReason: reason,
-                    });
-                  } else {
-                    // Resposta normal da IA
-                    await messageService.sendMessage(result.customer.id, handoff.cleanMessage, "AI");
-                  }
-                }
-              }
-            }
-          } catch (aiError: unknown) {
-            const errorMessage = aiError instanceof Error ? aiError.message : String(aiError);
-            // Erros de regra de negócio: não enviar fallback ao cliente
-            const isSilentError =
-              errorMessage.includes("FREE plan") ||
-              errorMessage.includes("Auto-reply is disabled") ||
-              errorMessage.includes("AI is disabled") ||
-              errorMessage.includes("not configured");
-
-            if (isSilentError) {
-              console.error("AI skipped (business rule):", errorMessage);
-            } else {
-              console.error("Error processing AI response:", errorMessage);
-              const fallbackKey = result.customer.id;
-              const lastFallback = recentlyFallbackSent.get(fallbackKey);
-              const nowFallback = Date.now();
-              if (!lastFallback || nowFallback - lastFallback > FALLBACK_DEDUP_TTL_MS) {
-                recentlyFallbackSent.set(fallbackKey, nowFallback);
-                try {
-                  await messageService.sendMessage(
-                    result.customer.id,
-                    "Desculpe, tive um problema técnico momentâneo. Pode repetir sua mensagem? 🙏",
-                    "AI"
-                  );
-                } catch (fallbackSendError: unknown) {
-                  const fallbackMsg = fallbackSendError instanceof Error ? fallbackSendError.message : String(fallbackSendError);
-                  console.error("Failed to send AI fallback message:", fallbackMsg);
-                }
-              }
-            }
-          }
-
-          // IA respondeu → marca mensagens inbound como lidas
-          messageService.markAsRead(result.customer.id, result.instance.id).catch(() => {});
+          // Agenda resposta via debounce (35s de silêncio)
+          // Se o cliente enviar outra mensagem nesse intervalo, o timer reinicia
+          aiDebounceService.scheduleResponse({
+            customerId: result.customer.id,
+            companyId: result.customer.companyId,
+            instanceId: result.instance.id,
+            customerPhone: result.customer.phone,
+            isGroup: result.customer.isGroup ?? false,
+          }).catch((err) => {
+            console.error("[Webhook] Error scheduling AI debounce:", err);
+          });
         }
 
         return;

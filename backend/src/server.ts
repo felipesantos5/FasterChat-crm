@@ -15,6 +15,7 @@ import campaignExecutionService from "./services/campaign-execution.service";
 import campaignSchedulerService from "./services/campaign-scheduler.service";
 import flowSchedulerService from "./services/flow-scheduler.service";
 import flowQueueService from "./services/flow-queue.service";
+import { aiDebounceService } from "./services/ai-debounce.service";
 import { config } from "./config";
 import { initializeGlobalErrorHandlers, registerServer, registerCleanup, globalErrorConfig } from "./utils/globalErrorHandler";
 import { prisma } from "./utils/prisma";
@@ -88,6 +89,11 @@ registerCleanup(async () => {
 });
 
 registerCleanup(async () => {
+  console.log("[Cleanup] Stopping AI debounce worker...");
+  await aiDebounceService.shutdown();
+});
+
+registerCleanup(async () => {
   console.log("[Cleanup] Stopping campaign workers...");
   await campaignExecutionService.stopWorkers();
 });
@@ -110,6 +116,9 @@ campaignExecutionService.startWorkers();
 
 // Inicializa Workers de Fluxo (BullMQ)
 flowQueueService.startWorkers();
+
+// Inicializa Worker de Debounce de IA (BullMQ)
+aiDebounceService.startWorker();
 
 // Inicializa Scheduler de Campanhas (backup para jobs agendados)
 campaignSchedulerService.start();
