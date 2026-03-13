@@ -16,6 +16,7 @@ import {
   Clock,
   AlertTriangle,
   Ban,
+  Play,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -88,11 +89,8 @@ function storeBatch(flowId: string, batchId: string) {
 
 function clearStoredBatch(flowId: string) {
   try {
-    const batchId = localStorage.getItem(`${STORAGE_KEY}_${flowId}`);
+    // Remove apenas o ponteiro do batch ativo — mantém o NOTIFIED_KEY para não rexibir o toast
     localStorage.removeItem(`${STORAGE_KEY}_${flowId}`);
-    if (batchId) {
-      localStorage.removeItem(`${NOTIFIED_KEY}_${batchId}`);
-    }
   } catch {
     // ignore
   }
@@ -150,6 +148,7 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
   const [visible, setVisible] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
+  const [isResuming, setIsResuming] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
   const prevStatusRef = useRef<string | null>(null);
@@ -196,15 +195,18 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
       setStatus(data);
 
       const finalStatuses = ["COMPLETED", "FAILED", "CANCELLED"];
-      const wasProcessing = prevStatusRef.current === "PROCESSING" || prevStatusRef.current === "PAUSED" || prevStatusRef.current === null;
+      // Considera "estava processando" apenas se já tínhamos recebido um status anterior
+      // (null = primeira busca, não conta como transição)
+      const wasProcessing = prevStatusRef.current === "PROCESSING" || prevStatusRef.current === "PAUSED";
 
-      // Detecta transição para estado final e notifica
-      if (wasProcessing && finalStatuses.includes(data.status)) {
-        // Marca como notificado para o GlobalBatchMonitor não duplicar
+      // Verifica se já notificamos este batch (persiste entre visitas à página)
+      const alreadyNotified = (() => { try { return !!localStorage.getItem(`${NOTIFIED_KEY}_${data.batchId}`); } catch { return false; } })();
+
+      // Notifica apenas na transição real (estava rodando → finalizou) e apenas 1 vez por batch
+      if (wasProcessing && finalStatuses.includes(data.status) && !alreadyNotified) {
         try { localStorage.setItem(`${NOTIFIED_KEY}_${data.batchId}`, "1"); } catch {}
 
         if (data.status === "COMPLETED") {
-          // COMPLETED é sempre sucesso — falhas pontuais são normais
           playCompletionSound(true);
           const failNote = data.failed > 0 ? ` (${data.failed} falhas)` : "";
           toast.success("🎉 Disparo concluído!", {
@@ -244,6 +246,20 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
       setVisible(false);
     }
   }, [batchId, flowId]);
+
+  const handleResumeBatch = async () => {
+    if (!batchId) return;
+    setIsResuming(true);
+    try {
+      await api.post(`/flows/${flowId}/batch/${batchId}/resume`);
+      await fetchStatus();
+      toast.success("Disparo retomado!", { description: "Os envios foram reiniciados." });
+    } catch {
+      toast.error("Erro ao retomar disparo. Verifique se o número está conectado.");
+    } finally {
+      setIsResuming(false);
+    }
+  };
 
   const handleCancelBatch = async () => {
     if (!batchId) return;
@@ -463,22 +479,33 @@ export function BatchStatusButton({ flowId, activeBatchId }: BatchStatusButtonPr
 
               {/* Paused indicator */}
               {isPaused && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <AlertTriangle size={16} className="text-amber-600 animate-pulse" />
                     <span className="text-sm font-semibold text-amber-700">
-                      Envio pausado automaticamente
+                      Disparo pausado — número desconectado
                     </span>
                   </div>
                   <p className="text-xs text-amber-600">
-                    {status.consecutiveErrors > 0
-                      ? `${status.consecutiveErrors} erros consecutivos detectados. O sistema pausou para proteger a conexão do WhatsApp.`
-                      : "O sistema detectou instabilidade e pausou temporariamente."}
+                    O número WhatsApp foi desconectado (possivelmente banido temporariamente ou sem sinal).
+                    O contato atual foi devolvido à fila.
                     {status.pauseCount > 1 && ` (pausa #${status.pauseCount})`}
                   </p>
-                  <p className="text-xs text-amber-500">
-                    O envio será retomado automaticamente em breve.
+                  <p className="text-xs text-amber-500 font-medium">
+                    Reconecte o número nas configurações e clique em "Retomar Disparo".
                   </p>
+                  <button
+                    onClick={handleResumeBatch}
+                    disabled={isResuming}
+                    className="mt-1 w-full flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-colors"
+                  >
+                    {isResuming ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Play size={13} />
+                    )}
+                    {isResuming ? "Retomando..." : "Retomar Disparo"}
+                  </button>
                 </div>
               )}
 

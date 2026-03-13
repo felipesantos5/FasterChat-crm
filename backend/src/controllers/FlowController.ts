@@ -10,15 +10,32 @@ export class FlowController {
   public async getFlows(req: Request, res: Response): Promise<Response> {
     const { companyId } = req.user!;
 
-    const flows = await prisma.flow.findMany({
-      where: { companyId },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        _count: { select: { executions: true } },
-      }
-    });
+    const [flows, completedCounts] = await Promise.all([
+      prisma.flow.findMany({
+        where: { companyId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: { select: { executions: true } },
+        },
+      }),
+      prisma.flowExecution.groupBy({
+        by: ['flowId'],
+        where: {
+          flow: { companyId },
+          status: FlowExecutionStatus.COMPLETED,
+        },
+        _count: { id: true },
+      }),
+    ]);
 
-    return res.json(flows);
+    const completedMap = new Map(completedCounts.map((r) => [r.flowId, r._count.id]));
+
+    const result = flows.map((flow) => ({
+      ...flow,
+      completedCount: completedMap.get(flow.id) ?? 0,
+    }));
+
+    return res.json(result);
   }
 
   public async getFlowById(req: Request, res: Response): Promise<Response> {

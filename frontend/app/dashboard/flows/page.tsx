@@ -17,6 +17,7 @@ import {
   Sparkles,
   Copy,
   Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -37,6 +38,7 @@ interface Flow {
   _count?: {
     executions: number;
   };
+  completedCount?: number;
 }
 
 export default function FlowsPage() {
@@ -214,6 +216,13 @@ function FlowsPageContent() {
                   >
                     <Play size={14} className="text-gray-400" />
                     <span>{flow._count?.executions || 0} execuções</span>
+                  </div>
+                  <div
+                    className="flex items-center gap-1.5"
+                    title="Concluídos com sucesso"
+                  >
+                    <CheckCircle2 size={14} className="text-green-500" />
+                    <span className="text-green-600 font-medium">{flow.completedCount || 0} sucesso</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Clock size={14} className="text-gray-400" />

@@ -164,8 +164,13 @@ class CampaignService {
         },
       });
 
-      // Estima duração: entre 2-5 segundos por mensagem (média de 3.5s)
-      const estimatedDuration = Math.ceil(totalCustomers * 3.5);
+      // Estima duração baseada no rate limiter real da fila BullMQ:
+      // - Rate limit: 20 mensagens/minuto
+      // - Delay inicial: ~30s antes de começar (jobs enfileirados com delay de 25-35s)
+      // - Tempo total = (totalCustomers / 20) * 60 + 30s de inicialização
+      const RATE_LIMIT_PER_MIN = 20;
+      const INIT_DELAY_S = 30;
+      const estimatedDuration = Math.ceil((totalCustomers / RATE_LIMIT_PER_MIN) * 60) + INIT_DELAY_S;
 
       return {
         totalCustomers,

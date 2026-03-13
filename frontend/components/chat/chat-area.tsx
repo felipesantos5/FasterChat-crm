@@ -744,17 +744,27 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     setImageCaption("");
   };
 
-  // Insere emoji no input
+  // Insere emoji no input na posição do cursor
   const handleEmojiSelect = (emoji: string) => {
-    setInputValue((prev) => prev + emoji);
+    const el = inputRef.current;
+    const cursorPos = el ? el.selectionStart ?? inputValue.length : inputValue.length;
+    const newValue = inputValue.substring(0, cursorPos) + emoji + inputValue.substring(cursorPos);
+    setInputValue(newValue);
     setShowEmojiPicker(false);
-    inputRef.current?.focus();
+    setTimeout(() => {
+      if (el) {
+        el.focus();
+        const newPos = cursorPos + emoji.length;
+        el.selectionStart = el.selectionEnd = newPos;
+      }
+    }, 0);
   };
 
-  // 50 emojis mais usados organizados por categoria
+  // Emojis mais usados organizados por categoria
   const emojis = {
     faces: ["😊", "😂", "🤣", "😅", "😁", "😉", "😍", "🥰", "😘", "😋", "😎", "🤔", "😐", "😑", "😶", "🙄", "😬", "😮", "😯", "😴", "😔", "😕", "🙁", "😞", "😢", "😭"],
-    business: ["🚀", "✅", "✔️", "❌", "⚠️", "🔥", "💰", "💸", "🤝", "💎", "🎯", "📈", "⭐", "🔔", "📍", "📅", "⏰", "📧"],
+    business: ["🚀", "✅", "✔️", "❌", "⚠️", "🔥", "💰", "💸", "🤝", "💎", "🎯", "📈", "⭐", "🔔", "📍", "📅", "⏰", "📧", "📊", "💼", "🏷️", "🧾", "📦", "🛒"],
+    atendimento: ["💬", "🗨️", "📩", "📞", "📲", "🕐", "🕑", "⏳", "🔄", "🆕", "🆗", "🔗", "📋", "📌", "🔒", "🔓", "👤", "👥", "🏠", "🎉"],
     hands: ["👍", "👎", "👏", "🙌", "👋", "🤝", "🙏", "✌️", "🤞", "🤙", "👌", "🤌", "✊", "👊"],
     hearts: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎"],
   };
@@ -1542,7 +1552,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                             isInbound ? "left-0" : "right-0"
                           )}
                         >
-                          {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) => (
+                          {['👍', '❤️', '😂', '😮', '😢', '🙏', '✅', '❌'].map((emoji) => (
                             <button
                               key={emoji}
                               onClick={() => handleSendReaction(message.id, emoji)}
@@ -1868,21 +1878,26 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 disabled={sending || !!selectedImage || !!selectedVideo}
                 onSelectText={(text) => {
                   setInputValue(text);
-                  setTimeout(() => inputRef.current?.focus(), 0);
+                  setTimeout(() => {
+                    const el = inputRef.current;
+                    if (el) {
+                      el.focus();
+                      el.style.height = "auto";
+                      const newHeight = Math.min(el.scrollHeight, 160);
+                      el.style.height = `${newHeight}px`;
+                      el.style.overflowY = el.scrollHeight > 160 ? "auto" : "hidden";
+                    }
+                  }, 0);
                 }}
                 onSelectMedia={(base64, caption) => {
-                  messageApi.sendMedia(customerId, base64, caption, "HUMAN")
-                    .then((res) => {
-                      if (!isConnected || !isAuthenticated) {
-                        setMessages((prev) => {
-                          const exists = prev.some((m) => m.id === res.data.message.id);
-                          if (exists) return prev;
-                          return [...prev, res.data.message];
-                        });
-                      }
-                      toast.success("Mídia enviada!");
-                    })
-                    .catch((err: any) => showErrorToast(err, router, "Erro ao enviar mídia"));
+                  const isVideo = base64.startsWith("data:video/");
+                  if (isVideo) {
+                    setSelectedVideo({ dataUrl: base64, name: "Mensagem rápida" });
+                    setVideoCaption(caption ?? "");
+                  } else {
+                    setSelectedImage(base64);
+                    setImageCaption(caption ?? "");
+                  }
                 }}
                 onSelectAudio={(base64) => handleSendAudio(base64)}
               />
@@ -1908,6 +1923,23 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                       <p className="text-[10px] font-bold uppercase text-muted-foreground px-2 tracking-wider">🚀 Objetivo / Business</p>
                       <div className="grid grid-cols-9 gap-1">
                         {emojis.business.map((emoji, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleEmojiSelect(emoji)}
+                            className="h-8 w-8 flex items-center justify-center rounded hover:bg-accent transition-colors text-xl"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Atendimento */}
+                    <div className="space-y-1 pt-2 border-t border-border/50">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground px-2 tracking-wider">💬 Atendimento</p>
+                      <div className="grid grid-cols-9 gap-1">
+                        {emojis.atendimento.map((emoji, index) => (
                           <button
                             key={index}
                             type="button"
@@ -1982,8 +2014,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 onChange={setInputValue}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    if (e.ctrlKey || e.metaKey) {
-                      // Ctrl+Enter → quebra de linha manual
+                    if (e.shiftKey) {
+                      // Shift+Enter → quebra de linha manual
                       e.preventDefault();
                       const target = e.currentTarget;
                       const start = target.selectionStart;

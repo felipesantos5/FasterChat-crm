@@ -29,5 +29,6 @@ router.post('/init', checkPermission('PIPELINE', true), asyncHandler(pipelineCon
 router.post('/deal-values', checkPermission('PIPELINE', true), asyncHandler(pipelineController.createDealValue));
 router.get('/deal-values/stats', asyncHandler(pipelineController.getDealValueStats));
 router.get('/deal-values', asyncHandler(pipelineController.listDealValues));
+router.get('/deal-values/customer/:customerId', asyncHandler(pipelineController.getDealValuesByCustomer));
 
 export default router;

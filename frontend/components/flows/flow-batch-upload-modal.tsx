@@ -35,6 +35,7 @@ import {
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useBatchStore } from "./batchStore";
+import { whatsappApi } from "@/lib/whatsapp";
 
 interface FlowBatchUploadModalProps {
   open: boolean;
@@ -81,8 +82,22 @@ export function FlowBatchUploadModal({
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
+  const [connectedInstances, setConnectedInstances] = useState(1);
 
   // Janela de envio por fuso horário
+
+  // Carrega contagem de instâncias conectadas para estimativa de tempo
+  useEffect(() => {
+    if (!open) return;
+    try {
+      const companyId = JSON.parse(localStorage.getItem("user") || "{}").companyId;
+      if (!companyId) return;
+      whatsappApi.getInstances(companyId).then((res) => {
+        const count = res.data.filter((i: { status: string }) => i.status === "CONNECTED").length;
+        setConnectedInstances(Math.max(1, count));
+      }).catch(() => {});
+    } catch { /* silently ignore */ }
+  }, [open]);
 
   // Quando o flowId muda (navegou para outro fluxo), limpa o store imediatamente
   useEffect(() => {
@@ -408,15 +423,29 @@ export function FlowBatchUploadModal({
               </div>
 
               {/* Estimated time */}
-              <div className="bg-gray-50 rounded-lg p-3 flex items-center gap-2">
-                <Clock size={16} className="text-gray-500" />
-                <p className="text-xs text-gray-600">
-                  Tempo estimado:{" "}
-                  <strong>
-                    {Math.ceil((storePreview.totalRows * 10) / 60)} minutos
-                  </strong>
-                </p>
-              </div>
+              {(() => {
+                // Gap por instância: 35-60s (média 47.5s). Com N instâncias em round-robin,
+                // o tempo total é dividido por N.
+                const AVG_GAP_S = 47.5;
+                const totalSeconds = (storePreview.totalRows * AVG_GAP_S) / connectedInstances;
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.ceil((totalSeconds % 3600) / 60);
+                const timeLabel = hours > 0
+                  ? `${hours}h ${minutes > 0 ? `${minutes}min` : ""}`.trim()
+                  : `${Math.max(1, minutes)} min`;
+                return (
+                  <div className="bg-gray-50 rounded-lg p-3 flex items-center gap-2">
+                    <Clock size={16} className="text-gray-500" />
+                    <p className="text-xs text-gray-600">
+                      Tempo estimado:{" "}
+                      <strong>{timeLabel}</strong>
+                      {connectedInstances > 1 && (
+                        <span className="text-gray-400 ml-1">({connectedInstances} instâncias)</span>
+                      )}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

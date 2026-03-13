@@ -115,6 +115,14 @@ export const pipelineApi = {
   },
 
   /**
+   * Lista todas as vendas de um cliente específico
+   */
+  async getDealValuesByCustomer(customerId: string): Promise<DealValueItem[]> {
+    const response = await api.get(`/pipeline/deal-values/customer/${customerId}`);
+    return response.data.data;
+  },
+
+  /**
    * Obtém estatísticas de lucro/receita
    */
   async getDealValueStats(
@@ -137,4 +145,17 @@ export interface DealValueStats {
   previousRevenue: number;
   previousDealsCount: number;
   percentageChange: number;
+}
+
+export interface DealValueItem {
+  id: string;
+  value: string | number;
+  notes: string | null;
+  closedAt: string;
+  createdAt: string;
+  stage: {
+    id: string;
+    name: string;
+    color: string;
+  };
 }

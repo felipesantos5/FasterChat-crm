@@ -340,22 +340,22 @@ function ConversationsPageContent() {
           // Instância
           if (advancedFilters.selectedInstanceId && conv.whatsappInstanceId !== advancedFilters.selectedInstanceId) return false;
 
-          // Tags e estágio com whitelist/blacklist
-          if (advancedFilters.selectedTags.length > 0 || advancedFilters.selectedStageIds.length > 0) {
+          // Filtro por tags (usa customerMap para acessar as tags)
+          if (advancedFilters.selectedTags.length > 0) {
             const customer = customerMap.get(conv.customerId);
-            if (!customer) return false;
+            if (!customer) return false; // sem dado de tag, omite apenas no modo include
+            const hasTag = advancedFilters.selectedTags.some(tag => customer.tags.includes(tag));
+            if (advancedFilters.tagFilterMode === "include" && !hasTag) return false;
+            if (advancedFilters.tagFilterMode === "exclude" && hasTag) return false;
+          }
 
-            if (advancedFilters.selectedTags.length > 0) {
-              const hasTag = advancedFilters.selectedTags.some(tag => customer.tags.includes(tag));
-              if (advancedFilters.tagFilterMode === "include" && !hasTag) return false;
-              if (advancedFilters.tagFilterMode === "exclude" && hasTag) return false;
-            }
-
-            if (advancedFilters.selectedStageIds.length > 0) {
-              const inStage = advancedFilters.selectedStageIds.includes(customer.pipelineStageId ?? "");
-              if (advancedFilters.stageFilterMode === "include" && !inStage) return false;
-              if (advancedFilters.stageFilterMode === "exclude" && inStage) return false;
-            }
+          // Filtro por estágio — usa pipelineStageId direto da conversa (sem precisar do customerMap)
+          if (advancedFilters.selectedStageIds.length > 0) {
+            const stageId = conv.pipelineStageId ?? null;
+            const inStage = stageId !== null && advancedFilters.selectedStageIds.includes(stageId);
+            if (advancedFilters.stageFilterMode === "include" && !inStage) return false;
+            // exclude: só remove quem está confirmadamente nesse estágio — quem não tem estágio fica
+            if (advancedFilters.stageFilterMode === "exclude" && inStage) return false;
           }
 
           return true;
@@ -370,25 +370,12 @@ function ConversationsPageContent() {
   );
 
   // Quando qualquer filtro/busca muda, reseta o limite de exibição
-  const hasActiveFilters =
-    !!searchTerm ||
-    filterType !== "all" ||
-    advancedFilters.excludeGroups ||
-    advancedFilters.selectedTags.length > 0 ||
-    advancedFilters.selectedStageIds.length > 0 ||
-    advancedFilters.onlyNeedsHelp ||
-    advancedFilters.onlyAiEnabled ||
-    advancedFilters.onlyHumanEnabled ||
-    !!advancedFilters.selectedInstanceId;
-
   useEffect(() => {
     setDisplayLimit(INITIAL_LIMIT);
   }, [searchTerm, filterType, sortType, advancedFilters]);
 
-  // Conversas exibidas: sem filtro = slice limitado; com filtro = todos os resultados
-  const displayedConversations = hasActiveFilters
-    ? filteredConversations
-    : filteredConversations.slice(0, displayLimit);
+  // Conversas exibidas: sempre limitadas a displayLimit (com ou sem filtro)
+  const displayedConversations = filteredConversations.slice(0, displayLimit);
 
   const remaining = filteredConversations.length - displayLimit;
 
@@ -597,7 +584,7 @@ function ConversationsPageContent() {
                     onSelectConversation={handleSelectConversation}
                     aiThinkingIds={aiThinkingIds}
                   />
-                  {!hasActiveFilters && remaining > 0 && (
+                  {remaining > 0 && (
                     <div className="px-3 py-2.5 border-t shrink-0">
                       <button
                         onClick={() => setDisplayLimit(prev => prev + LOAD_MORE_STEP)}

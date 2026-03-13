@@ -467,11 +467,16 @@ class WhatsAppService {
       console.error("  - Response Body:", JSON.stringify(responseData, null, 2));
 
       // Extrai a mensagem de erro da Evolution API (tenta múltiplos campos)
+      // IMPORTANTE: checar responseData?.response?.message ANTES de responseData?.error
+      // pois o campo 'error' contém apenas "Internal Server Error" enquanto
+      // o campo aninhado contém a causa real (ex: "Connection Closed")
+      const nestedMsg = responseData?.response?.message;
       const evolutionError = (typeof responseData === 'string' ? responseData : null)
-        || responseData?.message
+        || (typeof responseData?.message === 'string' ? responseData.message : null)
+        || (typeof nestedMsg === 'string' ? nestedMsg : null)
         || responseData?.error
-        || responseData?.response?.message
-        || (Array.isArray(responseData?.message) ? responseData.message.join('; ') : null)
+        || (Array.isArray(responseData?.message) ? JSON.stringify(responseData.message) : null)
+        || (Array.isArray(nestedMsg) ? JSON.stringify(nestedMsg) : null)
         || error.message
         || "";
 
@@ -827,8 +832,15 @@ class WhatsAppService {
     } catch (error: any) {
       if (error instanceof AppError) throw error;
 
-      console.error("[WhatsApp Service] ❌ Error sending media:", error.response?.data || error.message);
-      const evolutionError = error.response?.data?.message || error.response?.data?.error || error.message || "";
+      const mediaResponseData = error.response?.data;
+      console.error("[WhatsApp Service] ❌ Error sending media:", mediaResponseData || error.message);
+      const mediaNestedMsg = mediaResponseData?.response?.message;
+      const evolutionError = (typeof mediaResponseData === 'string' ? mediaResponseData : null)
+        || (typeof mediaResponseData?.message === 'string' ? mediaResponseData.message : null)
+        || (typeof mediaNestedMsg === 'string' ? mediaNestedMsg : null)
+        || mediaResponseData?.error
+        || error.message
+        || "";
       throw Errors.whatsappSendFailed(evolutionError);
     }
   }

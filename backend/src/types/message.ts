@@ -180,6 +180,7 @@ export interface ConversationSummary {
   whatsappInstanceName: string; // Nome da instância
   isArchived: boolean; // Contato arquivado
   lastMediaType: string | null; // Tipo de mídia da última mensagem
+  pipelineStageId: string | null; // ID do estágio atual no funil
   pipelineStageColor: string | null; // Cor do estágio atual no funil
   temperature: string | null; // Temperatura comercial do cliente: HOT | WARM | COLD | UNKNOWN
 }

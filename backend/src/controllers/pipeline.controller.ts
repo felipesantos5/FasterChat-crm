@@ -400,6 +400,34 @@ class PipelineController {
       });
     }
   }
+
+  /**
+   * GET /api/pipeline/deal-values/customer/:customerId
+   * Lista todas as vendas de um cliente específico
+   */
+  async getDealValuesByCustomer(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Não autenticado' });
+      }
+
+      const companyId = req.user.companyId;
+      const { customerId } = req.params;
+
+      const dealValues = await pipelineService.getDealValuesByCustomer(companyId, customerId);
+
+      return res.status(200).json({
+        success: true,
+        data: dealValues,
+      });
+    } catch (error: any) {
+      console.error('Error fetching customer deal values:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Erro ao buscar vendas do cliente',
+      });
+    }
+  }
 }
 
 export default new PipelineController();

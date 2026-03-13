@@ -11,6 +11,17 @@ import redisConnection from '../config/redis';
 import { Errors } from '../utils/errors';
 import Bottleneck from 'bottleneck';
 
+/**
+ * Erro especial que indica que um batch foi pausado por desconexão.
+ * Quando lançado, o executeNode NÃO avança a fila — o contato já foi devolvido ao início.
+ */
+class BatchPausedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BatchPausedError';
+  }
+}
+
 // ==================================================================================
 // 🛡️ CIRCUIT BREAKER: Protege a Evolution API contra sobrecarga.
 // Se muitos erros consecutivos ocorrerem, pausa os envios temporariamente.
@@ -32,20 +43,20 @@ const circuitBreaker: CircuitBreakerState = {
   totalErrors: 0,
 };
 
-// Delay anti-spam entre nós de mensagem (aplicado via BullMQ delay no próximo job)
-const MSG_SEND_DELAY_MIN_MS = 35_000;    // 35s mínimo
-const MSG_SEND_DELAY_MAX_MS = 60_000;    // 60s máximo
+// Delay anti-spam entre nós de mensagem para o MESMO contato (aplicado via BullMQ delay no próximo job)
+const MSG_SEND_DELAY_MIN_MS = 8_000;     // 8s mínimo (mesmo contato é seguro)
+const MSG_SEND_DELAY_MAX_MS = 15_000;    // 15s máximo
 
 // Tempo de "digitando..." antes de enviar mensagem de texto e áudio
-const TYPING_DELAY_TEXT_MS = 15_000;  // 15s para mensagem de texto
-const TYPING_DELAY_AUDIO_MS = 30_000; // 30s para áudio (gravando...)
+const TYPING_DELAY_TEXT_MS = 8_000;   // 8s para mensagem de texto
+const TYPING_DELAY_AUDIO_MS = 15_000; // 15s para áudio (gravando...)
 
 // Limite a partir do qual um nó de delay é considerado "pausa longa" para o batch.
 // Abaixo disso, o contato atual ainda está "em progresso" e o próximo não é disparado.
 const BATCH_LONG_DELAY_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutos
 
 // Configurações do circuit breaker
-const CB_MAX_CONSECUTIVE_ERRORS = 5;     // Abre o circuito após 5 erros seguidos
+const CB_MAX_CONSECUTIVE_ERRORS = 15;    // Abre o circuito após 15 erros seguidos (planilhas podem ter muitos números inválidos)
 const CB_INITIAL_COOLDOWN_MS = 30_000;   // 30s de pausa inicial
 const CB_MAX_COOLDOWN_MS = 5 * 60_000;   // Máximo 5 minutos de pausa
 const CB_MAX_RETRIES = 2;                // Tentativas por mensagem (1 original + 2 retries)
@@ -135,7 +146,13 @@ export class FlowEngineService {
   private async sendWithRetry(
     sendFn: (instanceId: string) => Promise<Record<string, unknown>>,
     context: string,
-    failoverConfig?: { executionId: string; companyId: string; currentInstanceId: string }
+    failoverConfig?: {
+      executionId: string;
+      companyId: string;
+      currentInstanceId: string;
+      batchId?: string;
+      contactJobData?: FlowStartJobData;
+    }
   ): Promise<Record<string, unknown>> {
     // Verifica circuit breaker antes de tentar
     const cbCheck = this.checkCircuitBreaker();
@@ -153,10 +170,11 @@ export class FlowEngineService {
         const result = await limiter.schedule(async () => {
           const res = await sendFn(activeInstanceId);
 
-          // DELAY HUMANO: Randomiza de 20s a 40s após o envio
+          // DELAY HUMANO ENTRE CONTATOS: Randomiza de 35s a 60s após o envio
+          // Esse delay protege contra ban ao enviar para VÁRIOS contatos diferentes
           // O limiter (Bottleneck) segura a próxima chamada deste WhatsApp até finalizar essa Promise
-          const minDelay = 20000; // 20 segundos
-          const maxDelay = 40000; // 40 segundos
+          const minDelay = 35000; // 35 segundos
+          const maxDelay = 60000; // 60 segundos
           const delayDeEspera = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
           await new Promise(resolve => setTimeout(resolve, delayDeEspera));
 
@@ -171,16 +189,26 @@ export class FlowEngineService {
         const isLastAttempt = attempt === CB_MAX_RETRIES;
 
         // 🔄 FAILOVER LOGIC: Se o chip desconectou, tentamos trocar por outro AGORA
-        // Se conseguirmos uma nova instância, o loop de retry tentará com ela.
-        if (failoverConfig && (error as any).code === 'WHATSAPP_DISCONNECTED' && !isLastAttempt) {
-          const newInstance = await this.handleFailover(
-            failoverConfig.executionId,
-            failoverConfig.companyId,
-            activeInstanceId
-          );
+        if (failoverConfig && (error as any).code === 'WHATSAPP_DISCONNECTED') {
+          const newInstance = !isLastAttempt
+            ? await this.handleFailover(failoverConfig.executionId, failoverConfig.companyId, activeInstanceId)
+            : null;
+
           if (newInstance) {
             activeInstanceId = (newInstance as any).id as string;
             // Continua para o próximo retry com o novo chip
+          } else if (failoverConfig.batchId && failoverConfig.contactJobData) {
+            // Sem outra instância disponível — pausa o batch em vez de queimar todos os contatos restantes
+            const { FlowBatchController } = await import('../controllers/FlowBatchController');
+            await FlowBatchController.pauseBatchDueToDisconnection(
+              failoverConfig.batchId,
+              activeInstanceId,
+              failoverConfig.contactJobData,
+            );
+            throw new BatchPausedError(
+              `Disparo pausado: instância WhatsApp desconectada ou banida (${activeInstanceId}). ` +
+              `Reconecte o número e retome o disparo manualmente.`
+            );
           }
         }
 
@@ -188,7 +216,12 @@ export class FlowEngineService {
         const isRetryable = this.isRetryableError(err);
 
         if (!isRetryable || isLastAttempt) {
-          this.recordError(error.message || 'Erro desconhecido');
+          // Erros de dados (número sem WhatsApp, inválido, etc.) são esperados em disparos em massa
+          // e NÃO devem contar para o circuit breaker — apenas erros de infraestrutura
+          const isBusinessError = this.isBusinessError(err);
+          if (!isBusinessError) {
+            this.recordError(error.message || 'Erro desconhecido');
+          }
           if (isLastAttempt) {
             console.error(`[FlowEngine] ❌ ${context}: Falhou após ${CB_MAX_RETRIES + 1} tentativas: ${error.message}`);
           }
@@ -277,6 +310,48 @@ export class FlowEngineService {
 
     // Default: não retentável (melhor falhar rápido do que ficar tentando)
     return false;
+  }
+
+  /**
+   * 🛡️ Determina se um erro é de negócio (número inválido, sem WhatsApp, etc.)
+   * Esses erros são esperados em disparos em massa com planilhas e NÃO devem
+   * contar para o circuit breaker, pois não indicam problema na infraestrutura.
+   */
+  private isBusinessError(err: unknown): boolean {
+    const error = err instanceof Error ? err : new Error(String(err));
+    const msg = (error.message || '').toLowerCase();
+    const code = (err as Record<string, unknown>)?.code as string | undefined;
+    const response = (err as Record<string, unknown>)?.response as Record<string, unknown> | undefined;
+    const status = response?.status as number | undefined;
+
+    // Erro explícito de envio do WhatsApp (número não encontrado, não existe, etc.)
+    if (code === 'WHATSAPP_SEND_FAILED') {
+      return true;
+    }
+
+    // HTTP 404 (contato não encontrado) ou 400 (número inválido)
+    if (status === 404 || status === 400) {
+      return true;
+    }
+
+    // Padrões comuns de erro de número inválido/sem WhatsApp
+    const businessPatterns = [
+      'not found',
+      'not exist',
+      'exists',
+      'not on whatsapp',
+      'invalid number',
+      'número inválido',
+      'not registered',
+      'no account',
+      'invalid phone',
+      'jid',
+      'not a valid',
+      'unknown contact',
+      'unregistered',
+    ];
+
+    return businessPatterns.some(pattern => msg.includes(pattern));
   }
 
   /**
@@ -841,16 +916,30 @@ export class FlowEngineService {
     // Para cada edge, encontra o nó alvo e executa
     const outboundTypes = ['message', 'audio', 'image', 'video', 'ai_image', 'tts_audio'];
 
+    // Verifica se a execução está em modo de prioridade (cliente acabou de responder)
+    const execVarsForPriority = typeof execution.variables === 'string'
+      ? JSON.parse(execution.variables)
+      : (execution.variables as Record<string, unknown> || {});
+    const isPriorityReply = execVarsForPriority._priorityReply === true;
+
     for (const edge of edges) {
       const targetNode = flow.nodes.find(n => n.id === edge.targetNodeId);
       if (targetNode) {
         const isOutbound = outboundTypes.includes(targetNode.type);
-        
+
         if (isOutbound) {
-          // 🛡️ METRÔNOMO DE INSTÂNCIA: Garante que este CHIP não mande mensagens rápido demais
-          // para contatos diferentes. O delay agora é calculado baseado no último envio agendado para o chip.
-          const instanceId = (execution.whatsappInstanceId as string) || (execution.whatsappInstance as any)?.id;
-          const delay = await this.reserveSendSlot(instanceId);
+          let delay: number;
+
+          if (isPriorityReply) {
+            // 🚀 PRIORIDADE: cliente respondeu agora — envia a próxima mensagem quase imediatamente
+            // Apenas um pequeno delay para simular digitação (3-6s), sem esperar slot anti-spam.
+            delay = Math.floor(Math.random() * 3000) + 3000; // 3-6s
+          } else {
+            // 🛡️ METRÔNOMO DE INSTÂNCIA: Garante que este CHIP não mande mensagens rápido demais
+            // para contatos diferentes. O delay agora é calculado baseado no último envio agendado para o chip.
+            const instanceId = (execution.whatsappInstanceId as string) || (execution.whatsappInstance as any)?.id;
+            delay = await this.reserveSendSlot(instanceId);
+          }
 
           // 🛡️ IDEMPOTÊNCIA: jobId determinístico evita que retries do BullMQ enfileirem
           // o mesmo nó duas vezes (causando envio duplo de mensagem).
@@ -1119,6 +1208,17 @@ export class FlowEngineService {
       }
     } catch (error: unknown) {
       const err = error instanceof Error ? error : new Error(String(error));
+
+      // BatchPausedError: disparo pausado por desconexão — contato já foi devolvido à fila
+      // NÃO avançamos a fila (seria o próximo contato) e NÃO marcamos como FAILED
+      if (err instanceof BatchPausedError) {
+        await prisma.flowExecution.update({
+          where: { id: execution.id as string },
+          data: { status: FlowExecutionStatus.FAILED, error: err.message }
+        });
+        return;
+      }
+
       console.error(`[FlowEngine] Error executing node ${node.id}:`, err);
       await prisma.flowExecution.update({
         where: { id: execution.id as string },
@@ -1233,7 +1333,14 @@ export class FlowEngineService {
       {
         executionId: execution.id as string,
         companyId: (execution.flow as any).companyId as string,
-        currentInstanceId: instance.id as string
+        currentInstanceId: instance.id as string,
+        batchId: variables._batchId as string | undefined,
+        contactJobData: variables._batchId ? {
+          flowId: (execution.flow as any).id as string,
+          contactPhone,
+          variables,
+          companyId: (execution.flow as any).companyId as string,
+        } : undefined,
       }
     );
 
@@ -1288,7 +1395,14 @@ export class FlowEngineService {
         {
           executionId: execution.id as string,
           companyId: (execution.flow as any).companyId as string,
-          currentInstanceId: (instance as any).id as string
+          currentInstanceId: (instance as any).id as string,
+          batchId: variables._batchId as string | undefined,
+          contactJobData: variables._batchId ? {
+            flowId: (execution.flow as any).id as string,
+            contactPhone,
+            variables,
+            companyId: (execution.flow as any).companyId as string,
+          } : undefined,
         }
       );
 
@@ -1386,6 +1500,13 @@ export class FlowEngineService {
         executionId: execution.id as string,
         companyId: (execution.flow as any).companyId as string,
         currentInstanceId: (instance as any).id as string,
+        batchId: variables._batchId as string | undefined,
+        contactJobData: variables._batchId ? {
+          flowId: (execution.flow as any).id as string,
+          contactPhone,
+          variables,
+          companyId: (execution.flow as any).companyId as string,
+        } : undefined,
       }
     );
 
@@ -1492,7 +1613,14 @@ export class FlowEngineService {
       {
         executionId: execution.id as string,
         companyId: (execution.flow as any).companyId as string,
-        currentInstanceId: instance.id as string
+        currentInstanceId: instance.id as string,
+        batchId: variables._batchId as string | undefined,
+        contactJobData: variables._batchId ? {
+          flowId: (execution.flow as any).id as string,
+          contactPhone,
+          variables,
+          companyId: (execution.flow as any).companyId as string,
+        } : undefined,
       }
     );
 
@@ -1542,6 +1670,13 @@ export class FlowEngineService {
         COALESCE(variables->'_pendingConditions', '[]'::jsonb) ||
         ${JSON.stringify([{ nodeId, resumesAt: resumesAt.toISOString() }])}::jsonb
       )
+      WHERE id = ${executionId}
+    `;
+
+    // Remove prioridade: fluxo voltou a aguardar resposta — próximos envios seguem cadência normal
+    await prisma.$executeRaw`
+      UPDATE flow_executions
+      SET variables = variables - '_priorityReply'
       WHERE id = ${executionId}
     `;
 
@@ -1596,6 +1731,13 @@ export class FlowEngineService {
         data: { status: FlowExecutionStatus.DELAYED, resumesAt },
       });
     }
+
+    // Remove prioridade quando o fluxo entra em pausa longa — na retomada usa cadência normal
+    await prisma.$executeRaw`
+      UPDATE flow_executions
+      SET variables = variables - '_priorityReply'
+      WHERE id = ${execution.id as string}
+    `;
 
     // Enfileira job BullMQ para retomar após o delay
     const delayMs = delaySeconds * 1000;
@@ -1861,9 +2003,21 @@ export class FlowEngineService {
           }
         }
 
-        // Enfileira próximo step via BullMQ com delay humano de leitura (10s a 20s)
-        const minUserDelay = 10000; // 10s
-        const maxUserDelay = 20000; // 20s
+        // Sinaliza prioridade: os próximos nós de mensagem serão enviados sem esperar
+        // o slot anti-spam normal — cliente acabou de responder e quer atendimento imediato.
+        await prisma.$executeRaw`
+          UPDATE flow_executions
+          SET variables = jsonb_set(
+            COALESCE(variables, '{}')::jsonb,
+            '{_priorityReply}',
+            'true'::jsonb
+          )
+          WHERE id = ${execution.id}
+        `;
+
+        // Delay de leitura curto (2-5s) — apenas para simular typing antes de responder
+        const minUserDelay = 2000;
+        const maxUserDelay = 5000;
         const delaySimulado = Math.floor(Math.random() * (maxUserDelay - minUserDelay + 1)) + minUserDelay;
 
         await flowQueueService.enqueueFlowStep({
@@ -2007,6 +2161,17 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
           where: { id: execution.id as string },
           data: { variables: cleanVars }
         });
+
+        // Sinaliza prioridade para os próximos nós de mensagem
+        await prisma.$executeRaw`
+          UPDATE flow_executions
+          SET variables = jsonb_set(
+            COALESCE(variables, '{}')::jsonb,
+            '{_priorityReply}',
+            'true'::jsonb
+          )
+          WHERE id = ${execution.id}
+        `;
 
         await flowQueueService.enqueueFlowStep({
           executionId: execution.id as string,

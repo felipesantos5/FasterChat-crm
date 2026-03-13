@@ -321,6 +321,18 @@ export class PipelineService {
       },
     });
   }
+
+  async getDealValuesByCustomer(companyId: string, customerId: string) {
+    return prisma.dealValue.findMany({
+      where: { companyId, customerId },
+      orderBy: { closedAt: 'desc' },
+      include: {
+        stage: {
+          select: { id: true, name: true, color: true },
+        },
+      },
+    });
+  }
 }
 
 export const pipelineService = new PipelineService();

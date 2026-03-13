@@ -303,7 +303,7 @@ class MessageService {
           customer: {
             include: {
               pipelineStage: {
-                select: { color: true },
+                select: { id: true, color: true },
               },
             },
           } as const,
@@ -383,6 +383,7 @@ class MessageService {
             whatsappInstanceName: message.whatsappInstance.instanceName,
             isArchived: message.customer.isArchived ?? false,
             lastMediaType: message.mediaType ?? null,
+            pipelineStageId: message.customer.pipelineStage?.id ?? null,
             pipelineStageColor: message.customer.pipelineStage?.color ?? null,
             temperature: message.customer.temperature ?? null,
           });

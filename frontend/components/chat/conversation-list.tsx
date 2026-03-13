@@ -239,7 +239,7 @@ export function ConversationList({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       {conversations.map((conversation) => (
         <ConversationItem
           key={conversation.customerId}

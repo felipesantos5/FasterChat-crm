@@ -218,6 +218,84 @@ export class FlowBatchController {
   }
 
   /**
+   * Pausa um batch porque a instância WhatsApp foi desconectada ou banida.
+   * Devolve o contato corrente para o início da fila Redis para ser reprocessado no resume.
+   * Chamado pelo FlowEngineService quando não há outra instância disponível para failover.
+   */
+  static async pauseBatchDueToDisconnection(
+    batchId: string,
+    instanceId: string,
+    contactJobData: FlowStartJobData,
+  ): Promise<boolean> {
+    const batch = batchStore.get(batchId);
+    if (!batch || batch.status !== 'PROCESSING') return false;
+
+    batch.status = 'PAUSED';
+    batch.pauseCount++;
+
+    // Devolve o contato ao início da fila para ser o próximo quando o batch retomar
+    try {
+      const queueKey = FlowBatchController.batchQueueKey(batchId);
+      await redisConnection.lpush(queueKey, JSON.stringify(contactJobData));
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[FlowBatch] ❌ Falha ao recolocar contato na fila (batch: ${batchId}): ${errMsg}`);
+    }
+
+    console.error(
+      `[FlowBatch] ⚠️ Batch ${batchId} PAUSADO — instância ${instanceId} desconectada ou banida. ` +
+      `Contato ${contactJobData.contactPhone} devolvido à fila. Reconecte o número e retome o disparo.`
+    );
+    return true;
+  }
+
+  /**
+   * POST /flows/:id/batch/:batchId/resume
+   * Retoma um batch pausado (ex: após reconectar o número banido).
+   */
+  public async resumeBatch(req: Request, res: Response): Promise<Response> {
+    const { batchId } = req.params;
+    const { companyId } = req.user!;
+
+    const batch = batchStore.get(batchId);
+    if (!batch) {
+      return res.status(404).json({ error: 'Batch não encontrado ou já expirou.' });
+    }
+    if (batch.companyId !== companyId) {
+      return res.status(403).json({ error: 'Acesso negado.' });
+    }
+    if (batch.status !== 'PAUSED') {
+      return res.status(400).json({ error: 'O batch não está pausado.', status: batch.status });
+    }
+
+    const queueKey = FlowBatchController.batchQueueKey(batchId);
+    const remaining = await redisConnection.llen(queueKey);
+    if (remaining === 0) {
+      // Fila vazia — batch já terminou de fato
+      batch.status = 'COMPLETED';
+      batch.completedAt = batch.completedAt ?? new Date();
+      return res.json({ message: 'Fila vazia, batch marcado como concluído.', batch });
+    }
+
+    batch.status = 'PROCESSING';
+
+    // Dispara o próximo contato da fila
+    const nextJson = await redisConnection.lpop(queueKey);
+    if (nextJson) {
+      try {
+        const nextContact = JSON.parse(nextJson) as FlowStartJobData;
+        await flowQueueService.enqueueFlowStart(nextContact);
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error(`[FlowBatch] ❌ Erro ao disparar contato no resume: ${errMsg}`);
+      }
+    }
+
+    return res.json({ message: 'Disparo retomado com sucesso.', batch });
+  }
+
+
+  /**
    * Valida todos os contatos, armazena os válidos na fila Redis e dispara
    * N contatos iniciais em paralelo (1 por instância WhatsApp conectada).
    * Cada cadeia avança independentemente quando termina, maximizando velocidade.
