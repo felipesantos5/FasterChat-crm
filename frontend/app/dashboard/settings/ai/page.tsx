@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -156,6 +157,19 @@ function AISettingsPageContent() {
   const { hasError, handleError, clearError } = useErrorHandler();
   const [saving, setSaving] = useState(false);
   const [generatingContext, setGeneratingContext] = useState(false);
+  const [activeTab, setActiveTab] = useState("policies");
+  const [headerPortal, setHeaderPortal] = useState<Element | null>(null);
+
+  useEffect(() => {
+    setHeaderPortal(document.getElementById("header-actions-portal"));
+  }, []);
+
+  const TAB_ORDER = ["policies", "identity", "inventory", "pricing"] as const;
+  type TabValue = typeof TAB_ORDER[number];
+  const goNextTab = () => {
+    const idx = TAB_ORDER.indexOf(activeTab as TabValue);
+    if (idx < TAB_ORDER.length - 1) setActiveTab(TAB_ORDER[idx + 1]);
+  };
 
   // Estado do wizard
   const [setupCompleted, setSetupCompleted] = useState(false);
@@ -802,35 +816,34 @@ function AISettingsPageContent() {
     );
   }
 
+  const saveButtons = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" onClick={() => loadKnowledge()} disabled={loading || saving || generatingContext}>
+        Descartar
+      </Button>
+      <Button
+        size="sm"
+        onClick={async () => {
+          setSaving(true);
+          if (services.length > 0) await saveServices();
+          await saveKnowledge(undefined, undefined, true);
+          await handleGenerateContext();
+        }}
+        disabled={saving || generatingContext}
+        className="shadow-lg shadow-primary/20"
+      >
+        {saving || generatingContext ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+        Salvar e Publicar
+      </Button>
+    </div>
+  );
+
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b px-4 sm:px-6 py-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Personalize a identidade, regras e o catálogo do seu assistente.</p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => loadKnowledge()} disabled={loading}>
-              Descartar
-            </Button>
-            <Button
-              size="sm"
-              onClick={async () => {
-                setSaving(true);
-                if (services.length > 0) await saveServices();
-                await saveKnowledge(undefined, undefined, true);
-                await handleGenerateContext();
-              }}
-              disabled={saving || generatingContext}
-              className="shadow-lg shadow-primary/20"
-            >
-              {saving || generatingContext ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-              Salvar e Publicar
-            </Button>
-          </div>
-        </div>
-      </div>
+      {headerPortal && createPortal(saveButtons, headerPortal)}
 
       <div className="p-4 sm:p-6">
-        <Tabs defaultValue="policies" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-8 h-12 p-1 bg-muted/50 rounded-xl">
             <TabsTrigger value="policies" className="rounded-lg data-[state=active]:shadow-sm">
               <Building2 className="h-4 w-4 mr-2" />
@@ -982,6 +995,12 @@ function AISettingsPageContent() {
                 </CardContent>
               </Card>
             </div>
+            <div className="flex justify-end pt-2 pb-4">
+              <Button onClick={goNextTab} className="gap-2">
+                Próximo: Catálogo
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </TabsContent>
 
           {/* ABA: POLÍTICAS E OPERAÇÃO */}
@@ -1086,6 +1105,12 @@ function AISettingsPageContent() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+            <div className="flex justify-end pt-2 pb-4">
+              <Button onClick={goNextTab} className="gap-2">
+                Próximo: Identidade
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </TabsContent>
 
@@ -1364,6 +1389,12 @@ function AISettingsPageContent() {
                 )}
               </CardContent>
             </Card>
+            <div className="flex justify-end pt-2 pb-4">
+              <Button onClick={goNextTab} className="gap-2">
+                Próximo: Precificação
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </TabsContent>
 
           {/* ABA: PRECIFICAÇÃO AVANÇADA */}
