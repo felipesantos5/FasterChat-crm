@@ -17,7 +17,8 @@ import { whatsappApi } from "@/lib/whatsapp";
 import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Video, Pause, Play, FileText, ExternalLink } from "lucide-react";
+import { useChatDraftStore } from "@/lib/store/chat-draft.store";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Video, Pause, Play, FileText, ExternalLink, Paperclip } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -70,13 +71,14 @@ interface ChatAreaProps {
 
 export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, customerTemperature, onToggleDetails, showDetailsButton, onMarkAsRead, isArchived, onArchive, onUnarchive, isAiThinking }: ChatAreaProps) {
   const router = useRouter();
+  const { setDraft, getDraft, clearDraft } = useChatDraftStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [togglingAi, setTogglingAi] = useState(false);
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValueRaw] = useState(() => getDraft(customerId));
   const [isExample, setIsExample] = useState(false);
   const [showExampleModal, setShowExampleModal] = useState(false);
   const [exampleNotes, setExampleNotes] = useState("");
@@ -87,6 +89,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [selectedVideo, setSelectedVideo] = useState<{ dataUrl: string; name: string } | null>(null);
   const [videoDurations, setVideoDurations] = useState<Record<string, string>>({});
   const [videoCaption, setVideoCaption] = useState("");
+  const [selectedDocument, setSelectedDocument] = useState<{ dataUrl: string; name: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showImageTooLargeModal, setShowImageTooLargeModal] = useState(false);
   const [showMediaMenu, setShowMediaMenu] = useState(false);
@@ -115,11 +118,20 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const isInitialScrollRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const recordingCancelledRef = useRef(false);
   const recordingSendRef = useRef(false);
   const editInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Wrapper que salva rascunho no localStorage a cada mudança
+  const setInputValue = useCallback((value: string | ((prev: string) => string)) => {
+    setInputValueRaw((prev) => {
+      const newVal = typeof value === 'function' ? value(prev) : value;
+      setDraft(customerId, newVal);
+      return newVal;
+    });
+  }, [customerId, setDraft]);
 
   // Handler para novas mensagens via WebSocket
   const handleWebSocketMessage = useCallback(
@@ -355,6 +367,27 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     isInitialScrollRef.current = true;
   }, [customerId]);
 
+  // Carrega rascunho ao trocar de conversa
+  useEffect(() => {
+    const draft = getDraft(customerId);
+    setInputValue(draft);
+    // Ajusta altura do textarea ao carregar rascunho
+    if (draft) {
+      setTimeout(() => {
+        const el = inputRef.current;
+        if (el) {
+          el.style.height = "auto";
+          const newHeight = Math.min(el.scrollHeight, 160);
+          el.style.height = `${newHeight}px`;
+          el.style.overflowY = el.scrollHeight > 160 ? "auto" : "hidden";
+          // Posiciona cursor no final
+          el.focus();
+          el.setSelectionRange(draft.length, draft.length);
+        }
+      }, 0);
+    }
+  }, [customerId]);
+
   // Scroll para última mensagem
   useEffect(() => {
     if (messages.length === 0) return;
@@ -520,7 +553,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
 
     const messageContent = inputValue.trim();
     const quotedId = replyingTo?.id;
-    setInputValue("");
+    setInputValueRaw("");
+    clearDraft(customerId);
     setReplyingTo(null);
     setSending(true);
     // Reseta altura do textarea
@@ -571,15 +605,6 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     reader.readAsDataURL(file);
   };
 
-  // Handler para seleção de arquivo de imagem
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processImageFile(file);
-    }
-    e.target.value = "";
-  };
-
   // Processa arquivo de vídeo
   const processVideoFile = (file: File) => {
     if (!file.type.startsWith("video/")) {
@@ -601,15 +626,6 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       setSelectedVideo({ dataUrl: e.target?.result as string, name: file.name });
     };
     reader.readAsDataURL(file);
-  };
-
-  // Handler para seleção de vídeo
-  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processVideoFile(file);
-    }
-    e.target.value = "";
   };
 
   // Envia vídeo
@@ -639,6 +655,60 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const handleCancelVideo = () => {
     setSelectedVideo(null);
     setVideoCaption("");
+  };
+
+  // Processa arquivo de documento (PDF, DOC, XLS, etc.)
+  const processDocumentFile = (file: File) => {
+    // Aceita PDFs e documentos Office
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Formato não suportado. Envie PDF, DOC, DOCX, XLS ou XLSX.");
+      return;
+    }
+    // Limite de 100MB (limite do WhatsApp para documentos)
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error("Documento muito grande. O limite é 100MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setSelectedDocument({ dataUrl: e.target?.result as string, name: file.name });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDocumentSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processDocumentFile(file);
+    }
+    e.target.value = "";
+  };
+
+  const handleSendDocument = async () => {
+    if (!selectedDocument || sending) return;
+    setSending(true);
+    try {
+      // Envia o nome do arquivo como caption para que o backend use como fileName
+      await messageApi.sendMedia(customerId, selectedDocument.dataUrl, selectedDocument.name, "HUMAN");
+      setSelectedDocument(null);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao enviar documento";
+      toast.error(errorMessage);
+    } finally {
+      setSending(false);
+      setTimeout(() => { inputRef.current?.focus(); }, 0);
+    }
+  };
+
+  const handleCancelDocument = () => {
+    setSelectedDocument(null);
   };
 
   // Handler para colar imagem do clipboard (Ctrl+V)
@@ -697,6 +767,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     if (!file) return;
     if (file.type.startsWith("video/")) {
       processVideoFile(file);
+    } else if (file.type.startsWith("application/")) {
+      processDocumentFile(file);
     } else {
       processImageFile(file);
     }
@@ -1192,10 +1264,10 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
             <div className="flex flex-col items-center gap-2 text-primary">
               <div className="flex items-center gap-3">
-                <ImageIcon className="h-10 w-10" />
-                <Video className="h-10 w-10" />
+                <Paperclip className="h-10 w-10" />
               </div>
-              <p className="text-lg font-medium">Solte a imagem ou vídeo aqui</p>
+              <p className="text-lg font-medium">Solte o arquivo aqui</p>
+              <p className="text-sm text-muted-foreground">Imagem, vídeo ou documento (PDF, DOC, XLS)</p>
             </div>
           </div>
         )}
@@ -1710,6 +1782,50 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           </div>
         )}
 
+        {/* Preview do documento selecionado */}
+        {selectedDocument && (
+          <div className="p-4 border-b bg-muted/50">
+            <div className="flex items-start gap-3">
+              <div className="relative">
+                <div className="h-24 w-24 rounded-lg shadow-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <FileText className="h-10 w-10 text-red-500" />
+                </div>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                  onClick={handleCancelDocument}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-medium truncate">{selectedDocument.name}</p>
+                <Button
+                  type="button"
+                  onClick={handleSendDocument}
+                  disabled={sending}
+                  size="sm"
+                  className="w-full"
+                >
+                  {sending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Enviar Documento
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Preview da mensagem sendo respondida */}
         {replyingTo && (
           <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
@@ -1745,15 +1861,25 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
-            onChange={handleFileSelect}
+            accept="image/*,video/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                if (file.type.startsWith("video/")) {
+                  processVideoFile(file);
+                } else {
+                  processImageFile(file);
+                }
+              }
+              e.target.value = "";
+            }}
             className="hidden"
           />
           <input
-            ref={videoInputRef}
+            ref={documentInputRef}
             type="file"
-            accept="video/*"
-            onChange={handleVideoSelect}
+            accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={handleDocumentSelect}
             className="hidden"
           />
 
@@ -1856,36 +1982,36 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                     type="button"
                     variant="ghost"
                     size="icon"
-                    disabled={sending || !!selectedImage || !!selectedVideo}
-                    title="Adicionar mídia"
+                    disabled={sending || !!selectedImage || !!selectedVideo || !!selectedDocument}
+                    title="Adicionar arquivo"
                     className="rounded-full"
                   >
                     <Plus className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-40 p-1" align="start" side="top">
+                <PopoverContent className="w-44 p-1" align="start" side="top">
                   <button
                     type="button"
                     onClick={() => { setShowMediaMenu(false); fileInputRef.current?.click(); }}
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
                   >
                     <ImageIcon className="h-4 w-4 text-blue-500" />
-                    Imagem
+                    Foto ou Vídeo
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowMediaMenu(false); videoInputRef.current?.click(); }}
+                    onClick={() => { setShowMediaMenu(false); documentInputRef.current?.click(); }}
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
                   >
-                    <Video className="h-4 w-4 text-purple-500" />
-                    Vídeo
+                    <FileText className="h-4 w-4 text-red-500" />
+                    Documento
                   </button>
                 </PopoverContent>
               </Popover>
 
               {/* Botão de Mensagens Rápidas */}
               <QuickMessagePopover
-                disabled={sending || !!selectedImage || !!selectedVideo}
+                disabled={sending || !!selectedImage || !!selectedVideo || !!selectedDocument}
                 onSelectText={(text) => {
                   setInputValue(text);
                   setTimeout(() => {
@@ -1919,7 +2045,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                     type="button"
                     variant="ghost"
                     size="icon"
-                    disabled={sending || !!selectedImage || !!selectedVideo}
+                    disabled={sending || !!selectedImage || !!selectedVideo || !!selectedDocument}
                     title="Adicionar emoji"
                     className="rounded-full"
                   >
@@ -2020,7 +2146,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 textareaRef={inputRef}
                 value={inputValue}
                 placeholder="Digite uma mensagem"
-                disabled={!!selectedImage || !!selectedVideo}
+                disabled={!!selectedImage || !!selectedVideo || !!selectedDocument}
                 onChange={setInputValue}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -2053,7 +2179,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
               {inputValue.trim() ? (
                 <Button
                   type="submit"
-                  disabled={!!selectedImage || !!selectedVideo}
+                  disabled={!!selectedImage || !!selectedVideo || !!selectedDocument}
                   isLoading={sending}
                   size="icon"
                   className="rounded-full bg-green-500 hover:bg-green-600"
@@ -2066,7 +2192,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                   variant="ghost"
                   size="icon"
                   onClick={startRecording}
-                  disabled={sending || !!selectedImage || !!selectedVideo}
+                  disabled={sending || !!selectedImage || !!selectedVideo || !!selectedDocument}
                   title="Gravar áudio"
                   className="rounded-full"
                 >

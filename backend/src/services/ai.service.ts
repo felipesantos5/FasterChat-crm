@@ -967,6 +967,10 @@ Total: R$ 505,00"
           customerTags: customer.tags,
           customerNotes: customer.notes,
           objective: aiKnowledge?.aiObjective,
+          aiTone: aiKnowledge?.aiTone,
+          aiProactivity: aiKnowledge?.aiProactivity,
+          aiClosingFocus: aiKnowledge?.aiClosingFocus,
+          aiCustomInstructions: aiKnowledge?.aiCustomInstructions,
           googleCalendarStatus,
         });
       }
@@ -1141,29 +1145,39 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
       ? `\n### 🎯 SEU OBJETIVO ESPECÍFICO\n${objective}\n`
       : `\n### 🎯 SEU OBJETIVO\nAtender o cliente de forma cordial, tirar dúvidas sobre os produtos listados e encaminhar para fechamento/agendamento.\n`;
 
-    // Modo de Operação baseado no objetivo
+    // Modo de Operação dinâmico combinando Objetivo + Tom + Proatividade
     const objectiveStr = (objective || "").toLowerCase();
     const isSellerMode = objectiveStr.includes("vend") || objectiveStr.includes("sales") || objectiveStr.includes("comercial");
     const isSupportMode = objectiveStr.includes("suporte") || objectiveStr.includes("support") || objectiveStr.includes("técnico");
 
-    let operationModeSection = "\n### 🔄 MODO DE OPERAÇÃO\n";
+    const aiTone = (data.aiTone as string) || "professional";
+    const aiProactivity = (data.aiProactivity as string) || "medium";
+    const aiClosingFocus = data.aiClosingFocus === true;
+
+    const modeLabel = isSellerMode ? "Vendedor Consultivo" : isSupportMode ? "Suporte Técnico" : "Atendimento Geral";
+    const toneLabel = aiTone === "formal" ? "Formal" : aiTone === "friendly" ? "Amigável" : aiTone === "casual" ? "Descontraído" : "Profissional";
+    const proactivityLabel = aiProactivity === "low" ? "Baixa (apenas responde)" : aiProactivity === "high" ? "Alta (engaja e sugere)" : "Média (equilibrada)";
+
+    let operationModeSection = `\n### 🔄 MODO DE OPERAÇÃO\n`;
+    operationModeSection += `**Seu modo atual é [${modeLabel}] com tom [${toneLabel}] e proatividade [${proactivityLabel}].**\n\n`;
+
     if (isSellerMode) {
-      operationModeSection += `**Modo: VENDEDOR CONSULTIVO**
-- Use os adjetivos e benefícios presentes nas descrições dos serviços/produtos para valorizar a oferta
-- Destaque diferenciais e vantagens competitivas quando estiverem na descrição
-- Conduza a conversa naturalmente para o fechamento
-- Mas NUNCA invente benefícios que não estão na descrição — use APENAS os termos cadastrados\n`;
+      operationModeSection += `- Você é um consultor persuasivo mas ${aiTone === "formal" ? "mantém a etiqueta corporativa" : aiTone === "casual" ? "conversa como amigo especialista" : "é direto e profissional"}
+- Use os benefícios presentes nas descrições dos serviços para valorizar a oferta
+- ${aiClosingFocus ? "Conduza para fechamento assim que a dúvida principal for sanada" : "NÃO force fechamento — deixe o cliente decidir o ritmo"}
+- ${aiProactivity === "high" ? "SEMPRE termine com uma pergunta de engajamento ou CTA natural" : aiProactivity === "low" ? "Responda apenas o que foi perguntado, sem sugestões extras" : "Adicione informações complementares quando fizer sentido"}
+- NUNCA invente benefícios que não estão na descrição — use APENAS os termos cadastrados\n`;
     } else if (isSupportMode) {
-      operationModeSection += `**Modo: SUPORTE TÉCNICO**
-- Seja neutro e objetivo — foque em resolver o problema
+      operationModeSection += `- Você é um técnico ${aiTone === "formal" ? "rigoroso e respeitoso" : aiTone === "casual" ? "acessível e paciente" : "claro e objetivo"}
+- Foque em resolver o problema com empatia e paciência
 - NÃO use linguagem de vendas ou adjetivos promocionais
-- Apresente informações técnicas de forma clara e direta
-- Se o problema estiver fora do seu escopo, encaminhe para atendente humano\n`;
+- ${aiProactivity === "high" ? "Ofereça soluções alternativas e pergunte se precisa de mais ajuda" : aiProactivity === "low" ? "Apenas resolva o que foi pedido" : "Adicione dicas úteis quando relevante"}
+- Confirme sempre se a solução funcionou antes de encerrar\n`;
     } else {
-      operationModeSection += `**Modo: ATENDIMENTO GERAL**
-- Seja cordial e prestativo
+      operationModeSection += `- Você é um atendente ${aiTone === "formal" ? "educado e reservado" : aiTone === "casual" ? "descontraído e próximo" : "cordial e prestativo"}
 - Apresente informações de forma clara usando os dados cadastrados
-- Conduza para o objetivo configurado de forma natural\n`;
+- ${aiClosingFocus ? "Conduza para o próximo passo quando perceber que a dúvida foi sanada" : "Deixe o cliente no controle da conversa"}
+- ${aiProactivity === "high" ? "Antecipe necessidades e sugira informações relacionadas" : aiProactivity === "low" ? "Responda objetivamente sem extras" : "Adicione complementos úteis quando natural"}\n`;
     }
 
     // Regras Negativas (O que não fazer)
@@ -1329,10 +1343,22 @@ Se o cliente demonstrar frustração crescente ou a conversa estiver em loop (me
 Exemplo: "Peço desculpas pelo transtorno. Vou encaminhar para um atendente resolver isso pra você. HANDOFF_ACTION"
 
 ### 💬 ESTILO DE RESPOSTA
-- Seja profissional, direto e prestativo.
+- Tom configurado: **${toneLabel}** — ${aiTone === "formal" ? "use linguagem formal, evite gírias, emojis com parcimônia (máximo 1 por mensagem em momentos de cortesia)" : aiTone === "friendly" ? "seja caloroso, use emojis naturalmente (1-2 por mensagem)" : aiTone === "casual" ? "seja descontraído, use emojis naturalmente (1-2 por mensagem) e linguagem do dia a dia" : "equilibre cordialidade e profissionalismo, use emojis com naturalidade (1 por mensagem em média)"}
+- Proatividade: **${proactivityLabel}** — ${aiProactivity === "high" ? "sempre termine com pergunta de engajamento" : aiProactivity === "low" ? "apenas responda o que foi perguntado" : "adicione complementos quando natural"}
+- ${aiClosingFocus ? "Foco em fechamento ATIVADO — conduza para o próximo passo quando a dúvida for sanada" : "Foco em fechamento DESATIVADO — deixe o cliente decidir o ritmo"}
 - Use português brasileiro correto.
 - Mantenha respostas curtas (ideal para WhatsApp).
 - Evite formatação Markdown complexa (negrito e listas simples são ok).
+
+### 😊 EMOJIS (COMO UM HUMANO REAL NO WHATSAPP)
+- Você é um atendente humano — humanos usam emojis naturalmente no WhatsApp
+- Use emojis para expressar emoção e dar leveza, NÃO para decorar
+- Bons momentos: saudação (😊), confirmação (✅👍), comemoração (🎉), despedida
+- NÃO use em: notícias ruins, reclamações, dados técnicos densos
+- NUNCA repita o mesmo emoji na mesma mensagem
+- NUNCA mais de 2 emojis por mensagem — parece robô
+- VARIE os emojis — não use 😊 em toda mensagem
+- Se o cliente não usa emojis, reduza. Se usa, espelhe o nível dele.
 
 ### ⚠️ REGRAS ANTI-REPETIÇÃO (MUITO IMPORTANTE)
 1. **NÃO SEJA ROBÓTICO**: Varie suas respostas. Não termine TODAS as mensagens com "Como posso ajudar?" ou frases similares.
@@ -1350,6 +1376,11 @@ Exemplo: "Peço desculpas pelo transtorno. Vou encaminhar para um atendente reso
    - "Precisa de mais informações?"
    - Ou simplesmente finalize sem perguntar nada se a resposta já foi completa.
 `.trim();
+
+    // Instruções personalizadas da empresa (prioridade máxima)
+    const customInstructionsSection = data.aiCustomInstructions
+      ? `\n### ⚠️ REGRAS ESPECÍFICAS DA EMPRESA (SOBREPÕEM QUALQUER OUTRA INSTRUÇÃO)\nAs regras abaixo foram definidas pelo administrador e têm PRIORIDADE MÁXIMA.\nSe houver conflito com qualquer outra seção, ESTAS REGRAS VENCEM.\n\n${data.aiCustomInstructions}\n`
+      : "";
 
     // Seção de Contexto da Conversa (Serviço de interesse detectado)
     const conversationContextSection = conversationContext || "";
@@ -1374,6 +1405,7 @@ Exemplo: "Peço desculpas pelo transtorno. Vou encaminhar para um atendente reso
 
     return [
       securityAndIdentity,
+      customInstructionsSection,
       businessContext,
       faqSection,
       ragSection,

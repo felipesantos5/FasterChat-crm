@@ -1738,7 +1738,8 @@ class MessageService {
       const isAudio = mediaBase64.startsWith('data:audio/');
       const isImage = mediaBase64.startsWith('data:image/');
       const isVideo = mediaBase64.startsWith('data:video/');
-      const mediaType = isAudio ? 'audio' : isVideo ? 'video' : isImage ? 'image' : 'image';
+      const isDocument = mediaBase64.startsWith('data:application/');
+      const mediaType = isAudio ? 'audio' : isVideo ? 'video' : isDocument ? 'document' : isImage ? 'image' : 'image';
 
       // WhatsApp só aceita MP4 e 3GPP para vídeos. WebM não é suportado.
       if (isVideo && mediaBase64.startsWith('data:video/webm')) {
@@ -1834,8 +1835,8 @@ class MessageService {
         }
       }
 
-      // Áudios enviados não precisam de conteúdo textual
-      const defaultContent = isAudio ? "" : "[Imagem enviada]";
+      // Conteúdo padrão por tipo de mídia
+      const defaultContent = isAudio ? "" : isDocument ? "[Documento enviado]" : isVideo ? "[Vídeo enviado]" : "[Imagem enviada]";
 
       // Salva a mensagem no banco
       const message = await prisma.message.create({

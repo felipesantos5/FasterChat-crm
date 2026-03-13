@@ -225,15 +225,16 @@ class MessageController {
         });
       }
 
-      // Valida se é uma mídia base64 válida (imagem, vídeo ou áudio)
+      // Valida se é uma mídia base64 válida (imagem, vídeo, áudio ou documento)
       const isValidMedia =
         mediaBase64.startsWith('data:image/') ||
         mediaBase64.startsWith('data:audio/') ||
-        mediaBase64.startsWith('data:video/');
+        mediaBase64.startsWith('data:video/') ||
+        mediaBase64.startsWith('data:application/');
       if (!isValidMedia) {
         return res.status(400).json({
           success: false,
-          message: 'Formato de mídia inválido. Envie uma imagem, vídeo ou áudio em base64.',
+          message: 'Formato de mídia inválido. Envie uma imagem, vídeo, áudio ou documento em base64.',
         });
       }
 

@@ -1,15 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { AIKnowledge, Product, ObjectivePreset } from "@/types/ai-knowledge";
+
 import {
   Loader2,
   Check,
@@ -19,7 +38,6 @@ import {
   Package,
   Sparkles,
   ChevronRight,
-  ChevronLeft,
   Plus,
   Trash2,
   Edit3,
@@ -27,7 +45,6 @@ import {
   Wand2,
   Clock,
   CreditCard,
-  Truck,
   Shield,
   Headphones,
   ShoppingCart,
@@ -43,8 +60,6 @@ import {
   ChevronUp,
   Variable,
   DollarSign,
-  Hash,
-  ArrowRight,
   HeartHandshake,
   MessageSquare,
   Database,
@@ -109,14 +124,6 @@ const OBJECTIVE_ICONS: Record<string, LucideIcon> = {
 };
 
 // Definição dos steps do wizard
-const STEPS = [
-  { id: 0, title: "Sua Empresa", icon: Building2, description: "Informações básicas" },
-  { id: 1, title: "Objetivo da IA", icon: Target, description: "Como a IA deve agir" },
-  { id: 2, title: "Políticas", icon: FileText, description: "Regras do negócio" },
-  { id: 3, title: "Produtos", icon: Package, description: "O que você oferece" },
-  { id: 4, title: "Serviços", icon: Wrench, description: "Serviços com variações" },
-  { id: 5, title: "Finalizar", icon: Sparkles, description: "Gerar contexto" },
-];
 
 // Segmentos de negócio sugeridos
 const SEGMENTS = [
@@ -150,7 +157,6 @@ function AISettingsPageContent() {
   const [generatingContext, setGeneratingContext] = useState(false);
 
   // Estado do wizard
-  const [currentStep, setCurrentStep] = useState(0);
   const [setupCompleted, setSetupCompleted] = useState(false);
 
   // Campos do formulário
@@ -166,8 +172,9 @@ function AISettingsPageContent() {
   const [aiTone, setAiTone] = useState<string>("professional");
   const [aiProactivity, setAiProactivity] = useState<string>("medium");
   const [aiClosingFocus, setAiClosingFocus] = useState<boolean>(false);
+  const [aiShowPrices, setAiShowPrices] = useState<boolean>(false);
   const [aiCustomInstructions, setAiCustomInstructions] = useState("");
-  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
+  const [showAdvancedConfig, setShowAdvancedConfig] = useState(true);
 
   const [workingHours, setWorkingHours] = useState("");
   const [businessHoursStart, setBusinessHoursStart] = useState<number>(9);
@@ -313,11 +320,10 @@ function AISettingsPageContent() {
         setAiProactivity(response.data.aiProactivity || "medium");
         setAiClosingFocus(response.data.aiClosingFocus ?? false);
         setAiCustomInstructions(response.data.aiCustomInstructions || "");
+        setAiShowPrices(response.data.aiShowPrices ?? false);
 
         // Expandir seção avançada se houver dados
-        if (response.data.aiTone || response.data.aiProactivity || response.data.aiClosingFocus || response.data.aiCustomInstructions) {
-          setShowAdvancedConfig(true);
-        }
+        setShowAdvancedConfig(true);
 
         setWorkingHours(response.data.workingHours || "");
         setBusinessHoursStart(response.data.businessHoursStart ?? 9);
@@ -332,7 +338,6 @@ function AISettingsPageContent() {
         setAutoReplyEnabled(response.data.autoReplyEnabled ?? true);
         setReplyDelay(response.data.replyDelay ?? 10);
         setSetupCompleted(response.data.setupCompleted ?? false);
-        setCurrentStep(response.data.setupStep ?? 0);
       }
     } catch (err: any) {
       console.error("Error loading knowledge:", err);
@@ -366,6 +371,7 @@ function AISettingsPageContent() {
         aiProactivity,
         aiClosingFocus,
         aiCustomInstructions,
+        aiShowPrices,
         workingHours,
         businessHoursStart,
         businessHoursEnd,
@@ -377,7 +383,7 @@ function AISettingsPageContent() {
         faq: knowledge?.faq || undefined,
         autoReplyEnabled: overrides?.autoReplyEnabled ?? autoReplyEnabled,
         replyDelay: replyDelay,
-        setupStep: nextStep ?? currentStep,
+        setupStep: nextStep ?? 0,
         setupCompleted,
       });
 
@@ -400,31 +406,6 @@ function AISettingsPageContent() {
     }
   };
 
-  const handleNextStep = async () => {
-    const nextStep = currentStep + 1;
-
-    // Se está saindo do step de serviços (step 4), salva os serviços primeiro
-    if (currentStep === 4 && services.length > 0) {
-      const servicesSaved = await saveServices();
-      if (!servicesSaved) {
-        return; // Se falhou a validação, não avança
-      }
-    }
-
-    await saveKnowledge(nextStep);
-    setCurrentStep(nextStep);
-
-    // Se chegou no último step (Finalizar), gera o contexto automaticamente
-    if (nextStep === 5) {
-      setTimeout(() => {
-        handleGenerateContext();
-      }, 500); // Pequeno delay para garantir que o step foi atualizado
-    }
-  };
-
-  const handlePrevStep = () => {
-    setCurrentStep(currentStep - 1);
-  };
 
   const handleGenerateContext = async () => {
     try {
@@ -762,21 +743,17 @@ function AISettingsPageContent() {
     }
   };
 
-  const formatServicePrice = (value: number) => {
+  const formatBRL = (value: number | string | undefined | null) => {
+    if (!value && value !== 0) return "R$ 0,00";
+    if (typeof value === 'string') return value;
     return value.toLocaleString("pt-BR", {
       style: "currency",
       currency: "BRL",
     });
   };
 
-  const calculateExamplePrice = (service: Service) => {
-    let total = service.basePrice;
-    service.variables.forEach((variable) => {
-      if (variable.options.length > 0) {
-        total += variable.options[0].priceModifier;
-      }
-    });
-    return total;
+  const formatServicePrice = (price: number) => {
+    return price === 0 ? "Sob consulta" : formatBRL(price);
   };
 
   if (loading) {
@@ -799,7 +776,6 @@ function AISettingsPageContent() {
     return <LoadingErrorState resource="configurações da IA" onRetry={loadKnowledge} />;
   }
 
-  // Se setup completo, mostra visão geral
   if (setupCompleted) {
     return (
       <CompletedView
@@ -830,1063 +806,639 @@ function AISettingsPageContent() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* Header com Steps */}
-      <div className="mb-8">
-        {/* Progress Steps */}
-        <div className="flex items-center justify-between mt-1 mb-8">
-          {STEPS.map((step, index) => (
-            <div key={step.id} className="flex items-center">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(index)}
-                className={cn(
-                  "flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity",
-                  index <= currentStep ? "text-primary" : "text-muted-foreground",
-                )}
-              >
-                <div
-                  className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all",
-                    index < currentStep
-                      ? "bg-primary border-primary text-primary-foreground"
-                      : index === currentStep
-                        ? "border-primary text-primary"
-                        : "border-muted-foreground/30 hover:border-muted-foreground/50",
-                  )}
-                >
-                  {index < currentStep ? <Check className="h-5 w-5" /> : <step.icon className="h-5 w-5" />}
-                </div>
-                <span className="text-xs mt-1 font-medium hidden sm:block">{step.title}</span>
-              </button>
-              {index < STEPS.length - 1 && (
-                <div className={cn("w-12 sm:w-20 h-0.5 mx-2", index < currentStep ? "bg-primary" : "bg-muted-foreground/30")} />
-              )}
-            </div>
-          ))}
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Configurações da IA</h1>
+          <p className="text-muted-foreground">Personalize a identidade, regras e o catálogo do seu assistente.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => loadKnowledge()} disabled={loading}>
+            Descartar Alterações
+          </Button>
+          <Button
+            onClick={async () => {
+              if (services.length > 0) await saveServices();
+              await saveKnowledge();
+              await handleGenerateContext();
+            }}
+            disabled={saving || generatingContext}
+            className="shadow-lg shadow-primary/20"
+          >
+            {saving || generatingContext ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+            Salvar e Publicar
+          </Button>
         </div>
       </div>
 
-      {/* Step Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {(() => {
-              const StepIcon = STEPS[currentStep].icon;
-              return <StepIcon className="h-5 w-5" />;
-            })()}
-            {STEPS[currentStep].title}
-          </CardTitle>
-          <CardDescription>{STEPS[currentStep].description}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Step 0: Informações da Empresa */}
-          {currentStep === 0 && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="companyName">Nome da Empresa</Label>
-                <Input
-                  id="companyName"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Digite o nome da sua empresa"
-                />
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Coluna Esquerda: Configurações */}
+        <div className="lg:col-span-8">
+          <Tabs defaultValue="identity" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-8 h-12 p-1 bg-muted/50 rounded-xl">
+              <TabsTrigger value="identity" className="rounded-lg data-[state=active]:shadow-sm">
+                <Target className="h-4 w-4 mr-2" />
+                Identidade
+              </TabsTrigger>
+              <TabsTrigger value="policies" className="rounded-lg data-[state=active]:shadow-sm">
+                <FileText className="h-4 w-4 mr-2" />
+                Operação
+              </TabsTrigger>
+              <TabsTrigger value="inventory" className="rounded-lg data-[state=active]:shadow-sm">
+                <Package className="h-4 w-4 mr-2" />
+                Catálogo
+              </TabsTrigger>
+            </TabsList>
 
-              <div className="space-y-2">
-                <Label htmlFor="companySegment">Segmento de Atuação</Label>
-                <div className="flex flex-wrap gap-2">
-                  {SEGMENTS.map((segment) => (
-                    <Badge
-                      key={segment}
-                      variant={companySegment === segment ? "default" : "outline"}
-                      className="cursor-pointer hover:bg-primary/10"
-                      onClick={() => setCompanySegment(segment)}
-                    >
-                      {segment}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="companyDescription">Descreva sua empresa</Label>
-                <Textarea
-                  id="companyDescription"
-                  value={companyDescription}
-                  onChange={(e) => setCompanyDescription(e.target.value)}
-                  placeholder="Conte um pouco sobre o que sua empresa faz, sua história, missão e valores..."
-                  rows={8}
-                  className="min-h-[180px]"
-                />
-                <p className="text-xs text-muted-foreground">Quanto mais detalhes você fornecer, melhor a IA entenderá seu negócio.</p>
-              </div>
-            </>
-          )}
-
-          {/* Step 1: Objetivo da IA */}
-          {currentStep === 1 && (
-            <>
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-base">Selecione o objetivo da sua IA</Label>
-                  <p className="text-sm text-muted-foreground mt-1">Escolha o tipo de atendimento que melhor se adequa ao seu negócio</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {objectivePresets.map((preset) => {
-                    const IconComponent = OBJECTIVE_ICONS[preset.id] || Target;
-                    const isSelected = objectiveType === preset.id;
-
-                    return (
-                      <button
-                        type="button"
-                        key={preset.id}
-                        onClick={() => setObjectiveType(preset.id)}
-                        className={cn(
-                          "flex items-start gap-3 p-4 rounded-lg border-2 text-left transition-all hover:border-primary/50",
-                          isSelected ? "border-primary bg-primary/5" : "border-muted hover:bg-muted/50",
-                        )}
-                      >
-                        <div
+            {/* ABA: IDENTIDADE E COMPORTAMENTO */}
+            <TabsContent value="identity" className="space-y-6 pt-2 animate-in fade-in slide-in-from-left-4 duration-300">
+              <Card className="border-2 border-primary/5 shadow-xl shadow-primary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl font-black">
+                    <Target className="h-6 w-6 text-primary" />
+                    Missão da IA
+                  </CardTitle>
+                  <CardDescription className="text-base">Escolha o objetivo principal que guiará todas as conversas.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {objectivePresets.map((preset) => {
+                      const Icon = OBJECTIVE_ICONS[preset.id] || Target;
+                      return (
+                        <button
+                          type="button"
+                          key={preset.id}
+                          onClick={() => setObjectiveType(preset.id)}
                           className={cn(
-                            "p-2 rounded-lg shrink-0",
-                            isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                            "flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all hover:scale-[1.02] active:scale-[0.98]",
+                            objectiveType === preset.id ? "border-primary bg-primary/5 shadow-inner" : "border-muted hover:bg-muted/30",
                           )}
                         >
-                          <IconComponent className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{preset.label}</span>
-                            {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                          <div className={cn(
+                            "p-3 rounded-xl shrink-0 transition-colors",
+                            objectiveType === preset.id ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "bg-muted text-muted-foreground",
+                          )}>
+                            <Icon className="h-5 w-5" />
                           </div>
-                          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{preset.description}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm leading-tight">{preset.label}</p>
+                            <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed opacity-80">{preset.description}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-              {/* Campo customizado quando seleciona "Personalizado" */}
-              {objectiveType === "custom" && (
-                <div className="space-y-2 pt-2">
-                  <Label htmlFor="aiObjective">Descreva o objetivo personalizado</Label>
-                  <Textarea
-                    id="aiObjective"
-                    value={aiObjective}
-                    onChange={(e) => setAiObjective(e.target.value)}
-                    placeholder="Ex: Atender clientes, responder dúvidas, fornecer informações sobre produtos e serviços, agendar atendimentos..."
-                    rows={6}
-                    className="min-h-[140px]"
-                  />
-                  <p className="text-xs text-muted-foreground">Descreva detalhadamente o que você espera que a IA faça ao atender seus clientes.</p>
-                </div>
-              )}
-
-              {/* Configuração Avançada do Objetivo */}
-              {objectiveType !== "custom" && (
-                <div className="space-y-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
-                    className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showAdvancedConfig ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    Configuração Avançada (opcional)
-                  </button>
-
-                  {showAdvancedConfig && (
-                    <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-                      {/* Tom de Voz */}
-                      <div className="space-y-2">
-                        <Label htmlFor="aiTone" className="text-sm">
-                          Tom de Voz
-                        </Label>
-                        <select
-                          id="aiTone"
-                          value={aiTone}
-                          onChange={(e) => setAiTone(e.target.value)}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        >
-                          <option value="professional">Profissional</option>
-                          <option value="friendly">Amigável</option>
-                          <option value="casual">Casual</option>
-                          <option value="formal">Formal</option>
-                        </select>
-                        <p className="text-xs text-muted-foreground">Define o estilo de comunicação da IA com os clientes</p>
-                      </div>
-
-                      {/* Nível de Proatividade */}
-                      <div className="space-y-2">
-                        <Label htmlFor="aiProactivity" className="text-sm">
-                          Nível de Proatividade
-                        </Label>
-                        <select
-                          id="aiProactivity"
-                          value={aiProactivity}
-                          onChange={(e) => setAiProactivity(e.target.value)}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        >
-                          <option value="low">Baixa - Espera o cliente perguntar</option>
-                          <option value="medium">Média - Sugere quando relevante</option>
-                          <option value="high">Alta - Proativa em oferecer soluções</option>
-                        </select>
-                        <p className="text-xs text-muted-foreground">Controla o quanto a IA toma iniciativa na conversa</p>
-                      </div>
-
-                      {/* Foco em Fechamento */}
-                      <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="aiClosingFocus" className="text-sm font-medium">
-                            Foco em Fechamento de Vendas
-                          </Label>
-                          <p className="text-xs text-muted-foreground">Se ativado, a IA tentará conduzir a conversa para o fechamento</p>
-                        </div>
-                        <Switch id="aiClosingFocus" checked={aiClosingFocus} onCheckedChange={setAiClosingFocus} />
-                      </div>
-
-                      {/* Instruções Personalizadas */}
-                      <div className="space-y-2">
-                        <Label htmlFor="aiCustomInstructions" className="text-sm">
-                          Instruções Personalizadas
-                        </Label>
-                        <Textarea
-                          id="aiCustomInstructions"
-                          value={aiCustomInstructions}
-                          onChange={(e) => setAiCustomInstructions(e.target.value)}
-                          placeholder="Ex: Sempre pergunte sobre o orçamento disponível antes de apresentar opções, mencione nossa garantia de 2 anos..."
-                          rows={4}
-                          className="min-h-[100px]"
-                        />
-                        <p className="text-xs text-muted-foreground">Adicione regras ou comportamentos específicos que a IA deve seguir</p>
-                      </div>
-
-                      {/* Atraso na Resposta */}
-                      <div className="space-y-2">
-                        <Label htmlFor="replyDelay" className="text-sm">
-                          Tempo de Resposta (segundos)
-                        </Label>
-                        <select
-                          id="replyDelay"
-                          value={replyDelay}
-                          onChange={(e) => setReplyDelay(parseInt(e.target.value))}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        >
-                          {Array.from({ length: 12 }, (_, i) => (i + 1) * 10).map((seconds) => (
-                            <option key={seconds} value={seconds}>
-                              {seconds} segundos {seconds === 10 ? "(Padrão)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-xs text-muted-foreground">
-                          Tempo que a IA aguarda antes de enviar a resposta (ajuda a parecer mais humano)
-                        </p>
-                      </div>
+                  {objectiveType === "custom" && (
+                    <div className="space-y-3 pt-2 animate-in fade-in slide-in-from-top-4">
+                      <Label htmlFor="aiObjective" className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Instruções Customizadas</Label>
+                      <Textarea
+                        id="aiObjective"
+                        value={aiObjective}
+                        onChange={(e) => setAiObjective(e.target.value)}
+                        placeholder="Ex: Você é um assistente de vendas de carros de luxo..."
+                        rows={6}
+                        className="bg-muted/10 border-2 rounded-xl focus:ring-primary shadow-inner text-base"
+                      />
                     </div>
                   )}
-                </div>
-              )}
+                </CardContent>
+              </Card>
 
-              <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  Comportamento Profissional Automático
-                </h4>
-                <p className="text-sm text-muted-foreground mb-2">Sua IA já vem configurada com as melhores práticas de atendimento:</p>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Comunicação educada e profissional</li>
-                  <li>• Respostas claras e objetivas</li>
-                  <li>• Uso moderado de emojis</li>
-                  <li>• Tratamento respeitoso ao cliente</li>
-                  <li>
-                    • <strong>Nunca inventa preços</strong> - usa apenas valores cadastrados
-                  </li>
-                  <li>• Encaminha para humano quando necessário</li>
-                </ul>
-              </div>
-            </>
-          )}
-
-          {/* Step 2: Políticas */}
-          {currentStep === 2 && (
-            <>
-              <div className="space-y-4">
-                <Label className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Horário de Funcionamento
-                </Label>
-                <p className="text-sm text-muted-foreground -mt-2">
-                  Defina o horário comercial que a IA usará para mostrar horários disponíveis ao agendar
-                </p>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="businessHoursStart" className="text-sm font-normal">
-                      Das
-                    </Label>
-                    <select
-                      id="businessHoursStart"
-                      value={businessHoursStart}
-                      onChange={(e) => setBusinessHoursStart(parseInt(e.target.value))}
-                      className="flex h-9 w-[85px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    >
-                      {Array.from({ length: 24 }, (_, i) => (
-                        <option key={i} value={i}>
-                          {String(i).padStart(2, "0")}:00
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="businessHoursEnd" className="text-sm font-normal">
-                      até
-                    </Label>
-                    <select
-                      id="businessHoursEnd"
-                      value={businessHoursEnd}
-                      onChange={(e) => setBusinessHoursEnd(parseInt(e.target.value))}
-                      className="flex h-9 w-[85px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    >
-                      {Array.from({ length: 24 }, (_, i) => (
-                        <option key={i} value={i}>
-                          {String(i).padStart(2, "0")}:00
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {businessHoursStart >= businessHoursEnd && (
-                  <p className="text-sm text-destructive">O horário de início deve ser menor que o de fim</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="workingHours" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Detalhes do Horário de Atendimento (opcional)
-                </Label>
-                <Textarea
-                  id="workingHours"
-                  value={workingHours}
-                  onChange={(e) => setWorkingHours(e.target.value)}
-                  placeholder="Ex: Segunda a Sexta: 8h às 18h | Sábado: 8h às 13h | Domingo: Fechado (informação adicional para a IA)"
-                  rows={2}
-                  className="min-h-[60px]"
-                />
-                <p className="text-xs text-muted-foreground">Informação textual que a IA pode usar para responder sobre horário de funcionamento</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="paymentMethods" className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  Formas de Pagamento
-                </Label>
-                <Textarea
-                  id="paymentMethods"
-                  value={paymentMethods}
-                  onChange={(e) => setPaymentMethods(e.target.value)}
-                  placeholder="Ex: PIX (5% desconto), Cartão de Crédito (até 12x), Cartão de Débito, Dinheiro, Boleto..."
-                  rows={3}
-                  className="min-h-[80px]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="deliveryInfo" className="flex items-center gap-2">
-                  <Truck className="h-4 w-4" />
-                  Entrega / Prazos
-                </Label>
-                <Textarea
-                  id="deliveryInfo"
-                  value={deliveryInfo}
-                  onChange={(e) => setDeliveryInfo(e.target.value)}
-                  placeholder="Ex: Prazo de entrega, condições de frete, área de atendimento, tempo para orçamentos..."
-                  rows={5}
-                  className="min-h-[120px]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="warrantyInfo" className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  Garantias
-                </Label>
-                <Textarea
-                  id="warrantyInfo"
-                  value={warrantyInfo}
-                  onChange={(e) => setWarrantyInfo(e.target.value)}
-                  placeholder="Ex: Política de garantia, prazo para trocas, condições, o que não é coberto..."
-                  rows={5}
-                  className="min-h-[120px]"
-                />
-              </div>
-            </>
-          )}
-
-          {/* Step 3: Produtos/Serviços */}
-          {currentStep === 3 && (
-            <>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Seus Produtos e Serviços</h3>
-                  <p className="text-sm text-muted-foreground">Adicione os produtos ou serviços que você oferece</p>
-                </div>
-                <Button onClick={() => setShowProductForm(true)} size="sm">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Adicionar
-                </Button>
-              </div>
-
-              {/* Form de Produto */}
-              {showProductForm && (
-                <Card className="border-primary">
-                  <CardContent className="pt-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium">{editingProduct ? "Editar Produto" : "Novo Produto/Serviço"}</h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setShowProductForm(false);
-                          setEditingProduct(null);
-                          setProductForm({ name: "", description: "", price: "", category: "", duration: "", salesLink: "" });
-                        }}
+              <Card className="border-2 border-primary/5 shadow-xl shadow-primary/5">
+                <CardHeader>
+                  <CardTitle className="text-xl font-black">Personalidade & Persona</CardTitle>
+                  <CardDescription>Ajuste o tom e o nível de autonomia do assistente.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <Label className="font-bold">Tom de Voz</Label>
+                      <select
+                        value={aiTone}
+                        onChange={(e) => setAiTone(e.target.value)}
+                        className="flex h-12 w-full rounded-xl border-2 border-input bg-background px-4 text-sm font-medium transition-colors focus:border-primary focus:ring-0"
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
+                        <option value="professional">🤵 Profissional (Sério e Educado)</option>
+                        <option value="friendly">😊 Amigável (Acolhedor e Próximo)</option>
+                        <option value="casual">👋 Casual (Descontraído e Leve)</option>
+                        <option value="formal">👔 Formal (Rígido e Respeitoso)</option>
+                      </select>
                     </div>
 
+                    <div className="space-y-3">
+                      <Label className="font-bold">Proatividade</Label>
+                      <select
+                        value={aiProactivity}
+                        onChange={(e) => setAiProactivity(e.target.value)}
+                        className="flex h-12 w-full rounded-xl border-2 border-input bg-background px-4 text-sm font-medium transition-colors focus:border-primary focus:ring-0"
+                      >
+                        <option value="low">🔇 Baixa (Reativo: Só responde o que perguntar)</option>
+                        <option value="medium">⚖️ Média (Equilibrado: Sugere extras)</option>
+                        <option value="high">🚀 Alta (Vendedor: Conduz o fechamento)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-5 rounded-2xl border-2 bg-muted/5 hover:bg-muted/10 transition-colors">
+                      <div className="space-y-1">
+                        <Label className="text-base font-bold">Foco em Vendas</Label>
+                        <p className="text-xs text-muted-foreground leading-tight">Priorizar a conversão em cada resposta</p>
+                      </div>
+                      <Switch checked={aiClosingFocus} onCheckedChange={setAiClosingFocus} />
+                    </div>
+
+                    <div className="flex items-center justify-between p-5 rounded-2xl border-2 bg-muted/5 hover:bg-muted/10 transition-colors">
+                      <div className="space-y-1">
+                        <Label className="text-base font-bold">Transparência de Preços</Label>
+                        <p className="text-xs text-muted-foreground leading-tight">Citar valores de forma proativa na conversa</p>
+                      </div>
+                      <Switch checked={aiShowPrices} onCheckedChange={setAiShowPrices} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <Label className="flex items-center gap-2 font-bold">
+                       <Sparkles className="h-4 w-4 text-primary" />
+                       Expert: Instruções de Rodapé
+                    </Label>
+                    <Textarea
+                      value={aiCustomInstructions}
+                      onChange={(e) => setAiCustomInstructions(e.target.value)}
+                      placeholder="Ex: Nunca use o emoji de foguete | Chame o cliente de 'você' | Se perguntarem do dono, diga que ele não está disponível."
+                      className="min-h-[140px] bg-muted/5 border-dashed border-2 rounded-xl font-mono text-xs p-4 leading-relaxed"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ABA: POLÍTICAS E OPERAÇÃO */}
+            <TabsContent value="policies" className="space-y-6 pt-2 animate-in fade-in slide-in-from-right-4 duration-300">
+              <Card className="border-2 border-primary/5 shadow-xl shadow-primary/5 overflow-hidden">
+                <CardHeader className="bg-primary/[0.02] border-b border-primary/5">
+                  <CardTitle className="flex items-center gap-2 text-xl font-black">
+                    <Building2 className="h-6 w-6 text-primary" />
+                    Sobre o Negócio
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="product-name">
-                        Nome do Produto/Serviço <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="product-name"
-                        value={productForm.name}
-                        onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                        placeholder="nome do produto"
-                      />
+                      <Label htmlFor="companyName" className="font-bold">Nome Público da Empresa</Label>
+                      <Input id="companyName" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-11 border-2 rounded-xl px-4" />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="companySegment" className="font-bold">Segmento Principal</Label>
+                      <select
+                        value={companySegment}
+                        onChange={(e) => setCompanySegment(e.target.value)}
+                        className="flex h-11 w-full rounded-xl border-2 border-input bg-background px-4 text-sm font-medium"
+                      >
+                        {SEGMENTS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="companyDescription" className="font-bold">Apresentação da Empresa (Visão IA)</Label>
+                    <Textarea
+                      id="companyDescription"
+                      value={companyDescription}
+                      onChange={(e) => setCompanyDescription(e.target.value)}
+                      placeholder="Conte sobre sua história, especialidades e o que torna seu serviço único..."
+                      className="min-h-[150px] border-2 rounded-xl leading-relaxed text-sm"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                      <div className="space-y-2">
-                        <Label htmlFor="product-category">Categoria</Label>
+              <Card className="border-2 border-primary/5 shadow-xl shadow-primary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl font-black text-primary">
+                    <Clock className="h-6 w-6" />
+                    Regras de Atendimento
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="space-y-4">
+                        <Label className="text-base font-bold flex items-center gap-2">
+                           <Clock className="h-4 w-4 text-muted-foreground" />
+                           Janela Comercial
+                        </Label>
+                        <div className="grid grid-cols-2 gap-3 items-center">
+                           <div className="space-y-1">
+                              <p className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Início</p>
+                              <select value={businessHoursStart} onChange={(e) => setBusinessHoursStart(parseInt(e.target.value))} className="w-full h-11 border-2 rounded-xl px-2 font-bold">
+                                 {Array.from({length: 24}).map((_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>)}
+                              </select>
+                           </div>
+                           <div className="space-y-1">
+                              <p className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Fim</p>
+                              <select value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(parseInt(e.target.value))} className="w-full h-11 border-2 rounded-xl px-2 font-bold">
+                                 {Array.from({length: 24}).map((_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>)}
+                              </select>
+                           </div>
+                        </div>
                         <Input
-                          id="product-category"
-                          value={productForm.category}
-                          onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                          placeholder="Ex: Serviço, Produto..."
+                          value={workingHours}
+                          onChange={(e) => setWorkingHours(e.target.value)}
+                          placeholder="Ex: Seg a Sex 09h-18h, Sáb 09h-13h"
                         />
-                      </div>
+                     </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="product-price" className="flex items-center gap-1">
-                          Preço
-                          <CreditCard className="h-3 w-3 text-muted-foreground" />
+                     <div className="space-y-4">
+                        <Label className="text-base font-bold flex items-center gap-2 text-muted-foreground">
+                           <CreditCard className="h-4 w-4" />
+                           Pagamento & Venda
                         </Label>
-                        <Input id="product-price" value={productForm.price} onChange={handlePriceChange} placeholder="R$ 0,00" inputMode="numeric" />
-                      </div>
+                        <Textarea
+                          value={paymentMethods}
+                          onChange={(e) => setPaymentMethods(e.target.value)}
+                          placeholder="Ex: Pix com 5% desc | Crédito 12x | Débito presencial..."
+                          className="min-h-[100px] border-2 rounded-xl text-sm"
+                        />
+                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="product-duration" className="flex items-center gap-1">
-                          Duração
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="product-duration"
-                            type="number"
-                            min="0"
-                            value={productForm.duration}
-                            onChange={(e) => setProductForm({ ...productForm, duration: e.target.value })}
-                            placeholder="60"
-                            className="pr-16"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">minutos</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="product-description">Descrição Detalhada</Label>
-                      <Textarea
-                        id="product-description"
-                        value={productForm.description}
-                        onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                        placeholder="Descreva o produto ou serviço com detalhes: o que inclui, diferenciais, observações importantes..."
-                        rows={4}
-                        className="min-h-[100px]"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="product-salesLink" className="flex items-center gap-1">
-                        Link de Venda
-                        <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
-                      </Label>
-                      <Input
-                        id="product-salesLink"
-                        type="url"
-                        value={productForm.salesLink}
-                        onChange={(e) => setProductForm({ ...productForm, salesLink: e.target.value })}
-                        placeholder="https://seusite.com/checkout/produto"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Link de checkout ou página de compra. A IA usará esse link para direcionar o cliente na hora da venda.
-                      </p>
-                    </div>
-
-                    <Button onClick={handleAddProduct} className="w-full">
-                      {editingProduct ? "Salvar Alterações" : "Adicionar Produto"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Lista de Produtos - CORREÇÃO TELA BRANCA */}
-              {Array.isArray(products) && products.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {products.map((product) => (
-                    <Card key={product.id} className="relative group hover:shadow-md transition-shadow">
-                      <CardContent className="pt-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            {/* Título e Categoria */}
-                            <div className="flex items-start gap-2 mb-2">
-                              <h4 className="font-semibold text-base flex-1">{product.name}</h4>
-                              {product.category && (
-                                <Badge variant="outline" className="text-xs flex-shrink-0">
-                                  {product.category}
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Preço, Duração e Link */}
-                            <div className="flex flex-wrap gap-3 mb-2">
-                              {product.price && (
-                                <div className="flex items-center gap-1.5 text-sm">
-                                  <CreditCard className="h-4 w-4 text-green-600" />
-                                  <span className="font-semibold text-green-700 dark:text-green-400">{product.price}</span>
-                                </div>
-                              )}
-                              {product.duration && (
-                                <div className="flex items-center gap-1.5 text-sm">
-                                  <Clock className="h-4 w-4 text-blue-600" />
-                                  <span className="text-muted-foreground">
-                                    {product.duration} min{" "}
-                                    {product.duration >= 60 &&
-                                      `(${Math.floor(product.duration / 60)}h${product.duration % 60 > 0 ? ` ${product.duration % 60}min` : ""})`}
-                                  </span>
-                                </div>
-                              )}
-                              {product.salesLink && (
-                                <div className="flex items-center gap-1.5 text-sm">
-                                  <ShoppingCart className="h-4 w-4 text-purple-600" />
-                                  <span className="text-purple-600 dark:text-purple-400">Link de venda</span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Descrição */}
-                            {product.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{product.description}</p>
-                            )}
-                          </div>
-
-                          {/* Botões de Ação */}
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditProduct(product)}>
-                              <Edit3 className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteProduct(product.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Nenhum produto adicionado ainda</p>
-                  <p className="text-sm">Clique em "Adicionar" para começar</p>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Step 4: Serviços com Variações */}
-          {currentStep === 4 && (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-medium">Serviços com Variações de Preço</h3>
-                  <p className="text-sm text-muted-foreground">Configure serviços com variáveis que modificam o preço final</p>
-                </div>
-                <Button onClick={addService} size="sm">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Adicionar Serviço
-                </Button>
-              </div>
-
-              {/* Info Card */}
-              {/* <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 flex gap-3">
-                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800 dark:text-blue-200">
-                  <p className="font-medium mb-1">Como funciona?</p>
-                  <p>
-                    Cadastre serviços com um <strong>preço base</strong> e adicione{" "}
-                    <strong>variáveis</strong> que modificam o preço final. Por exemplo: uma
-                    instalação de ar condicionado pode ter variáveis como BTUs, tipo de acesso
-                    (escada/rapel) e região.
-                  </p>
-                </div>
-              </div> */}
-
-              {/* Lista de Serviços */}
-              {services.length > 0 ? (
-                <div className="space-y-4">
-                  {services.map((service, serviceIndex) => (
-                    <Card key={serviceIndex} className="overflow-hidden">
-                      {/* Service Header */}
-                      <div
-                        className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => toggleServiceExpanded(serviceIndex)}
-                      >
-                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Wrench className="w-5 h-5 text-primary" />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <Input
-                            value={service.name}
-                            onChange={(e) => updateService(serviceIndex, "name", e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            placeholder="Nome do serviço (ex: Instalação de Ar Condicionado)"
-                            className="text-lg font-semibold bg-transparent border-none focus:ring-0 p-0 h-auto"
-                          />
-                          <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                            <span>Base: {formatServicePrice(service.basePrice)}</span>
-                            <span>•</span>
-                            <span>{service.variables.length} variáveis</span>
-                          </div>
-                        </div>
-
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeService(serviceIndex);
-                          }}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </Button>
-
-                        {expandedServices.has(serviceIndex) ? (
-                          <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                        )}
-                      </div>
-
-                      {/* Service Content (Expanded) */}
-                      {expandedServices.has(serviceIndex) && (
-                        <CardContent className="border-t space-y-6 pt-4">
-                          {/* Basic Info */}
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                              <Label>Descrição (opcional)</Label>
-                              <Input
-                                value={service.description || ""}
-                                onChange={(e) => updateService(serviceIndex, "description", e.target.value)}
-                                placeholder="Breve descrição do serviço"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Categoria (opcional)</Label>
-                              <Input
-                                value={service.category || ""}
-                                onChange={(e) => updateService(serviceIndex, "category", e.target.value)}
-                                placeholder="Ex: Instalação, Limpeza, Manutenção"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="flex items-center gap-1">
-                                Duração
-                                <Clock className="h-3 w-3 text-muted-foreground" />
-                              </Label>
-                              <div className="relative">
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={service.duration || 60}
-                                  onChange={(e) => updateService(serviceIndex, "duration", parseInt(e.target.value) || 60)}
-                                  placeholder="60"
-                                  className="pr-16"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">minutos</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Pricing Section */}
+            {/* ABA: CATÁLOGO E INVENTÁRIO */}
+            <TabsContent value="inventory" className="space-y-6 pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <Card className="border-2 border-primary/5 shadow-xl shadow-primary/5 overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 bg-primary/[0.02]">
+                  <div>
+                    <CardTitle className="text-2xl font-black">Produtos e Itens</CardTitle>
+                    <CardDescription className="text-base">Gerencie o portfólio de produtos individuais.</CardDescription>
+                  </div>
+                  <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
+                    <DialogTrigger asChild>
+                      <Button onClick={() => { setEditingProduct(null); setProductForm({name: "", description: "", price: "", category: "", duration: "", salesLink: ""}); }} className="rounded-xl shadow-lg shadow-primary/20">
+                        <Plus className="h-5 w-5 mr-1" /> Novo Produto
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden rounded-3xl border-none shadow-2xl">
+                       <div className="p-8 bg-background">
+                          <DialogHeader className="mb-6">
+                            <DialogTitle className="text-2xl font-black">{editingProduct ? "Editar Produto" : "Novo Produto"}</DialogTitle>
+                            <DialogDescription>Insira as informações do produto para a IA.</DialogDescription>
+                          </DialogHeader>
                           <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <Label className="flex items-center gap-2 text-base">
-                                <DollarSign className="w-4 h-4" />
-                                Precificação
-                              </Label>
-                              <div className="flex items-center gap-2">
-                                <Label className="text-sm font-normal text-muted-foreground">Preço varia por quantidade?</Label>
-                                <Switch checked={service.usePricingTiers || false} onCheckedChange={() => toggleUsePricingTiers(serviceIndex)} />
+                             <div className="space-y-2">
+                               <Label className="font-bold">Nome do Produto</Label>
+                               <Input placeholder="Ex: Cadeira Gamer Pro" value={productForm.name} onChange={(e) => setProductForm({...productForm, name: e.target.value})} className="h-11 rounded-xl" />
+                             </div>
+                             <div className="grid grid-cols-2 gap-4">
+                               <div className="space-y-2">
+                                 <Label className="font-bold">Preço</Label>
+                                 <Input placeholder="R$ 0,00" value={productForm.price} onChange={handlePriceChange} className="h-11 rounded-xl" />
+                               </div>
+                               <div className="space-y-2">
+                                 <Label className="font-bold">Categoria</Label>
+                                 <Input placeholder="Ex: Hardware" value={productForm.category} onChange={(e) => setProductForm({...productForm, category: e.target.value})} className="h-11 rounded-xl" />
+                               </div>
+                             </div>
+                             <div className="space-y-2">
+                               <Label className="font-bold">Descrição</Label>
+                               <Textarea placeholder="Descreva os benefícios e características..." value={productForm.description} onChange={(e) => setProductForm({...productForm, description: e.target.value})} rows={3} className="rounded-xl" />
+                             </div>
+                             <div className="space-y-2">
+                               <Label className="font-bold">Link de Venda (Opcional)</Label>
+                               <Input placeholder="https://..." value={productForm.salesLink} onChange={(e) => setProductForm({...productForm, salesLink: e.target.value})} className="h-11 rounded-xl" />
+                             </div>
+                             <Button onClick={handleAddProduct} className="w-full h-12 rounded-xl text-lg font-bold mt-4">
+                               {editingProduct ? "Salvar Alterações" : "Adicionar ao Catálogo"}
+                             </Button>
+                          </div>
+                       </div>
+                    </DialogContent>
+                  </Dialog>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  {products.length > 0 ? (
+                    <div className="rounded-2xl border-2 border-primary/5 overflow-hidden">
+                      <Table>
+                        <TableHeader className="bg-muted/50">
+                          <TableRow>
+                            <TableHead className="font-bold">Item</TableHead>
+                            <TableHead className="font-bold">Categoria</TableHead>
+                            <TableHead className="font-bold">Valor</TableHead>
+                            <TableHead className="text-right font-bold">Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {products.map((product) => (
+                            <TableRow key={product.id} className="hover:bg-muted/30 transition-colors">
+                              <TableCell className="font-bold py-4">{product.name}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="rounded-md font-medium">{product.category || "Geral"}</Badge>
+                              </TableCell>
+                              <TableCell className="font-mono text-green-600 font-black">{product.price}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                   <Button variant="ghost" size="icon" onClick={() => handleEditProduct(product)} className="hover:bg-primary/10 hover:text-primary"><Edit3 className="h-4 w-4" /></Button>
+                                   <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(product.id)} className="hover:bg-destructive/10 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-3xl bg-muted/5 opacity-50">
+                      <Package className="h-12 w-12 mb-3 text-muted-foreground" />
+                      <p className="font-bold">Nenhum produto cadastrado</p>
+                      <p className="text-sm">Clique em "Novo Produto" para começar.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-primary/5 shadow-xl shadow-primary/5 overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 bg-blue-500/[0.02]">
+                  <div>
+                    <CardTitle className="text-2xl font-black">Serviços com Variações</CardTitle>
+                    <CardDescription className="text-base">Configure serviços que dependem de variáveis (ex: instalação, consultoria).</CardDescription>
+                  </div>
+                  <Button onClick={addService} variant="outline" className="border-2 rounded-xl group hover:border-blue-500 transition-all">
+                    <Plus className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
+                    Adicionar Serviço
+                  </Button>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-6">
+                  {services.length > 0 ? (
+                    <div className="space-y-4">
+                      {services.map((service, serviceIndex) => (
+                        <Card key={serviceIndex} className={cn(
+                          "border-2 transition-all overflow-hidden rounded-2xl",
+                          expandedServices.has(serviceIndex) ? "border-primary/20 shadow-md" : "border-muted hover:border-primary/10"
+                        )}>
+                          <div
+                            className="flex items-center justify-between p-4 cursor-pointer bg-muted/10 hover:bg-muted/20 transition-colors"
+                            onClick={() => toggleServiceExpanded(serviceIndex)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-blue-500/10 rounded-lg">
+                                <Wrench className="h-5 w-5 text-blue-500" />
+                              </div>
+                              <div>
+                                <h4 className="font-bold">{service.name || "Serviço sem nome"}</h4>
+                                <p className="text-xs text-muted-foreground">{service.category || "Sem categoria"}</p>
                               </div>
                             </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="font-mono text-blue-600 font-bold">
+                                {service.usePricingTiers ? "Preço p/ Faixa" : formatServicePrice(service.basePrice)}
+                              </Badge>
+                              {expandedServices.has(serviceIndex) ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => { e.stopPropagation(); removeService(serviceIndex); }}
+                                className="text-destructive hover:bg-destructive/10 h-8 w-8"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
 
-                            {!service.usePricingTiers ? (
-                              /* Preço Base Simples */
-                              <div className="space-y-2">
-                                <Label className="text-sm">Preço Base (R$)</Label>
-                                <div className="relative max-w-xs">
-                                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          {expandedServices.has(serviceIndex) && (
+                            <CardContent className="p-6 space-y-8 animate-in slide-in-from-top-2 duration-200">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                  <Label className="font-bold">Nome do Serviço</Label>
                                   <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={service.basePrice}
-                                    onChange={(e) => updateService(serviceIndex, "basePrice", parseFloat(e.target.value) || 0)}
-                                    className="pl-9"
+                                    value={service.name}
+                                    onChange={(e) => updateService(serviceIndex, "name", e.target.value)}
+                                    placeholder="Ex: Instalação de Ar Condicionado"
+                                    className="rounded-xl border-2"
                                   />
                                 </div>
-                                <p className="text-xs text-muted-foreground">Preço fixo independente da quantidade</p>
+                                <div className="space-y-2">
+                                  <Label className="font-bold">Duração Estimada</Label>
+                                  <div className="relative">
+                                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                      type="number"
+                                      value={service.duration}
+                                      onChange={(e) => updateService(serviceIndex, "duration", parseInt(e.target.value) || 0)}
+                                      className="pl-10 rounded-xl border-2"
+                                    />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground uppercase font-bold">min</span>
+                                  </div>
+                                </div>
                               </div>
-                            ) : (
-                              /* Faixas de Preço por Quantidade */
-                              <div className="space-y-3">
-                                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
-                                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                                    <strong>Faixas de preço:</strong> Configure preços diferentes conforme a quantidade. Ex: 1 un = R$ 275, 2-4 un =
-                                    R$ 250/cada, 5+ un = R$ 200/cada.
-                                  </p>
+
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <Label className="flex items-center gap-2 text-base font-bold">
+                                    <DollarSign className="w-5 h-5 text-green-500" />
+                                    Configuração de Preço
+                                  </Label>
+                                  <div className="flex items-center gap-2 bg-muted/50 px-3 py-1 rounded-full border">
+                                    <Label className="text-xs font-bold text-muted-foreground">Preço por quantidade?</Label>
+                                    <Switch checked={service.usePricingTiers || false} onCheckedChange={() => toggleUsePricingTiers(serviceIndex)} />
+                                  </div>
                                 </div>
 
-                                {service.pricingTiers && service.pricingTiers.length > 0 && (
-                                  <div className="space-y-2">
-                                    {service.pricingTiers.map((tier, tierIndex) => (
-                                      <div key={tierIndex} className="flex flex-wrap items-center gap-2 bg-muted/50 p-3 rounded-lg border">
-                                        <span className="text-sm text-muted-foreground">De</span>
-                                        <Input
-                                          type="number"
-                                          min="1"
-                                          value={tier.minQuantity}
-                                          onChange={(e) => updatePricingTier(serviceIndex, tierIndex, "minQuantity", parseInt(e.target.value) || 1)}
-                                          className="w-16 text-center"
-                                        />
-                                        <span className="text-sm text-muted-foreground">até</span>
-                                        <Input
-                                          type="number"
-                                          min="1"
-                                          value={tier.maxQuantity || ""}
-                                          onChange={(e) =>
-                                            updatePricingTier(
-                                              serviceIndex,
-                                              tierIndex,
-                                              "maxQuantity",
-                                              e.target.value ? parseInt(e.target.value) : null,
-                                            )
-                                          }
-                                          placeholder="+"
-                                          className="w-16 text-center"
-                                        />
-                                        <span className="text-sm text-muted-foreground">un.</span>
-                                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                                        <div className="relative">
-                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
-                                          <Input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={tier.pricePerUnit}
-                                            onChange={(e) =>
-                                              updatePricingTier(serviceIndex, tierIndex, "pricePerUnit", parseFloat(e.target.value) || 0)
-                                            }
-                                            className="w-28 pl-8"
-                                          />
-                                        </div>
-                                        <span className="text-sm text-muted-foreground">/cada</span>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() => removePricingTier(serviceIndex, tierIndex)}
-                                          disabled={service.pricingTiers!.length <= 1}
-                                          className="ml-auto text-muted-foreground hover:text-destructive disabled:opacity-30"
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                      </div>
-                                    ))}
+                                {!service.usePricingTiers ? (
+                                  <div className="p-4 bg-muted/10 rounded-2xl border-2 border-dashed space-y-2">
+                                    <Label className="text-sm font-bold text-muted-foreground uppercase">Preço Base Fixo</Label>
+                                    <div className="relative max-w-[200px]">
+                                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-600" />
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={service.basePrice}
+                                        onChange={(e) => updateService(serviceIndex, "basePrice", parseFloat(e.target.value) || 0)}
+                                        className="pl-9 font-black text-lg h-12 rounded-xl border-2"
+                                      />
+                                    </div>
                                   </div>
-                                )}
-
-                                <Button variant="outline" size="sm" onClick={() => addPricingTier(serviceIndex)} className="w-full border-dashed">
-                                  <Plus className="w-4 h-4 mr-1" />
-                                  Adicionar Faixa de Preço
-                                </Button>
-
-                                {/* Preview de cálculo */}
-                                {service.pricingTiers && service.pricingTiers.length > 0 && (
-                                  <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
-                                    <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">Exemplo de cálculo:</p>
-                                    <div className="space-y-1 text-sm text-green-700 dark:text-green-300">
-                                      {service.pricingTiers.map((tier, idx) => (
-                                        <div key={idx} className="flex items-center gap-2">
-                                          <Hash className="w-3 h-3" />
-                                          <span>
-                                            {tier.maxQuantity ? `${tier.minQuantity} a ${tier.maxQuantity} un.` : `${tier.minQuantity}+ un.`} : R${" "}
-                                            {tier.pricePerUnit.toFixed(2)} cada
-                                            {tier.minQuantity > 0 && (
-                                              <span className="text-green-600 dark:text-green-400 ml-1">
-                                                (ex: {tier.minQuantity} un. = R$ {(tier.pricePerUnit * tier.minQuantity).toFixed(2)})
-                                              </span>
-                                            )}
-                                          </span>
+                                ) : (
+                                  <div className="space-y-4">
+                                    <div className="grid gap-3">
+                                      {service.pricingTiers?.map((tier, tierIndex) => (
+                                        <div key={tierIndex} className="flex flex-wrap items-center gap-4 bg-background p-4 rounded-xl border-2 shadow-sm">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-muted-foreground">DE</span>
+                                            <Input type="number" value={tier.minQuantity} onChange={(e) => updatePricingTier(serviceIndex, tierIndex, "minQuantity", parseInt(e.target.value) || 1)} className="w-16 h-9 rounded-lg" />
+                                            <span className="text-xs font-bold text-muted-foreground">ATÉ</span>
+                                            <Input type="number" placeholder="∞" value={tier.maxQuantity || ""} onChange={(e) => updatePricingTier(serviceIndex, tierIndex, "maxQuantity", e.target.value ? parseInt(e.target.value) : null)} className="w-16 h-9 rounded-lg" />
+                                          </div>
+                                          <div className="flex items-center gap-2 ml-auto">
+                                            <span className="text-xs font-bold text-muted-foreground uppercase">R$/UN</span>
+                                            <Input type="number" step="0.01" value={tier.pricePerUnit} onChange={(e) => updatePricingTier(serviceIndex, tierIndex, "pricePerUnit", parseFloat(e.target.value) || 0)} className="w-28 h-9 rounded-lg font-bold" />
+                                            <Button variant="ghost" size="icon" onClick={() => removePricingTier(serviceIndex, tierIndex)} className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
+                                          </div>
                                         </div>
                                       ))}
                                     </div>
+                                    <Button variant="outline" size="sm" onClick={() => addPricingTier(serviceIndex)} className="w-full border-dashed h-10 rounded-xl">
+                                      <Plus className="w-4 h-4 mr-2" /> Nova Faixa de Preço
+                                    </Button>
                                   </div>
                                 )}
                               </div>
-                            )}
-                          </div>
 
-                          {/* Variables Section */}
-                          <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <Label className="flex items-center gap-2">
-                                <Variable className="w-4 h-4" />
-                                Variáveis de Preço
-                              </Label>
-                              <Button variant="outline" size="sm" onClick={() => addVariable(serviceIndex)}>
-                                <Plus className="w-4 h-4 mr-1" />
-                                Adicionar Variável
-                              </Button>
-                            </div>
+                              <div className="space-y-4 pt-4 border-t-2 border-dashed">
+                                <div className="flex items-center justify-between">
+                                  <Label className="flex items-center gap-2 text-base font-bold">
+                                    <Variable className="w-5 h-5 text-blue-500" />
+                                    Variações customizadas
+                                  </Label>
+                                  <Button variant="ghost" size="sm" onClick={() => addVariable(serviceIndex)} className="text-blue-500 hover:bg-blue-50">
+                                    <Plus className="w-4 h-4 mr-1" /> Adicionar Variável
+                                  </Button>
+                                </div>
 
-                            {service.variables.length === 0 ? (
-                              <div className="text-center py-6 bg-muted/30 rounded-lg border-2 border-dashed">
-                                <Variable className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
-                                <p className="text-sm text-muted-foreground">Nenhuma variável cadastrada</p>
-                                <Button variant="link" size="sm" onClick={() => addVariable(serviceIndex)}>
-                                  + Adicionar primeira variável
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="space-y-4">
-                                {service.variables.map((variable, varIndex) => (
-                                  <Card key={varIndex} className="bg-muted/30">
-                                    <CardContent className="pt-4">
-                                      {/* Variable Header */}
-                                      <div className="flex items-start gap-3 mb-4">
-                                        <div className="flex-1">
+                                {service.variables.length > 0 && (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {service.variables.map((variable, varIndex) => (
+                                      <Card key={varIndex} className="bg-muted/5 border-2 rounded-2xl overflow-hidden">
+                                        <div className="p-3 bg-muted/10 border-b-2 flex items-center justify-between">
                                           <Input
                                             value={variable.name}
                                             onChange={(e) => updateVariable(serviceIndex, varIndex, "name", e.target.value)}
-                                            placeholder="Nome da variável (ex: BTUs, Tipo de Acesso)"
-                                            className="font-medium"
+                                            placeholder="Nome (ex: Material, Tamanho)"
+                                            className="h-8 border-none bg-transparent font-bold focus-visible:ring-0 p-0"
                                           />
+                                          <Button variant="ghost" size="icon" onClick={() => removeVariable(serviceIndex, varIndex)} className="h-6 w-6 text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></Button>
                                         </div>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() => removeVariable(serviceIndex, varIndex)}
-                                          className="text-muted-foreground hover:text-destructive"
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                      </div>
-
-                                      {/* Options */}
-                                      <div className="space-y-2">
-                                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Opções</span>
-
-                                        {variable.options.map((option, optIndex) => (
-                                          <div key={optIndex} className="flex items-center gap-2 bg-background rounded-lg p-2 border">
-                                            <Input
-                                              value={option.name}
-                                              onChange={(e) => updateOption(serviceIndex, varIndex, optIndex, "name", e.target.value)}
-                                              placeholder="Nome da opção"
-                                              className="flex-1"
-                                            />
-                                            <div className="relative w-32">
-                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
-                                              <Input
-                                                type="number"
-                                                step="0.01"
-                                                value={option.priceModifier}
-                                                onChange={(e) =>
-                                                  updateOption(serviceIndex, varIndex, optIndex, "priceModifier", parseFloat(e.target.value) || 0)
-                                                }
-                                                className="pl-8 text-right"
-                                              />
+                                        <div className="p-3 space-y-2">
+                                          {variable.options.map((option, optIndex) => (
+                                            <div key={optIndex} className="flex items-center gap-2">
+                                              <Input value={option.name} onChange={(e) => updateOption(serviceIndex, varIndex, optIndex, "name", e.target.value)} placeholder="Opção" className="h-8 rounded-lg text-xs" />
+                                              <div className="relative w-24 shrink-0">
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">R$</span>
+                                                <Input type="number" step="0.01" value={option.priceModifier} onChange={(e) => updateOption(serviceIndex, varIndex, optIndex, "priceModifier", parseFloat(e.target.value) || 0)} className="h-8 pl-6 pr-1 text-right rounded-lg text-xs font-bold" />
+                                              </div>
+                                              <Button variant="ghost" size="icon" onClick={() => removeOption(serviceIndex, varIndex, optIndex)} className="h-7 w-7 text-muted-foreground"><Trash2 className="h-3 w-3" /></Button>
                                             </div>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              onClick={() => removeOption(serviceIndex, varIndex, optIndex)}
-                                              disabled={variable.options.length <= 1}
-                                              className="text-muted-foreground hover:text-destructive disabled:opacity-30"
-                                            >
-                                              <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                          </div>
-                                        ))}
-
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => addOption(serviceIndex, varIndex)}
-                                          className="w-full border-dashed"
-                                        >
-                                          + Adicionar opção
-                                        </Button>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Example Calculation */}
-                          {service.variables.length > 0 && (
-                            <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-800">
-                              <h4 className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">Exemplo de cálculo</h4>
-                              <div className="space-y-1 text-sm text-green-700 dark:text-green-300">
-                                <div className="flex justify-between">
-                                  <span>Preço base</span>
-                                  <span>{formatServicePrice(service.basePrice)}</span>
-                                </div>
-                                {service.variables.map(
-                                  (variable, vIdx) =>
-                                    variable.options[0] && (
-                                      <div key={vIdx} className="flex justify-between">
-                                        <span>
-                                          {variable.name || "Variável"}: {variable.options[0].name || "Opção 1"}
-                                        </span>
-                                        <span>
-                                          {variable.options[0].priceModifier >= 0 ? "+" : ""}
-                                          {formatServicePrice(variable.options[0].priceModifier)}
-                                        </span>
-                                      </div>
-                                    ),
+                                          ))}
+                                          <Button variant="link" size="sm" onClick={() => addOption(serviceIndex, varIndex)} className="h-6 text-[10px] p-0">+ Adicionar Opção</Button>
+                                        </div>
+                                      </Card>
+                                    ))}
+                                  </div>
                                 )}
-                                <div className="flex justify-between pt-2 border-t border-green-300 dark:border-green-700 font-semibold">
-                                  <span>Total</span>
-                                  <span>{formatServicePrice(calculateExamplePrice(service))}</span>
-                                </div>
                               </div>
-                            </div>
+                            </CardContent>
                           )}
-                        </CardContent>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Wrench className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Nenhum serviço com variações adicionado</p>
-                  <p className="text-sm">Clique em "Adicionar Serviço" para começar</p>
-                </div>
-              )}
-            </>
-          )}
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 bg-muted/5 border-2 border-dashed rounded-3xl opacity-50">
+                      <Wrench className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                      <p className="font-bold">Nenhum serviço complexo adicionado</p>
+                      <p className="text-sm">Ideal para serviços que variam de preço conforme o cenário.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
 
-          {/* Step 5: Finalizar */}
-          {currentStep === 5 && (
-            <div className="text-center py-8">
-              <Wand2 className="h-16 w-16 mx-auto text-primary mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Tudo pronto!</h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Agora vamos gerar um contexto completo e otimizado para sua IA com base nas informações que você forneceu.
-              </p>
-
-              <div className="bg-muted/50 rounded-lg p-4 mb-6 text-left max-w-md mx-auto">
-                <h4 className="font-medium mb-2">O que será gerado:</h4>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500" />
-                    Contexto completo e estruturado
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500" />
-                    Instruções otimizadas para atendimento
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-500" />
-                    Base de conhecimento pronta para uso
-                  </li>
-                </ul>
-              </div>
-
-              <Button onClick={handleGenerateContext} disabled={generatingContext} size="lg" className="min-w-[200px]">
-                {generatingContext ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    Gerando...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-5 w-5 mr-2" />
-                    Gerar Contexto da IA
-                  </>
-                )}
-              </Button>
+        {/* Coluna Direita: Persona Preview (Sticky) */}
+        <div className="lg:col-span-4 lg:sticky lg:top-8">
+          <Card className="border-2 border-primary/15 shadow-2xl bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden rounded-[2rem] relative">
+            <div className="absolute top-0 right-0 p-4">
+              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
             </div>
-          )}
 
-          {/* Navigation Buttons */}
-          {currentStep < 5 && (
-            <div className="flex items-center justify-between pt-6 border-t">
-              <Button variant="outline" onClick={handlePrevStep} disabled={currentStep === 0}>
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Voltar
-              </Button>
+            <CardHeader className="bg-primary/[0.03] border-b border-primary/10 pb-8">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 rotate-3 group-hover:rotate-0 transition-transform">
+                  <Sparkles className="h-8 w-8 text-primary-foreground" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-black">Persona Ativa</CardTitle>
+                  <p className="text-xs text-muted-foreground font-bold tracking-widest uppercase opacity-70">Visualização em Tempo Real</p>
+                </div>
+              </div>
 
               <div className="flex gap-2">
-                {/* Botão de Salvar (se já passou pelo setup antes) */}
-                {setupCompleted && (
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      // Salva serviços se houver algum
-                      if (services.length > 0) {
-                        await saveServices();
-                      }
-                      await saveKnowledge();
-                      await handleGenerateContext();
-                    }}
-                    disabled={saving || generatingContext}
-                  >
-                    {saving || generatingContext ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-                    Salvar e Regenerar
-                  </Button>
-                )}
-
-                <Button onClick={handleNextStep} disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-                  Próximo
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
+                <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 transition-colors uppercase text-[10px] font-black tracking-widest px-3 py-1">
+                  {setupCompleted ? "Publicada" : "Em Rascunho"}
+                </Badge>
+                <Badge variant="outline" className="border-muted-foreground/20 text-muted-foreground uppercase text-[10px] font-bold px-3 py-1">
+                  v{knowledge?.id?.slice(-4) || '1.0'}
+                </Badge>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardHeader>
+
+            <CardContent className="p-8 space-y-8">
+               <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 bg-muted/40 rounded-2xl border border-muted-foreground/10 space-y-1 group hover:border-primary/30 transition-colors">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest">Tom de Voz</p>
+                      <p className="text-sm font-black capitalize flex items-center gap-2">
+                        {aiTone === 'professional' && '🤵 Profissional'}
+                        {aiTone === 'friendly' && '😊 Amigável'}
+                        {aiTone === 'casual' && '👋 Casual'}
+                        {aiTone === 'formal' && '👔 Formal'}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-muted/40 rounded-2xl border border-muted-foreground/10 space-y-1 group hover:border-primary/30 transition-colors">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest">Iniciativa</p>
+                      <p className="text-sm font-black capitalize flex items-center gap-2">
+                        {aiProactivity === 'low' && '🔇 Reativo'}
+                        {aiProactivity === 'medium' && '⚖️ Equilibrado'}
+                        {aiProactivity === 'high' && '🚀 Vendedor'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest ml-1">Missão do Assistente</p>
+                    <div className="relative group">
+                      <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                      <div className="relative p-5 bg-background border border-primary/10 rounded-2xl italic text-xs leading-relaxed text-muted-foreground shadow-inner">
+                        "{objectiveType === 'custom' ? (aiObjective || 'Aguardando definição da missão customizada...') : objectivePresets.find(p => p.id === objectiveType)?.description}"
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-dashed space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs font-bold text-muted-foreground">Catálogo:</span>
+                      </div>
+                      <span className="text-xs font-black">{products.length + services.length} itens</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs font-bold text-muted-foreground">Operação:</span>
+                      </div>
+                      <span className="text-xs font-black">{businessHoursStart}:00 - {businessHoursEnd}:00</span>
+                    </div>
+                  </div>
+               </div>
+            </CardContent>
+
+            <CardFooter className="bg-primary/[0.02] border-t border-primary/5 p-8">
+              <div className="w-full space-y-4">
+                 <div className="flex items-center justify-between">
+                   <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sincronização</span>
+                   <span className="text-[10px] font-black text-green-500 flex items-center gap-1">
+                     <Check className="h-3 w-3" /> PRONTO
+                   </span>
+                 </div>
+                 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                   <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: '100%' }}></div>
+                 </div>
+              </div>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1943,31 +1495,59 @@ function CompletedView({
   const selectedPreset = objectivePresets.find((p) => p.id === objectiveType);
   const ObjectiveIcon = OBJECTIVE_ICONS[objectiveType] || Target;
   const isFreePlan = knowledge?.plan === "FREE" || knowledge?.plan === "INICIAL";
+
   return (
-    <div className="p-6 mx-auto space-y-6">
-      {/* Toggle de Resposta Automática */}
-      <Card>
-        <CardContent className="py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="space-y-0.5">
-              <Label className="text-base">Resposta Automática</Label>
-              <p className="text-sm text-muted-foreground">Permite que a IA responda automaticamente mensagens dos clientes</p>
-            </div>
-            <div className="flex flex-col gap-1 items-end">
-              <div className="flex items-center gap-2">
-                {isFreePlan && (
-                  <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                    <Shield className="h-3 w-3 mr-1" />
-                    Disponível a partir do plano Negócios
-                  </Badge>
-                )}
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 min-h-screen bg-background/50">
+      {/* Header com Status Principal */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-extrabold tracking-tight">{companyName || "Painel de Controle da IA"}</h1>
+            <Badge variant={autoReplyEnabled ? "default" : "secondary"} className={cn(
+              "px-3 py-1 text-xs font-bold uppercase tracking-wider",
+              autoReplyEnabled ? "bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20" : "bg-neutral-500/10 text-neutral-500"
+            )}>
+              {autoReplyEnabled ? "Online" : "Offline"}
+            </Badge>
+          </div>
+          <p className="text-muted-foreground text-lg">{companySegment || "Inteligência Artificial"} • Visão geral da operação.</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="lg" onClick={onEdit} className="shadow-sm border-2">
+            <Edit3 className="h-5 w-5 mr-2" />
+            Editar Configurações
+          </Button>
+          <Button size="lg" onClick={onRegenerate} disabled={generatingContext || isFreePlan} className="shadow-lg bg-primary hover:bg-primary/90">
+            {generatingContext ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Wand2 className="h-5 w-5 mr-2" />}
+            Regenerar Contexto
+          </Button>
+        </div>
+      </div>
+
+      {/* Bento Grid Styling */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+        {/* Card 1: Status & Quick Controls (Span 4) */}
+        <Card className="md:col-span-4 border-primary/10 shadow-xl shadow-primary/5 bg-gradient-to-br from-background to-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Operação em Tempo Real
+            </CardTitle>
+            <CardDescription>Controle o comportamento ativo da sua IA.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+             <div className="flex items-center justify-between p-4 bg-background/60 backdrop-blur rounded-xl border border-primary/10 transition-all hover:border-primary/30">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-bold">Resposta Automática</Label>
+                  <p className="text-[10px] text-muted-foreground">IA responde as primeiras mensagens</p>
+                </div>
                 <Switch
                   checked={isFreePlan ? false : autoReplyEnabled}
                   onCheckedChange={(checked) => {
                     if (isFreePlan) {
-                      toast.error("Recurso indisponível no seu plano", {
-                        description: "A resposta automática está disponível a partir do plano Negócios. Acesse a área de planos para fazer upgrade.",
-                      });
+                      toast.error("Upgrade necessário");
                       return;
                     }
                     setAutoReplyEnabled(checked);
@@ -1975,212 +1555,212 @@ function CompletedView({
                   }}
                   disabled={isFreePlan}
                 />
-              </div>
-              <span className="text-[10px] text-muted-foreground">Delay: {replyDelay}s</span>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onEdit} disabled={isFreePlan}>
-              <Edit3 className="h-4 w-4 mr-1" />
-              Editar
-            </Button>
-            <Button
-              onClick={() => {
-                if (isFreePlan) {
-                  toast.error("Recurso indisponível no seu plano", { description: "A regeneração de contexto está disponível a partir do plano Negócios." });
-                  return;
-                }
-                onRegenerate();
-              }}
-              disabled={generatingContext || isFreePlan}
-            >
-              {generatingContext ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Wand2 className="h-4 w-4 mr-1" />}
-              Regenerar Contexto
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+             </div>
 
-      {/* Grid de Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Empresa */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Building2 className="h-5 w-5" />
-              Sua Empresa
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div>
-              <span className="text-sm text-muted-foreground">Nome:</span>
-              <p className="font-medium">{companyName || "-"}</p>
-            </div>
-            <div>
-              <span className="text-sm text-muted-foreground">Segmento:</span>
-              <p className="font-medium">{companySegment || "-"}</p>
-            </div>
-            {companyDescription && (
-              <div>
-                <span className="text-sm text-muted-foreground">Descrição:</span>
-                <p className="text-sm line-clamp-3">{companyDescription}</p>
+             <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl border bg-background/40">
+                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest mb-1">Delay</p>
+                   <p className="text-2xl font-black text-primary">{replyDelay}s</p>
+                </div>
+                <div className="p-4 rounded-xl border bg-background/40">
+                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest mb-1">Plano</p>
+                   <p className="text-sm font-black truncate">{knowledge?.plan || 'STARTUP'}</p>
+                </div>
+             </div>
+          </CardContent>
+          <CardFooter>
+            {isFreePlan && (
+              <div className="w-full flex items-center gap-2 p-2 bg-amber-500/10 text-amber-600 rounded-lg text-xs font-medium">
+                <Shield className="h-4 w-4" />
+                No plano Grátis, a Resposta Automática simula o atendimento mas não envia.
               </div>
             )}
+          </CardFooter>
+        </Card>
+
+        {/* Card 2: Persona Summary (Span 4) */}
+        <Card className="md:col-span-4 border-2 border-primary/5 shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <ObjectiveIcon className="h-5 w-5 text-primary" />
+              Persona & Tom
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Badge variant="outline" className="text-primary font-bold uppercase">{selectedPreset?.label}</Badge>
+              <p className="text-sm text-muted-foreground leading-relaxed italic">
+                "{objectiveType === 'custom' ? aiObjective : (selectedPreset?.description || "Atendimento configurado para as necessidades do seu negócio.")}"
+              </p>
+              {companyDescription && (
+                <div className="mt-4 p-4 bg-muted/20 rounded-xl border-l-4 border-primary/20">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Sobre a Empresa</p>
+                  <p className="text-xs text-muted-foreground line-clamp-3">{companyDescription}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 border-t space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Tom de Voz:</span>
+                <Badge variant="secondary" className="capitalize">{(knowledge as any)?.aiTone || 'Profissional'}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Proatividade:</span>
+                <Badge variant="secondary" className="capitalize">{(knowledge as any)?.aiProactivity || 'Média'}</Badge>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Objetivo da IA */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ObjectiveIcon className="h-5 w-5" />
-              Objetivo da IA
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <ObjectiveIcon className="h-3 w-3" />
-                {selectedPreset?.label || "Suporte ao Cliente"}
-              </Badge>
-            </div>
-            {selectedPreset?.description && <p className="text-sm text-muted-foreground">{selectedPreset.description}</p>}
-            {objectiveType === "custom" && aiObjective && (
-              <div className="mt-2 pt-2 border-t">
-                <span className="text-sm text-muted-foreground">Objetivo customizado:</span>
-                <p className="text-sm line-clamp-3">{aiObjective}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Políticas */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <FileText className="h-5 w-5" />
-              Políticas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">
-                {String(businessHoursStart).padStart(2, "0")}:00 às {String(businessHoursEnd).padStart(2, "0")}:00
-              </span>
-            </div>
-            {workingHours && (
-              <div className="flex items-start gap-2 pl-6">
-                <span className="text-sm text-muted-foreground">{workingHours}</span>
-              </div>
-            )}
-            {paymentMethods && (
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{paymentMethods}</span>
-              </div>
-            )}
-            {deliveryInfo && (
-              <div className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm line-clamp-2">{deliveryInfo}</span>
-              </div>
-            )}
-            {warrantyInfo && (
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm line-clamp-2">{warrantyInfo}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Produtos - CORREÇÃO TELA BRANCA */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Package className="h-5 w-5" />
-              Produtos/Serviços
-              <Badge variant="secondary" className="ml-auto">
-                {Array.isArray(products) ? products.length : 0}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {Array.isArray(products) && products.length > 0 ? (
-              <div className="space-y-2">
-                {products.slice(0, 4).map((product) => (
-                  <div key={product.id} className="flex items-center justify-between text-sm">
-                    <span>{product.name}</span>
-                    {product.price && <span className="text-muted-foreground">{product.price}</span>}
+        {/* Card 3: Metrics & Inventory (Span 4) */}
+        <Card className="md:col-span-4 border-2 border-primary/5 shadow-lg overflow-hidden">
+           <CardHeader>
+              <CardTitle className="text-xl">Inventário Ativo</CardTitle>
+              <CardDescription>Produtos e serviços que a IA conhece.</CardDescription>
+           </CardHeader>
+           <CardContent className="p-0">
+             <div className="grid grid-cols-2 divide-x border-y">
+                <div className="p-6 text-center transition-colors hover:bg-muted/30">
+                   <div className="text-4xl font-black mb-1">{products?.length || 0}</div>
+                   <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Produtos</div>
+                </div>
+                <div className="p-6 text-center transition-colors hover:bg-muted/30">
+                   <div className="text-4xl font-black mb-1">{services?.length || 0}</div>
+                   <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Serviços</div>
+                </div>
+             </div>
+             <div className="p-4 space-y-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Destaques do Catálogo</p>
+                {products?.slice(0, 3).map(p => (
+                  <div key={p.id} className="flex items-center justify-between text-sm py-1 border-b border-dashed last:border-0">
+                    <span className="truncate max-w-[140px] font-medium">{p.name}</span>
+                    <span className="text-primary font-bold">{p.price || '--'}</span>
                   </div>
                 ))}
-                {products.length > 4 && <p className="text-xs text-muted-foreground">+{products.length - 4} mais...</p>}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Nenhum produto cadastrado</p>
-            )}
-          </CardContent>
+             </div>
+           </CardContent>
         </Card>
 
-        {/* Serviços com Variações */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Wrench className="h-5 w-5" />
-              Serviços com Variações
-              <Badge variant="secondary" className="ml-auto">
-                {Array.isArray(services) ? services.length : 0}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {Array.isArray(services) && services.length > 0 ? (
+        {/* Card 4: Operação & Horários (Span 5) */}
+        <Card className="md:col-span-5 border-2 border-primary/5 shadow-lg">
+           <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                 <Clock className="h-5 w-5 text-primary" />
+                 Regras de Operação
+              </CardTitle>
+           </CardHeader>
+           <CardContent className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                {services.slice(0, 4).map((service, idx) => (
-                  <div key={service.id || idx} className="flex items-center justify-between text-sm">
-                    <span>{service.name}</span>
-                    <span className="text-muted-foreground">
-                      {service.basePrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                      {service.variables.length > 0 && ` + ${service.variables.length} var.`}
-                    </span>
-                  </div>
-                ))}
-                {services.length > 4 && <p className="text-xs text-muted-foreground">+{services.length - 4} mais...</p>}
+                 <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Horário Comercial</p>
+                 <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                    <p className="text-lg font-black">{String(businessHoursStart).padStart(2, '0')}:00 - {String(businessHoursEnd).padStart(2, '0')}:00</p>
+                 </div>
+                 <p className="text-[11px] text-muted-foreground">{workingHours || 'Atendimento padrão configurado.'}</p>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Nenhum serviço com variações</p>
-            )}
-          </CardContent>
+              <div className="space-y-2">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Pagamentos Aceitos</p>
+                  <div className="space-y-1">
+                     <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">{paymentMethods || 'PIX, Cartão'}</span>
+                     </div>
+                  </div>
+               </div>
+               {deliveryInfo && (
+                 <div className="space-y-2">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Entrega/Logística</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{deliveryInfo}</p>
+                 </div>
+               )}
+               {warrantyInfo && (
+                 <div className="space-y-2">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Garantia & Trocas</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{warrantyInfo}</p>
+                 </div>
+               )}
+            </CardContent>
         </Card>
+
+        {/* Card 5: Context Preview (Span 7) */}
+        <Card className="md:col-span-7 border-2 border-primary/5 shadow-lg bg-neutral-900 text-neutral-100 overflow-hidden">
+           <CardHeader className="border-b border-neutral-800 bg-neutral-950/50">
+              <div className="flex items-center justify-between">
+                 <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-blue-400" />
+                    Cérebro da IA (Contexto Gerado)
+                 </CardTitle>
+                 <Badge variant="outline" className="border-neutral-700 text-neutral-400 text-[10px]">
+                    v{knowledge?.id?.slice(-4) || '1.0'}
+                 </Badge>
+              </div>
+           </CardHeader>
+           <CardContent className="p-0">
+              <div className="p-4 h-[200px] overflow-y-auto font-mono text-[11px] leading-relaxed scrollbar-thin scrollbar-thumb-neutral-700">
+                 {knowledge?.generatedContext ? (
+                    <div className="space-y-2">
+                       {knowledge.generatedContext.split('\n').filter(l => l.trim()).map((line, i) => (
+                          <div key={i} className="flex gap-4">
+                             <span className="text-neutral-600 shrink-0 w-4 text-right">{i+1}</span>
+                             <span>{line}</span>
+                          </div>
+                       ))}
+                    </div>
+                 ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-neutral-500 opacity-50">
+                       <Database className="h-8 w-8 mb-2" />
+                       <p>Nenhum contexto gerado. Clique em "Regenerar Contexto" para ativar.</p>
+                    </div>
+                 )}
+              </div>
+           </CardContent>
+        </Card>
+
       </div>
 
-      {/* Links para páginas avançadas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors">
-          <a href="/dashboard/settings/ai/examples">
-            <CardContent className="py-4 flex items-center gap-3">
-              <MessageSquare className="h-5 w-5 text-primary" />
-              <div>
-                <p className="font-medium">Exemplos de Conversa</p>
-                <p className="text-sm text-muted-foreground">Crie conversas exemplo para ensinar o tom da IA</p>
-              </div>
-              <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground" />
-            </CardContent>
-          </a>
-        </Card>
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors">
-          <a href="/dashboard/settings/ai/knowledge">
-            <CardContent className="py-4 flex items-center gap-3">
-              <Database className="h-5 w-5 text-primary" />
-              <div>
-                <p className="font-medium">Base de Conhecimento</p>
-                <p className="text-sm text-muted-foreground">Upload de manuais, políticas e documentos</p>
-              </div>
-              <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground" />
-            </CardContent>
-          </a>
-        </Card>
+      {/* Links Rápidos (Grid Final) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="cursor-pointer group hover:border-primary/50 transition-all hover:shadow-lg border-2 border-transparent">
+             <a href="/dashboard/settings/ai/examples" className="block p-4">
+                <div className="flex items-center gap-4">
+                   <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors">
+                      <MessageSquare className="h-6 w-6 text-primary" />
+                   </div>
+                   <div>
+                      <p className="font-bold">Exemplos de Chat</p>
+                      <p className="text-xs text-muted-foreground">Melhore o tom da conversa.</p>
+                   </div>
+                   <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+             </a>
+          </Card>
+
+          <Card className="cursor-pointer group hover:border-primary/50 transition-all hover:shadow-lg border-2 border-transparent">
+             <a href="/dashboard/settings/ai/knowledge" className="block p-4">
+                <div className="flex items-center gap-4">
+                   <div className="p-3 bg-blue-500/10 rounded-xl group-hover:bg-blue-500/20 transition-colors">
+                      <Database className="h-6 w-6 text-blue-500" />
+                   </div>
+                   <div>
+                      <p className="font-bold">Documentos & PDF</p>
+                      <p className="text-xs text-muted-foreground">Ensaie sua IA com manuais.</p>
+                   </div>
+                   <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                </div>
+             </a>
+          </Card>
+
+          <Card className="p-4 border-dashed border-2 flex items-center gap-4 opacity-60">
+             <div className="p-3 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+                <Settings className="h-6 w-6 text-neutral-500" />
+             </div>
+             <div>
+                <p className="font-bold">Logs Avançados</p>
+                <p className="text-xs text-muted-foreground">Em breve: debugar decisões da IA.</p>
+             </div>
+             <Badge variant="outline" className="ml-auto text-[10px]">SOON</Badge>
+          </Card>
       </div>
     </div>
   );

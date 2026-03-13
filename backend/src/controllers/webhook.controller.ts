@@ -227,14 +227,27 @@ class WebhookController {
           ? openaiService.isConfigured()
           : geminiService.isConfigured();
 
-        if (conversation.aiEnabled && isAutoReplyEnabled && isAIConfigured && !result.customer.isGroup) {
+        const shouldProcessAI = conversation.aiEnabled && isAutoReplyEnabled && isAIConfigured && !result.customer.isGroup;
+
+        // Responde o webhook IMEDIATAMENTE (200 OK) para evitar timeout e ERR_HTTP_HEADERS_SENT
+        res.status(200).json({
+          success: true,
+          data: {
+            messageId: result.message.id,
+            customerId: result.customer.id,
+            aiProcessed: shouldProcessAI,
+          },
+        });
+
+        // Processamento de IA em background (resposta HTTP já foi enviada)
+        if (shouldProcessAI) {
           // Dedup: ignora se este messageId já foi enviado para IA recentemente
           const aiDedupKey = `${result.instance.id}:${result.message.messageId || result.message.id}`;
           const now = Date.now();
           const lastProcessed = recentlyProcessedAI.get(aiDedupKey);
           if (lastProcessed && now - lastProcessed < AI_DEDUP_TTL_MS) {
-            console.error(`[Webhook] AI dedup: skipping duplicate event for message ${aiDedupKey}`);
-            return res.status(200).json({ success: true, message: "Duplicate event ignored" });
+            // Dedup funcionando corretamente — Evolution API envia eventos duplicados
+            return;
           }
           recentlyProcessedAI.set(aiDedupKey, now);
           // Limpa entradas expiradas para não acumular memória
@@ -244,7 +257,6 @@ class WebhookController {
 
           try {
             // 📅 PRIORITY CHECK: Verifica se JÁ ESTÁ em fluxo de agendamento ativo
-            // Import dinâmico para evitar dependência circular se houver
             const { aiAppointmentService } = await import("../services/ai-appointment.service");
             const hasActiveFlow = await aiAppointmentService.hasActiveAppointmentFlow(result.customer.id);
 
@@ -264,7 +276,6 @@ class WebhookController {
 
               // ═══════════════════════════════════════════════════════════════
               // 🛡️ CAMADA 1: Detecção de intenção direta (ANTES da IA)
-              // Keywords como "quero falar com humano", "me passa um atendente"
               // ═══════════════════════════════════════════════════════════════
               if (detectDirectHandoffIntent(result.message.content)) {
                 const handoffMessage = "Entendi! Vou te transferir para um atendente agora. Aguarde um momento, por favor. 🙏";
@@ -282,14 +293,26 @@ class WebhookController {
                   handoffReason: "Solicitação direta do cliente para falar com humano",
                 });
               } else {
-                // ⏱️ DELAY antes de gerar resposta: random entre 30-60 segundos
-                const replyDelay = Math.floor(Math.random() * 31_000) + 30_000;
+                // ⏱️ Gera resposta da IA em paralelo com o "digitando"
                 websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, true);
-                await whatsappService.sendPresence(result.instance.id, result.customer.phone, replyDelay, "composing");
-                await new Promise(resolve => setTimeout(resolve, replyDelay));
-                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
+                whatsappService.sendPresence(result.instance.id, result.customer.phone, 25_000, "composing").catch(() => {});
 
+                const aiStartTime = Date.now();
                 const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
+                const aiElapsed = Date.now() - aiStartTime;
+
+                // Delay proporcional ao tamanho da resposta para parecer natural
+                const baseDelay = Math.floor(Math.random() * 3_000) + 3_000;
+                const charDelay = Math.min(aiResponse.length * 30, 12_000);
+                const targetDelay = baseDelay + charDelay;
+                const remainingDelay = Math.max(0, targetDelay - aiElapsed);
+
+                if (remainingDelay > 0) {
+                  whatsappService.sendPresence(result.instance.id, result.customer.phone, remainingDelay, "composing").catch(() => {});
+                  await new Promise(resolve => setTimeout(resolve, remainingDelay));
+                }
+
+                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
 
                 // COMANDO ESPECIAL: Agendamento
                 if (aiResponse.startsWith("[INICIAR_AGENDAMENTO]")) {
@@ -311,20 +334,17 @@ class WebhookController {
                 } else {
                   // ═══════════════════════════════════════════════════════════
                   // 🛡️ CAMADA 2: Tokens de handoff na resposta da IA
-                  // [TRANSBORDO] ou HANDOFF_ACTION detectados no texto
                   // ═══════════════════════════════════════════════════════════
                   const handoff = parseHandoffTokens(aiResponse);
 
                   // ═══════════════════════════════════════════════════════════
                   // 🛡️ CAMADA 3: Detecção de loop semântico
-                  // Se a IA está repetindo respostas muito similares → transbordo
                   // ═══════════════════════════════════════════════════════════
                   const isLoop = !handoff.shouldHandoff && detectLoopAndRecord(result.customer.id, handoff.cleanMessage);
 
                   if (handoff.shouldHandoff || isLoop) {
                     const reason = isLoop ? "Loop de IA detectado — respostas repetitivas" : handoff.reason;
 
-                    // Se é loop e a IA não adicionou mensagem de transbordo, adiciona
                     const messageToSend = isLoop && !handoff.shouldHandoff
                       ? "Percebi que não estou conseguindo resolver sua dúvida da melhor forma. Vou transferir você para um atendente que poderá te ajudar. Aguarde um momento! 🙏"
                       : handoff.cleanMessage;
@@ -349,18 +369,19 @@ class WebhookController {
                 }
               }
             }
-          } catch (aiError: any) {
+          } catch (aiError: unknown) {
+            const errorMessage = aiError instanceof Error ? aiError.message : String(aiError);
             // Erros de regra de negócio: não enviar fallback ao cliente
             const isSilentError =
-              aiError.message?.includes("FREE plan") ||
-              aiError.message?.includes("Auto-reply is disabled") ||
-              aiError.message?.includes("AI is disabled") ||
-              aiError.message?.includes("not configured");
+              errorMessage.includes("FREE plan") ||
+              errorMessage.includes("Auto-reply is disabled") ||
+              errorMessage.includes("AI is disabled") ||
+              errorMessage.includes("not configured");
 
             if (isSilentError) {
-              console.error("AI skipped (business rule):", aiError.message);
+              console.error("AI skipped (business rule):", errorMessage);
             } else {
-              console.error("Error processing AI response:", aiError.message);
+              console.error("Error processing AI response:", errorMessage);
               const fallbackKey = result.customer.id;
               const lastFallback = recentlyFallbackSent.get(fallbackKey);
               const nowFallback = Date.now();
@@ -372,8 +393,9 @@ class WebhookController {
                     "Desculpe, tive um problema técnico momentâneo. Pode repetir sua mensagem? 🙏",
                     "AI"
                   );
-                } catch (fallbackSendError: any) {
-                  console.error("Failed to send AI fallback message:", fallbackSendError.message);
+                } catch (fallbackSendError: unknown) {
+                  const fallbackMsg = fallbackSendError instanceof Error ? fallbackSendError.message : String(fallbackSendError);
+                  console.error("Failed to send AI fallback message:", fallbackMsg);
                 }
               }
             }
@@ -383,14 +405,7 @@ class WebhookController {
           messageService.markAsRead(result.customer.id, result.instance.id).catch(() => {});
         }
 
-        return res.status(200).json({
-          success: true,
-          data: {
-            messageId: result.message.id,
-            customerId: result.customer.id,
-            aiProcessed: conversation.aiEnabled && isAutoReplyEnabled && isAIConfigured && !result.customer.isGroup,
-          },
-        });
+        return;
       }
 
       // Eventos de status de mensagem (delivered, read)

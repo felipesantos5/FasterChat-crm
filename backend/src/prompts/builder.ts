@@ -31,7 +31,7 @@ import { getObjectiveSection, getObjectiveConfig } from "./objectives";
 
 // Section modules
 import { getToolsSection } from "./sections/tools";
-import { getStyleSection, ToneType } from "./sections/style";
+import { getStyleSection, ToneType, ProactivityLevel } from "./sections/style";
 import { getTransbordoSection } from "./sections/transbordo";
 import { getServicesSection, getAdvancedPricingSection } from "./sections/services";
 import {
@@ -78,6 +78,25 @@ export class PromptBuilder {
 
     // 1.1. CORE: Controle de Verdade (anti-alucinação)
     this.addSection(getTruthControlSection());
+
+    // 1.2. CUSTOM INSTRUCTIONS — Prioridade máxima (sobrepõe qualquer outra instrução)
+    if (objectiveConfig.customInstructions) {
+      this.addSection({
+        id: "custom_instructions",
+        title: "REGRAS ESPECÍFICAS DA EMPRESA",
+        priority: 3,
+        required: true,
+        version: "1.0.0",
+        content: `
+## REGRAS ESPECÍFICAS DA EMPRESA (SOBREPÕEM QUALQUER OUTRA INSTRUÇÃO)
+
+As regras abaixo foram definidas pelo administrador da empresa e têm PRIORIDADE MÁXIMA.
+Se houver conflito entre estas regras e qualquer outra seção deste prompt, ESTAS REGRAS VENCEM.
+
+${objectiveConfig.customInstructions}
+`.trim(),
+      });
+    }
 
     // 2. CORE: Identidade
     this.addSection(getIdentitySection(this.options.company));
@@ -162,10 +181,12 @@ export class PromptBuilder {
     // 14. Restrições
     this.addSection(getRestrictionsSection());
 
-    // 15. Estilo de resposta
+    // 15. Estilo de resposta (incorpora tom, proatividade e foco em fechamento)
     this.addSection(
       getStyleSection({
         tone: objectiveConfig.tone as ToneType,
+        proactivity: objectiveConfig.proactivity as ProactivityLevel,
+        closingFocus: objectiveConfig.closingFocus,
       })
     );
 

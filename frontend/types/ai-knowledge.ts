@@ -46,6 +46,7 @@ export interface AIKnowledge {
   aiProactivity?: string | null; // low, medium, high
   aiClosingFocus?: boolean | null; // Se deve tentar fechar venda
   aiCustomInstructions?: string | null; // Instruções personalizadas adicionais
+  aiShowPrices?: boolean | null;
 
   // Políticas
   policies?: string | null;
@@ -110,6 +111,7 @@ export interface UpdateAIKnowledgeRequest {
   aiProactivity?: string; // low, medium, high
   aiClosingFocus?: boolean; // Se deve tentar fechar venda
   aiCustomInstructions?: string; // Instruções personalizadas adicionais
+  aiShowPrices?: boolean;
 
   // Políticas
   policies?: string;

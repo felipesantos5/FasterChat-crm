@@ -795,6 +795,35 @@ class WhatsAppService {
       }
 
       // ========================================
+      // ENVIO DE DOCUMENTO (Endpoint sendMedia com mediatype: "document")
+      // ========================================
+      if (mediaType === "document") {
+        let docMimetype = "application/pdf";
+        if (mediaBase64.includes("data:application/vnd.openxmlformats")) docMimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        else if (mediaBase64.includes("data:application/msword")) docMimetype = "application/msword";
+        else if (mediaBase64.includes("data:application/vnd.ms-excel")) docMimetype = "application/vnd.ms-excel";
+
+        // Extrai nome do arquivo do caption ou usa padrão
+        const fileName = caption || `documento.${docMimetype === "application/pdf" ? "pdf" : "doc"}`;
+
+        const response = await this.axiosInstance.post(`/message/sendMedia/${instance.instanceName}`, {
+          number: remoteJid,
+          mediatype: "document",
+          mimetype: docMimetype,
+          caption: "",
+          media: base64Data,
+          fileName,
+        });
+
+        return {
+          success: true,
+          messageId: response.data.key?.id,
+          remoteJid: response.data.key?.remoteJid,
+          timestamp: response.data.messageTimestamp,
+        };
+      }
+
+      // ========================================
       // ENVIO DE IMAGEM OU VÍDEO (Endpoint sendMedia)
       // ========================================
       const isVideo = mediaType === "video";
@@ -810,9 +839,7 @@ class WhatsAppService {
           throw new Error("Formato de vídeo não suportado pelo WhatsApp. Converta o vídeo para MP4 antes de enviar.");
         }
         if (mediaBase64.includes("data:video/quicktime")) mimetype = "video/quicktime";
-        // Demais video/* ficam como video/mp4 (padrão mais compatível)
       }
-
 
       const response = await this.axiosInstance.post(`/message/sendMedia/${instance.instanceName}`, {
         number: remoteJid,
