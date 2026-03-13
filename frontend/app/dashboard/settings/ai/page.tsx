@@ -1521,11 +1521,20 @@ function CompletedView({
             <div className="pt-4 border-t space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">Tom de Voz:</span>
-                <Badge variant="secondary" className="capitalize">{(knowledge as any)?.aiTone || 'Profissional'}</Badge>
+                <Badge variant="secondary" className="capitalize">{knowledge?.aiTone || 'Profissional'}</Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">Proatividade:</span>
-                <Badge variant="secondary" className="capitalize">{(knowledge as any)?.aiProactivity || 'Média'}</Badge>
+                <Badge variant="secondary" className="capitalize">{knowledge?.aiProactivity || 'Média'}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Informar Preços:</span>
+                <Badge variant={knowledge?.aiShowPrices ? "default" : "outline"} className={cn(
+                  "capitalize",
+                  !knowledge?.aiShowPrices && "text-orange-600 border-orange-200 bg-orange-50"
+                )}>
+                  {knowledge?.aiShowPrices ? 'Sim' : 'Não'}
+                </Badge>
               </div>
             </div>
           </CardContent>

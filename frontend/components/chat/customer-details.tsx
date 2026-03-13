@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { User, Phone, Mail, Tag, FileText, Send, Loader2, Trash2, Edit2 } from "lucide-react";
 import { customerNoteApi } from "@/lib/customer-note";

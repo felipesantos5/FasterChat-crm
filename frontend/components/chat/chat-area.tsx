@@ -572,10 +572,12 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       timestamp: new Date().toISOString(),
       isEdited: false,
       quotedMessageId: quotedId || null,
-      whatsappInstanceId: null,
+      whatsappInstanceId: whatsappInstanceId || "",
       mediaType: null,
       mediaUrl: null,
       quotedMessage: replyingTo ? { id: replyingTo.id, content: replyingTo.content, direction: replyingTo.direction } : null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     } as Message;
 
     setMessages((prev) => [...prev, optimisticMessage]);
