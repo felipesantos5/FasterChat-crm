@@ -798,13 +798,26 @@ class WhatsAppService {
       // ENVIO DE DOCUMENTO (Endpoint sendMedia com mediatype: "document")
       // ========================================
       if (mediaType === "document") {
-        let docMimetype = "application/pdf";
-        if (mediaBase64.includes("data:application/vnd.openxmlformats")) docMimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        let docMimetype = "application/octet-stream";
+        if (mediaBase64.includes("data:application/pdf")) docMimetype = "application/pdf";
+        else if (mediaBase64.includes("data:application/vnd.openxmlformats-officedocument.wordprocessingml")) docMimetype = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        else if (mediaBase64.includes("data:application/vnd.openxmlformats-officedocument.spreadsheetml")) docMimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        else if (mediaBase64.includes("data:application/vnd.openxmlformats-officedocument.presentationml")) docMimetype = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
         else if (mediaBase64.includes("data:application/msword")) docMimetype = "application/msword";
         else if (mediaBase64.includes("data:application/vnd.ms-excel")) docMimetype = "application/vnd.ms-excel";
+        else if (mediaBase64.includes("data:application/vnd.ms-powerpoint")) docMimetype = "application/vnd.ms-powerpoint";
+        else if (mediaBase64.includes("data:text/csv")) docMimetype = "text/csv";
+        else if (mediaBase64.includes("data:text/plain")) docMimetype = "text/plain";
+        else if (mediaBase64.includes("data:application/zip") || mediaBase64.includes("data:application/x-zip-compressed")) docMimetype = "application/zip";
+        else if (mediaBase64.includes("data:application/json")) docMimetype = "application/json";
+        else if (mediaBase64.includes("data:application/xml") || mediaBase64.includes("data:text/xml")) docMimetype = "application/xml";
+        else if (mediaBase64.includes("data:application/vnd.oasis.opendocument")) {
+          if (mediaBase64.includes("spreadsheet")) docMimetype = "application/vnd.oasis.opendocument.spreadsheet";
+          else if (mediaBase64.includes("presentation")) docMimetype = "application/vnd.oasis.opendocument.presentation";
+          else docMimetype = "application/vnd.oasis.opendocument.text";
+        }
 
-        // Extrai nome do arquivo do caption ou usa padrão
-        const fileName = caption || `documento.${docMimetype === "application/pdf" ? "pdf" : "doc"}`;
+        const fileName = caption || "documento";
 
         const response = await this.axiosInstance.post(`/message/sendMedia/${instance.instanceName}`, {
           number: remoteJid,

@@ -6,9 +6,11 @@ import { customerApi } from "@/lib/customer";
 import { customerAddressApi } from "@/lib/customer-address";
 import { customerServiceCardApi } from "@/lib/customer-service-card";
 import { customerNoteApi } from "@/lib/customer-note";
+import { pipelineApi, DealValueItem } from "@/lib/pipeline";
 import { Customer } from "@/types/customer";
 import { CustomerNote } from "@/types/customer-note";
 import { CustomerAddress } from "@/types/customer-address";
+import { PipelineStage } from "@/types/pipeline";
 import {
   CustomerServiceCard,
   SERVICE_CARD_STATUS_LABELS,
@@ -44,7 +46,11 @@ import {
   User,
   StickyNote,
   X,
+  TrendingUp,
+  Loader2,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { TagBadge } from "@/components/ui/tag-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tag } from "@/lib/tag";
@@ -95,6 +101,16 @@ export default function CustomerDetailPage() {
 
   // Customer notes state
   const [customerNotes, setCustomerNotes] = useState<CustomerNote[]>([]);
+
+  // Deal values state
+  const [dealValues, setDealValues] = useState<DealValueItem[]>([]);
+  const [loadingDeals, setLoadingDeals] = useState(false);
+  const [showAddDeal, setShowAddDeal] = useState(false);
+  const [dealValue, setDealValue] = useState("");
+  const [dealNotes, setDealNotes] = useState("");
+  const [dealStageId, setDealStageId] = useState("");
+  const [submittingDeal, setSubmittingDeal] = useState(false);
+  const [dealStages, setDealStages] = useState<PipelineStage[]>([]);
 
   // Delete customer modal state
   const [deleteCustomerModalOpen, setDeleteCustomerModalOpen] = useState(false);
@@ -154,12 +170,65 @@ export default function CustomerDetailPage() {
     }
   };
 
+  const loadDealValues = async () => {
+    try {
+      setLoadingDeals(true);
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const [deals, stages] = await Promise.all([
+        pipelineApi.getDealValuesByCustomer(params.id as string),
+        pipelineApi.getStages(user.companyId),
+      ]);
+      setDealValues(deals);
+      setDealStages(stages.sort((a: PipelineStage, b: PipelineStage) => a.order - b.order));
+    } catch (error) {
+      console.error("Error loading deal values:", error);
+    } finally {
+      setLoadingDeals(false);
+    }
+  };
+
+  const handleAddDeal = async () => {
+    const parsedValue = parseFloat(dealValue.replace(",", "."));
+    if (!dealValue.trim() || isNaN(parsedValue) || parsedValue <= 0) {
+      toast.error("Informe um valor válido para a venda");
+      return;
+    }
+    if (!dealStageId) {
+      toast.error("Selecione o estágio da venda");
+      return;
+    }
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (!user.companyId) return;
+
+    try {
+      setSubmittingDeal(true);
+      await pipelineApi.createDealValue(user.companyId, {
+        customerId: params.id as string,
+        stageId: dealStageId,
+        value: parsedValue,
+        notes: dealNotes.trim() || undefined,
+      });
+      toast.success("Venda registrada com sucesso!");
+      setDealValue("");
+      setDealNotes("");
+      setDealStageId("");
+      setShowAddDeal(false);
+      await loadDealValues();
+    } catch (error) {
+      console.error("Error adding deal:", error);
+      toast.error("Erro ao registrar venda");
+    } finally {
+      setSubmittingDeal(false);
+    }
+  };
+
   useEffect(() => {
     loadCustomer();
     loadTags();
     loadAddresses();
     loadServiceCards();
     loadCustomerNotes();
+    loadDealValues();
   }, [params.id]);
 
   const handleUpdate = async (data: any) => {
@@ -675,6 +744,114 @@ export default function CustomerDetailPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Histórico de Vendas */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Histórico de Vendas
+                  {dealValues.length > 0 && (
+                    <Badge variant="secondary">{dealValues.length}</Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>Vendas registradas para este cliente</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => setShowAddDeal((v) => !v)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Registrar Venda
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {showAddDeal && (
+                <div className="border rounded-lg p-4 space-y-3 bg-muted/30 mb-4">
+                  <p className="text-sm font-semibold">Nova Venda</p>
+                  <div className="flex gap-3">
+                    <div className="relative flex-1">
+                      <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="0,00"
+                        value={dealValue}
+                        onChange={(e) => setDealValue(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                    <Select value={dealStageId} onValueChange={setDealStageId}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Estágio da venda" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {dealStages.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                              {s.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Input
+                    placeholder="Descrição do serviço / produto (opcional)"
+                    value={dealNotes}
+                    onChange={(e) => setDealNotes(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button onClick={handleAddDeal} disabled={submittingDeal} className="flex-1">
+                      {submittingDeal ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Salvar
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowAddDeal(false)} className="flex-1">
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {loadingDeals ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : dealValues.length === 0 ? (
+                <div className="flex h-32 flex-col items-center justify-center text-center">
+                  <TrendingUp className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">Nenhuma venda registrada ainda</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {dealValues.map((deal) => (
+                    <div key={deal.id} className="rounded-lg border p-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-semibold text-green-600">
+                          {Number(deal.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: deal.stage.color }} />
+                          <span className="text-sm text-muted-foreground">{deal.stage.name}</span>
+                        </div>
+                      </div>
+                      {deal.notes && (
+                        <p className="text-sm text-muted-foreground mt-1">{deal.notes}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {format(new Date(deal.closedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                  ))}
+                  {dealValues.length > 1 && (
+                    <div className="pt-3 border-t flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Total</span>
+                      <span className="font-semibold text-green-600">
+                        {dealValues.reduce((acc, d) => acc + Number(d.value), 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

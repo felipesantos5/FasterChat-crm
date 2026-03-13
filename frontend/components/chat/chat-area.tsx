@@ -659,16 +659,27 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
 
   // Processa arquivo de documento (PDF, DOC, XLS, etc.)
   const processDocumentFile = (file: File) => {
-    // Aceita PDFs e documentos Office
     const allowedTypes = [
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "application/vnd.ms-excel",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "text/csv",
+      "text/plain",
+      "application/zip",
+      "application/x-zip-compressed",
+      "application/vnd.oasis.opendocument.text",
+      "application/vnd.oasis.opendocument.spreadsheet",
+      "application/vnd.oasis.opendocument.presentation",
+      "application/json",
+      "application/xml",
+      "text/xml",
     ];
     if (!allowedTypes.includes(file.type)) {
-      toast.error("Formato não suportado. Envie PDF, DOC, DOCX, XLS ou XLSX.");
+      toast.error("Formato não suportado. Envie PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP ou outros documentos comuns.");
       return;
     }
     // Limite de 100MB (limite do WhatsApp para documentos)
@@ -1878,7 +1889,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           <input
             ref={documentInputRef}
             type="file"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip,.odt,.ods,.odp,.json,.xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/csv,text/plain,application/zip,application/x-zip-compressed,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,application/vnd.oasis.opendocument.presentation"
             onChange={handleDocumentSelect}
             className="hidden"
           />

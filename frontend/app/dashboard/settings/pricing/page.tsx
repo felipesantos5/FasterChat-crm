@@ -222,6 +222,15 @@ function PricingSettingsContent() {
     }
   };
 
+  const handleToggleZoneActive = async (zone: ServiceZone) => {
+    try {
+      await api.put(`/services/zones/${zone.id}`, { isActive: !zone.isActive });
+      setZones((prev) => prev.map((z) => z.id === zone.id ? { ...z, isActive: !zone.isActive } : z));
+    } catch (error) {
+      toast.error("Erro ao atualizar zona");
+    }
+  };
+
   const addNeighborhood = () => {
     if (neighborhoodInput.trim() && !zoneForm.neighborhoods.includes(neighborhoodInput.trim())) {
       setZoneForm({
@@ -313,6 +322,15 @@ function PricingSettingsContent() {
       await loadAllData();
     } catch (error) {
       toast.error("Erro ao excluir combo");
+    }
+  };
+
+  const handleToggleComboActive = async (combo: ServiceCombo) => {
+    try {
+      await api.put(`/services/combos/${combo.id}`, { isActive: !combo.isActive });
+      setCombos((prev) => prev.map((c) => c.id === combo.id ? { ...c, isActive: !combo.isActive } : c));
+    } catch (error) {
+      toast.error("Erro ao atualizar combo");
     }
   };
 
@@ -673,14 +691,19 @@ function PricingSettingsContent() {
           {zones.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {zones.map((zone) => (
-                <Card key={zone.id} className={cn("relative", zone.isDefault && "border-primary")}>
+                <Card key={zone.id} className={cn("relative", zone.isDefault && "border-primary", !zone.isActive && "opacity-60")}>
                   <CardContent className="pt-4">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-primary" />
                         <h3 className="font-semibold">{zone.name}</h3>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={zone.isActive}
+                          onCheckedChange={() => handleToggleZoneActive(zone)}
+                          title={zone.isActive ? "Desativar zona" : "Ativar zona"}
+                        />
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditZone(zone)}>
                           <Edit3 className="w-4 h-4" />
                         </Button>
@@ -874,14 +897,19 @@ function PricingSettingsContent() {
           {combos.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {combos.map((combo) => (
-                <Card key={combo.id}>
+                <Card key={combo.id} className={cn(!combo.isActive && "opacity-60")}>
                   <CardContent className="pt-4">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-primary" />
                         <h3 className="font-semibold">{combo.name}</h3>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={combo.isActive}
+                          onCheckedChange={() => handleToggleComboActive(combo)}
+                          title={combo.isActive ? "Desativar combo" : "Ativar combo"}
+                        />
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditCombo(combo)}>
                           <Edit3 className="w-4 h-4" />
                         </Button>

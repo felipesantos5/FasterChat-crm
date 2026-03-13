@@ -370,3 +370,60 @@ Para ter contexto mais profundo e atualizado sobre a Evolution API durante o des
 - **GitHub oficial:** https://github.com/EvolutionAPI/evolution-api
 
 > **Dica para Claude Code:** Se precisar de detalhes de um endpoint específico da Evolution API que não estão neste arquivo, consulte a documentação oficial acima antes de implementar.
+
+---
+
+## Recuperação de Migration Prisma Falha em Produção (Coolify/Docker)
+
+**Sintoma:** Backend fica reiniciando em loop, erro `P3009 migrate found failed migrations`.
+
+**Causa comum:** Uma migration foi aplicada parcialmente ou deletada localmente após já ter sido registrada no banco como "started".
+
+### Diagnóstico
+
+```bash
+# Ver o erro exato
+docker logs <container_name> --tail 50
+```
+
+O erro P3009 indica qual migration falhou — ex: `20260313000001_add_ai_show_prices`.
+
+### Solução (sem resetar o banco)
+
+**Passo 1 — Parar o container e desativar o restart:**
+```bash
+docker stop <container_name>
+docker update --restart=no <container_name>
+```
+
+**Passo 2 — Coletar imagem, DATABASE_URL e rede:**
+```bash
+docker inspect <container_name> --format='{{.Config.Image}}'
+docker inspect <container_name> --format='{{range .Config.Env}}{{println .}}{{end}}' | grep DATABASE_URL
+docker inspect <container_name> --format='{{json .NetworkSettings.Networks}}' | grep -o '"[^"]*":{"IPAMConfig"' | cut -d'"' -f2
+```
+
+**Passo 3 — Rodar os comandos Prisma em container temporário (tudo em uma linha):**
+```bash
+IMG=<imagem>
+NET=<rede>
+DB="<DATABASE_URL>"
+
+docker run --rm --network $NET -e DATABASE_URL=$DB $IMG npx prisma migrate resolve --rolled-back <nome_da_migration_falha>
+
+docker run --rm --network $NET -e DATABASE_URL=$DB $IMG npx prisma migrate deploy
+```
+
+**Passo 4 — Reativar e subir o backend:**
+```bash
+docker update --restart=unless-stopped <container_name>
+docker start <container_name>
+```
+
+Ou faça redeploy pelo painel do Coolify.
+
+### Prevenção
+
+- **Nunca deletar** uma migration local que já foi aplicada (mesmo parcialmente) em produção sem antes rodar `prisma migrate resolve`
+- Ao reverter uma migration (ex: remover coluna), criar uma nova migration de rollback em vez de deletar a original
+- Antes de criar migrations que alteram colunas existentes, verificar se não há migrations pendentes ou falhas no banco de produção
