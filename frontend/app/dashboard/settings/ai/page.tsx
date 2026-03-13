@@ -13,7 +13,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -174,7 +173,6 @@ function AISettingsPageContent() {
   const [aiClosingFocus, setAiClosingFocus] = useState<boolean>(false);
   const [aiShowPrices, setAiShowPrices] = useState<boolean>(false);
   const [aiCustomInstructions, setAiCustomInstructions] = useState("");
-  const [showAdvancedConfig, setShowAdvancedConfig] = useState(true);
 
   const [workingHours, setWorkingHours] = useState("");
   const [businessHoursStart, setBusinessHoursStart] = useState<number>(9);
@@ -323,7 +321,7 @@ function AISettingsPageContent() {
         setAiShowPrices(response.data.aiShowPrices ?? false);
 
         // Expandir seção avançada se houver dados
-        setShowAdvancedConfig(true);
+        // setShowAdvancedConfig(true);
 
         setWorkingHours(response.data.workingHours || "");
         setBusinessHoursStart(response.data.businessHoursStart ?? 9);
@@ -960,8 +958,8 @@ function AISettingsPageContent() {
 
                   <div className="space-y-3 pt-2">
                     <Label className="flex items-center gap-2 font-bold">
-                       <Sparkles className="h-4 w-4 text-primary" />
-                       Expert: Instruções de Rodapé
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      Expert: Instruções de Rodapé
                     </Label>
                     <Textarea
                       value={aiCustomInstructions}
@@ -1022,44 +1020,44 @@ function AISettingsPageContent() {
                 </CardHeader>
                 <CardContent className="space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     <div className="space-y-4">
-                        <Label className="text-base font-bold flex items-center gap-2">
-                           <Clock className="h-4 w-4 text-muted-foreground" />
-                           Janela Comercial
-                        </Label>
-                        <div className="grid grid-cols-2 gap-3 items-center">
-                           <div className="space-y-1">
-                              <p className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Início</p>
-                              <select value={businessHoursStart} onChange={(e) => setBusinessHoursStart(parseInt(e.target.value))} className="w-full h-11 border-2 rounded-xl px-2 font-bold">
-                                 {Array.from({length: 24}).map((_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>)}
-                              </select>
-                           </div>
-                           <div className="space-y-1">
-                              <p className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Fim</p>
-                              <select value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(parseInt(e.target.value))} className="w-full h-11 border-2 rounded-xl px-2 font-bold">
-                                 {Array.from({length: 24}).map((_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>)}
-                              </select>
-                           </div>
+                    <div className="space-y-4">
+                      <Label className="text-base font-bold flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        Janela Comercial
+                      </Label>
+                      <div className="grid grid-cols-2 gap-3 items-center">
+                        <div className="space-y-1">
+                          <p className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Início</p>
+                          <select value={businessHoursStart} onChange={(e) => setBusinessHoursStart(parseInt(e.target.value))} className="w-full h-11 border-2 rounded-xl px-2 font-bold">
+                            {Array.from({ length: 24 }).map((_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>)}
+                          </select>
                         </div>
-                        <Input
-                          value={workingHours}
-                          onChange={(e) => setWorkingHours(e.target.value)}
-                          placeholder="Ex: Seg a Sex 09h-18h, Sáb 09h-13h"
-                        />
-                     </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Fim</p>
+                          <select value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(parseInt(e.target.value))} className="w-full h-11 border-2 rounded-xl px-2 font-bold">
+                            {Array.from({ length: 24 }).map((_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <Input
+                        value={workingHours}
+                        onChange={(e) => setWorkingHours(e.target.value)}
+                        placeholder="Ex: Seg a Sex 09h-18h, Sáb 09h-13h"
+                      />
+                    </div>
 
-                     <div className="space-y-4">
-                        <Label className="text-base font-bold flex items-center gap-2 text-muted-foreground">
-                           <CreditCard className="h-4 w-4" />
-                           Pagamento & Venda
-                        </Label>
-                        <Textarea
-                          value={paymentMethods}
-                          onChange={(e) => setPaymentMethods(e.target.value)}
-                          placeholder="Ex: Pix com 5% desc | Crédito 12x | Débito presencial..."
-                          className="min-h-[100px] border-2 rounded-xl text-sm"
-                        />
-                     </div>
+                    <div className="space-y-4">
+                      <Label className="text-base font-bold flex items-center gap-2 text-muted-foreground">
+                        <CreditCard className="h-4 w-4" />
+                        Pagamento & Venda
+                      </Label>
+                      <Textarea
+                        value={paymentMethods}
+                        onChange={(e) => setPaymentMethods(e.target.value)}
+                        placeholder="Ex: Pix com 5% desc | Crédito 12x | Débito presencial..."
+                        className="min-h-[100px] border-2 rounded-xl text-sm"
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1075,44 +1073,44 @@ function AISettingsPageContent() {
                   </div>
                   <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
                     <DialogTrigger asChild>
-                      <Button onClick={() => { setEditingProduct(null); setProductForm({name: "", description: "", price: "", category: "", duration: "", salesLink: ""}); }} className="rounded-xl shadow-lg shadow-primary/20">
+                      <Button onClick={() => { setEditingProduct(null); setProductForm({ name: "", description: "", price: "", category: "", duration: "", salesLink: "" }); }} className="rounded-xl shadow-lg shadow-primary/20">
                         <Plus className="h-5 w-5 mr-1" /> Novo Produto
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden rounded-3xl border-none shadow-2xl">
-                       <div className="p-8 bg-background">
-                          <DialogHeader className="mb-6">
-                            <DialogTitle className="text-2xl font-black">{editingProduct ? "Editar Produto" : "Novo Produto"}</DialogTitle>
-                            <DialogDescription>Insira as informações do produto para a IA.</DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                             <div className="space-y-2">
-                               <Label className="font-bold">Nome do Produto</Label>
-                               <Input placeholder="Ex: Cadeira Gamer Pro" value={productForm.name} onChange={(e) => setProductForm({...productForm, name: e.target.value})} className="h-11 rounded-xl" />
-                             </div>
-                             <div className="grid grid-cols-2 gap-4">
-                               <div className="space-y-2">
-                                 <Label className="font-bold">Preço</Label>
-                                 <Input placeholder="R$ 0,00" value={productForm.price} onChange={handlePriceChange} className="h-11 rounded-xl" />
-                               </div>
-                               <div className="space-y-2">
-                                 <Label className="font-bold">Categoria</Label>
-                                 <Input placeholder="Ex: Hardware" value={productForm.category} onChange={(e) => setProductForm({...productForm, category: e.target.value})} className="h-11 rounded-xl" />
-                               </div>
-                             </div>
-                             <div className="space-y-2">
-                               <Label className="font-bold">Descrição</Label>
-                               <Textarea placeholder="Descreva os benefícios e características..." value={productForm.description} onChange={(e) => setProductForm({...productForm, description: e.target.value})} rows={3} className="rounded-xl" />
-                             </div>
-                             <div className="space-y-2">
-                               <Label className="font-bold">Link de Venda (Opcional)</Label>
-                               <Input placeholder="https://..." value={productForm.salesLink} onChange={(e) => setProductForm({...productForm, salesLink: e.target.value})} className="h-11 rounded-xl" />
-                             </div>
-                             <Button onClick={handleAddProduct} className="w-full h-12 rounded-xl text-lg font-bold mt-4">
-                               {editingProduct ? "Salvar Alterações" : "Adicionar ao Catálogo"}
-                             </Button>
+                      <div className="p-8 bg-background">
+                        <DialogHeader className="mb-6">
+                          <DialogTitle className="text-2xl font-black">{editingProduct ? "Editar Produto" : "Novo Produto"}</DialogTitle>
+                          <DialogDescription>Insira as informações do produto para a IA.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="font-bold">Nome do Produto</Label>
+                            <Input placeholder="Ex: Cadeira Gamer Pro" value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} className="h-11 rounded-xl" />
                           </div>
-                       </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="font-bold">Preço</Label>
+                              <Input placeholder="R$ 0,00" value={productForm.price} onChange={handlePriceChange} className="h-11 rounded-xl" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="font-bold">Categoria</Label>
+                              <Input placeholder="Ex: Hardware" value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })} className="h-11 rounded-xl" />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="font-bold">Descrição</Label>
+                            <Textarea placeholder="Descreva os benefícios e características..." value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} rows={3} className="rounded-xl" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="font-bold">Link de Venda (Opcional)</Label>
+                            <Input placeholder="https://..." value={productForm.salesLink} onChange={(e) => setProductForm({ ...productForm, salesLink: e.target.value })} className="h-11 rounded-xl" />
+                          </div>
+                          <Button onClick={handleAddProduct} className="w-full h-12 rounded-xl text-lg font-bold mt-4">
+                            {editingProduct ? "Salvar Alterações" : "Adicionar ao Catálogo"}
+                          </Button>
+                        </div>
+                      </div>
                     </DialogContent>
                   </Dialog>
                 </CardHeader>
@@ -1138,8 +1136,8 @@ function AISettingsPageContent() {
                               <TableCell className="font-mono text-green-600 font-black">{product.price}</TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
-                                   <Button variant="ghost" size="icon" onClick={() => handleEditProduct(product)} className="hover:bg-primary/10 hover:text-primary"><Edit3 className="h-4 w-4" /></Button>
-                                   <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(product.id)} className="hover:bg-destructive/10 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleEditProduct(product)} className="hover:bg-primary/10 hover:text-primary"><Edit3 className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(product.id)} className="hover:bg-destructive/10 text-destructive"><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -1373,67 +1371,67 @@ function AISettingsPageContent() {
             </CardHeader>
 
             <CardContent className="p-8 space-y-8">
-               <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-4 bg-muted/40 rounded-2xl border border-muted-foreground/10 space-y-1 group hover:border-primary/30 transition-colors">
-                      <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest">Tom de Voz</p>
-                      <p className="text-sm font-black capitalize flex items-center gap-2">
-                        {aiTone === 'professional' && '🤵 Profissional'}
-                        {aiTone === 'friendly' && '😊 Amigável'}
-                        {aiTone === 'casual' && '👋 Casual'}
-                        {aiTone === 'formal' && '👔 Formal'}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-muted/40 rounded-2xl border border-muted-foreground/10 space-y-1 group hover:border-primary/30 transition-colors">
-                      <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest">Iniciativa</p>
-                      <p className="text-sm font-black capitalize flex items-center gap-2">
-                        {aiProactivity === 'low' && '🔇 Reativo'}
-                        {aiProactivity === 'medium' && '⚖️ Equilibrado'}
-                        {aiProactivity === 'high' && '🚀 Vendedor'}
-                      </p>
-                    </div>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 bg-muted/40 rounded-2xl border border-muted-foreground/10 space-y-1 group hover:border-primary/30 transition-colors">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest">Tom de Voz</p>
+                    <p className="text-sm font-black capitalize flex items-center gap-2">
+                      {aiTone === 'professional' && '🤵 Profissional'}
+                      {aiTone === 'friendly' && '😊 Amigável'}
+                      {aiTone === 'casual' && '👋 Casual'}
+                      {aiTone === 'formal' && '👔 Formal'}
+                    </p>
                   </div>
+                  <div className="p-4 bg-muted/40 rounded-2xl border border-muted-foreground/10 space-y-1 group hover:border-primary/30 transition-colors">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest">Iniciativa</p>
+                    <p className="text-sm font-black capitalize flex items-center gap-2">
+                      {aiProactivity === 'low' && '🔇 Reativo'}
+                      {aiProactivity === 'medium' && '⚖️ Equilibrado'}
+                      {aiProactivity === 'high' && '🚀 Vendedor'}
+                    </p>
+                  </div>
+                </div>
 
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest ml-1">Missão do Assistente</p>
-                    <div className="relative group">
-                      <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-                      <div className="relative p-5 bg-background border border-primary/10 rounded-2xl italic text-xs leading-relaxed text-muted-foreground shadow-inner">
-                        "{objectiveType === 'custom' ? (aiObjective || 'Aguardando definição da missão customizada...') : objectivePresets.find(p => p.id === objectiveType)?.description}"
-                      </div>
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest ml-1">Missão do Assistente</p>
+                  <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                    <div className="relative p-5 bg-background border border-primary/10 rounded-2xl italic text-xs leading-relaxed text-muted-foreground shadow-inner">
+                      "{objectiveType === 'custom' ? (aiObjective || 'Aguardando definição da missão customizada...') : objectivePresets.find(p => p.id === objectiveType)?.description}"
                     </div>
                   </div>
+                </div>
 
-                  <div className="pt-6 border-t border-dashed space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-xs font-bold text-muted-foreground">Catálogo:</span>
-                      </div>
-                      <span className="text-xs font-black">{products.length + services.length} itens</span>
+                <div className="pt-6 border-t border-dashed space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-bold text-muted-foreground">Catálogo:</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-xs font-bold text-muted-foreground">Operação:</span>
-                      </div>
-                      <span className="text-xs font-black">{businessHoursStart}:00 - {businessHoursEnd}:00</span>
-                    </div>
+                    <span className="text-xs font-black">{products.length + services.length} itens</span>
                   </div>
-               </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-bold text-muted-foreground">Operação:</span>
+                    </div>
+                    <span className="text-xs font-black">{businessHoursStart}:00 - {businessHoursEnd}:00</span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
 
             <CardFooter className="bg-primary/[0.02] border-t border-primary/5 p-8">
               <div className="w-full space-y-4">
-                 <div className="flex items-center justify-between">
-                   <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sincronização</span>
-                   <span className="text-[10px] font-black text-green-500 flex items-center gap-1">
-                     <Check className="h-3 w-3" /> PRONTO
-                   </span>
-                 </div>
-                 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                   <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: '100%' }}></div>
-                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sincronização</span>
+                  <span className="text-[10px] font-black text-green-500 flex items-center gap-1">
+                    <Check className="h-3 w-3" /> PRONTO
+                  </span>
+                </div>
+                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: '100%' }}></div>
+                </div>
               </div>
             </CardFooter>
           </Card>
@@ -1538,35 +1536,35 @@ function CompletedView({
             <CardDescription>Controle o comportamento ativo da sua IA.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-             <div className="flex items-center justify-between p-4 bg-background/60 backdrop-blur rounded-xl border border-primary/10 transition-all hover:border-primary/30">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-bold">Resposta Automática</Label>
-                  <p className="text-[10px] text-muted-foreground">IA responde as primeiras mensagens</p>
-                </div>
-                <Switch
-                  checked={isFreePlan ? false : autoReplyEnabled}
-                  onCheckedChange={(checked) => {
-                    if (isFreePlan) {
-                      toast.error("Upgrade necessário");
-                      return;
-                    }
-                    setAutoReplyEnabled(checked);
-                    saveKnowledge(undefined, { autoReplyEnabled: checked });
-                  }}
-                  disabled={isFreePlan}
-                />
-             </div>
+            <div className="flex items-center justify-between p-4 bg-background/60 backdrop-blur rounded-xl border border-primary/10 transition-all hover:border-primary/30">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-bold">Resposta Automática</Label>
+                <p className="text-[10px] text-muted-foreground">IA responde as primeiras mensagens</p>
+              </div>
+              <Switch
+                checked={isFreePlan ? false : autoReplyEnabled}
+                onCheckedChange={(checked) => {
+                  if (isFreePlan) {
+                    toast.error("Upgrade necessário");
+                    return;
+                  }
+                  setAutoReplyEnabled(checked);
+                  saveKnowledge(undefined, { autoReplyEnabled: checked });
+                }}
+                disabled={isFreePlan}
+              />
+            </div>
 
-             <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl border bg-background/40">
-                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest mb-1">Delay</p>
-                   <p className="text-2xl font-black text-primary">{replyDelay}s</p>
-                </div>
-                <div className="p-4 rounded-xl border bg-background/40">
-                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest mb-1">Plano</p>
-                   <p className="text-sm font-black truncate">{knowledge?.plan || 'STARTUP'}</p>
-                </div>
-             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl border bg-background/40">
+                <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest mb-1">Delay</p>
+                <p className="text-2xl font-black text-primary">{replyDelay}s</p>
+              </div>
+              <div className="p-4 rounded-xl border bg-background/40">
+                <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest mb-1">Plano</p>
+                <p className="text-sm font-black truncate">{knowledge?.plan || 'STARTUP'}</p>
+              </div>
+            </div>
           </CardContent>
           <CardFooter>
             {isFreePlan && (
@@ -1615,152 +1613,152 @@ function CompletedView({
 
         {/* Card 3: Metrics & Inventory (Span 4) */}
         <Card className="md:col-span-4 border-2 border-primary/5 shadow-lg overflow-hidden">
-           <CardHeader>
-              <CardTitle className="text-xl">Inventário Ativo</CardTitle>
-              <CardDescription>Produtos e serviços que a IA conhece.</CardDescription>
-           </CardHeader>
-           <CardContent className="p-0">
-             <div className="grid grid-cols-2 divide-x border-y">
-                <div className="p-6 text-center transition-colors hover:bg-muted/30">
-                   <div className="text-4xl font-black mb-1">{products?.length || 0}</div>
-                   <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Produtos</div>
+          <CardHeader>
+            <CardTitle className="text-xl">Inventário Ativo</CardTitle>
+            <CardDescription>Produtos e serviços que a IA conhece.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="grid grid-cols-2 divide-x border-y">
+              <div className="p-6 text-center transition-colors hover:bg-muted/30">
+                <div className="text-4xl font-black mb-1">{products?.length || 0}</div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Produtos</div>
+              </div>
+              <div className="p-6 text-center transition-colors hover:bg-muted/30">
+                <div className="text-4xl font-black mb-1">{services?.length || 0}</div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Serviços</div>
+              </div>
+            </div>
+            <div className="p-4 space-y-2">
+              <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Destaques do Catálogo</p>
+              {products?.slice(0, 3).map(p => (
+                <div key={p.id} className="flex items-center justify-between text-sm py-1 border-b border-dashed last:border-0">
+                  <span className="truncate max-w-[140px] font-medium">{p.name}</span>
+                  <span className="text-primary font-bold">{p.price || '--'}</span>
                 </div>
-                <div className="p-6 text-center transition-colors hover:bg-muted/30">
-                   <div className="text-4xl font-black mb-1">{services?.length || 0}</div>
-                   <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Serviços</div>
-                </div>
-             </div>
-             <div className="p-4 space-y-2">
-                <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Destaques do Catálogo</p>
-                {products?.slice(0, 3).map(p => (
-                  <div key={p.id} className="flex items-center justify-between text-sm py-1 border-b border-dashed last:border-0">
-                    <span className="truncate max-w-[140px] font-medium">{p.name}</span>
-                    <span className="text-primary font-bold">{p.price || '--'}</span>
-                  </div>
-                ))}
-             </div>
-           </CardContent>
+              ))}
+            </div>
+          </CardContent>
         </Card>
 
         {/* Card 4: Operação & Horários (Span 5) */}
         <Card className="md:col-span-5 border-2 border-primary/5 shadow-lg">
-           <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                 <Clock className="h-5 w-5 text-primary" />
-                 Regras de Operação
-              </CardTitle>
-           </CardHeader>
-           <CardContent className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                 <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Horário Comercial</p>
-                 <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                    <p className="text-lg font-black">{String(businessHoursStart).padStart(2, '0')}:00 - {String(businessHoursEnd).padStart(2, '0')}:00</p>
-                 </div>
-                 <p className="text-[11px] text-muted-foreground">{workingHours || 'Atendimento padrão configurado.'}</p>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Clock className="h-5 w-5 text-primary" />
+              Regras de Operação
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Horário Comercial</p>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <p className="text-lg font-black">{String(businessHoursStart).padStart(2, '0')}:00 - {String(businessHoursEnd).padStart(2, '0')}:00</p>
               </div>
+              <p className="text-[11px] text-muted-foreground">{workingHours || 'Atendimento padrão configurado.'}</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Pagamentos Aceitos</p>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">{paymentMethods || 'PIX, Cartão'}</span>
+                </div>
+              </div>
+            </div>
+            {deliveryInfo && (
               <div className="space-y-2">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Pagamentos Aceitos</p>
-                  <div className="space-y-1">
-                     <div className="flex items-center gap-2">
-                        <CreditCard className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">{paymentMethods || 'PIX, Cartão'}</span>
-                     </div>
-                  </div>
-               </div>
-               {deliveryInfo && (
-                 <div className="space-y-2">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Entrega/Logística</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{deliveryInfo}</p>
-                 </div>
-               )}
-               {warrantyInfo && (
-                 <div className="space-y-2">
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Garantia & Trocas</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{warrantyInfo}</p>
-                 </div>
-               )}
-            </CardContent>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Entrega/Logística</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">{deliveryInfo}</p>
+              </div>
+            )}
+            {warrantyInfo && (
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Garantia & Trocas</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">{warrantyInfo}</p>
+              </div>
+            )}
+          </CardContent>
         </Card>
 
         {/* Card 5: Context Preview (Span 7) */}
         <Card className="md:col-span-7 border-2 border-primary/5 shadow-lg bg-neutral-900 text-neutral-100 overflow-hidden">
-           <CardHeader className="border-b border-neutral-800 bg-neutral-950/50">
-              <div className="flex items-center justify-between">
-                 <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-blue-400" />
-                    Cérebro da IA (Contexto Gerado)
-                 </CardTitle>
-                 <Badge variant="outline" className="border-neutral-700 text-neutral-400 text-[10px]">
-                    v{knowledge?.id?.slice(-4) || '1.0'}
-                 </Badge>
-              </div>
-           </CardHeader>
-           <CardContent className="p-0">
-              <div className="p-4 h-[200px] overflow-y-auto font-mono text-[11px] leading-relaxed scrollbar-thin scrollbar-thumb-neutral-700">
-                 {knowledge?.generatedContext ? (
-                    <div className="space-y-2">
-                       {knowledge.generatedContext.split('\n').filter(l => l.trim()).map((line, i) => (
-                          <div key={i} className="flex gap-4">
-                             <span className="text-neutral-600 shrink-0 w-4 text-right">{i+1}</span>
-                             <span>{line}</span>
-                          </div>
-                       ))}
+          <CardHeader className="border-b border-neutral-800 bg-neutral-950/50">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-400" />
+                Cérebro da IA (Contexto Gerado)
+              </CardTitle>
+              <Badge variant="outline" className="border-neutral-700 text-neutral-400 text-[10px]">
+                v{knowledge?.id?.slice(-4) || '1.0'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="p-4 h-[200px] overflow-y-auto font-mono text-[11px] leading-relaxed scrollbar-thin scrollbar-thumb-neutral-700">
+              {knowledge?.generatedContext ? (
+                <div className="space-y-2">
+                  {knowledge.generatedContext.split('\n').filter(l => l.trim()).map((line, i) => (
+                    <div key={i} className="flex gap-4">
+                      <span className="text-neutral-600 shrink-0 w-4 text-right">{i + 1}</span>
+                      <span>{line}</span>
                     </div>
-                 ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-neutral-500 opacity-50">
-                       <Database className="h-8 w-8 mb-2" />
-                       <p>Nenhum contexto gerado. Clique em "Regenerar Contexto" para ativar.</p>
-                    </div>
-                 )}
-              </div>
-           </CardContent>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-neutral-500 opacity-50">
+                  <Database className="h-8 w-8 mb-2" />
+                  <p>Nenhum contexto gerado. Clique em "Regenerar Contexto" para ativar.</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
         </Card>
 
       </div>
 
       {/* Links Rápidos (Grid Final) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="cursor-pointer group hover:border-primary/50 transition-all hover:shadow-lg border-2 border-transparent">
-             <a href="/dashboard/settings/ai/examples" className="block p-4">
-                <div className="flex items-center gap-4">
-                   <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors">
-                      <MessageSquare className="h-6 w-6 text-primary" />
-                   </div>
-                   <div>
-                      <p className="font-bold">Exemplos de Chat</p>
-                      <p className="text-xs text-muted-foreground">Melhore o tom da conversa.</p>
-                   </div>
-                   <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground group-hover:text-primary transition-colors" />
-                </div>
-             </a>
-          </Card>
+        <Card className="cursor-pointer group hover:border-primary/50 transition-all hover:shadow-lg border-2 border-transparent">
+          <a href="/dashboard/settings/ai/examples" className="block p-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors">
+                <MessageSquare className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-bold">Exemplos de Chat</p>
+                <p className="text-xs text-muted-foreground">Melhore o tom da conversa.</p>
+              </div>
+              <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground group-hover:text-primary transition-colors" />
+            </div>
+          </a>
+        </Card>
 
-          <Card className="cursor-pointer group hover:border-primary/50 transition-all hover:shadow-lg border-2 border-transparent">
-             <a href="/dashboard/settings/ai/knowledge" className="block p-4">
-                <div className="flex items-center gap-4">
-                   <div className="p-3 bg-blue-500/10 rounded-xl group-hover:bg-blue-500/20 transition-colors">
-                      <Database className="h-6 w-6 text-blue-500" />
-                   </div>
-                   <div>
-                      <p className="font-bold">Documentos & PDF</p>
-                      <p className="text-xs text-muted-foreground">Ensaie sua IA com manuais.</p>
-                   </div>
-                   <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground group-hover:text-blue-500 transition-colors" />
-                </div>
-             </a>
-          </Card>
+        <Card className="cursor-pointer group hover:border-primary/50 transition-all hover:shadow-lg border-2 border-transparent">
+          <a href="/dashboard/settings/ai/knowledge" className="block p-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-500/10 rounded-xl group-hover:bg-blue-500/20 transition-colors">
+                <Database className="h-6 w-6 text-blue-500" />
+              </div>
+              <div>
+                <p className="font-bold">Documentos & PDF</p>
+                <p className="text-xs text-muted-foreground">Ensaie sua IA com manuais.</p>
+              </div>
+              <ChevronRight className="h-5 w-5 ml-auto text-muted-foreground group-hover:text-blue-500 transition-colors" />
+            </div>
+          </a>
+        </Card>
 
-          <Card className="p-4 border-dashed border-2 flex items-center gap-4 opacity-60">
-             <div className="p-3 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
-                <Settings className="h-6 w-6 text-neutral-500" />
-             </div>
-             <div>
-                <p className="font-bold">Logs Avançados</p>
-                <p className="text-xs text-muted-foreground">Em breve: debugar decisões da IA.</p>
-             </div>
-             <Badge variant="outline" className="ml-auto text-[10px]">SOON</Badge>
-          </Card>
+        <Card className="p-4 border-dashed border-2 flex items-center gap-4 opacity-60">
+          <div className="p-3 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+            <Settings className="h-6 w-6 text-neutral-500" />
+          </div>
+          <div>
+            <p className="font-bold">Logs Avançados</p>
+            <p className="text-xs text-muted-foreground">Em breve: debugar decisões da IA.</p>
+          </div>
+          <Badge variant="outline" className="ml-auto text-[10px]">SOON</Badge>
+        </Card>
       </div>
     </div>
   );
