@@ -2270,11 +2270,24 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                 className="max-w-full max-h-full rounded-lg shadow-2xl"
               />
             ) : (
-              <iframe
-                src={lightbox.url}
+              <object
+                data={lightbox.url}
+                type="application/pdf"
                 className="w-full h-full rounded-lg bg-white shadow-2xl"
-                title={lightbox.filename || "Documento"}
-              />
+              >
+                <div className="flex flex-col items-center justify-center h-full gap-4 text-white">
+                  <FileText className="h-16 w-16 text-red-400" />
+                  <p className="text-lg font-medium">{lightbox.filename || "Documento"}</p>
+                  <p className="text-sm text-white/60">Não foi possível exibir o PDF no navegador</p>
+                  <button
+                    onClick={() => handleDownload(lightbox.url, lightbox.type, lightbox.filename)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    Baixar documento
+                  </button>
+                </div>
+              </object>
             )}
           </div>
         </div>

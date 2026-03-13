@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState, useEffect } from 'react'
 import { useSpellCheck, SpellError } from '@/hooks/useSpellCheck'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 
 interface SpellCheckTextareaProps {
   value: string
@@ -34,6 +35,10 @@ function buildHighlightSegments(text: string, errors: SpellError[]): { text: str
   }
 
   return segments
+}
+
+function getErrorAtCursor(errors: SpellError[], cursorPos: number): SpellError | null {
+  return errors.find((err) => cursorPos >= err.start && cursorPos <= err.end) ?? null
 }
 
 export function SpellCheckTextarea({
@@ -84,9 +89,15 @@ export function SpellCheckTextarea({
     return () => ta.removeEventListener('scroll', syncScroll)
   }, [textareaRef, syncScroll])
 
-  const handleErrorClick = useCallback((err: SpellError, e: React.MouseEvent) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent<HTMLTextAreaElement>) => {
+    const ta = textareaRef?.current
+    if (!ta || errors.length === 0) return
+
+    const cursorPos = ta.selectionStart
+    const error = getErrorAtCursor(errors, cursorPos)
+    if (!error) return
+
     e.preventDefault()
-    e.stopPropagation()
     const container = containerRef.current
     if (!container) return
     const rect = container.getBoundingClientRect()
@@ -94,8 +105,8 @@ export function SpellCheckTextarea({
       top: e.clientY - rect.top,
       left: e.clientX - rect.left,
     })
-    setActiveError(err)
-  }, [])
+    setActiveError(error)
+  }, [textareaRef, errors])
 
   const applySuggestion = useCallback((suggestion: string) => {
     if (!activeError) return
@@ -104,8 +115,20 @@ export function SpellCheckTextarea({
     clearErrors()
     setActiveError(null)
     setPopoverPos(null)
-    setTimeout(() => textareaRef?.current?.focus(), 0)
+    const cursorTarget = activeError.start + suggestion.length
+    setTimeout(() => {
+      const ta = textareaRef?.current
+      if (ta) {
+        ta.focus()
+        ta.selectionStart = ta.selectionEnd = cursorTarget
+      }
+    }, 0)
   }, [activeError, value, onChange, clearErrors, textareaRef])
+
+  const closePopover = useCallback(() => {
+    setActiveError(null)
+    setPopoverPos(null)
+  }, [])
 
   const segments = buildHighlightSegments(value, errors)
 
@@ -120,14 +143,12 @@ export function SpellCheckTextarea({
       >
         {segments.map((seg, i) =>
           seg.error ? (
-            <span
+            <mark
               key={i}
-              className="border-b-2 border-dotted border-red-500 pointer-events-auto cursor-pointer"
-              onClick={(e) => handleErrorClick(seg.error!, e)}
-              onContextMenu={(e) => handleErrorClick(seg.error!, e)}
+              className="bg-transparent border-b-2 border-dotted border-red-500 text-transparent"
             >
               {seg.text}
-            </span>
+            </mark>
           ) : (
             <span key={i}>{seg.text}</span>
           )
@@ -146,6 +167,7 @@ export function SpellCheckTextarea({
         onChange={handleChange}
         onKeyDown={onKeyDown}
         onScroll={syncScroll}
+        onContextMenu={handleContextMenu}
         className="relative z-10 flex-1 w-full rounded-2xl border border-gray-300 dark:border-gray-700 bg-transparent resize-none overflow-y-hidden focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50 max-h-40 placeholder:text-muted-foreground text-sm py-2 px-4"
         style={{ minHeight: '36px', height: '36px', lineHeight: '1.25rem', caretColor: 'auto' }}
       />
@@ -159,30 +181,52 @@ export function SpellCheckTextarea({
 
       {/* Popover de sugestões */}
       {activeError && popoverPos && (
-        <Popover open onOpenChange={(open) => { if (!open) { setActiveError(null); setPopoverPos(null) } }}>
+        <Popover open onOpenChange={(open) => { if (!open) closePopover() }}>
           <PopoverTrigger asChild>
             <span
               className="absolute z-30 w-0 h-0"
               style={{ top: popoverPos.top, left: popoverPos.left }}
             />
           </PopoverTrigger>
-          <PopoverContent className="w-auto max-w-[280px] p-2 space-y-1.5" side="top" align="start">
-            <p className="text-xs text-muted-foreground px-1">{activeError.message}</p>
+          <PopoverContent
+            className={cn(
+              "w-auto max-w-[300px] p-0 shadow-lg border border-border/60",
+              "bg-popover text-popover-foreground"
+            )}
+            side="top"
+            align="start"
+            sideOffset={8}
+          >
+            {/* Cabeçalho */}
+            <div className="px-3 py-2 border-b border-border/50">
+              <p className="text-[11px] font-semibold text-foreground">
+                Sugestões para &ldquo;{activeError.word}&rdquo;
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{activeError.message}</p>
+            </div>
+
+            {/* Sugestões */}
             {activeError.suggestions.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
+              <div className="p-1.5">
                 {activeError.suggestions.map((s, i) => (
                   <button
                     key={i}
                     type="button"
                     onClick={() => applySuggestion(s)}
-                    className="text-xs font-medium px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                    className={cn(
+                      "w-full text-left text-xs px-2.5 py-1.5 rounded-md transition-colors",
+                      "hover:bg-accent hover:text-accent-foreground",
+                      "focus:bg-accent focus:text-accent-foreground focus:outline-none"
+                    )}
                   >
                     {s}
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground italic px-1">Sem sugestões</p>
+              <div className="px-3 py-2">
+                <p className="text-xs text-muted-foreground italic">Sem sugestões disponíveis</p>
+              </div>
             )}
           </PopoverContent>
         </Popover>

@@ -100,6 +100,7 @@ interface UseWebSocketOptions {
   onMessageStatus?: (data: { messageId: string; status: MessageStatus; timestamp: Date }) => void;
   onMessageEdited?: (data: { messageId: string; newContent: string; customerId: string }) => void;
   onMessageDeleted?: (data: { messageId: string; customerId: string }) => void;
+  onInstanceDisconnected?: (data: { instanceName: string; timestamp: string }) => void;
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
@@ -139,7 +140,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     // sem precisar re-registrar os listeners quando as funções mudam.
     type EventKey = keyof Pick<UseWebSocketOptions,
       'onNewMessage' | 'onConversationUpdate' | 'onTyping' |
-      'onStatsUpdate' | 'onMessageStatus' | 'onMessageEdited' | 'onMessageDeleted'
+      'onStatsUpdate' | 'onMessageStatus' | 'onMessageEdited' | 'onMessageDeleted' |
+      'onInstanceDisconnected'
     >;
     const eventMap: Record<string, EventKey> = {
       'new_message': 'onNewMessage',
@@ -149,6 +151,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       'message_status': 'onMessageStatus',
       'message_edited': 'onMessageEdited',
       'message_deleted': 'onMessageDeleted',
+      'instance_disconnected': 'onInstanceDisconnected',
     };
 
     const registeredHandlers: Array<[string, (data: unknown) => void]> = [];

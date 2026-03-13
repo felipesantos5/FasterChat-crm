@@ -1244,11 +1244,29 @@ class MessageService {
         const innerDoc = msgData.documentWithCaptionMessage.message.documentMessage;
         mediaType = "document";
         content = innerDoc.caption || innerDoc.fileName || "Documento recebido";
+        try {
+          const mimetype = innerDoc.mimetype || "application/pdf";
+          const docBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+          const base64Doc = docBuffer.toString("base64");
+          mediaUrl = `data:${mimetype};base64,${base64Doc}`;
+        } catch (downloadError: unknown) {
+          const errMsg = downloadError instanceof Error ? downloadError.message : String(downloadError);
+          console.error(`[MessageService] ❌ Erro ao baixar documento (com legenda):`, errMsg);
+        }
       }
       // 6. MENSAGEM DE DOCUMENTO (simples)
       else if (msgData?.documentMessage) {
         mediaType = "document";
         content = msgData.documentMessage.caption || msgData.documentMessage.fileName || "Documento recebido";
+        try {
+          const mimetype = msgData.documentMessage.mimetype || "application/pdf";
+          const docBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+          const base64Doc = docBuffer.toString("base64");
+          mediaUrl = `data:${mimetype};base64,${base64Doc}`;
+        } catch (downloadError: unknown) {
+          const errMsg = downloadError instanceof Error ? downloadError.message : String(downloadError);
+          console.error(`[MessageService] ❌ Erro ao baixar documento:`, errMsg);
+        }
       }
       // 6. MENSAGEM DE STICKER
       else if (msgData?.stickerMessage) {

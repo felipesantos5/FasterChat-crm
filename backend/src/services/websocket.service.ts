@@ -251,6 +251,18 @@ class WebSocketService {
   }
 
   /**
+   * Emite alerta de instância WhatsApp desconectada para todos da empresa
+   */
+  emitInstanceDisconnected(companyId: string, instanceName: string) {
+    if (!this.io) return;
+
+    this.io.to(`company:${companyId}`).emit('instance_disconnected', {
+      instanceName,
+      timestamp: new Date(),
+    });
+  }
+
+  /**
    * Verifica se o servidor está inicializado
    */
   isInitialized(): boolean {

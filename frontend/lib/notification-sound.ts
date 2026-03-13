@@ -142,6 +142,43 @@ class NotificationSoundService {
   }
 
   /**
+   * Reproduz som de alerta urgente de desconexão de instância WhatsApp
+   * Tom grave e repetitivo para chamar atenção imediata
+   */
+  playDisconnectAlert(): void {
+    if (!this.isEnabled || typeof window === 'undefined') return;
+
+    try {
+      const ctx = this.getAudioContext();
+      const now = ctx.currentTime;
+
+      // 3 toques graves e urgentes
+      for (let i = 0; i < 3; i++) {
+        const offset = i * 0.35;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.frequency.setValueAtTime(330, now + offset);        // E4
+        osc.frequency.setValueAtTime(277.18, now + offset + 0.12); // C#4 (desce)
+
+        gain.gain.setValueAtTime(0, now + offset);
+        gain.gain.linearRampToValueAtTime(this.volume * 0.4, now + offset + 0.02);
+        gain.gain.linearRampToValueAtTime(this.volume * 0.3, now + offset + 0.12);
+        gain.gain.linearRampToValueAtTime(0, now + offset + 0.25);
+
+        osc.type = 'square';
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.25);
+      }
+    } catch (error) {
+      console.warn('Não foi possível reproduzir som de desconexão:', error);
+    }
+  }
+
+  /**
    * Habilita/desabilita sons de notificação
    */
   setEnabled(enabled: boolean): void {

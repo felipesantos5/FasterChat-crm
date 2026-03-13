@@ -66,6 +66,16 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }
   }, [toast]);
 
+  const handleInstanceDisconnected = useCallback((data: { instanceName: string; timestamp: string }) => {
+    notificationSound.playDisconnectAlert();
+
+    toast({
+      title: '⚠️ WhatsApp Desconectado',
+      description: `A instância "${data.instanceName}" perdeu a conexão. Reconecte nas configurações.`,
+      variant: 'destructive',
+    });
+  }, [toast]);
+
   const {
     isConnected,
     isAuthenticated,
@@ -75,6 +85,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     autoConnect: true,
     onNewMessage: handleNewMessage,
     onConversationUpdate: handleConversationUpdate,
+    onInstanceDisconnected: handleInstanceDisconnected,
   });
 
   // Notificação de conexão

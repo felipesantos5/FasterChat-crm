@@ -453,12 +453,15 @@ class WebhookController {
               if (reason === 401 || reason === 403 || reason === "loggedOut") {
                 newStatus = WhatsAppStatus.DISCONNECTED;
                 await whatsappService.updateConnectionStatus(instance.id, WhatsAppStatus.DISCONNECTED);
-                
+
                 // Limpa dados de conexão
                 await prisma.whatsAppInstance.updateMany({
                   where: { id: instance.id },
                   data: { qrCode: null, phoneNumber: null },
                 });
+
+                // Alerta o frontend via WebSocket
+                websocketService.emitInstanceDisconnected(instance.companyId, instance.instanceName);
               } else {
                 newStatus = WhatsAppStatus.CONNECTING;
               }
