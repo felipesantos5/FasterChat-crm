@@ -2027,6 +2027,7 @@ export class FlowEngineService {
         }, { delay: delaySimulado });
       } else if (execution.currentNode?.type === 'ai_condition') {
         // AI condition processing — acumula até 5 mensagens antes de decidir
+        const currentNode = execution.currentNode;
 
         const MAX_AI_MESSAGES = 5;
 
@@ -2049,15 +2050,15 @@ export class FlowEngineService {
             where: { id: execution.id as string },
             data: { variables: updatedVars }
           });
-          await flowQueueService.removeTimeoutJob(execution.id as string, execution.currentNode.id as string);
+          await flowQueueService.removeTimeoutJob(execution.id as string, currentNode.id as string);
           const resumesAt = (execution as any).resumesAt;
           const remaining = resumesAt
             ? Math.max(10000, new Date(resumesAt as string).getTime() - Date.now())
             : 0;
           if (remaining > 10000) {
             await flowQueueService.enqueueFlowStep(
-              { executionId: execution.id as string, nodeId: execution.currentNode.id as string, sourceHandle: 'nao_respondeu' },
-              { delay: remaining, jobId: `timeout_${execution.id}_${execution.currentNode.id}` }
+              { executionId: execution.id as string, nodeId: currentNode.id as string, sourceHandle: 'nao_respondeu' },
+              { delay: remaining, jobId: `timeout_${execution.id}_${currentNode.id}` }
             );
           }
         };
