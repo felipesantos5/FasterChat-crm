@@ -28,4 +28,7 @@ router.get('/assigned/:userId', checkPermission('CONVERSATIONS', false), asyncHa
 // PATCH /api/conversations/:customerId/toggle-ai - Ativa/Desativa IA
 router.patch('/:customerId/toggle-ai', checkPermission('CONVERSATIONS', true), asyncHandler(conversationController.toggleAI));
 
+// PATCH /api/conversations/:customerId/dismiss-help - Marca transbordo como resolvido
+router.patch('/:customerId/dismiss-help', checkPermission('CONVERSATIONS', true), asyncHandler(conversationController.dismissNeedsHelp));
+
 export default router;

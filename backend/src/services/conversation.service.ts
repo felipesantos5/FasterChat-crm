@@ -189,6 +189,16 @@ class ConversationService {
   }
 
   /**
+   * Marca transbordo como resolvido (needsHelp = false) sem alterar o estado da IA
+   */
+  async dismissNeedsHelp(customerId: string): Promise<void> {
+    await prisma.conversation.update({
+      where: { customerId },
+      data: { needsHelp: false },
+    });
+  }
+
+  /**
    * Lista conversas atribuídas a um usuário
    */
   async getAssignedConversations(userId: string) {

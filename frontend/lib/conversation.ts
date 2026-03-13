@@ -52,4 +52,12 @@ export const conversationApi = {
     const response = await api.patch(`/conversations/${customerId}/toggle-ai`, { aiEnabled });
     return response.data;
   },
+
+  /**
+   * Marca transbordo como resolvido sem alterar o estado da IA
+   */
+  async dismissNeedsHelp(customerId: string): Promise<{ success: boolean }> {
+    const response = await api.patch(`/conversations/${customerId}/dismiss-help`);
+    return response.data;
+  },
 };

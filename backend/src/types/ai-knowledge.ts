@@ -30,6 +30,7 @@ export interface AIKnowledgeData {
   aiTone?: string | null;
   aiProactivity?: string | null;
   aiClosingFocus?: boolean | null;
+  aiShowPrices?: boolean | null;
   aiCustomInstructions?: string | null;
 
   // Políticas
@@ -83,6 +84,7 @@ export interface UpdateAIKnowledgeRequest {
   aiTone?: string;
   aiProactivity?: string;
   aiClosingFocus?: boolean;
+  aiShowPrices?: boolean;
   aiCustomInstructions?: string;
 
   // Políticas

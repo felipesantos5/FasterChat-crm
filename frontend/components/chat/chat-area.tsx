@@ -560,25 +560,40 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     // Reseta altura do textarea
     if (inputRef.current) inputRef.current.style.height = "36px";
 
+    // Mensagem otimista — aparece instantaneamente na UI
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      customerId,
+      content: messageContent,
+      direction: MessageDirection.OUTBOUND,
+      senderType: SenderType.HUMAN,
+      status: MessageStatus.PENDING,
+      timestamp: new Date().toISOString(),
+      isEdited: false,
+      quotedMessageId: quotedId || null,
+      whatsappInstanceId: null,
+      mediaType: null,
+      mediaUrl: null,
+      quotedMessage: replyingTo ? { id: replyingTo.id, content: replyingTo.content, direction: replyingTo.direction } : null,
+    } as Message;
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+
     try {
       const response = await messageApi.sendMessage(customerId, messageContent, "HUMAN", quotedId);
 
-      // Adiciona a mensagem apenas se não estiver conectado ao WebSocket
-      // Se estiver conectado, o WebSocket vai trazer a mensagem automaticamente
-      if (!isConnected || !isAuthenticated) {
-        setMessages((prev) => {
-          // Evita duplicatas verificando pelo ID
-          const exists = prev.some((m) => m.id === response.data.message.id);
-          if (exists) return prev;
-          return [...prev, response.data.message];
-        });
-      }
-    } catch (error: any) {
+      // Substitui a mensagem otimista pela real do servidor
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimisticId ? response.data.message : m))
+      );
+    } catch (error: unknown) {
+      // Remove mensagem otimista em caso de erro
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       showErrorToast(error, router, "Erro ao enviar mensagem");
       setInputValue(messageContent); // Restaura o texto
     } finally {
       setSending(false);
-      // Restaura o foco no input após enviar
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);

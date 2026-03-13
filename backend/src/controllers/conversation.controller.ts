@@ -196,6 +196,31 @@ class ConversationController {
   }
 
   /**
+   * PATCH /api/conversations/:customerId/dismiss-help
+   * Marca transbordo como resolvido sem alterar o estado da IA
+   */
+  async dismissNeedsHelp(req: Request, res: Response) {
+    try {
+      const { customerId } = req.params;
+      if (!customerId) {
+        return res.status(400).json({ success: false, message: 'Customer ID is required' });
+      }
+
+      await conversationService.dismissNeedsHelp(customerId);
+
+      // Emite atualização via WebSocket
+      const companyId = req.user!.companyId;
+      websocketService.emitConversationUpdate(companyId, customerId, { needsHelp: false });
+
+      return res.status(200).json({ success: true });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to dismiss help';
+      console.error('Error in dismissNeedsHelp controller:', error);
+      return res.status(500).json({ success: false, message });
+    }
+  }
+
+  /**
    * GET /api/conversations/handoffs/count
    * Retorna o número de conversas que transbordaram (needsHelp = true) e não foram visualizadas
    */

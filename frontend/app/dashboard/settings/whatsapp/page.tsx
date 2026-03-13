@@ -343,6 +343,113 @@ function WhatsAppSettingsPageContent() {
               </CardContent>
             </Card>
           )}
+
+          {/* Instances List */}
+          {instances.length > 0 ? (
+            <Card className="border border-border/60 shadow-sm">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Conexoes Ativas</CardTitle>
+                    <CardDescription className="text-xs">
+                      {connectedCount} de {instances.length} {instances.length === 1 ? 'instancia conectada' : 'instancias conectadas'}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className={`h-2 w-2 rounded-full ${connectedCount > 0 ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <span className="text-xs text-muted-foreground">{connectedCount > 0 ? 'Online' : 'Offline'}</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="divide-y">
+                  {instances.map((instance) => (
+                    <div key={instance.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
+                          instance.status === WhatsAppStatus.CONNECTED
+                            ? 'bg-green-500/10'
+                            : instance.status === WhatsAppStatus.CONNECTING
+                              ? 'bg-yellow-500/10'
+                              : 'bg-red-500/10'
+                        }`}>
+                          {instance.status === WhatsAppStatus.CONNECTED ? (
+                            <Wifi className="h-4 w-4 text-green-600" />
+                          ) : instance.status === WhatsAppStatus.CONNECTING ? (
+                            <Loader2 className="h-4 w-4 text-yellow-600 animate-spin" />
+                          ) : (
+                            <WifiOff className="h-4 w-4 text-red-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm truncate">{instance.displayName || instance.instanceName}</p>
+                            {getStatusBadge(instance.status)}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {instance.phoneNumber && <span>{instance.phoneNumber}</span>}
+                            {instance.phoneNumber && instance.connectedAt && <span>·</span>}
+                            {instance.connectedAt && (
+                              <span>Desde {new Date(instance.connectedAt).toLocaleDateString("pt-BR")}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          onClick={() => handleSyncStatus(instance.id)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={syncing[instance.id]}
+                          title="Sincronizar status"
+                        >
+                          <RefreshCw className={`h-3.5 w-3.5 ${syncing[instance.id] ? "animate-spin" : ""}`} />
+                        </Button>
+
+                        {instance.status === WhatsAppStatus.CONNECTED && (
+                          <Button onClick={() => openDisconnectDialog(instance)} variant="outline" size="sm" className="h-8 text-xs">
+                            Desconectar
+                          </Button>
+                        )}
+
+                        {instance.status === WhatsAppStatus.DISCONNECTED && (
+                          <Button onClick={() => handleReconnect(instance.id)} variant="outline" size="sm" className="h-8 text-xs">
+                            Reconectar
+                          </Button>
+                        )}
+
+                        {instance.status === WhatsAppStatus.CONNECTING && (
+                          <Button onClick={() => handleReconnect(instance.id)} variant="outline" size="sm" className="h-8 text-xs">
+                            Ver QR Code
+                          </Button>
+                        )}
+
+                        <Button onClick={() => openDeleteDialog(instance)} variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-500/10">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border border-dashed border-border/60">
+              <CardContent className="py-12">
+                <div className="text-center space-y-3">
+                  <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto">
+                    <Smartphone className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Nenhuma conexao ativa</p>
+                    <p className="text-xs text-muted-foreground">Clique em "Adicionar WhatsApp" para comecar</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right: Tutorial Image */}
@@ -384,113 +491,6 @@ function WhatsAppSettingsPageContent() {
           </div>
         </div>
       </div>
-
-      {/* Instances List */}
-      {instances.length > 0 ? (
-        <Card className="border border-border/60 shadow-sm">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">Conexoes Ativas</CardTitle>
-                <CardDescription className="text-xs">
-                  {connectedCount} de {instances.length} {instances.length === 1 ? 'instancia conectada' : 'instancias conectadas'}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className={`h-2 w-2 rounded-full ${connectedCount > 0 ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className="text-xs text-muted-foreground">{connectedCount > 0 ? 'Online' : 'Offline'}</span>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="divide-y">
-              {instances.map((instance) => (
-                <div key={instance.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
-                      instance.status === WhatsAppStatus.CONNECTED
-                        ? 'bg-green-500/10'
-                        : instance.status === WhatsAppStatus.CONNECTING
-                          ? 'bg-yellow-500/10'
-                          : 'bg-red-500/10'
-                    }`}>
-                      {instance.status === WhatsAppStatus.CONNECTED ? (
-                        <Wifi className="h-4 w-4 text-green-600" />
-                      ) : instance.status === WhatsAppStatus.CONNECTING ? (
-                        <Loader2 className="h-4 w-4 text-yellow-600 animate-spin" />
-                      ) : (
-                        <WifiOff className="h-4 w-4 text-red-500" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm truncate">{instance.displayName || instance.instanceName}</p>
-                        {getStatusBadge(instance.status)}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {instance.phoneNumber && <span>{instance.phoneNumber}</span>}
-                        {instance.phoneNumber && instance.connectedAt && <span>·</span>}
-                        {instance.connectedAt && (
-                          <span>Desde {new Date(instance.connectedAt).toLocaleDateString("pt-BR")}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Button
-                      onClick={() => handleSyncStatus(instance.id)}
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      disabled={syncing[instance.id]}
-                      title="Sincronizar status"
-                    >
-                      <RefreshCw className={`h-3.5 w-3.5 ${syncing[instance.id] ? "animate-spin" : ""}`} />
-                    </Button>
-
-                    {instance.status === WhatsAppStatus.CONNECTED && (
-                      <Button onClick={() => openDisconnectDialog(instance)} variant="outline" size="sm" className="h-8 text-xs">
-                        Desconectar
-                      </Button>
-                    )}
-
-                    {instance.status === WhatsAppStatus.DISCONNECTED && (
-                      <Button onClick={() => handleReconnect(instance.id)} variant="outline" size="sm" className="h-8 text-xs">
-                        Reconectar
-                      </Button>
-                    )}
-
-                    {instance.status === WhatsAppStatus.CONNECTING && (
-                      <Button onClick={() => handleReconnect(instance.id)} variant="outline" size="sm" className="h-8 text-xs">
-                        Ver QR Code
-                      </Button>
-                    )}
-
-                    <Button onClick={() => openDeleteDialog(instance)} variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-500/10">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border border-dashed border-border/60">
-          <CardContent className="py-12">
-            <div className="text-center space-y-3">
-              <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto">
-                <Smartphone className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-medium text-sm">Nenhuma conexao ativa</p>
-                <p className="text-xs text-muted-foreground">Clique em "Adicionar WhatsApp" para comecar</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* QR Code Modal */}
       {selectedInstanceId && (

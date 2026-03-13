@@ -21,7 +21,7 @@ import {
   Lock,
   Smartphone,
   Zap,
-  Tag,
+  MessageSquareText,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import logo from "@/assets/logo2.webp";
@@ -116,9 +116,9 @@ const menuItems: MenuItem[] = [
         href: "/dashboard/settings/ai/scripts",
       },
       {
-        label: "Preços e Promoções",
-        icon: Tag,
-        href: "/dashboard/settings/pricing",
+        label: "Mensagens Rápidas",
+        icon: MessageSquareText,
+        href: "/dashboard/configuracoes/mensagens-rapidas",
       },
     ],
   },

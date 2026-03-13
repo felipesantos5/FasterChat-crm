@@ -329,6 +329,7 @@ model AIKnowledge {
   aiTone               String?  @default("professional") @map("ai_tone") // professional, friendly, casual, formal
   aiProactivity        String?  @default("medium") @map("ai_proactivity") // low, medium, high
   aiClosingFocus       Boolean? @default(false) @map("ai_closing_focus") // Se deve tentar fechar venda
+  aiShowPrices         Boolean? @default(true) @map("ai_show_prices") // Se a IA pode informar preços (false = transbordo)
   aiCustomInstructions String?  @map("ai_custom_instructions") @db.Text // Instruções personalizadas adicionais
 
   // Políticas

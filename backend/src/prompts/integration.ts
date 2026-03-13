@@ -21,6 +21,7 @@ interface AIKnowledgeData {
   aiTone?: string | null;
   aiProactivity?: string | null;
   aiClosingFocus?: boolean | null;
+  aiShowPrices?: boolean | null;
   aiCustomInstructions?: string | null;
   workingHours?: string | null;
   businessHoursStart?: number | null;
@@ -212,6 +213,16 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
 
   // Adiciona informações extras que o sistema modular ainda não cobre
   let finalPrompt = result.systemPrompt;
+
+  // REGRA DE BLOQUEIO DE PREÇOS: quando desativado, IA nunca informa preços
+  if (aiKnowledge?.aiShowPrices === false) {
+    finalPrompt += `\n\n### POLÍTICA DE PREÇOS (REGRA CRÍTICA - PRIORIDADE MÁXIMA)
+- Você NÃO pode informar preços, valores, custos ou qualquer informação financeira sobre produtos ou serviços.
+- Se o cliente perguntar sobre preço, valor, quanto custa, orçamento ou qualquer variação, responda educadamente que essa informação será passada por um atendente especializado.
+- Use frases como: "Para informações sobre valores, vou te encaminhar para um dos nossos atendentes que poderá te passar todos os detalhes."
+- Após essa resposta, SEMPRE acione o transbordo/transferência para atendente humano.
+- Esta regra é ABSOLUTA e se sobrepõe a qualquer outra instrução sobre preços.`;
+  }
 
   // Adiciona restrições específicas se houver
   if (aiKnowledge?.negativeExamples) {

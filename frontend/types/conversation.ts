@@ -4,6 +4,7 @@ export interface Conversation {
   companyId: string;
   assignedToId?: string | null;
   aiEnabled: boolean;
+  needsHelp: boolean;
   createdAt: string;
   updatedAt: string;
   customer?: {
