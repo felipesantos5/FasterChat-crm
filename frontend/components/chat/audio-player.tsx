@@ -12,10 +12,13 @@ interface AudioPlayerProps {
   isFlow?: boolean;
 }
 
+const PLAYBACK_SPEEDS = [1, 1.5, 2] as const;
+
 export function AudioPlayer({ audioUrl, transcription, isInbound, isFlow }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [speedIndex, setSpeedIndex] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -53,9 +56,19 @@ export function AudioPlayer({ audioUrl, transcription, isInbound, isFlow }: Audi
     if (isPlaying) {
       audio.pause();
     } else {
+      audio.playbackRate = PLAYBACK_SPEEDS[speedIndex];
       audio.play();
     }
     setIsPlaying(!isPlaying);
+  };
+
+  const cycleSpeed = () => {
+    const audio = audioRef.current;
+    const nextIndex = (speedIndex + 1) % PLAYBACK_SPEEDS.length;
+    setSpeedIndex(nextIndex);
+    if (audio) {
+      audio.playbackRate = PLAYBACK_SPEEDS[nextIndex];
+    }
   };
 
   const formatTime = (time: number) => {
@@ -110,12 +123,26 @@ export function AudioPlayer({ audioUrl, transcription, isInbound, isFlow }: Audi
             />
           </div>
 
-          {/* Time */}
-          <div className={cn(
-            "text-xs",
-            isInbound || isFlow ? "text-muted-foreground" : "text-white/70"
-          )}>
-            {formatTime(currentTime)} / {formatTime(duration)}
+          {/* Time + Speed */}
+          <div className="flex items-center justify-between">
+            <div className={cn(
+              "text-xs",
+              isInbound || isFlow ? "text-muted-foreground" : "text-white/70"
+            )}>
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </div>
+            <button
+              type="button"
+              onClick={cycleSpeed}
+              className={cn(
+                "text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-colors",
+                isInbound || isFlow
+                  ? "bg-primary/10 text-primary hover:bg-primary/20"
+                  : "bg-white/15 text-white hover:bg-white/25"
+              )}
+            >
+              {PLAYBACK_SPEEDS[speedIndex]}x
+            </button>
           </div>
         </div>
       </div>

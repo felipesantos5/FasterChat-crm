@@ -1480,8 +1480,17 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                         </div>
                       )}
 
+                      {/* Sticker */}
+                      {message.mediaType === "sticker" && message.mediaUrl && (
+                        <img
+                          src={message.mediaUrl}
+                          alt="Sticker"
+                          className="max-w-[160px] max-h-[160px] object-contain"
+                        />
+                      )}
+
                       {/* Texto — modo normal */}
-                      {message.mediaType !== "audio" && message.mediaType !== "image" && message.mediaType !== "video" && message.mediaType !== "document" && message.content && (
+                      {message.mediaType !== "audio" && message.mediaType !== "image" && message.mediaType !== "video" && message.mediaType !== "document" && message.mediaType !== "sticker" && message.content && (
                         <MessageText content={message.content} className="text-xs sm:text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere" />
                       )}
                     </div>
@@ -1714,7 +1723,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                   {replyingTo.mediaType === "image" ? "🖼️ Imagem"
                     : replyingTo.mediaType === "audio" ? "🎤 Áudio"
                       : replyingTo.mediaType === "video" ? "🎥 Vídeo"
-                        : replyingTo.content}
+                        : replyingTo.mediaType === "sticker" ? "🔖 Sticker"
+                          : replyingTo.content}
                 </p>
               </div>
             </div>

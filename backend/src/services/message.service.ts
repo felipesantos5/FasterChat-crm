@@ -1254,6 +1254,15 @@ class MessageService {
       else if (msgData?.stickerMessage) {
         mediaType = "sticker";
         content = "[Sticker]";
+        try {
+          const mimetype = msgData.stickerMessage.mimetype || "image/webp";
+          const stickerBuffer = await whatsappService.downloadMedia(instanceName, data.key);
+          const base64Sticker = stickerBuffer.toString("base64");
+          mediaUrl = `data:${mimetype};base64,${base64Sticker}`;
+        } catch (downloadError: unknown) {
+          const errMsg = downloadError instanceof Error ? downloadError.message : String(downloadError);
+          console.error(`[MessageService] ❌ Erro ao baixar sticker:`, errMsg);
+        }
       }
       // 7. MENSAGEM DE LOCALIZAÇÃO
       else if (msgData?.locationMessage) {
