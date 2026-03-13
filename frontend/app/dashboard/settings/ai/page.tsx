@@ -348,7 +348,7 @@ function AISettingsPageContent() {
     loadKnowledge();
   }, []);
 
-  const saveKnowledge = async (nextStep?: number, overrides?: { autoReplyEnabled?: boolean }) => {
+  const saveKnowledge = async (nextStep?: number, overrides?: { autoReplyEnabled?: boolean }, silent?: boolean) => {
     try {
       setSaving(true);
       const companyId = getCompanyId();
@@ -384,7 +384,7 @@ function AISettingsPageContent() {
         setupCompleted,
       });
 
-      toast.success("Configurações salvas!");
+      if (!silent) toast.success("Configurações salvas!");
     } catch (err: any) {
       console.error("Error saving:", err);
       const code = err?.response?.data?.code;
@@ -413,10 +413,7 @@ function AISettingsPageContent() {
         return;
       }
 
-      // Primeiro salva todas as informações (incluindo produtos)
-      await saveKnowledge();
-
-      // Depois gera o contexto
+      // Gera o contexto (já salvo antes de chamar esta função)
       const response = await aiKnowledgeApi.generateContext(companyId);
 
       if (response.data) {
@@ -815,8 +812,9 @@ function AISettingsPageContent() {
           </Button>
           <Button
             onClick={async () => {
+              setSaving(true);
               if (services.length > 0) await saveServices();
-              await saveKnowledge();
+              await saveKnowledge(undefined, undefined, true);
               await handleGenerateContext();
             }}
             disabled={saving || generatingContext}

@@ -672,6 +672,14 @@ function ConversationsPageContent() {
                     globalMutate(`/messages/unread-count/${companyId}`);
                   }
                 }}
+                onDismissHelp={() => {
+                  mutate(
+                    (current) => current
+                      ? { ...current, items: current.items.map((c) => c.customerId === selectedConversation.customerId ? { ...c, needsHelp: false } : c) }
+                      : current,
+                    false
+                  );
+                }}
               />
             </div>
           </>
@@ -709,6 +717,14 @@ function ConversationsPageContent() {
               customerId={selectedConversation.customerId}
               customerName={selectedConversation.customerName}
               customerPhone={selectedConversation.customerPhone}
+              onStageChange={(color) => {
+                mutate(
+                  (current) => current
+                    ? { ...current, items: current.items.map((c) => c.customerId === selectedConversation.customerId ? { ...c, pipelineStageColor: color } : c) }
+                    : current,
+                  false
+                );
+              }}
             />
           </div>
         </div>
