@@ -85,7 +85,6 @@ class AIKnowledgeController {
         aiTone,
         aiProactivity,
         aiClosingFocus,
-        aiShowPrices,
         aiCustomInstructions,
         // Políticas
         policies,
@@ -143,7 +142,6 @@ class AIKnowledgeController {
         aiTone,
         aiProactivity,
         aiClosingFocus,
-        aiShowPrices,
         aiCustomInstructions,
         policies,
         workingHours,

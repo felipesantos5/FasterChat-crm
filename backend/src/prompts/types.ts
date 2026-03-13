@@ -28,7 +28,6 @@ export interface AIObjectiveConfig {
   tone: "formal" | "friendly" | "professional" | "casual";
   proactivity: "low" | "medium" | "high";
   closingFocus: boolean;         // Foco em fechamento/conversão
-  showPrices: boolean;           // Se a IA deve mencionar preços
   schedulingEnabled: boolean;    // Pode agendar
   transferEnabled: boolean;      // Pode transferir para humano
   customInstructions?: string;   // Instruções extras do cliente

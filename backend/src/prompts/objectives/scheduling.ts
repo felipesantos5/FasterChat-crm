@@ -29,7 +29,6 @@ export const SCHEDULING_CONFIG: AIObjectiveConfig = {
   tone: "professional",
   proactivity: "medium",
   closingFocus: true,
-  showPrices: true,
   schedulingEnabled: true,
   transferEnabled: true,
 };

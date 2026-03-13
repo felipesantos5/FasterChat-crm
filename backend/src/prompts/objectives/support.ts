@@ -29,7 +29,6 @@ export const SUPPORT_CONFIG: AIObjectiveConfig = {
   tone: "professional",
   proactivity: "high",
   closingFocus: false,
-  showPrices: true,
   schedulingEnabled: true, // Pode agendar visita técnica
   transferEnabled: true,
 };

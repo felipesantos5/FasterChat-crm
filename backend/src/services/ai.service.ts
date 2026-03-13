@@ -970,7 +970,6 @@ Total: R$ 505,00"
           aiTone: aiKnowledge?.aiTone,
           aiProactivity: aiKnowledge?.aiProactivity,
           aiClosingFocus: aiKnowledge?.aiClosingFocus,
-          aiShowPrices: aiKnowledge?.aiShowPrices,
           aiCustomInstructions: aiKnowledge?.aiCustomInstructions,
           googleCalendarStatus,
         });
@@ -1386,21 +1385,8 @@ Exemplo: "Peço desculpas pelo transtorno. Vou encaminhar para um atendente reso
     // Seção de Contexto da Conversa (Serviço de interesse detectado)
     const conversationContextSection = conversationContext || "";
 
-    // Seção de ocultação de preços (quando configurado)
-    const hidePricesSection = data.aiShowPrices === false
-      ? `
-### 🚫 POLÍTICA DE PREÇOS (OBRIGATÓRIO)
-**REGRA INVIOLÁVEL:** Você NÃO deve informar preços, valores ou custos de produtos/serviços.
-Quando perguntarem sobre preços:
-- NÃO mencione nenhum valor monetário
-- Redirecione para atendimento personalizado
-- Foque nos benefícios e diferenciais
-- Exemplo: "Para valores e condições, vou te encaminhar para um consultor que pode te passar todas as informações!"
-`.trim()
-      : "";
-
     // Regra anti-alucinação de preços (inserida perto dos dados de serviço)
-    const priceGuardSection = data.aiShowPrices === false ? "" : `
+    const priceGuardSection = `
 ### 🔒 ANTI-ALUCINAÇÃO DE PREÇOS (INVIOLÁVEL)
 **Raciocínio obrigatório antes de informar QUALQUER preço:**
 1. O cliente perguntou sobre qual serviço/produto?
@@ -1420,7 +1406,6 @@ Quando perguntarem sobre preços:
     return [
       securityAndIdentity,
       customInstructionsSection,
-      hidePricesSection,
       businessContext,
       faqSection,
       ragSection,

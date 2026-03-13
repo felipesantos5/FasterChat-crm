@@ -29,7 +29,6 @@ export const INFO_CONFIG: AIObjectiveConfig = {
   tone: "professional",
   proactivity: "low",
   closingFocus: false,
-  showPrices: true,
   schedulingEnabled: false,
   transferEnabled: true,
 };

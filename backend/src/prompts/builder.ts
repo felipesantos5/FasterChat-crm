@@ -178,37 +178,6 @@ ${objectiveConfig.customInstructions}
       this.addSection(getFeedbackLearningSection(this.options.knowledge.feedbackLearning));
     }
 
-    // 13.5. Ocultação de preços (quando configurado)
-    if (objectiveConfig.showPrices === false) {
-      this.addSection({
-        id: "hide_prices",
-        title: "POLÍTICA DE PREÇOS",
-        priority: 4,
-        required: true,
-        version: "1.0.0",
-        content: `
-## POLÍTICA DE PREÇOS (OBRIGATÓRIO)
-
-**REGRA INVIOLÁVEL:** Você NÃO deve informar preços, valores ou custos de produtos/serviços nas conversas.
-
-Quando o cliente perguntar sobre preços, valores ou quanto custa:
-- NÃO mencione nenhum valor monetário (R$, reais, preço, valor, custo)
-- NÃO diga "a partir de", "em torno de" ou qualquer estimativa
-- Responda de forma profissional e acolhedora, redirecionando para atendimento personalizado
-- Exemplos de respostas adequadas:
-  ✅ "Para valores e condições, vou te encaminhar para um consultor que pode te passar todas as informações detalhadas!"
-  ✅ "Os valores variam conforme suas necessidades. Posso te conectar com nossa equipe para um orçamento personalizado?"
-  ✅ "Ótima pergunta! Para te passar o valor certinho, deixa eu te encaminhar para um dos nossos consultores."
-
-**Foque em:**
-- Apresentar os benefícios e diferenciais dos produtos/serviços
-- Entender a necessidade do cliente
-- Gerar interesse e qualificar o atendimento
-- Encaminhar para atendimento humano quando o cliente insistir em valores
-`.trim(),
-      });
-    }
-
     // 14. Restrições
     this.addSection(getRestrictionsSection());
 
