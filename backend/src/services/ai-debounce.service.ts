@@ -9,6 +9,7 @@
  */
 
 import { Queue, Worker, Job } from 'bullmq';
+import Bottleneck from 'bottleneck';
 import redisConnection from '../config/redis';
 import { prisma } from '../utils/prisma';
 import aiService from './ai.service';
@@ -42,9 +43,31 @@ export interface AIResponseJobData {
 const AI_DEBOUNCE_DELAY_MS = 35_000; // 35 segundos de silêncio antes de responder
 const QUEUE_NAME = 'ai-response-queue';
 
+// Anti-ban: delay entre respostas na mesma instância WhatsApp
+const INSTANCE_SEND_DELAY_MIN_MS = 3_000; // 3 segundos mínimo
+const INSTANCE_SEND_DELAY_MAX_MS = 6_000; // 6 segundos máximo
+
 // Dedup de fallback de erro para não enviar a mesma mensagem de erro em loop
 const recentlyFallbackSent = new Map<string, number>();
 const FALLBACK_DEDUP_TTL_MS = 300_000; // 5 minutos
+
+// 🚦 PER-INSTANCE RATE LIMITER (Bottleneck)
+// Garante que cada instância WhatsApp envie no máximo 1 resposta de IA por vez
+// com delay anti-ban entre respostas para contatos diferentes
+const instanceLimiters = new Map<string, Bottleneck>();
+
+function getInstanceLimiter(instanceId: string): Bottleneck {
+  if (!instanceLimiters.has(instanceId)) {
+    instanceLimiters.set(instanceId, new Bottleneck({
+      maxConcurrent: 1, // 1 resposta por vez por instância WhatsApp
+    }));
+  }
+  return instanceLimiters.get(instanceId)!;
+}
+
+function randomDelay(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
 // ==================================================================================
 // SERVIÇO
@@ -314,6 +337,8 @@ class AIDebounceService {
 
   /**
    * Inicia o worker que processa os jobs da fila.
+   * O Bottleneck garante que cada instância WhatsApp envie 1 resposta por vez
+   * com delay anti-ban entre respostas consecutivas.
    */
   startWorker(): void {
     if (this.worker) return;
@@ -321,7 +346,15 @@ class AIDebounceService {
     this.worker = new Worker<AIResponseJobData>(
       QUEUE_NAME,
       async (job: Job<AIResponseJobData>) => {
-        await this.processJob(job);
+        const limiter = getInstanceLimiter(job.data.instanceId);
+
+        await limiter.schedule(async () => {
+          await this.processJob(job);
+
+          // Delay anti-ban entre respostas na mesma instância
+          const delay = randomDelay(INSTANCE_SEND_DELAY_MIN_MS, INSTANCE_SEND_DELAY_MAX_MS);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        });
       },
       {
         connection: redisConnection,
