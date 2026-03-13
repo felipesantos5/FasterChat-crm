@@ -366,13 +366,12 @@ function WhatsAppSettingsPageContent() {
                   {instances.map((instance) => (
                     <div key={instance.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
-                          instance.status === WhatsAppStatus.CONNECTED
-                            ? 'bg-green-500/10'
-                            : instance.status === WhatsAppStatus.CONNECTING
-                              ? 'bg-yellow-500/10'
-                              : 'bg-red-500/10'
-                        }`}>
+                        <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${instance.status === WhatsAppStatus.CONNECTED
+                          ? 'bg-green-500/10'
+                          : instance.status === WhatsAppStatus.CONNECTING
+                            ? 'bg-yellow-500/10'
+                            : 'bg-red-500/10'
+                          }`}>
                           {instance.status === WhatsAppStatus.CONNECTED ? (
                             <Wifi className="h-4 w-4 text-green-600" />
                           ) : instance.status === WhatsAppStatus.CONNECTING ? (
@@ -461,7 +460,7 @@ function WhatsAppSettingsPageContent() {
                   <QrCode className="h-3 w-3" />
                   Como conectar
                 </div>
-                <p className="text-xs text-muted-foreground">Escaneie o QR Code no WhatsApp do seu celular</p>
+                {/* <p className="text-xs text-muted-foreground">Escaneie o QR Code no WhatsApp do seu celular</p> */}
               </div>
               <div className="flex justify-center">
                 <div className="relative w-full max-w-[220px]">
@@ -476,14 +475,18 @@ function WhatsAppSettingsPageContent() {
               <div className="space-y-2 text-xs text-muted-foreground">
                 <div className="flex items-start gap-2">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-[10px] font-bold text-green-600">1</span>
-                  <span>Clique em <strong className="text-foreground">Adicionar WhatsApp</strong></span>
+                  <span>Abra o WhatsApp no celular e clique nos 3 pontinhos na parte de cima </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-[10px] font-bold text-green-600">2</span>
-                  <span>Abra o WhatsApp no celular e va em <strong className="text-foreground">Aparelhos conectados</strong></span>
+                  <span>Selecione a opção <strong className="text-foreground">Dispositivos conectados</strong></span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-[10px] font-bold text-green-600">3</span>
+                  <span>Clique no botão <strong className="text-foreground">Conectar dispositivo</strong></span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-[10px] font-bold text-green-600">4</span>
                   <span>Escaneie o QR Code que aparecera na tela</span>
                 </div>
               </div>
