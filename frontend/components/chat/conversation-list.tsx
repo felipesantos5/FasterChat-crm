@@ -63,6 +63,13 @@ function getLastMessagePreview(conversation: ConversationSummary): React.ReactNo
       </span>
     );
   }
+  if (conversation.lastMediaType === "sticker" || msgLower.startsWith("🔖") || msgLower.startsWith("[sticker")) {
+    return (
+      <span className="flex items-center gap-1">
+        🔖 Figurinha
+      </span>
+    );
+  }
   if (conversation.lastMediaType === "audio" || msgLower.startsWith("[audio")) {
     const match = msgLower.match(/\[audio:\s*(.+?)\]/);
     return (

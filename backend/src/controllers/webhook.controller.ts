@@ -152,7 +152,7 @@ class WebhookController {
                 || data.message?.documentMessage?.fileName
                 || data.message?.documentWithCaptionMessage?.message?.documentMessage?.fileName
                 || (data.message?.audioMessage ? '[Áudio]' : undefined)
-                || (data.message?.stickerMessage ? '[Sticker]' : undefined)
+                || (data.message?.stickerMessage ? '🔖 Figurinha' : undefined)
                 || (data.message ? '[Mídia]' : '')
                 || "";
             }

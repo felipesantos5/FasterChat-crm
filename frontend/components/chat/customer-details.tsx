@@ -24,9 +24,10 @@ interface CustomerDetailsProps {
   customerPhone: string;
   customerEmail?: string | null;
   customerTags?: string[];
+  onStageChange?: (color: string | null) => void;
 }
 
-export function CustomerDetails({ customerId, customerName, customerPhone, customerEmail, customerTags = [] }: CustomerDetailsProps) {
+export function CustomerDetails({ customerId, customerName, customerPhone, customerEmail, customerTags = [], onStageChange }: CustomerDetailsProps) {
   const router = useRouter();
   const [notes, setNotes] = useState<CustomerNote[]>([]);
   const [newNote, setNewNote] = useState("");
@@ -94,6 +95,8 @@ export function CustomerDetails({ customerId, customerName, customerPhone, custo
       const stageId = value === "none" ? null : value;
       await pipelineApi.moveCustomer(customerId, companyId, { stageId });
       setCurrentStageId(value);
+      const newColor = stageId ? (stages.find((s) => s.id === stageId)?.color ?? null) : null;
+      onStageChange?.(newColor);
       toast.success("Estágio do funil atualizado");
     } catch (error) {
       console.error("Error updating stage:", error);

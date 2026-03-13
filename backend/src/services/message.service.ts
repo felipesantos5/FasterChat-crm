@@ -1271,7 +1271,7 @@ class MessageService {
       // 6. MENSAGEM DE STICKER
       else if (msgData?.stickerMessage) {
         mediaType = "sticker";
-        content = "[Sticker]";
+        content = "🔖 Figurinha";
         try {
           const mimetype = msgData.stickerMessage.mimetype || "image/webp";
           const stickerBuffer = await whatsappService.downloadMedia(instanceName, data.key);

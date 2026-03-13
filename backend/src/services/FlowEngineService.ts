@@ -2039,9 +2039,38 @@ export class FlowEngineService {
           ? [...(execVars._aiConditionMessages as string[])]
           : [];
 
-        if (messageText.trim()) aiMessages.push(messageText.trim());
+        const trimmedMessage = messageText.trim();
+        if (trimmedMessage) aiMessages.push(trimmedMessage);
 
-        // 2. Busca contexto: última mensagem enviada pela empresa
+        // Helper para re-armar timeout e continuar em WAITING_REPLY
+        const stayWaiting = async () => {
+          const updatedVars = { ...execVars, _aiConditionMessages: aiMessages };
+          await prisma.flowExecution.update({
+            where: { id: execution.id as string },
+            data: { variables: updatedVars }
+          });
+          await flowQueueService.removeTimeoutJob(execution.id as string, execution.currentNode.id as string);
+          const resumesAt = (execution as any).resumesAt;
+          const remaining = resumesAt
+            ? Math.max(10000, new Date(resumesAt as string).getTime() - Date.now())
+            : 0;
+          if (remaining > 10000) {
+            await flowQueueService.enqueueFlowStep(
+              { executionId: execution.id as string, nodeId: execution.currentNode.id as string, sourceHandle: 'nao_respondeu' },
+              { delay: remaining, jobId: `timeout_${execution.id}_${execution.currentNode.id}` }
+            );
+          }
+        };
+
+        // 2. Atalho pré-IA: mensagem curta (< 5 chars) ou sem letras/números
+        //    Economiza tokens e aguarda complemento do cliente
+        const isShortOrEmoji = trimmedMessage.length < 5 || !/[a-zA-ZÀ-ÿ0-9]/.test(trimmedMessage);
+        if (isShortOrEmoji && aiMessages.length < MAX_AI_MESSAGES) {
+          await stayWaiting();
+          continue;
+        }
+
+        // 3. Busca contexto: última mensagem enviada pela empresa
         let contextMessage = '';
         try {
           const customer = await prisma.customer.findUnique({
@@ -2058,7 +2087,7 @@ export class FlowEngineService {
           }
         } catch { /* contexto não disponível */ }
 
-        // 3. Monta prompt com todas as mensagens acumuladas
+        // 4. Monta prompt com todas as mensagens acumuladas
         const nodeData = typeof execution.currentNode.data === 'string'
           ? JSON.parse(execution.currentNode.data as string)
           : (execution.currentNode.data || {});
@@ -2069,28 +2098,77 @@ export class FlowEngineService {
         try {
           const messagesText = aiMessages.map((m, i) => `${i + 1}. "${m}"`).join('\n');
           const systemPrompt = `Você é um classificador de intenções especializado em atendimento via WhatsApp.
-Sua tarefa é analisar as últimas mensagens de um cliente e determinar sua intenção geral com base no contexto da conversa.
+Analise as mensagens do cliente e determine sua intenção considerando o contexto.
 
-CONTEXTO (última mensagem enviada pela empresa antes das respostas do cliente):
+════════════════════════════════════
+SEÇÃO 1 — DETECÇÃO DE BOT E AUTOMAÇÃO
+════════════════════════════════════
+ANTES de classificar, verifique se a mensagem foi enviada por um BOT ou sistema automático.
+Sinais de mensagem automática (BOT):
+- Saudações genéricas de atendimento: "Olá, como posso ajudá-lo?", "Bom dia! Em que posso ajudar?", "Seja bem-vindo!"
+- Menus numerados: "1 - Suporte | 2 - Vendas | 3 - Financeiro", "Digite uma opção:"
+- Mensagens de horário automático: "Nosso horário de atendimento é de...", "No momento estamos fora do horário"
+- Respostas com múltiplos links formatados, listas de opções ou botões de menu
+- Textos padronizados e longos com estrutura de URA/chatbot
+
+Se detectar BOT → classifique imediatamente como: other
+
+════════════════════════════════════
+SEÇÃO 2 — SAUDAÇÕES E MENSAGENS VAZIAS
+════════════════════════════════════
+Saudações isoladas e confirmações curtas NÃO indicam intenção de compra nem recusa.
+Classifique como other (continue aguardando mensagem de conteúdo real):
+- Saudações: "Oi", "Olá", "Boa tarde", "Bom dia", "Boa noite", "Tudo bem?", "Pode falar?"
+- Confirmações vazias: "Ok", "Certo", "Vou ver", "Ah entendi", "Hmm"
+- Respostas inconclusivas: "Talvez", "Não sei ainda", "Vou pensar"
+
+════════════════════════════════════
+SEÇÃO 3 — CATEGORIAS
+════════════════════════════════════
+- "interested": Ação afirmativa CLARA de interesse.
+  Ex: "Sim, quero", "Me conta mais", "Quanto custa?", "Quero contratar", "Me manda o link", "Como funciona?", "Tenho interesse", "Pode me chamar"
+
+- "not_interested": Recusa clara e explícita.
+  Ex: "Não", "Agora não", "Não tenho interesse", "Pode parar", "Me tira da lista", "Para de me mandar mensagem", "Não preciso"
+
+- "already_has": Cliente já possui o produto/serviço ou já resolveu.
+  Ex: "Já sou cliente", "Já tenho", "Já contratei", "Já resolvi", "Já uso esse serviço"
+
+- "other": Saudações, bots detectados, mensagens ambíguas ou fora de contexto.
+
+════════════════════════════════════
+CONTEXTO DA CONVERSA
+════════════════════════════════════
+Última mensagem enviada pela empresa:
 "${contextMessage || 'Sem contexto disponível'}"
 
-ÚLTIMAS MENSAGENS DO CLIENTE (em ordem cronológica, analise o conjunto):
+Mensagens do cliente (ordem cronológica):
 ${messagesText}
 
-INSTRUÇÃO DE CLASSIFICAÇÃO ADICIONAL:
+Instrução adicional do fluxo:
 "${aiPrompt}"
 
-IMPORTANTE: Considere o conjunto completo de mensagens para entender a intenção geral do cliente.
-Mensagens como "pode me explicar", "claro", "como funciona?", "me conta mais", "ok", "tô interessado" indicam INTERESSE.
-Mensagens como "não obrigado", "não tenho interesse", "me tira da lista", "para de me mandar mensagem" indicam DESINTERESSE.
+════════════════════════════════════
+EXEMPLOS (few-shot)
+════════════════════════════════════
+Empresa: "Você tem interesse em nossos planos?"
+"Oi" → other
+"Boa tarde" → other
+"Ok" → other
+"👍" → other
+"Olá! Como posso ajudá-lo? Digite 1 para Vendas..." → other (BOT)
+"Nosso horário é de 8h às 18h..." → other (BOT)
+"Sim, quero saber mais" → interested
+"Quanto custa?" → interested
+"Me manda o link" → interested
+"Oi, quero saber o preço" → interested
+"Não, obrigado" → not_interested
+"Me tira da lista" → not_interested
+"Pode parar de me mandar mensagem" → not_interested
+"Já tenho esse serviço" → already_has
+"Já sou cliente de vocês" → already_has
 
-Classifique a intenção do cliente em APENAS UMA das categorias abaixo:
-- "interested": O cliente demonstra interesse, quer saber mais, aceita uma proposta, quer agendar, quer saber preços, diz que sim, ou respondeu positivamente ao contexto — mesmo que de forma implícita.
-- "not_interested": O cliente recusa, diz que não quer, pede para parar de enviar mensagens, ou demonstra desinteresse claro e explícito.
-- "already_has": O cliente informa que já possui o produto/serviço, já é cliente da empresa, ou já resolveu sua necessidade.
-- "other": Apenas use esta categoria se for absolutamente impossível determinar se o cliente tem interesse ou não com as mensagens disponíveis.
-
-Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
+Responda APENAS a palavra-chave em letras minúsculas: interested / not_interested / already_has / other`;
 
           const classification = await geminiService.generateResponse({
             systemPrompt,
@@ -2108,7 +2186,7 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
             handle = 'already_has';
           } else if (cleanClassification.includes('interested') || cleanClassification.includes('interessado')) {
             handle = 'interested';
-          } else if (cleanClassification.includes('other') || cleanClassification.includes('outros')) {
+          } else {
             handle = 'other';
           }
         } catch (error) {
@@ -2120,25 +2198,7 @@ Responda APENAS a palavra-chave da categoria em letras minúsculas.`;
 
         if (!isClearSignal && !maxReached) {
           // Ainda não temos sinal claro e não atingimos o limite — continua acumulando
-          const updatedVars = { ...execVars, _aiConditionMessages: aiMessages };
-          await prisma.flowExecution.update({
-            where: { id: execution.id as string },
-            data: { variables: updatedVars }
-          });
-
-          // Remove o timeout antigo e re-arma com o tempo restante original
-          await flowQueueService.removeTimeoutJob(execution.id as string, execution.currentNode.id as string);
-          const resumesAt = (execution as any).resumesAt;
-          const remaining = resumesAt
-            ? Math.max(10000, new Date(resumesAt as string).getTime() - Date.now())
-            : 0;
-          if (remaining > 10000) {
-            await flowQueueService.enqueueFlowStep(
-              { executionId: execution.id as string, nodeId: execution.currentNode.id as string, sourceHandle: 'nao_respondeu' },
-              { delay: remaining, jobId: `timeout_${execution.id}_${execution.currentNode.id}` }
-            );
-          }
-          // Mantém status WAITING_REPLY — aguarda próxima mensagem
+          await stayWaiting();
           continue;
         }
 

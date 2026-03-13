@@ -18,7 +18,7 @@ import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
 import { useChatDraftStore } from "@/lib/store/chat-draft.store";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Video, Pause, Play, FileText, ExternalLink, Paperclip } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Video, Pause, Play, FileText, ExternalLink, Paperclip, BellOff } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -67,9 +67,10 @@ interface ChatAreaProps {
   onArchive?: () => void;
   onUnarchive?: () => void;
   isAiThinking?: boolean;
+  onDismissHelp?: () => void;
 }
 
-export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, customerTemperature, onToggleDetails, showDetailsButton, onMarkAsRead, isArchived, onArchive, onUnarchive, isAiThinking }: ChatAreaProps) {
+export function ChatArea({ customerId, customerName, customerPhone, customerProfilePic, customerTemperature, onToggleDetails, showDetailsButton, onMarkAsRead, isArchived, onArchive, onUnarchive, isAiThinking, onDismissHelp }: ChatAreaProps) {
   const router = useRouter();
   const { setDraft, getDraft, clearDraft } = useChatDraftStore();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -78,6 +79,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [sending, setSending] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [togglingAi, setTogglingAi] = useState(false);
+  const [dismissingHelp, setDismissingHelp] = useState(false);
   const [inputValue, setInputValueRaw] = useState(() => getDraft(customerId));
   const [isExample, setIsExample] = useState(false);
   const [showExampleModal, setShowExampleModal] = useState(false);
@@ -116,6 +118,22 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isInitialScrollRef = useRef(true);
+
+  const isNearBottom = useCallback((threshold = 300) => {
+    const c = messagesContainerRef.current;
+    if (!c) return true;
+    return c.scrollHeight - c.scrollTop - c.clientHeight < threshold;
+  }, []);
+
+  const scrollToBottom = useCallback((behavior: "auto" | "smooth" = "auto") => {
+    const c = messagesContainerRef.current;
+    if (!c) return;
+    if (behavior === "smooth") {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      c.scrollTop = c.scrollHeight;
+    }
+  }, []);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
@@ -391,17 +409,33 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   // Scroll para última mensagem
   useEffect(() => {
     if (messages.length === 0) return;
+    if (isInitialScrollRef.current) {
+      // Carga inicial: duplo rAF garante que o DOM (incluindo altura do layout flex)
+      // já foi calculado antes de fazer o scroll
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom("auto");
+          isInitialScrollRef.current = false;
+        });
+      });
+    } else if (isNearBottom()) {
+      scrollToBottom("smooth");
+    }
+  }, [messages, scrollToBottom, isNearBottom]);
+
+  // ResizeObserver: reajusta scroll quando o container muda de tamanho
+  // (ex: teclado virtual abre no mobile, sidebar expande, etc.)
+  useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    if (isInitialScrollRef.current) {
-      // Carga inicial: vai direto para o fim sem animação
-      container.scrollTop = container.scrollHeight;
-      isInitialScrollRef.current = false;
-    } else {
-      // Nova mensagem durante a conversa: scroll suave
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
+    const observer = new ResizeObserver(() => {
+      if (!isInitialScrollRef.current && isNearBottom()) {
+        scrollToBottom("auto");
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [scrollToBottom, isNearBottom]);
 
   // Extrai whatsappInstanceId das mensagens
   useEffect(() => {
@@ -1049,6 +1083,21 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     }
   };
 
+  const handleDismissHelp = async () => {
+    try {
+      setDismissingHelp(true);
+      await conversationApi.dismissNeedsHelp(customerId);
+      await loadConversation();
+      onDismissHelp?.();
+      toast.success("Transbordo resolvido!");
+    } catch (error) {
+      console.error("Error dismissing help:", error);
+      toast.error("Erro ao resolver transbordo");
+    } finally {
+      setDismissingHelp(false);
+    }
+  };
+
   const handleCancelFlow = async () => {
     if (!activeFlowExecution) return;
     try {
@@ -1190,11 +1239,11 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       {/* Header */}
       <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b bg-muted/30">
         {/* Avatar + Nome + Telefone */}
-        <div
-          className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-1 -ml-1 rounded-md transition-colors"
-          onClick={() => router.push(`/dashboard/customers/${customerId}`)}
-        >
-          <Avatar className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 border border-muted">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Avatar
+            className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 border border-muted cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => router.push(`/dashboard/customers/${customerId}`)}
+          >
             {customerProfilePic && (
               <AvatarImage src={customerProfilePic} alt={customerName} className="object-cover" />
             )}
@@ -1216,6 +1265,27 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
 
         {/* Ações */}
         <div className="flex items-center gap-1 shrink-0">
+          {/* Botão de resolver transbordo */}
+          {conversation?.needsHelp && (
+            <Button
+              onClick={handleDismissHelp}
+              disabled={dismissingHelp}
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-yellow-700 border-yellow-400 bg-yellow-50 hover:bg-yellow-100 hover:text-yellow-800 gap-1"
+              title="Resolver transbordo — remove a notificação de atendimento pendente"
+            >
+              {dismissingHelp ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <>
+                  <BellOff className="h-3 w-3" />
+                  <span className="hidden sm:inline text-[11px]">Resolver</span>
+                </>
+              )}
+            </Button>
+          )}
+
           {/* Toggle IA */}
           <div className="flex items-center gap-1.5 border-r pr-2 mr-0.5">
             <Switch id="ai-toggle" checked={isAiEnabled} onCheckedChange={handleToggleAi} disabled={togglingAi} className="scale-75" />
@@ -1456,10 +1526,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                               alt="Imagem enviada"
                               className="max-w-full max-h-[400px] m-auto object-contain rounded-lg transition-opacity shadow-md group-hover/img:opacity-90"
                               onLoad={() => {
-                                const c = messagesContainerRef.current;
-                                if (!c) return;
-                                const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 100;
-                                if (atBottom) c.scrollTop = c.scrollHeight;
+                                if (isNearBottom()) scrollToBottom("auto");
                               }}
                             />
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity">
@@ -1494,6 +1561,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                                   if (dur && isFinite(dur)) {
                                     setVideoDurations(prev => ({ ...prev, [message.id]: formatVideoDuration(dur) }));
                                   }
+                                  if (isNearBottom()) scrollToBottom("auto");
                                 }}
                               />
                               {/* Play button — sempre visível */}
@@ -1586,6 +1654,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                           src={message.mediaUrl}
                           alt="Sticker"
                           className="max-w-[160px] max-h-[160px] object-contain"
+                          onLoad={() => { if (isNearBottom()) scrollToBottom("auto"); }}
                         />
                       )}
 
