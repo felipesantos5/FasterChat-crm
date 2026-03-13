@@ -1,8 +1,11 @@
 -- CreateEnum
-CREATE TYPE "QuickMessageType" AS ENUM ('TEXT', 'MEDIA', 'AUDIO');
+DO $$ BEGIN
+  CREATE TYPE "QuickMessageType" AS ENUM ('TEXT', 'MEDIA', 'AUDIO');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateTable
-CREATE TABLE "quick_messages" (
+CREATE TABLE IF NOT EXISTS "quick_messages" (
     "id" TEXT NOT NULL,
     "company_id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
