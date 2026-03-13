@@ -12,6 +12,12 @@ import { linkConversionService } from "../services/link-conversion.service";
 import { AIProvider } from "../types/ai-provider";
 import { websocketService } from "../services/websocket.service";
 import { customerTemperatureService } from "../services/customer-temperature.service";
+import {
+  detectDirectHandoffIntent,
+  parseHandoffTokens,
+  detectLoopAndRecord,
+  clearLoopCache,
+} from "../services/handoff-detector.service";
 
 // Dedup de eventos de mensagem para evitar processamento duplo de AI
 // (Evolution API pode reenviar o mesmo webhook)
@@ -256,58 +262,91 @@ class WebhookController {
             } else {
               // NÃO está em fluxo de agendamento, processa normalmente com a IA
 
-              // ⏱️ DELAY antes de gerar resposta: random entre 30-60 segundos
-              const replyDelay = Math.floor(Math.random() * 31_000) + 30_000;
-              websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, true);
-              await whatsappService.sendPresence(result.instance.id, result.customer.phone, replyDelay, "composing");
-              await new Promise(resolve => setTimeout(resolve, replyDelay));
-              websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
-
-              const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
-
-              // COMANDO ESPECIAL: Agendamento
-              if (aiResponse.startsWith("[INICIAR_AGENDAMENTO]")) {
-                const aiMessage = aiResponse.replace("[INICIAR_AGENDAMENTO]", "").trim();
-
-                if (aiMessage) {
-                  await messageService.sendMessage(result.customer.id, aiMessage, "AI");
-                }
-
-                // Inicia o fluxo de agendamento
-                const appointmentResult = await aiAppointmentService.startAppointmentFlow(
-                  result.customer.id,
-                  result.customer.companyId,
-                  result.message.content
-                );
-
-                if (appointmentResult.response) {
-                  await messageService.sendMessage(result.customer.id, appointmentResult.response, "AI");
-                }
-              }
-              // 🚨 COMANDO ESPECIAL: Transbordo
-              else if (aiResponse.startsWith("[TRANSBORDO]")) {
-                const cleanMessage = aiResponse.replace("[TRANSBORDO]", "").trim();
-
-                await messageService.sendMessage(result.customer.id, cleanMessage, "AI");
+              // ═══════════════════════════════════════════════════════════════
+              // 🛡️ CAMADA 1: Detecção de intenção direta (ANTES da IA)
+              // Keywords como "quero falar com humano", "me passa um atendente"
+              // ═══════════════════════════════════════════════════════════════
+              if (detectDirectHandoffIntent(result.message.content)) {
+                const handoffMessage = "Entendi! Vou te transferir para um atendente agora. Aguarde um momento, por favor. 🙏";
+                await messageService.sendMessage(result.customer.id, handoffMessage, "AI");
                 await conversationService.toggleAI(result.customer.id, false);
-
                 await prisma.conversation.update({
                   where: { customerId: result.customer.id },
                   data: { needsHelp: true },
                 });
-
-                // 🔔 Emite eventos via WebSocket para atualizar o frontend em tempo real
-                // 1. Para o indicador de "pensando..."
+                clearLoopCache(result.customer.id);
                 websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
-
-                // 2. Atualiza o estado da conversa (switch de IA e needsHelp)
                 websocketService.emitConversationUpdate(result.customer.companyId, result.customer.id, {
                   aiEnabled: false,
                   needsHelp: true,
+                  handoffReason: "Solicitação direta do cliente para falar com humano",
                 });
               } else {
-                // Resposta normal da IA
-                await messageService.sendMessage(result.customer.id, aiResponse, "AI");
+                // ⏱️ DELAY antes de gerar resposta: random entre 30-60 segundos
+                const replyDelay = Math.floor(Math.random() * 31_000) + 30_000;
+                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, true);
+                await whatsappService.sendPresence(result.instance.id, result.customer.phone, replyDelay, "composing");
+                await new Promise(resolve => setTimeout(resolve, replyDelay));
+                websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
+
+                const aiResponse = await aiService.generateResponse(result.customer.id, result.message.content);
+
+                // COMANDO ESPECIAL: Agendamento
+                if (aiResponse.startsWith("[INICIAR_AGENDAMENTO]")) {
+                  const aiMessage = aiResponse.replace("[INICIAR_AGENDAMENTO]", "").trim();
+
+                  if (aiMessage) {
+                    await messageService.sendMessage(result.customer.id, aiMessage, "AI");
+                  }
+
+                  const appointmentResult = await aiAppointmentService.startAppointmentFlow(
+                    result.customer.id,
+                    result.customer.companyId,
+                    result.message.content
+                  );
+
+                  if (appointmentResult.response) {
+                    await messageService.sendMessage(result.customer.id, appointmentResult.response, "AI");
+                  }
+                } else {
+                  // ═══════════════════════════════════════════════════════════
+                  // 🛡️ CAMADA 2: Tokens de handoff na resposta da IA
+                  // [TRANSBORDO] ou HANDOFF_ACTION detectados no texto
+                  // ═══════════════════════════════════════════════════════════
+                  const handoff = parseHandoffTokens(aiResponse);
+
+                  // ═══════════════════════════════════════════════════════════
+                  // 🛡️ CAMADA 3: Detecção de loop semântico
+                  // Se a IA está repetindo respostas muito similares → transbordo
+                  // ═══════════════════════════════════════════════════════════
+                  const isLoop = !handoff.shouldHandoff && detectLoopAndRecord(result.customer.id, handoff.cleanMessage);
+
+                  if (handoff.shouldHandoff || isLoop) {
+                    const reason = isLoop ? "Loop de IA detectado — respostas repetitivas" : handoff.reason;
+
+                    // Se é loop e a IA não adicionou mensagem de transbordo, adiciona
+                    const messageToSend = isLoop && !handoff.shouldHandoff
+                      ? "Percebi que não estou conseguindo resolver sua dúvida da melhor forma. Vou transferir você para um atendente que poderá te ajudar. Aguarde um momento! 🙏"
+                      : handoff.cleanMessage;
+
+                    await messageService.sendMessage(result.customer.id, messageToSend, "AI");
+                    await conversationService.toggleAI(result.customer.id, false);
+                    await prisma.conversation.update({
+                      where: { customerId: result.customer.id },
+                      data: { needsHelp: true },
+                    });
+                    clearLoopCache(result.customer.id);
+                    websocketService.emitTypingIndicator(result.customer.companyId, result.customer.id, false);
+                    websocketService.emitConversationUpdate(result.customer.companyId, result.customer.id, {
+                      aiEnabled: false,
+                      needsHelp: true,
+                      handoffReason: reason,
+                    });
+                  } else {
+                    // Resposta normal da IA
+                    await messageService.sendMessage(result.customer.id, handoff.cleanMessage, "AI");
+                  }
+                }
               }
             }
           } catch (aiError: any) {

@@ -1,5 +1,6 @@
 import { prisma } from '../utils/prisma';
 import { websocketService } from './websocket.service';
+import { clearLoopCache } from './handoff-detector.service';
 
 class ConversationService {
   /**
@@ -157,10 +158,11 @@ class ConversationService {
    */
   async toggleAI(customerId: string, aiEnabled: boolean) {
     try {
-      // Se está ativando a IA, também reseta o needsHelp
+      // Se está ativando a IA, também reseta o needsHelp e limpa cache de loop
       const updateData: { aiEnabled: boolean; needsHelp?: boolean } = { aiEnabled };
       if (aiEnabled) {
         updateData.needsHelp = false;
+        clearLoopCache(customerId);
       }
 
       const conversation = await prisma.conversation.update({

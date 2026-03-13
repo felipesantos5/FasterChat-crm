@@ -44,11 +44,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         // Toca som de alerta de transbordo
         notificationSound.playTransbordoAlert();
 
+        const reason = update.handoffReason
+          ? ` — ${update.handoffReason}`
+          : '';
+
         toast({
           title: '🚨 Transbordo - Atenção necessária',
           description: update.customerName
-            ? `Cliente ${update.customerName} precisa de atendimento humano`
-            : 'Um cliente precisa de ajuda humana',
+            ? `Cliente ${update.customerName} precisa de atendimento humano${reason}`
+            : `Um cliente precisa de ajuda humana${reason}`,
           variant: 'destructive',
         });
 

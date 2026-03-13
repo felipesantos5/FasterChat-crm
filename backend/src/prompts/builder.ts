@@ -17,7 +17,7 @@ import {
 import { getCurrentVersion, getFullVersionString } from "./versions";
 
 // Core modules
-import { getSecuritySection, getAntiManipulationRules } from "./core/security";
+import { getSecuritySection, getAntiManipulationRules, getTruthControlSection } from "./core/security";
 import { getIdentitySection, getOperationalInfoSection } from "./core/identity";
 import {
   getCustomerServiceRulesSection,
@@ -75,6 +75,9 @@ export class PromptBuilder {
 
     // 1. CORE: Segurança (sempre primeiro)
     this.addSection(getSecuritySection());
+
+    // 1.1. CORE: Controle de Verdade (anti-alucinação)
+    this.addSection(getTruthControlSection());
 
     // 2. CORE: Identidade
     this.addSection(getIdentitySection(this.options.company));
