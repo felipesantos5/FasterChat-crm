@@ -87,7 +87,7 @@ const pageMap: Record<string, PageInfo> = {
   "/dashboard/settings/ai": {
     label: "Configurações de IA",
     icon: Bot,
-    description: "Ajustes do assistente",
+    description: "Configure sua assistente virtual em poucos passos",
   },
   "/dashboard/settings/whatsapp": {
     label: "WhatsApp",

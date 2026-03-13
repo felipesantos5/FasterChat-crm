@@ -833,11 +833,8 @@ function AISettingsPageContent() {
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header com Steps */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-2">Configuração da IA</h1>
-        <p className="text-muted-foreground">Configure sua assistente virtual em poucos passos</p>
-
         {/* Progress Steps */}
-        <div className="flex items-center justify-between mt-6 mb-8">
+        <div className="flex items-center justify-between mt-1 mb-8">
           {STEPS.map((step, index) => (
             <div key={step.id} className="flex items-center">
               <button
