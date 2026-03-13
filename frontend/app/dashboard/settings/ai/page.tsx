@@ -1281,6 +1281,16 @@ function AISettingsPageContent() {
                               </div>
                             </div>
 
+                            <div className="space-y-2">
+                              <Label className="font-bold">Descrição do Serviço</Label>
+                              <Textarea
+                                value={service.description || ""}
+                                onChange={(e) => updateService(serviceIndex, "description", e.target.value)}
+                                placeholder="Descreva como funciona este serviço, etapas, o que está incluso, materiais utilizados, diferenciais... Quanto mais detalhes, melhor a IA atende sobre ele."
+                                className="min-h-[80px] max-h-[400px] resize-y overflow-auto field-sizing-content rounded-xl border-2 text-sm leading-relaxed"
+                              />
+                            </div>
+
                             <div className="space-y-4">
                               <div className="flex items-center justify-between">
                                 <Label className="flex items-center gap-2 text-base font-bold">
