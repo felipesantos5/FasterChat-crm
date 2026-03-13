@@ -120,6 +120,7 @@ class AIKnowledgeService {
           aiTone: data.aiTone,
           aiProactivity: data.aiProactivity,
           aiClosingFocus: data.aiClosingFocus,
+          aiShowPrices: data.aiShowPrices,
           aiCustomInstructions: data.aiCustomInstructions,
 
           policies: data.policies,
@@ -158,6 +159,7 @@ class AIKnowledgeService {
           aiTone: data.aiTone || 'professional',
           aiProactivity: data.aiProactivity || 'medium',
           aiClosingFocus: data.aiClosingFocus ?? false,
+          aiShowPrices: data.aiShowPrices ?? true,
           aiCustomInstructions: data.aiCustomInstructions,
 
           policies: data.policies,

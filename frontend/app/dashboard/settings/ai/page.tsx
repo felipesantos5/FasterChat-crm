@@ -829,9 +829,8 @@ function AISettingsPageContent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Coluna Esquerda: Configurações */}
-        <div className="lg:col-span-8">
+      <div>
+        <div>
           <Tabs defaultValue="identity" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-8 h-12 p-1 bg-muted/50 rounded-xl">
               <TabsTrigger value="identity" className="rounded-lg data-[state=active]:shadow-sm">
@@ -1342,100 +1341,6 @@ function AISettingsPageContent() {
           </Tabs>
         </div>
 
-        {/* Coluna Direita: Persona Preview (Sticky) */}
-        <div className="lg:col-span-4 lg:sticky lg:top-8">
-          <Card className="border-2 border-primary/15 shadow-2xl bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden rounded-[2rem] relative">
-            <div className="absolute top-0 right-0 p-4">
-              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-            </div>
-
-            <CardHeader className="bg-primary/[0.03] border-b border-primary/10 pb-8">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 rotate-3 group-hover:rotate-0 transition-transform">
-                  <Sparkles className="h-8 w-8 text-primary-foreground" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl font-black">Persona Ativa</CardTitle>
-                  <p className="text-xs text-muted-foreground font-bold tracking-widest uppercase opacity-70">Visualização em Tempo Real</p>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 transition-colors uppercase text-[10px] font-black tracking-widest px-3 py-1">
-                  {setupCompleted ? "Publicada" : "Em Rascunho"}
-                </Badge>
-                <Badge variant="outline" className="border-muted-foreground/20 text-muted-foreground uppercase text-[10px] font-bold px-3 py-1">
-                  v{knowledge?.id?.slice(-4) || '1.0'}
-                </Badge>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-8 space-y-8">
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-4 bg-muted/40 rounded-2xl border border-muted-foreground/10 space-y-1 group hover:border-primary/30 transition-colors">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest">Tom de Voz</p>
-                    <p className="text-sm font-black capitalize flex items-center gap-2">
-                      {aiTone === 'professional' && '🤵 Profissional'}
-                      {aiTone === 'friendly' && '😊 Amigável'}
-                      {aiTone === 'casual' && '👋 Casual'}
-                      {aiTone === 'formal' && '👔 Formal'}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-muted/40 rounded-2xl border border-muted-foreground/10 space-y-1 group hover:border-primary/30 transition-colors">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest">Iniciativa</p>
-                    <p className="text-sm font-black capitalize flex items-center gap-2">
-                      {aiProactivity === 'low' && '🔇 Reativo'}
-                      {aiProactivity === 'medium' && '⚖️ Equilibrado'}
-                      {aiProactivity === 'high' && '🚀 Vendedor'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black uppercase text-muted-foreground/70 tracking-widest ml-1">Missão do Assistente</p>
-                  <div className="relative group">
-                    <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-                    <div className="relative p-5 bg-background border border-primary/10 rounded-2xl italic text-xs leading-relaxed text-muted-foreground shadow-inner">
-                      "{objectiveType === 'custom' ? (aiObjective || 'Aguardando definição da missão customizada...') : objectivePresets.find(p => p.id === objectiveType)?.description}"
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t border-dashed space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-bold text-muted-foreground">Catálogo:</span>
-                    </div>
-                    <span className="text-xs font-black">{products.length + services.length} itens</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-bold text-muted-foreground">Operação:</span>
-                    </div>
-                    <span className="text-xs font-black">{businessHoursStart}:00 - {businessHoursEnd}:00</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-
-            <CardFooter className="bg-primary/[0.02] border-t border-primary/5 p-8">
-              <div className="w-full space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sincronização</span>
-                  <span className="text-[10px] font-black text-green-500 flex items-center gap-1">
-                    <Check className="h-3 w-3" /> PRONTO
-                  </span>
-                </div>
-                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: '100%' }}></div>
-                </div>
-              </div>
-            </CardFooter>
-          </Card>
-        </div>
       </div>
     </div>
   );

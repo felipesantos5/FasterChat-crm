@@ -21,6 +21,7 @@ interface AIKnowledgeData {
   aiTone?: string | null;
   aiProactivity?: string | null;
   aiClosingFocus?: boolean | null;
+  aiShowPrices?: boolean | null;
   aiCustomInstructions?: string | null;
   workingHours?: string | null;
   businessHoursStart?: number | null;
@@ -135,6 +136,7 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
   const tone = (aiKnowledge?.aiTone as any) || "professional";
   const proactivity = (aiKnowledge?.aiProactivity as any) || "medium";
   const closingFocus = aiKnowledge?.aiClosingFocus ?? (objectiveType === "sales" || objectiveType === "sales_scheduling");
+  const showPrices = aiKnowledge?.aiShowPrices ?? true;
 
   // Monta o horário de funcionamento
   let workingHours: { start: number; end: number; text?: string } | undefined;
@@ -165,6 +167,7 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
     tone,
     proactivity,
     closingFocus,
+    showPrices,
     customInstructions,
   };
 

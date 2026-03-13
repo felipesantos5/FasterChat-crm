@@ -29,6 +29,7 @@ export const CUSTOMER_SERVICE_CONFIG: AIObjectiveConfig = {
   tone: "professional",
   proactivity: "medium",
   closingFocus: false,
+  showPrices: true,
   schedulingEnabled: false,
   transferEnabled: true,
 };
