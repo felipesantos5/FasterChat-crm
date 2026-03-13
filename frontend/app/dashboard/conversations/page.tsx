@@ -632,47 +632,47 @@ function ConversationsPageContent() {
               </Button>
             </div>
             <div className="flex-1 min-h-0">
-            <ChatArea
-              key={selectedConversation.customerId}
-              customerId={selectedConversation.customerId}
-              customerName={selectedConversation.customerName}
-              customerPhone={selectedConversation.customerPhone}
-              customerProfilePic={selectedConversation.customerProfilePic}
-              customerTemperature={'temperature' in selectedConversation ? selectedConversation.temperature : null}
-              onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
-              showDetailsButton={true}
-              isArchived={selectedConversation.isArchived ?? false}
-              isAiThinking={aiThinkingIds.has(selectedConversation.customerId)}
-              onArchive={async () => {
-                try {
-                  await customerApi.archive(selectedConversation.customerId);
-                  toast.success("Contato arquivado");
-                  mutate();
-                } catch {
-                  toast.error("Erro ao arquivar contato");
-                }
-              }}
-              onUnarchive={async () => {
-                try {
-                  await customerApi.unarchive(selectedConversation.customerId);
-                  toast.success("Contato desarquivado");
-                  mutate();
-                } catch {
-                  toast.error("Erro ao desarquivar contato");
-                }
-              }}
-              onMarkAsRead={() => {
-                mutate(
-                  (current) => current
-                    ? { ...current, items: current.items.map((c) => c.customerId === selectedConversation.customerId ? { ...c, unreadCount: 0 } : c) }
-                    : current,
-                  false
-                );
-                if (companyId) {
-                  globalMutate(`/messages/unread-count/${companyId}`);
-                }
-              }}
-            />
+              <ChatArea
+                key={selectedConversation.customerId}
+                customerId={selectedConversation.customerId}
+                customerName={selectedConversation.customerName}
+                customerPhone={selectedConversation.customerPhone}
+                customerProfilePic={selectedConversation.customerProfilePic}
+                customerTemperature={'temperature' in selectedConversation ? selectedConversation.temperature : null}
+                onToggleDetails={() => setShowCustomerDetails(!showCustomerDetails)}
+                showDetailsButton={true}
+                isArchived={selectedConversation.isArchived ?? false}
+                isAiThinking={aiThinkingIds.has(selectedConversation.customerId)}
+                onArchive={async () => {
+                  try {
+                    await customerApi.archive(selectedConversation.customerId);
+                    toast.success("Contato arquivado");
+                    mutate();
+                  } catch {
+                    toast.error("Erro ao arquivar contato");
+                  }
+                }}
+                onUnarchive={async () => {
+                  try {
+                    await customerApi.unarchive(selectedConversation.customerId);
+                    toast.success("Contato desarquivado");
+                    mutate();
+                  } catch {
+                    toast.error("Erro ao desarquivar contato");
+                  }
+                }}
+                onMarkAsRead={() => {
+                  mutate(
+                    (current) => current
+                      ? { ...current, items: current.items.map((c) => c.customerId === selectedConversation.customerId ? { ...c, unreadCount: 0 } : c) }
+                      : current,
+                    false
+                  );
+                  if (companyId) {
+                    globalMutate(`/messages/unread-count/${companyId}`);
+                  }
+                }}
+              />
             </div>
           </>
         ) : (
@@ -692,7 +692,7 @@ function ConversationsPageContent() {
           className={cn(
             "border-l bg-background overflow-hidden flex flex-col transition-all duration-300",
             // Mobile: fixo em tela cheia
-            "fixed inset-0 z-50 lg:static lg:z-auto lg:w-[310px]"
+            "fixed inset-0 z-50 lg:static lg:z-auto lg:w-[380px]"
           )}
         >
           {/* Header Mobile para Detalhes */}

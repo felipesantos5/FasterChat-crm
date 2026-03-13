@@ -109,7 +109,7 @@ class AIService {
     const products = items.filter(item => item.type === "PRODUCT");
     const services = items.filter(item => item.type === "SERVICE");
 
-    let formatted = "";
+    let formatted = "⚠️ REGRA: Os itens listados abaixo são os ÚNICOS que você está autorizado a oferecer e vender. Se um produto ou serviço NÃO está listado aqui, ele NÃO EXISTE no catálogo — NUNCA invente ou sugira itens que não aparecem nesta lista.\n\n";
 
     // Formata PRODUTOS (geralmente sem variáveis ou com variáveis simples)
     if (products.length > 0) {
@@ -156,7 +156,7 @@ class AIService {
         formatted += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
         formatted += `📌 **${service.name}**${categoryStr}\n`;
         if (service.description) {
-          formatted += `   📝 O que é: ${service.description}\n`;
+          formatted += `   📝 [CONTEÚDO PARA EXPLICAÇÃO TÉCNICA]: ${service.description}\n`;
         }
 
         // Verifica se tem faixas de preço por quantidade
@@ -293,8 +293,8 @@ class AIService {
 
     // Formata EXCEÇÕES DE ZONA
     if (exceptions && exceptions.length > 0) {
-      formatted += "### ⚡ EXCEÇÕES DE TAXA\n\n";
-      formatted += "**ATENÇÃO:** Estas regras ANULAM a taxa da zona em casos específicos:\n\n";
+      formatted += "### ⚡ EXCEÇÕES DE TAXA (PRIORIDADE MÁXIMA)\n\n";
+      formatted += "**ATENÇÃO CRÍTICA:** Estas exceções TÊM PRIORIDADE sobre as taxas de zona. ANTES de aplicar qualquer taxa de zona, você DEVE verificar se o serviço/categoria/quantidade se encaixa em alguma exceção abaixo. Se sim, a exceção ANULA a taxa da zona.\n\n";
 
       for (const exception of exceptions) {
         const typeStr = exception.exceptionType === "NO_FEE" ? "SEM taxa" : `Taxa especial: R$ ${exception.customFee?.toFixed(2) || "0,00"}`;
@@ -329,10 +329,11 @@ class AIService {
    - Calcule: quantidade × preço da faixa correspondente
    - Some os modificadores das variáveis escolhidas
 
-3. **Aplique a taxa de zona:**
+3. **Aplique a taxa de zona (VERIFICAR EXCEÇÕES PRIMEIRO!):**
    - Pergunte o bairro do cliente
-   - Verifique se há EXCEÇÃO (ex: limpezas de +2 equipamentos não tem taxa)
-   - Se não houver exceção, adicione a taxa da zona
+   - **ANTES de cobrar taxa, verifique TODAS as exceções listadas acima**
+   - Se o serviço/categoria/quantidade se encaixa em alguma exceção → NÃO cobre taxa (ou use a taxa especial da exceção)
+   - SOMENTE se NÃO houver exceção aplicável → adicione a taxa da zona
 
 4. **Adicione serviços extras (se solicitado):**
    - Ex: Rapel, infra complexa, etc.
@@ -1136,9 +1137,34 @@ DIRETRIZES DE SEGURANÇA (CRÍTICO):
     const ragSection = ragContext ? `\n${ragContext}` : "";
 
     // Objetivo do Cliente (Se configurado)
-    const objectiveSection = objective 
+    const objectiveSection = objective
       ? `\n### 🎯 SEU OBJETIVO ESPECÍFICO\n${objective}\n`
       : `\n### 🎯 SEU OBJETIVO\nAtender o cliente de forma cordial, tirar dúvidas sobre os produtos listados e encaminhar para fechamento/agendamento.\n`;
+
+    // Modo de Operação baseado no objetivo
+    const objectiveStr = (objective || "").toLowerCase();
+    const isSellerMode = objectiveStr.includes("vend") || objectiveStr.includes("sales") || objectiveStr.includes("comercial");
+    const isSupportMode = objectiveStr.includes("suporte") || objectiveStr.includes("support") || objectiveStr.includes("técnico");
+
+    let operationModeSection = "\n### 🔄 MODO DE OPERAÇÃO\n";
+    if (isSellerMode) {
+      operationModeSection += `**Modo: VENDEDOR CONSULTIVO**
+- Use os adjetivos e benefícios presentes nas descrições dos serviços/produtos para valorizar a oferta
+- Destaque diferenciais e vantagens competitivas quando estiverem na descrição
+- Conduza a conversa naturalmente para o fechamento
+- Mas NUNCA invente benefícios que não estão na descrição — use APENAS os termos cadastrados\n`;
+    } else if (isSupportMode) {
+      operationModeSection += `**Modo: SUPORTE TÉCNICO**
+- Seja neutro e objetivo — foque em resolver o problema
+- NÃO use linguagem de vendas ou adjetivos promocionais
+- Apresente informações técnicas de forma clara e direta
+- Se o problema estiver fora do seu escopo, encaminhe para atendente humano\n`;
+    } else {
+      operationModeSection += `**Modo: ATENDIMENTO GERAL**
+- Seja cordial e prestativo
+- Apresente informações de forma clara usando os dados cadastrados
+- Conduza para o objetivo configurado de forma natural\n`;
+    }
 
     // Regras Negativas (O que não fazer)
     const constraintsSection = negativeExamples 
@@ -1298,6 +1324,10 @@ Resposta: "[TRANSBORDO]Peço desculpas pelo transtorno. Vou encaminhar você ime
 
 **IMPORTANTE:** O prefixo \`[TRANSBORDO]\` é processado automaticamente pelo sistema. Ele desativa a IA e sinaliza a conversa para a equipe humana. A mensagem após o prefixo será enviada ao cliente normalmente.
 
+**ALTERNATIVA — Token HANDOFF_ACTION:**
+Se o cliente demonstrar frustração crescente ou a conversa estiver em loop (mesma pergunta repetida), você pode incluir o token HANDOFF_ACTION no FINAL da sua resposta (em vez de [TRANSBORDO] no início). O sistema detectará e fará o transbordo automaticamente.
+Exemplo: "Peço desculpas pelo transtorno. Vou encaminhar para um atendente resolver isso pra você. HANDOFF_ACTION"
+
 ### 💬 ESTILO DE RESPOSTA
 - Seja profissional, direto e prestativo.
 - Use português brasileiro correto.
@@ -1324,13 +1354,33 @@ Resposta: "[TRANSBORDO]Peço desculpas pelo transtorno. Vou encaminhar você ime
     // Seção de Contexto da Conversa (Serviço de interesse detectado)
     const conversationContextSection = conversationContext || "";
 
+    // Regra anti-alucinação de preços (inserida perto dos dados de serviço)
+    const priceGuardSection = `
+### 🔒 ANTI-ALUCINAÇÃO DE PREÇOS (INVIOLÁVEL)
+**Raciocínio obrigatório antes de informar QUALQUER preço:**
+1. O cliente perguntou sobre qual serviço/produto?
+2. Esse serviço/produto está listado no meu catálogo acima? → Se NÃO: "Não temos esse serviço no momento."
+3. Qual o preço EXATO cadastrado? → Use SOMENTE esse valor
+4. Tem variáveis/opções? → Pergunte qual opção antes de dar preço
+5. Tem taxa de zona? → Verifique exceções ANTES de somar taxa
+6. Responda usando APENAS os valores encontrados nos passos acima
+
+**PROIBIDO:**
+- Arredondar preços ("em torno de R$ 200" ❌)
+- Estimar com base em itens similares ("deve custar algo como..." ❌)
+- Calcular mentalmente sem dados ("considerando a média..." ❌)
+- Dar faixa de preço quando existe preço exato ("entre R$ 100 e R$ 200" ❌)
+`.trim();
+
     return [
       securityAndIdentity,
       businessContext,
       faqSection,
       ragSection,
-      conversationContextSection, // Contexto da conversa (serviço de interesse)
+      conversationContextSection,
       objectiveSection,
+      operationModeSection,
+      priceGuardSection,
       constraintsSection,
       contextSection,
       toolsSection,
