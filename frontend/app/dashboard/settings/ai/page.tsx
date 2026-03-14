@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1279,6 +1279,16 @@ function AISettingsPageContent() {
                                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground uppercase font-bold">min</span>
                                 </div>
                               </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="font-bold">Descrição do Serviço</Label>
+                              <Textarea
+                                value={service.description || ""}
+                                onChange={(e) => updateService(serviceIndex, "description", e.target.value)}
+                                placeholder="Descreva como funciona este serviço, etapas, o que está incluso, materiais utilizados, diferenciais... Quanto mais detalhes, melhor a IA atende sobre ele."
+                                className="min-h-[80px] max-h-[400px] resize-y overflow-auto field-sizing-content rounded-xl border-2 text-sm leading-relaxed"
+                              />
                             </div>
 
                             <div className="space-y-4">
