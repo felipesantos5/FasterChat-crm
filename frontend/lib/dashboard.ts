@@ -107,6 +107,18 @@ export interface ClientsByStateData {
   count: number;
 }
 
+export interface LeadSourceTimelineItem {
+  date: string;
+  count: number;
+}
+
+export interface LeadSourceData {
+  source: string;
+  label: string;
+  total: number;
+  timeline: LeadSourceTimelineItem[];
+}
+
 export interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
@@ -120,6 +132,7 @@ export interface DashboardChartsData {
   overallConversion: OverallConversionData;
   batchEngagement: BatchEngagementData;
   clientsByState: ClientsByStateData[];
+  leadSources: LeadSourceData[];
 }
 
 export interface CollaboratorPerformanceData {

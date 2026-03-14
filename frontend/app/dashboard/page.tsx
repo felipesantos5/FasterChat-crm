@@ -9,7 +9,7 @@ import {
   ModernPeakHoursChart,
   ModernAppointmentsCard,
   ModernConversionCard,
-  ModernBatchEngagementCard,
+  LeadSourceChart,
   ModernRegionChart,
   ModernTeamPerformanceCard,
   ModernProfitCard,
@@ -133,8 +133,8 @@ function DashboardPageContent() {
       ...(chartsData.clientsByState && chartsData.clientsByState.length > 1
         ? [<ModernRegionChart key="region" data={chartsData.clientsByState} />]
         : []),
-      ...(chartsData.batchEngagement?.hasBatchExecutions
-        ? [<ModernBatchEngagementCard key="batch" data={chartsData.batchEngagement} />]
+      ...(chartsData.leadSources && chartsData.leadSources.length > 0
+        ? [<LeadSourceChart key="leadSource" data={chartsData.leadSources} />]
         : []),
       ...(dealStats && dealStats.dealsCount > 0
         ? [<ModernProfitCard key="profit" data={dealStats} />]

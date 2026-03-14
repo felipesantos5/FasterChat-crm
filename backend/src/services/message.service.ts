@@ -1043,6 +1043,7 @@ class MessageService {
               isGroup,
               profilePicUrl,
               pipelineStageId,
+              leadSource: 'WHATSAPP_DIRECT',
             },
           });
         } catch (createError: any) {

@@ -56,6 +56,7 @@ export class CustomerService {
         state: stateDeduced,
         isGroup,
         pipelineStageId,
+        leadSource: 'FASTERCHAT_DIRECT',
       },
     });
 
@@ -401,6 +402,7 @@ export class CustomerService {
             notes: data.notes || null,
             isGroup,
             pipelineStageId: isGroup ? null : defaultPipelineStageId,
+            leadSource: 'FLOW_SPREADSHEET',
           },
         });
 

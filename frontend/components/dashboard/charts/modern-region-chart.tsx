@@ -25,6 +25,19 @@ const STATE_NAMES: Record<string, string> = {
   sp: "São Paulo", se: "Sergipe", to: "Tocantins",
 };
 
+const GREEN_SCALE = ["#86efac", "#4ade80", "#22c55e", "#16a34a", "#15803d", "#14532d"];
+
+function getStateColor(count: number, maxCount: number): string {
+  if (count === 0) return "";
+  const intensity = count / maxCount;
+  if (intensity > 0.83) return GREEN_SCALE[5];
+  if (intensity > 0.66) return GREEN_SCALE[4];
+  if (intensity > 0.49) return GREEN_SCALE[3];
+  if (intensity > 0.32) return GREEN_SCALE[2];
+  if (intensity > 0.15) return GREEN_SCALE[1];
+  return GREEN_SCALE[0];
+}
+
 export function ModernRegionChart({ data }: ModernRegionChartProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState({ x: 0, y: 0, visible: false });
@@ -34,8 +47,8 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
       <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
         <CardHeader className="items-start pb-2 pt-4 px-4">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-              <MapPin className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
+              <MapPin className="h-4 w-4 text-green-600 dark:text-green-400" />
             </div>
             <CardTitle className="text-sm font-semibold">Clientes por Estado</CardTitle>
           </div>
@@ -58,19 +71,16 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
   const getStateFill = (id: string): string => {
     const count = countByState[id] ?? 0;
     if (count === 0) return "hsl(var(--muted))";
-    const intensity = count / maxCount;
-    if (intensity > 0.8) return "#3730a3";
-    if (intensity > 0.6) return "#4338ca";
-    if (intensity > 0.4) return "#4f46e5";
-    if (intensity > 0.2) return "#6366f1";
-    if (intensity > 0.05) return "#818cf8";
-    return "#c7d2fe";
+    return getStateColor(count, maxCount);
   };
 
   const top5 = [...data].sort((a, b) => b.count - a.count).slice(0, 5);
 
   const hoveredData = hoveredId
-    ? { name: STATE_NAMES[hoveredId] ?? hoveredId.toUpperCase(), count: countByState[hoveredId] ?? 0 }
+    ? {
+        name: STATE_NAMES[hoveredId] ?? hoveredId.toUpperCase(),
+        count: countByState[hoveredId] ?? 0,
+      }
     : null;
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -86,16 +96,16 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
       <CardHeader className="items-start pb-2 pt-4 px-4 border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-            <MapPin className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
+            <MapPin className="h-4 w-4 text-green-600 dark:text-green-400" />
           </div>
           <CardTitle className="text-sm font-semibold">Clientes por Estado</CardTitle>
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 px-3 pt-3 pb-2 flex flex-col gap-3">
+      <CardContent className="flex-1 px-3 pt-2 pb-2 flex flex-col gap-2">
         {/* Mapa SVG */}
-        <div className="relative w-full">
+        <div className="relative mx-auto w-[75%]">
           <svg
             viewBox={Brazil.viewBox}
             className="w-full h-auto"
@@ -114,7 +124,7 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
                 strokeWidth="1"
                 className="cursor-pointer transition-opacity duration-150"
                 style={{
-                  opacity: hoveredId && hoveredId !== location.id ? 0.75 : 1,
+                  opacity: hoveredId && hoveredId !== location.id ? 0.7 : 1,
                 }}
                 onMouseEnter={() => setHoveredId(location.id)}
               />
@@ -122,13 +132,13 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
           </svg>
 
           {/* Tooltip */}
-          {tooltip.visible && hoveredId && hoveredData && (
+          {tooltip.visible && hoveredId && hoveredData && hoveredData.count > 0 && (
             <div
               className="pointer-events-none absolute z-10 rounded-lg border bg-popover px-3 py-2 shadow-md text-xs"
               style={{
                 left: tooltip.x + 12,
                 top: tooltip.y - 36,
-                transform: tooltip.x > 400 ? "translateX(-110%)" : undefined,
+                transform: tooltip.x > 300 ? "translateX(-110%)" : undefined,
               }}
             >
               <p className="font-semibold text-foreground">{hoveredData.name}</p>
@@ -141,33 +151,33 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
           )}
         </div>
 
-        {/* Legenda gradiente */}
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[10px] text-muted-foreground">Menos</span>
-          <div className="flex-1 mx-2 h-2 rounded-full bg-gradient-to-r from-[#c7d2fe] to-[#3730a3]" />
-          <span className="text-[10px] text-muted-foreground">Mais</span>
-        </div>
-
         {/* Top estados */}
         <div className="space-y-1.5 border-t border-gray-100 dark:border-gray-800 pt-2">
           {top5.map((item, index) => {
             const pct = total > 0 ? (item.count / total) * 100 : 0;
+            const color = getStateColor(item.count, maxCount);
             return (
               <div key={item.state} className="flex items-center gap-2">
-                <span className="w-4 text-[10px] font-bold text-indigo-500 text-right shrink-0">
+                <span className="w-4 text-[10px] font-bold text-green-600 text-right shrink-0">
                   {index + 1}
                 </span>
+                <div
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: color }}
+                />
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300 w-24 shrink-0 truncate">
                   {STATE_NAMES[item.state.toLowerCase()] ?? item.state}
                 </span>
                 <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-indigo-500"
-                    style={{ width: `${pct}%` }}
+                    className="h-full rounded-full"
+                    style={{ width: `${pct}%`, backgroundColor: color }}
                   />
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-xs font-bold text-gray-900 dark:text-gray-100">{item.count}</span>
+                  <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                    {item.count}
+                  </span>
                   <Users className="h-3 w-3 text-muted-foreground" />
                 </div>
                 <span className="text-[10px] text-muted-foreground w-8 text-right shrink-0">

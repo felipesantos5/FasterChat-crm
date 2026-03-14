@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "LeadSource" AS ENUM ('WHATSAPP_DIRECT', 'FLOW_WEBHOOK', 'FASTERCHAT_DIRECT', 'FLOW_SPREADSHEET', 'WHATSAPP_LINK');
+
+-- AlterTable
+ALTER TABLE "customers" ADD COLUMN "lead_source" "LeadSource";

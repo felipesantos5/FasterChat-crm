@@ -558,6 +558,7 @@ export class FlowEngineService {
           name: cleanPhone,
           tags: [],
           pipelineStageId: firstStage?.id || null,
+          leadSource: 'FLOW_WEBHOOK',
         }
       });
     }

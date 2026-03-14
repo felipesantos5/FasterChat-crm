@@ -128,6 +128,14 @@ interface DashboardChartsData {
   overallConversion: OverallConversionData;
   batchEngagement: BatchEngagementData;
   clientsByState: ClientsByStateData[];
+  leadSources: LeadSourceData[];
+}
+
+interface LeadSourceData {
+  source: string;
+  label: string;
+  total: number;
+  timeline: { date: string; count: number }[];
 }
 
 const APPOINTMENT_TYPE_LABELS: Record<AppointmentType, string> = {
@@ -512,6 +520,7 @@ class DashboardService {
       overallConversion,
       batchEngagement,
       clientsByState,
+      leadSources,
     ] = await Promise.all([
       this.getPipelineFunnelData(companyId),
       this.getMessagesOverTimeData(companyId, currentStart, daysCount),
@@ -525,6 +534,7 @@ class DashboardService {
       this.getOverallConversionData(companyId, currentStart, currentEnd),
       this.getBatchEngagementData(companyId, currentStart, currentEnd),
       this.getClientsByStateData(companyId),
+      this.getLeadSourceData(companyId, currentStart, currentEnd),
     ]);
 
     return {
@@ -540,6 +550,7 @@ class DashboardService {
       overallConversion,
       batchEngagement,
       clientsByState,
+      leadSources,
     };
   }
 
@@ -1264,6 +1275,46 @@ class DashboardService {
       state: c.state as string,
       count: c._count.id,
     }));
+  }
+
+  private async getLeadSourceData(companyId: string, startDate: Date, endDate: Date): Promise<LeadSourceData[]> {
+    const SOURCE_LABELS: Record<string, string> = {
+      WHATSAPP_DIRECT: 'WhatsApp Direto',
+      FLOW_WEBHOOK: 'Fluxo de Automação',
+      FASTERCHAT_DIRECT: 'FasterChat Manual',
+      FLOW_SPREADSHEET: 'Planilha / Importação',
+      WHATSAPP_LINK: 'Link do WhatsApp',
+    };
+
+    const customers = await prisma.customer.findMany({
+      where: {
+        companyId,
+        leadSource: { not: null },
+        createdAt: { gte: startDate, lte: endDate },
+      },
+      select: { leadSource: true, createdAt: true },
+    });
+
+    const bySource: Record<string, { total: number; byDate: Record<string, number> }> = {};
+
+    for (const c of customers) {
+      const src = c.leadSource as string;
+      if (!bySource[src]) bySource[src] = { total: 0, byDate: {} };
+      bySource[src].total += 1;
+      const dateKey = c.createdAt.toISOString().split('T')[0];
+      bySource[src].byDate[dateKey] = (bySource[src].byDate[dateKey] ?? 0) + 1;
+    }
+
+    return Object.entries(bySource)
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([source, data]) => ({
+        source,
+        label: SOURCE_LABELS[source] ?? source,
+        total: data.total,
+        timeline: Object.entries(data.byDate)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, count]) => ({ date, count })),
+      }));
   }
 }
 

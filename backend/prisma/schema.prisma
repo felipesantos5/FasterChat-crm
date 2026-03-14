@@ -134,6 +134,14 @@ model User {
   @@map("users")
 }
 
+enum LeadSource {
+  WHATSAPP_DIRECT    // Cliente mandou mensagem diretamente
+  FLOW_WEBHOOK       // Veio por webhook de fluxo de automação
+  FASTERCHAT_DIRECT  // Adicionado manualmente via FasterChat
+  FLOW_SPREADSHEET   // Importado via planilha/CSV pelo FasterChat
+  WHATSAPP_LINK      // Veio via link do WhatsApp criado no FasterChat
+}
+
 model Customer {
   id              String   @id @default(uuid())
   companyId       String   @map("company_id")
@@ -153,6 +161,7 @@ model Customer {
   isArchived           Boolean              @default(false) @map("is_archived") // Contato arquivado (não aparece na lista de conversas)
   temperature          CustomerTemperature  @default(UNKNOWN) @map("temperature") // Temperatura comercial do cliente
   temperatureUpdatedAt DateTime?            @map("temperature_updated_at") // Última vez que a temperatura foi calculada
+  leadSource           LeadSource?          @map("lead_source") // Origem do contato
   createdAt            DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 

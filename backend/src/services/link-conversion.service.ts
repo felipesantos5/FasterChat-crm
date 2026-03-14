@@ -61,11 +61,16 @@ class LinkConversionService {
             },
           });
 
+          // Atualiza a origem do cliente para WHATSAPP_LINK
+          await prisma.customer.update({
+            where: { id: customerId },
+            data: { leadSource: 'WHATSAPP_LINK' },
+          });
+
           // Se tiver tag automática configurada, aplica ao cliente
           if (link.autoTag) {
             await this.applyTagToCustomer(customerId, link.autoTag, companyId);
           }
-
 
           return {
             converted: true,
