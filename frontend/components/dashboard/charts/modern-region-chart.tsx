@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Brazil from "@svg-maps/brazil";
-import { MapPin, Users } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { ClientsByStateData } from "@/lib/dashboard";
 import {
   Card,
@@ -25,10 +25,11 @@ const STATE_NAMES: Record<string, string> = {
   sp: "São Paulo", se: "Sergipe", to: "Tocantins",
 };
 
-const GREEN_SCALE = ["#86efac", "#4ade80", "#22c55e", "#16a34a", "#15803d", "#14532d"];
+const GREEN_SCALE = ["#bbf7d0", "#86efac", "#4ade80", "#22c55e", "#16a34a", "#14532d"];
+const EMPTY_FILL = "#e5e7eb"; // hex direto — CSS vars não funcionam em fill de SVG
 
 function getStateColor(count: number, maxCount: number): string {
-  if (count === 0) return "";
+  if (count === 0) return EMPTY_FILL;
   const intensity = count / maxCount;
   if (intensity > 0.83) return GREEN_SCALE[5];
   if (intensity > 0.66) return GREEN_SCALE[4];
@@ -44,18 +45,16 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
 
   if (!data || data.length === 0) {
     return (
-      <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
-        <CardHeader className="items-start pb-2 pt-4 px-4">
+      <Card className="flex flex-col shadow-lg border-gray-100 dark:border-gray-800" style={{ maxHeight: 245 }}>
+        <CardHeader className="items-start py-2 px-3">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
-              <MapPin className="h-4 w-4 text-green-600 dark:text-green-400" />
-            </div>
+            <MapPin className="h-4 w-4 text-green-600" />
             <CardTitle className="text-sm font-semibold">Clientes por Estado</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 pb-4 px-4 flex flex-col items-center justify-center">
-          <p className="text-sm text-muted-foreground text-center">
-            Nenhum dado de região disponível no período.
+        <CardContent className="flex-1 flex items-center justify-center pb-3">
+          <p className="text-xs text-muted-foreground text-center">
+            Nenhum dado de região disponível.
           </p>
         </CardContent>
       </Card>
@@ -70,11 +69,10 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
 
   const getStateFill = (id: string): string => {
     const count = countByState[id] ?? 0;
-    if (count === 0) return "hsl(var(--muted))";
     return getStateColor(count, maxCount);
   };
 
-  const top5 = [...data].sort((a, b) => b.count - a.count).slice(0, 5);
+  const top3 = [...data].sort((a, b) => b.count - a.count).slice(0, 3);
 
   const hoveredData = hoveredId
     ? {
@@ -83,36 +81,37 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
       }
     : null;
 
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setTooltip({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-      visible: true,
-    });
-  };
-
   return (
-    <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
-      <CardHeader className="items-start pb-2 pt-4 px-4 border-b border-gray-100 dark:border-gray-800">
+    <Card
+      className="flex flex-col shadow-lg border-gray-100 dark:border-gray-800 overflow-hidden"
+      style={{ maxHeight: 245 }}
+    >
+      {/* Header */}
+      <CardHeader className="items-start py-2 px-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30">
-            <MapPin className="h-4 w-4 text-green-600 dark:text-green-400" />
-          </div>
+          <MapPin className="h-4 w-4 text-green-600" />
           <CardTitle className="text-sm font-semibold">Clientes por Estado</CardTitle>
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 px-3 pt-2 pb-2 flex flex-col gap-2">
-        {/* Mapa SVG */}
-        <div className="relative mx-auto w-[75%]">
+      {/* Body: mapa à esquerda, lista à direita */}
+      <CardContent className="flex-1 p-0 flex flex-row overflow-hidden">
+
+        {/* Mapa */}
+        <div
+          className="relative shrink-0 flex items-center justify-center"
+          style={{ width: "55%" }}
+          onMouseLeave={() => {
+            setHoveredId(null);
+            setTooltip((t) => ({ ...t, visible: false }));
+          }}
+        >
           <svg
             viewBox={Brazil.viewBox}
-            className="w-full h-auto"
-            onMouseMove={handleMouseMove}
-            onMouseLeave={() => {
-              setHoveredId(null);
-              setTooltip((t) => ({ ...t, visible: false }));
+            style={{ width: "100%", height: "100%", maxHeight: 200 }}
+            onMouseMove={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, visible: true });
             }}
           >
             {Brazil.locations.map((location) => (
@@ -120,11 +119,12 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
                 key={location.id}
                 d={location.path}
                 fill={getStateFill(location.id)}
-                stroke="white"
-                strokeWidth="1"
-                className="cursor-pointer transition-opacity duration-150"
+                stroke="#ffffff"
+                strokeWidth="1.2"
                 style={{
-                  opacity: hoveredId && hoveredId !== location.id ? 0.7 : 1,
+                  opacity: hoveredId && hoveredId !== location.id ? 0.65 : 1,
+                  cursor: "pointer",
+                  transition: "opacity 0.15s",
                 }}
                 onMouseEnter={() => setHoveredId(location.id)}
               />
@@ -134,11 +134,11 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
           {/* Tooltip */}
           {tooltip.visible && hoveredId && hoveredData && hoveredData.count > 0 && (
             <div
-              className="pointer-events-none absolute z-10 rounded-lg border bg-popover px-3 py-2 shadow-md text-xs"
+              className="pointer-events-none absolute z-10 rounded-lg border bg-popover px-2.5 py-1.5 shadow-md text-[11px]"
               style={{
-                left: tooltip.x + 12,
-                top: tooltip.y - 36,
-                transform: tooltip.x > 300 ? "translateX(-110%)" : undefined,
+                left: tooltip.x + 8,
+                top: tooltip.y - 32,
+                transform: tooltip.x > 160 ? "translateX(-110%)" : undefined,
               }}
             >
               <p className="font-semibold text-foreground">{hoveredData.name}</p>
@@ -151,42 +151,43 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
           )}
         </div>
 
-        {/* Top estados */}
-        <div className="space-y-1.5 border-t border-gray-100 dark:border-gray-800 pt-2">
-          {top5.map((item, index) => {
+        {/* Lista top 3 */}
+        <div className="flex-1 flex flex-col justify-center gap-2 px-3 py-2 border-l border-gray-100 dark:border-gray-800">
+          {top3.map((item, index) => {
             const pct = total > 0 ? (item.count / total) * 100 : 0;
             const color = getStateColor(item.count, maxCount);
+            const name = STATE_NAMES[item.state.toLowerCase()] ?? item.state;
             return (
-              <div key={item.state} className="flex items-center gap-2">
-                <span className="w-4 text-[10px] font-bold text-green-600 text-right shrink-0">
-                  {index + 1}
-                </span>
-                <div
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: color }}
-                />
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 w-24 shrink-0 truncate">
-                  {STATE_NAMES[item.state.toLowerCase()] ?? item.state}
-                </span>
-                <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
+              <div key={item.state} className="space-y-0.5">
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="text-[10px] font-bold text-green-600 shrink-0">{index + 1}</span>
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                    <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300 truncate">
+                      {name}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 shrink-0">
+                    {item.count}
+                  </span>
+                </div>
+                <div className="h-1 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full"
                     style={{ width: `${pct}%`, backgroundColor: color }}
                   />
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                    {item.count}
-                  </span>
-                  <Users className="h-3 w-3 text-muted-foreground" />
-                </div>
-                <span className="text-[10px] text-muted-foreground w-8 text-right shrink-0">
-                  {pct.toFixed(0)}%
-                </span>
               </div>
             );
           })}
+
+          {/* Total */}
+          <div className="mt-1 pt-1.5 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground">Total</span>
+            <span className="text-[11px] font-bold text-green-600">{total}</span>
+          </div>
         </div>
+
       </CardContent>
     </Card>
   );

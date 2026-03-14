@@ -33,6 +33,7 @@ import { SpellCheckTextarea } from "@/components/chat/SpellCheckTextarea";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { toast } from "sonner";
 import { ChatAreaSkeleton } from "@/components/ui/skeletons";
+import { AiThinkingAnimation } from "@/components/animations";
 
 const TEMPERATURE_CONFIG: Record<string, { emoji: string; label: string; className: string }> = {
   HOT: { emoji: "🔥", label: "Quente", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
@@ -1751,19 +1752,7 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
 
         {/* AI Processing/Typing Indicator */}
         {(isAiThinking || (isAiEnabled && autoReplyEnabled && (aiProcessing || isTyping))) && (
-          <div className="flex justify-start px-3 pb-1">
-            <div className="flex items-center gap-2 rounded-full px-3 py-1.5 bg-violet-100 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700">
-              <Bot className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-              <span className="text-xs font-medium text-violet-600 dark:text-violet-400">
-                {isTyping ? "IA está digitando" : "IA pensando"}
-              </span>
-              <span className="flex gap-0.5 items-center">
-                <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:0ms]" />
-                <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:150ms]" />
-                <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce [animation-delay:300ms]" />
-              </span>
-            </div>
-          </div>
+          <AiThinkingAnimation isTyping={isTyping} />
         )}
 
         <div ref={messagesEndRef} />

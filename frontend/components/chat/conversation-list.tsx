@@ -5,7 +5,8 @@ import { ConversationSummary } from "@/types/message";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, AlertCircle, Users, Archive, Mic, User, Camera, ImageIcon, Bot } from "lucide-react";
+import { AlertCircle, Users, Archive, Mic, User, Camera, ImageIcon, Bot } from "lucide-react";
+import { EmptyStateAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
 
 interface ConversationListProps {
@@ -238,10 +239,10 @@ export function ConversationList({
 
   if (conversations.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-        <MessageSquare className="h-12 w-12 text-muted-foreground mb-2" />
-        <p className="text-sm text-muted-foreground">Nenhuma conversa</p>
-      </div>
+      <EmptyStateAnimation
+        title="Nenhuma conversa"
+        description="Quando alguém te chamar, vai aparecer aqui"
+      />
     );
   }
 
