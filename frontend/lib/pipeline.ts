@@ -123,6 +123,24 @@ export const pipelineApi = {
   },
 
   /**
+   * Atualiza uma venda
+   */
+  async updateDealValue(
+    dealId: string,
+    data: { stageId?: string; value?: number; notes?: string | null }
+  ): Promise<DealValueItem> {
+    const response = await api.put(`/pipeline/deal-values/${dealId}`, data);
+    return response.data.data;
+  },
+
+  /**
+   * Remove uma venda
+   */
+  async deleteDealValue(dealId: string): Promise<void> {
+    await api.delete(`/pipeline/deal-values/${dealId}`);
+  },
+
+  /**
    * Obtém estatísticas de lucro/receita
    */
   async getDealValueStats(

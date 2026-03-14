@@ -111,6 +111,11 @@ export default function CustomerDetailPage() {
   const [dealStageId, setDealStageId] = useState("");
   const [submittingDeal, setSubmittingDeal] = useState(false);
   const [dealStages, setDealStages] = useState<PipelineStage[]>([]);
+  const [editingDeal, setEditingDeal] = useState<DealValueItem | null>(null);
+  const [editDealValue, setEditDealValue] = useState("");
+  const [editDealNotes, setEditDealNotes] = useState("");
+  const [editDealStageId, setEditDealStageId] = useState("");
+  const [dealToDelete, setDealToDelete] = useState<DealValueItem | null>(null);
 
   // Delete customer modal state
   const [deleteCustomerModalOpen, setDeleteCustomerModalOpen] = useState(false);
@@ -219,6 +224,55 @@ export default function CustomerDetailPage() {
       toast.error("Erro ao registrar venda");
     } finally {
       setSubmittingDeal(false);
+    }
+  };
+
+  const handleEditDealStart = (deal: DealValueItem) => {
+    setEditingDeal(deal);
+    setEditDealValue(String(deal.value));
+    setEditDealNotes(deal.notes ?? "");
+    setEditDealStageId(deal.stage.id);
+  };
+
+  const handleEditDealSave = async () => {
+    if (!editingDeal) return;
+    const parsedValue = parseFloat(editDealValue.replace(",", "."));
+    if (!editDealValue.trim() || isNaN(parsedValue) || parsedValue <= 0) {
+      toast.error("Informe um valor válido para a venda");
+      return;
+    }
+    if (!editDealStageId) {
+      toast.error("Selecione o estágio da venda");
+      return;
+    }
+    try {
+      setSubmittingDeal(true);
+      await pipelineApi.updateDealValue(editingDeal.id, {
+        stageId: editDealStageId,
+        value: parsedValue,
+        notes: editDealNotes.trim() || null,
+      });
+      toast.success("Venda atualizada com sucesso!");
+      setEditingDeal(null);
+      await loadDealValues();
+    } catch (error) {
+      console.error("Error updating deal:", error);
+      toast.error("Erro ao atualizar venda");
+    } finally {
+      setSubmittingDeal(false);
+    }
+  };
+
+  const handleDeleteDeal = async () => {
+    if (!dealToDelete) return;
+    try {
+      await pipelineApi.deleteDealValue(dealToDelete.id);
+      toast.success("Venda removida com sucesso!");
+      setDealToDelete(null);
+      await loadDealValues();
+    } catch (error) {
+      console.error("Error deleting deal:", error);
+      toast.error("Erro ao remover venda");
     }
   };
 
@@ -827,21 +881,86 @@ export default function CustomerDetailPage() {
                 <div className="space-y-3">
                   {dealValues.map((deal) => (
                     <div key={deal.id} className="rounded-lg border p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-semibold text-green-600">
-                          {Number(deal.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: deal.stage.color }} />
-                          <span className="text-sm text-muted-foreground">{deal.stage.name}</span>
+                      {editingDeal?.id === deal.id ? (
+                        <div className="space-y-3">
+                          <div className="flex gap-3">
+                            <div className="relative flex-1">
+                              <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="0,00"
+                                value={editDealValue}
+                                onChange={(e) => setEditDealValue(e.target.value)}
+                                className="pl-8"
+                              />
+                            </div>
+                            <Select value={editDealStageId} onValueChange={setEditDealStageId}>
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder="Estágio" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {dealStages.map((stage) => (
+                                  <SelectItem key={stage.id} value={stage.id}>
+                                    {stage.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Input
+                            placeholder="Observações (opcional)"
+                            value={editDealNotes}
+                            onChange={(e) => setEditDealNotes(e.target.value)}
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <Button size="sm" variant="outline" onClick={() => setEditingDeal(null)} disabled={submittingDeal}>
+                              Cancelar
+                            </Button>
+                            <Button size="sm" onClick={handleEditDealSave} disabled={submittingDeal}>
+                              {submittingDeal ? "Salvando..." : "Salvar"}
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      {deal.notes && (
-                        <p className="text-sm text-muted-foreground mt-1">{deal.notes}</p>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-lg font-semibold text-green-600">
+                              {Number(deal.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: deal.stage.color }} />
+                                <span className="text-sm text-muted-foreground">{deal.stage.name}</span>
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleEditDealStart(deal)}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={() => setDealToDelete(deal)}
+                                  >
+                                    <Trash className="mr-2 h-4 w-4" />
+                                    Remover
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                          {deal.notes && (
+                            <p className="text-sm text-muted-foreground mt-1">{deal.notes}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {format(new Date(deal.closedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </p>
+                        </>
                       )}
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {format(new Date(deal.closedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                      </p>
                     </div>
                   ))}
                   {dealValues.length > 1 && (
@@ -1079,6 +1198,31 @@ export default function CustomerDetailPage() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteServiceCard}>
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Deal Confirmation */}
+      <AlertDialog open={!!dealToDelete} onOpenChange={() => setDealToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover Venda</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover a venda de{" "}
+              {dealToDelete
+                ? Number(dealToDelete.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                : ""}
+              ? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteDeal}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -402,6 +402,66 @@ class PipelineController {
   }
 
   /**
+   * PUT /api/pipeline/deal-values/:dealId
+   * Atualiza uma venda
+   */
+  async updateDealValue(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Não autenticado' });
+      }
+
+      const companyId = req.user.companyId;
+      const { dealId } = req.params;
+
+      const schema = z.object({
+        stageId: z.string().optional(),
+        value: z.number().positive().optional(),
+        notes: z.string().optional().nullable(),
+      });
+
+      const data = schema.parse(req.body);
+      const updated = await pipelineService.updateDealValue(companyId, dealId, {
+        ...data,
+        notes: data.notes ?? undefined,
+      });
+
+      return res.status(200).json({ success: true, data: updated });
+    } catch (error: any) {
+      console.error('Error updating deal value:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Erro ao atualizar venda',
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/pipeline/deal-values/:dealId
+   * Remove uma venda
+   */
+  async deleteDealValue(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Não autenticado' });
+      }
+
+      const companyId = req.user.companyId;
+      const { dealId } = req.params;
+
+      await pipelineService.deleteDealValue(companyId, dealId);
+
+      return res.status(200).json({ success: true, message: 'Venda removida com sucesso' });
+    } catch (error: any) {
+      console.error('Error deleting deal value:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Erro ao remover venda',
+      });
+    }
+  }
+
+  /**
    * GET /api/pipeline/deal-values/customer/:customerId
    * Lista todas as vendas de um cliente específico
    */

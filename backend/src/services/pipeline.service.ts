@@ -333,6 +333,28 @@ export class PipelineService {
       },
     });
   }
+
+  async updateDealValue(
+    companyId: string,
+    dealId: string,
+    data: { stageId?: string; value?: number; notes?: string }
+  ) {
+    return prisma.dealValue.update({
+      where: { id: dealId, companyId },
+      data,
+      include: {
+        stage: {
+          select: { id: true, name: true, color: true },
+        },
+      },
+    });
+  }
+
+  async deleteDealValue(companyId: string, dealId: string) {
+    return prisma.dealValue.delete({
+      where: { id: dealId, companyId },
+    });
+  }
 }
 
 export const pipelineService = new PipelineService();

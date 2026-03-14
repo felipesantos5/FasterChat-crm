@@ -178,6 +178,12 @@ export function ServiceCardFormModal({
               placeholder="Descreva o serviço realizado, observações importantes, etc."
               rows={4}
               disabled={isSubmitting}
+              className="resize-none overflow-hidden"
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = "auto";
+                target.style.height = `${target.scrollHeight}px`;
+              }}
             />
             {errors.description && (
               <p className="text-sm text-destructive">{errors.description.message}</p>

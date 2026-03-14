@@ -30,5 +30,7 @@ router.post('/deal-values', checkPermission('PIPELINE', true), asyncHandler(pipe
 router.get('/deal-values/stats', asyncHandler(pipelineController.getDealValueStats));
 router.get('/deal-values', asyncHandler(pipelineController.listDealValues));
 router.get('/deal-values/customer/:customerId', asyncHandler(pipelineController.getDealValuesByCustomer));
+router.put('/deal-values/:dealId', checkPermission('PIPELINE', true), asyncHandler(pipelineController.updateDealValue));
+router.delete('/deal-values/:dealId', checkPermission('PIPELINE', true), asyncHandler(pipelineController.deleteDealValue));
 
 export default router;
