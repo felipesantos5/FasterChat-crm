@@ -130,12 +130,25 @@ function DotTimeline({
 }) {
   const [hovered, setHovered] = useState<{ date: string; count: number } | null>(null);
 
-  const allDots = Array.from({ length: Math.min(totalDays, 30) }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (Math.min(totalDays, 30) - 1 - i));
-    const key = d.toISOString().split("T")[0];
-    const item = timeline.find((t) => t.date === key);
-    return { date: key, count: item?.count ?? 0 };
+  // Para períodos longos (>30 dias), agrupa dias em buckets para manter max 30 dots
+  const maxDots = 30;
+  const bucketSize = totalDays > maxDots ? Math.ceil(totalDays / maxDots) : 1;
+  const numDots = Math.min(totalDays, maxDots);
+
+  const allDots = Array.from({ length: numDots }, (_, i) => {
+    const bucketEnd = new Date();
+    bucketEnd.setDate(bucketEnd.getDate() - (numDots - 1 - i) * bucketSize);
+    const bucketStart = new Date(bucketEnd);
+    bucketStart.setDate(bucketStart.getDate() - bucketSize + 1);
+
+    const endStr = bucketEnd.toISOString().split("T")[0];
+    const startStr = bucketStart.toISOString().split("T")[0];
+
+    const count = timeline
+      .filter((t) => t.date >= startStr && t.date <= endStr)
+      .reduce((acc, t) => acc + t.count, 0);
+
+    return { date: endStr, count };
   });
 
   const maxCount = Math.max(...allDots.map((d) => d.count), 1);
@@ -177,7 +190,7 @@ function DotTimeline({
 // ── Componente principal ─────────────────────────────────────────────────────
 
 export function LeadSourceChart({ data }: LeadSourceChartProps) {
-  const [period, setPeriod] = useState<"1" | "7" | "30">("30");
+  const [period, setPeriod] = useState<"1" | "7" | "30" | "180">("30");
   const totalDays = parseInt(period);
 
   const cutoff = new Date();
@@ -197,60 +210,62 @@ export function LeadSourceChart({ data }: LeadSourceChartProps) {
 
   return (
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
-      <CardHeader className="items-start pb-2 pt-4 px-4 border-b border-gray-100 dark:border-gray-800">
+      <CardHeader className="items-start pb-2 pt-3 sm:pt-4 px-3 sm:px-4 border-b border-gray-100 dark:border-gray-800">
         <div className="flex w-full items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-green-600" />
-            <CardTitle className="text-sm font-semibold">Origem dos Contatos</CardTitle>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600" />
+            <CardTitle className="text-xs sm:text-sm font-semibold">Origem dos Contatos</CardTitle>
           </div>
-          <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-            {(["1", "7", "30"] as const).map((p) => (
+          <div className="flex items-center gap-0.5 sm:gap-1 bg-muted rounded-lg p-0.5">
+            {(["1", "7", "30", "180"] as const).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
+                className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-medium transition-colors ${
                   period === p
                     ? "bg-background shadow-sm text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {p === "1" ? "Hoje" : p === "7" ? "7d" : "30d"}
+                {p === "1" ? "Hoje" : p === "7" ? "7d" : p === "30" ? "30d" : "6m"}
               </button>
             ))}
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 px-4 pt-3 pb-3">
+      <CardContent className="flex-1 px-3 sm:px-4 pt-2 sm:pt-3 pb-2 sm:pb-3">
         {filtered.length === 0 ? (
           <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-muted-foreground text-center">
+            <p className="text-xs sm:text-sm text-muted-foreground text-center">
               Nenhum contato registrado neste período.
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {filtered.map((src) => {
               const color = SOURCE_COLORS[src.source] ?? GREEN;
               const icon = SOURCE_ICON_MAP[src.source] ?? <IconFasterchatDirect />;
               return (
                 <div key={src.source} className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {icon}
-                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <span className="shrink-0 [&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-5 sm:[&>svg]:h-5">{icon}</span>
+                      <span className="text-[10px] sm:text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
                         {src.label}
                       </span>
                     </div>
-                    <span className="text-sm font-bold" style={{ color }}>
+                    <span className="text-xs sm:text-sm font-bold shrink-0 ml-2" style={{ color }}>
                       {src.total}
                     </span>
                   </div>
-                  <DotTimeline
-                    timeline={src.timeline}
-                    color={color}
-                    totalDays={totalDays}
-                  />
+                  <div className="overflow-hidden">
+                    <DotTimeline
+                      timeline={src.timeline}
+                      color={color}
+                      totalDays={totalDays}
+                    />
+                  </div>
                 </div>
               );
             })}

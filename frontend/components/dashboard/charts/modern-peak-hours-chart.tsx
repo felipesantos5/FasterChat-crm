@@ -58,24 +58,24 @@ export function ModernPeakHoursChart({ data }: ModernPeakHoursChartProps) {
 
   return (
     <Card className="flex flex-col h-full shadow-lg border-gray-100 dark:border-gray-800">
-      <CardHeader className="items-start pb-2 pt-4 px-4">
+      <CardHeader className="items-start pb-1 sm:pb-2 pt-3 sm:pt-4 px-3 sm:px-4">
         <div className="flex w-full justify-between items-start">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-[#c5ecda] dark:bg-[#1a6b38]/30">
-              <TrendingUp className="h-4 w-4 text-[#1a6b38] dark:text-[#7dd0a0]" />
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="p-1 sm:p-1.5 rounded-lg bg-[#c5ecda] dark:bg-[#1a6b38]/30">
+              <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#1a6b38] dark:text-[#7dd0a0]" />
             </div>
-            <CardTitle className="text-sm font-semibold">Pico de Mensagens</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-semibold">Pico de Mensagens</CardTitle>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 pb-3 px-4">
+      <CardContent className="flex-1 pb-2 sm:pb-3 px-3 sm:px-4">
         {peakHour && peakHour.count > 0 && (
-          <div className="text-center mb-2">
-            <span className="text-2xl font-bold">{peakHour.hour.replace(':00', ':00')}</span>
-            <p className="text-[11px] text-muted-foreground">Maior volume de mensagens</p>
+          <div className="text-center mb-1 sm:mb-2">
+            <span className="text-lg sm:text-2xl font-bold">{peakHour.hour.replace(':00', ':00')}</span>
+            <p className="text-[10px] sm:text-[11px] text-muted-foreground">Maior volume de mensagens</p>
           </div>
         )}
-        <ChartContainer config={chartConfig} className="h-[140px] w-full">
+        <ChartContainer config={chartConfig} className="h-[100px] sm:h-[140px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={groupedData}
@@ -93,14 +93,14 @@ export function ModernPeakHoursChart({ data }: ModernPeakHoursChartProps) {
                 interval={0}
                 tickFormatter={(val) => val.replace(':00', 'h')}
                 tickMargin={8}
-                fontSize={12}
+                fontSize={10}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
                 allowDecimals={false}
-                fontSize={12}
-                width={40}
+                fontSize={10}
+                width={30}
               />
               <ChartTooltip
                 cursor={false}
@@ -112,8 +112,8 @@ export function ModernPeakHoursChart({ data }: ModernPeakHoursChartProps) {
                     key={`cell-${index}`}
                     fill={
                       entry.hour === peakHour?.hour
-                        ? "#1a6b38"                  // brand dark
-                        : "rgba(68, 186, 108, 0.4)"  // brand base with opacity
+                        ? "#1a6b38"
+                        : "rgba(68, 186, 108, 0.4)"
                     }
                   />
                 ))}

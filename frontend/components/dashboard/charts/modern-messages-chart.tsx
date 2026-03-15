@@ -1,30 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ArrowDownLeft, ArrowUpRight, MessageSquare, Calendar } from "lucide-react";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 interface MessagesOverTimeData {
   date: string;
@@ -66,9 +49,7 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
     const totalInbound = data.reduce((acc, d) => acc + d.inbound, 0);
     const totalOutbound = data.reduce((acc, d) => acc + d.outbound, 0);
     const totalAI = data.reduce((acc, d) => acc + d.aiResponses, 0);
-    const peakDay = data.length > 0
-      ? data.reduce((max, d) => (d.inbound + d.outbound > max.inbound + max.outbound ? d : max), data[0])
-      : null;
+    const peakDay = data.length > 0 ? data.reduce((max, d) => (d.inbound + d.outbound > max.inbound + max.outbound ? d : max), data[0]) : null;
     let peakDayLabel = "";
     if (peakDay) {
       const [y, m, d] = peakDay.date.split("-").map(Number);
@@ -83,12 +64,9 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
         <CardTitle className="text-base">Visão Geral de Mensagens</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 pb-0 px-4">
-        <ChartContainer config={chartConfig} className="h-[250px] w-full">
+        <ChartContainer config={chartConfig} className="h-[240px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={formattedData}
-              margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
-            >
+            <AreaChart data={formattedData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="fillInbound" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="var(--color-inbound)" stopOpacity={0.8} />
@@ -104,47 +82,13 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.5} />
-              <XAxis
-                dataKey="dateLabel"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                minTickGap={32}
-                fontSize={11}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `${value}`}
-                width={35}
-                fontSize={11}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent indicator="dot" />}
-              />
+              <XAxis dataKey="dateLabel" tickLine={false} axisLine={false} tickMargin={8} minTickGap={32} fontSize={11} />
+              <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} width={35} fontSize={11} />
+              <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
               {/* <ChartLegend content={<ChartLegendContent />} /> */}
-              <Area
-                type="monotone"
-                dataKey="inbound"
-                stackId="1"
-                stroke="var(--color-inbound)"
-                fill="url(#fillInbound)"
-              />
-              <Area
-                type="monotone"
-                dataKey="outbound"
-                stackId="1"
-                stroke="var(--color-outbound)"
-                fill="url(#fillOutbound)"
-              />
-              <Area
-                type="monotone"
-                dataKey="aiResponses"
-                stackId="1"
-                stroke="var(--color-aiResponses)"
-                fill="url(#fillAI)"
-              />
+              <Area type="monotone" dataKey="inbound" stackId="1" stroke="var(--color-inbound)" fill="url(#fillInbound)" />
+              <Area type="monotone" dataKey="outbound" stackId="1" stroke="var(--color-outbound)" fill="url(#fillOutbound)" />
+              <Area type="monotone" dataKey="aiResponses" stackId="1" stroke="var(--color-aiResponses)" fill="url(#fillAI)" />
             </AreaChart>
           </ResponsiveContainer>
         </ChartContainer>
@@ -176,7 +120,9 @@ export function ModernMessagesChart({ data }: ModernMessagesChartProps) {
             <Calendar className="h-3.5 w-3.5 text-gray-700 dark:text-gray-300" />
             <div>
               <p className="text-xs text-muted-foreground">Maior volume</p>
-              <p className="text-sm font-semibold">{miniStats.peakDayLabel} ({miniStats.peakDayTotal} mensagens)</p>
+              <p className="text-sm font-semibold">
+                {miniStats.peakDayLabel} ({miniStats.peakDayTotal} mensagens)
+              </p>
             </div>
           </div>
         </div>

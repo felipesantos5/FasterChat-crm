@@ -8,7 +8,6 @@ import {
   ModernFunnelDonut,
   ModernPeakHoursChart,
   ModernAppointmentsCard,
-  ModernConversionCard,
   LeadSourceChart,
   ModernRegionChart,
   ModernTeamPerformanceCard,
@@ -43,6 +42,8 @@ function DashboardPageContent() {
   const { teamData } = useTeamPerformance(dateFilter.preset, dateFilter.customRange);
 
   const { dealStats } = useDealValueStats(dateFilter.preset, dateFilter.customRange);
+
+  const hasProfitData = !!(dealStats && dealStats.dealsCount > 0);
 
   const statCards = stats
     ? [
@@ -125,7 +126,6 @@ function DashboardPageContent() {
   // Coleta os cards de baixo dinamicamente, máximo 4
   const bottomCards = chartsData
     ? [
-      <ModernConversionCard key="conversion" data={chartsData.customerActivity} />,
       <ModernPeakHoursChart key="peak" data={chartsData.messagesByHour} />,
       ...(chartsData.activeAppointments?.active > 0
         ? [<ModernAppointmentsCard key="appointments" data={chartsData.activeAppointments} />]
@@ -136,29 +136,15 @@ function DashboardPageContent() {
       ...(chartsData.leadSources && chartsData.leadSources.length > 0
         ? [<LeadSourceChart key="leadSource" data={chartsData.leadSources} />]
         : []),
-      ...(dealStats && dealStats.dealsCount > 0
-        ? [<ModernProfitCard key="profit" data={dealStats} />]
-        : []),
-    ].slice(0, 5)
+    ].slice(0, 4)
     : [];
 
-  // Classe de colunas para desktop — sempre preenche a linha inteira
-  const bottomColClass = (
-    {
-      1: "lg:grid-cols-1",
-      2: "lg:grid-cols-2",
-      3: "lg:grid-cols-3",
-      4: "lg:grid-cols-4",
-      5: "lg:grid-cols-5",
-    } as Record<number, string>
-  )[bottomCards.length] ?? "lg:grid-cols-4";
-
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 bg-gray-50 dark:bg-gray-900">
-      <div className="flex flex-col gap-4 flex-1 min-h-0">
-        {/* Linha 1: 3 Stat Cards + Funil (row-span-2) + Gráfico de Mensagens */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 flex-none">
-          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="h-full flex flex-col p-3 sm:p-4 lg:p-6 bg-gray-50 dark:bg-gray-900">
+      <div className="flex flex-col gap-3 sm:gap-4 flex-1 min-h-0">
+        {/* Linha 1: Stat Cards (3 ou 4 com Lucro) + Funil (row-span-2) + Gráfico de Mensagens */}
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-4 flex-none">
+          <div className={`lg:col-span-3 grid grid-cols-2 ${hasProfitData ? "sm:grid-cols-4" : "sm:grid-cols-3"} gap-2 sm:gap-3 lg:gap-4`}>
             {statCards.map((stat) => (
               <ModernStatCard
                 key={stat.title}
@@ -171,6 +157,9 @@ function DashboardPageContent() {
                 colorName={stat.colorName}
               />
             ))}
+            {hasProfitData && dealStats && (
+              <ModernProfitCard data={dealStats} />
+            )}
           </div>
 
           {/* Funil de Vendas - row-span-2 */}
@@ -188,8 +177,8 @@ function DashboardPageContent() {
           </div>
         </div>
 
-        {/* Linha 2: Cards bottom — preenche o restante da tela, colunas dinâmicas */}
-        <div className={`flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 ${bottomColClass} gap-4`}>
+        {/* Linha 2: Cards bottom — sempre 4 colunas no desktop */}
+        <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
           {bottomCards}
         </div>
 

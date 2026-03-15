@@ -46,10 +46,10 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
   if (!data || data.length === 0) {
     return (
       <Card className="flex flex-col shadow-lg border-gray-100 dark:border-gray-800" style={{ maxHeight: 245 }}>
-        <CardHeader className="items-start py-2 px-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-green-600" />
-            <CardTitle className="text-sm font-semibold">Clientes por Estado</CardTitle>
+        <CardHeader className="items-start py-1.5 sm:py-2 px-2 sm:px-3">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600" />
+            <CardTitle className="text-xs sm:text-sm font-semibold">Clientes por Estado</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center pb-3">
@@ -87,10 +87,10 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
       style={{ maxHeight: 245 }}
     >
       {/* Header */}
-      <CardHeader className="items-start py-2 px-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-green-600" />
-          <CardTitle className="text-sm font-semibold">Clientes por Estado</CardTitle>
+      <CardHeader className="items-start py-1.5 sm:py-2 px-2 sm:px-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600" />
+          <CardTitle className="text-xs sm:text-sm font-semibold">Clientes por Estado</CardTitle>
         </div>
       </CardHeader>
 

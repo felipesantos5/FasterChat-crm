@@ -62,31 +62,31 @@ export function ModernStatCard({
   const colors = colorMap[colorName] || colorMap.default;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm px-5 py-4 border border-gray-100 dark:border-gray-700
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm px-3 py-3 sm:px-5 sm:py-4 border border-gray-100 dark:border-gray-700
       hover:shadow-md transition-all duration-300 relative overflow-hidden group">
 
       {/* Icon Badge Top Right */}
-      <div className="absolute top-5 right-5 z-10">
-        <div className={`p-2.5 rounded-lg ${gradient} shadow-sm group-hover:shadow-md transition-shadow`}>
-          <Icon className="h-5 w-5 text-white" />
+      <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-10">
+        <div className={`p-1.5 sm:p-2.5 rounded-lg ${gradient} shadow-sm group-hover:shadow-md transition-shadow`}>
+          <Icon className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-white" />
         </div>
       </div>
 
-      <div className="relative z-10 flex flex-col h-full justify-between gap-3">
+      <div className="relative z-10 flex flex-col h-full justify-between gap-1.5 sm:gap-3">
         {/* Title */}
-        <p className="text-[15px] font-medium text-gray-600 dark:text-gray-400 max-w-[70%]">
+        <p className="text-[11px] sm:text-[15px] font-medium text-gray-600 dark:text-gray-400 max-w-[70%] truncate">
           {title}
         </p>
 
         {/* Value */}
-        <h3 className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight -mt-1">
+        <h3 className="text-xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight -mt-0.5 sm:-mt-1">
           {typeof value === "number" ? value.toLocaleString("pt-BR") : value}
         </h3>
 
         {/* Bottom: Sparkline + Percentage */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-1 sm:gap-2">
           {/* Sparkline Graph */}
-          <div className="flex-1 h-[28px]">
+          <div className="flex-1 h-[20px] sm:h-[28px]">
             <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="w-full h-full">
               <defs>
                 <linearGradient id={`gradient-${title.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
@@ -99,23 +99,23 @@ export function ModernStatCard({
             </svg>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {description && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate hidden sm:block">
                 {description}
               </p>
             )}
             <div
               className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold shrink-0",
+                "inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold shrink-0",
                 finalTrend === "up" && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
                 finalTrend === "down" && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
                 finalTrend === "neutral" && "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
               )}
             >
-              {finalTrend === "up" && <TrendingUp className="h-[14px] w-[14px]" />}
-              {finalTrend === "down" && <TrendingDown className="h-[14px] w-[14px]" />}
-              {finalTrend === "neutral" && <Minus className="h-[14px] w-[14px]" />}
+              {finalTrend === "up" && <TrendingUp className="h-3 w-3 sm:h-[14px] sm:w-[14px]" />}
+              {finalTrend === "down" && <TrendingDown className="h-3 w-3 sm:h-[14px] sm:w-[14px]" />}
+              {finalTrend === "neutral" && <Minus className="h-3 w-3 sm:h-[14px] sm:w-[14px]" />}
               <span>
                 {isPositive && "+"}
                 {percentageChange}%
