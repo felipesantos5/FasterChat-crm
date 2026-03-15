@@ -1,24 +1,32 @@
 /**
  * Configuração do Redis para BullMQ
  *
- * BullMQ recomenda NÃO compartilhar a mesma instância ioredis entre
- * Queue e Worker. Por isso exportamos tanto uma instância padrão
- * quanto um objeto de configuração que o BullMQ usa para criar
- * conexões independentes internamente.
+ * BullMQ requer que Queue e Worker usem conexões SEPARADAS.
+ * Compartilhar a mesma instância causa problemas com delayed jobs.
+ * Por isso criamos uma factory que gera instâncias independentes.
  */
 
 import Redis from 'ioredis';
 
-// Configuração do Redis (objeto plano — BullMQ cria conexões a partir dele)
-export const redisConfig = {
+// Opções base do Redis
+const redisOptions = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379'),
   maxRetriesPerRequest: null as null, // Necessário para BullMQ
   enableReadyCheck: false,
 };
 
-// Instância compartilhada para uso direto (ex: FlowEngine get/set)
-export const redisConnection = new Redis(redisConfig);
+/**
+ * Cria uma nova instância ioredis independente.
+ * Cada Queue e Worker deve usar sua própria conexão.
+ */
+export function createRedisConnection(): Redis {
+  return new Redis(redisOptions);
+}
+
+// Instância compartilhada para uso direto (FlowEngine get/set, etc.)
+// NÃO usar para BullMQ Queue/Worker
+export const redisConnection = new Redis(redisOptions);
 
 // Log de status
 redisConnection.on('connect', () => {
@@ -28,5 +36,8 @@ redisConnection.on('connect', () => {
 redisConnection.on('error', (err) => {
   console.error('[Redis] Connection error:', err.message);
 });
+
+// Exporta a config para compatibilidade, mas prefira createRedisConnection()
+export const redisConfig = redisOptions;
 
 export default redisConnection;

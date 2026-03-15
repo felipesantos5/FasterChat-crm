@@ -10,7 +10,7 @@
 
 import { Queue, Worker, Job } from 'bullmq';
 import Bottleneck from 'bottleneck';
-import { redisConfig } from '../config/redis';
+import { createRedisConnection } from '../config/redis';
 import { prisma } from '../utils/prisma';
 import aiService from './ai.service';
 import messageService from './message.service';
@@ -79,7 +79,7 @@ class AIDebounceService {
 
   constructor() {
     this.queue = new Queue<AIResponseJobData>(QUEUE_NAME, {
-      connection: redisConfig,
+      connection: createRedisConnection(),
       defaultJobOptions: {
         attempts: 1,
         removeOnComplete: { age: 3600 }, // 1 hora
@@ -359,7 +359,7 @@ class AIDebounceService {
         });
       },
       {
-        connection: redisConfig,
+        connection: createRedisConnection(),
         concurrency: 10,
       }
     );
@@ -370,6 +370,10 @@ class AIDebounceService {
 
     this.worker.on('failed', (job, err) => {
       console.error(`[AIDebounce] Job ${job?.id} failed:`, err.message);
+    });
+
+    this.worker.on('error', (err) => {
+      console.error('[AIDebounce] Worker error:', err.message);
     });
 
     console.error('[AIDebounce] Worker started and listening for jobs');
