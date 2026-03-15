@@ -151,6 +151,10 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
                   transition: "opacity 0.15s",
                 }}
                 onMouseEnter={() => setHoveredId(location.id)}
+                onMouseLeave={() => {
+                  setHoveredId(null);
+                  setTooltip((t) => ({ ...t, visible: false }));
+                }}
               />
             ))}
           </svg>
