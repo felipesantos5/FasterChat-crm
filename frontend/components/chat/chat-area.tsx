@@ -396,20 +396,20 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     const draft = getDraft(customerId);
     setInputValue(draft);
     // Ajusta altura do textarea ao carregar rascunho
-    if (draft) {
-      setTimeout(() => {
-        const el = inputRef.current;
-        if (el) {
+    setTimeout(() => {
+      const el = inputRef.current;
+      if (el) {
+        if (draft) {
           el.style.height = "auto";
           const newHeight = Math.min(el.scrollHeight, 160);
           el.style.height = `${newHeight}px`;
           el.style.overflowY = el.scrollHeight > 160 ? "auto" : "hidden";
           // Posiciona cursor no final
-          el.focus();
           el.setSelectionRange(draft.length, draft.length);
         }
-      }, 0);
-    }
+        el.focus();
+      }
+    }, 0);
   }, [customerId]);
 
   // Scroll para última mensagem

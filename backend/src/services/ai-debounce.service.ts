@@ -82,8 +82,8 @@ class AIDebounceService {
       connection: createRedisConnection(),
       defaultJobOptions: {
         attempts: 1,
-        removeOnComplete: { age: 3600 }, // 1 hora
-        removeOnFail: { age: 86400 }, // 1 dia
+        removeOnComplete: true, // Remove imediatamente ao completar para permitir reagendamento com mesmo jobId
+        removeOnFail: { age: 3600 }, // 1 hora
       },
     });
   }
@@ -93,14 +93,27 @@ class AIDebounceService {
    * Se já existe um job pendente, remove e cria um novo com delay resetado.
    */
   async scheduleResponse(data: AIResponseJobData): Promise<void> {
-    const jobId = `ai-debounce_${data.customerId}`;
+    const baseJobId = `ai-debounce_${data.customerId}`;
 
     // Remove job pendente anterior (se existir) para resetar o timer
     try {
-      const existingJob = await this.queue.getJob(jobId);
+      const existingJob = await this.queue.getJob(baseJobId);
       if (existingJob) {
         const state = await existingJob.getState();
         if (state === 'delayed' || state === 'waiting') {
+          await existingJob.remove();
+        } else if (state === 'active') {
+          // Job está processando agora — não podemos remover nem reusar o jobId.
+          // Agenda com jobId único (timestamp) para garantir que esta mensagem será processada.
+          const fallbackJobId = `${baseJobId}_${Date.now()}`;
+          await this.queue.add('process-ai-response', data, {
+            jobId: fallbackJobId,
+            delay: AI_DEBOUNCE_DELAY_MS,
+          });
+          console.error(`[AIDebounce] Job ${baseJobId} is active, scheduled fallback ${fallbackJobId}`);
+          return;
+        } else if (state === 'completed' || state === 'failed') {
+          // Job já terminou — podemos reutilizar o jobId removendo o antigo
           await existingJob.remove();
         }
       }
@@ -110,10 +123,10 @@ class AIDebounceService {
 
     // Agenda novo job com delay de 35 segundos
     await this.queue.add('process-ai-response', data, {
-      jobId,
+      jobId: baseJobId,
       delay: AI_DEBOUNCE_DELAY_MS,
     });
-    console.error(`[AIDebounce] Job scheduled: ${jobId} (delay=${AI_DEBOUNCE_DELAY_MS}ms) for customer=${data.customerId}`);
+    console.error(`[AIDebounce] Job scheduled: ${baseJobId} (delay=${AI_DEBOUNCE_DELAY_MS}ms) for customer=${data.customerId}`);
   }
 
   /**
@@ -179,6 +192,7 @@ class AIDebounceService {
     });
 
     if (!conversation || !conversation.aiEnabled) {
+      console.error(`[AIDebounce] Job ${job.id} skipped: aiEnabled=${conversation?.aiEnabled ?? 'no conversation'} for customer=${customerId}`);
       return;
     }
 
@@ -189,6 +203,7 @@ class AIDebounceService {
     });
 
     if (!aiKnowledge?.autoReplyEnabled) {
+      console.error(`[AIDebounce] Job ${job.id} skipped: autoReplyEnabled=false for company=${companyId}`);
       return;
     }
 
@@ -196,6 +211,7 @@ class AIDebounceService {
     const messages = await this.getUnprocessedMessages(customerId);
 
     if (messages.length === 0) {
+      console.error(`[AIDebounce] Job ${job.id} skipped: no unprocessed messages for customer=${customerId}`);
       return;
     }
 
@@ -344,6 +360,16 @@ class AIDebounceService {
    */
   startWorker(): void {
     if (this.worker) return;
+
+    // Limpa jobs completed/failed de deploys anteriores que podem bloquear novos agendamentos com mesmo jobId
+    Promise.all([
+      this.queue.clean(0, 1000, 'completed'),
+      this.queue.clean(0, 1000, 'failed'),
+    ]).then(([completed, failed]) => {
+      console.error(`[AIDebounce] Queue cleaned on startup: ${completed.length} completed, ${failed.length} failed jobs removed`);
+    }).catch((err) => {
+      console.error('[AIDebounce] Queue cleanup failed (non-critical):', err.message);
+    });
 
     this.worker = new Worker<AIResponseJobData>(
       QUEUE_NAME,
