@@ -38,6 +38,19 @@ class WhatsAppService {
    * 🛠️ Helper para formatar JID (Identificador do WhatsApp) corretamente
    * Resolve o problema de envio para LIDs (Business) e Números normais
    */
+  /**
+   * Para números brasileiros no formato antigo (12 dígitos: 55 + DDD 2 + número 8),
+   * retorna a variante com o 9º dígito inserido (13 dígitos: 55 + DDD 2 + 9 + número 8).
+   * Retorna null se não aplicável.
+   */
+  private brazilianNinthDigitVariant(cleanNumber: string): string | null {
+    if (cleanNumber.startsWith("55") && cleanNumber.length === 12) {
+      // Insere o dígito 9 após o código de área (posição 4)
+      return cleanNumber.slice(0, 4) + "9" + cleanNumber.slice(4);
+    }
+    return null;
+  }
+
   private formatJid(contact: string): string {
     if (!contact) return "";
 
@@ -429,64 +442,86 @@ class WhatsAppService {
       // Usa o helper para formatar corretamente (LID vs Phone)
       const remoteJid = this.formatJid(to);
 
-      const body: Record<string, unknown> = { number: cleanTo, text };
+      // Números brasileiros de 12 dígitos (55 + DDD + 8 dígitos) podem estar registrados
+      // no WhatsApp com o 9º dígito (13 dígitos). Tentamos ambos os formatos.
+      const numbersToTry: string[] = [cleanTo];
+      const ninthDigitVariant = this.brazilianNinthDigitVariant(cleanTo);
+      if (ninthDigitVariant) numbersToTry.push(ninthDigitVariant);
 
-      if (quoted) {
-        body.quoted = {
-          key: {
-            id: quoted.messageId,
-            fromMe: quoted.fromMe,
-            remoteJid,
-          },
-          message: {
-            conversation: quoted.content,
-          },
-        };
+      let lastError: any = null;
+
+      for (const number of numbersToTry) {
+        try {
+          const body: Record<string, unknown> = { number, text };
+
+          if (quoted) {
+            body.quoted = {
+              key: {
+                id: quoted.messageId,
+                fromMe: quoted.fromMe,
+                remoteJid,
+              },
+              message: {
+                conversation: quoted.content,
+              },
+            };
+          }
+
+          const response = await this.axiosInstance.post<EvolutionApiSendMessageResponse>(
+            `/message/sendText/${instance!.instanceName}`,
+            body,
+          );
+
+          return {
+            success: true,
+            messageId: response.data.key.id,
+            remoteJid: response.data.key.remoteJid,
+            timestamp: response.data.messageTimestamp,
+          };
+        } catch (error: any) {
+          lastError = error;
+
+          // Se é exists: false E ainda temos variantes para tentar, continua o loop
+          const responseData = error.response?.data;
+          const nestedMsg = responseData?.response?.message;
+          const isExistsFalse = Array.isArray(nestedMsg) && nestedMsg[0]?.exists === false;
+
+          if (isExistsFalse && number !== numbersToTry[numbersToTry.length - 1]) {
+            continue; // Tenta a próxima variante (9º dígito)
+          }
+
+          // Última tentativa ou erro diferente de exists:false — lança o erro
+          if (error instanceof AppError) throw error;
+
+          console.error("[WhatsApp Service] Erro ao enviar mensagem:");
+          console.error("  - Status:", error.response?.status);
+          console.error("  - Destino (JID):", this.formatJid(data.to));
+          console.error("  - Message:", error.message);
+          console.error("  - Response Body:", JSON.stringify(responseData, null, 2));
+
+          if (isExistsFalse) {
+            throw Errors.whatsappNumberNotOnWhatsApp(data.to);
+          }
+
+          const nestedMsgFinal = responseData?.response?.message;
+          const evolutionError = (typeof responseData === 'string' ? responseData : null)
+            || (typeof responseData?.message === 'string' ? responseData.message : null)
+            || (typeof nestedMsgFinal === 'string' ? nestedMsgFinal : null)
+            || responseData?.error
+            || (Array.isArray(responseData?.message) ? JSON.stringify(responseData.message) : null)
+            || (Array.isArray(nestedMsgFinal) ? JSON.stringify(nestedMsgFinal) : null)
+            || error.message
+            || "";
+
+          throw Errors.whatsappSendFailed(evolutionError);
+        }
       }
 
-      const response = await this.axiosInstance.post<EvolutionApiSendMessageResponse>(`/message/sendText/${instance!.instanceName}`, body);
-
-      return {
-        success: true,
-        messageId: response.data.key.id,
-        remoteJid: response.data.key.remoteJid,
-        timestamp: response.data.messageTimestamp,
-      };
+      // Não deve chegar aqui, mas satisfaz o TypeScript
+      throw Errors.whatsappSendFailed(lastError?.message);
     } catch (error: any) {
-      // Se já é um AppError, repassa
-      if (error instanceof AppError) {
-        throw error;
-      }
-
-      // Log detalhado para debug — inclui body completo da Evolution API
-      const responseData = error.response?.data;
-      console.error("[WhatsApp Service] Erro ao enviar mensagem:");
-      console.error("  - Status:", error.response?.status);
-      console.error("  - Destino (JID):", this.formatJid(data.to));
-      console.error("  - Message:", error.message);
-      console.error("  - Response Body:", JSON.stringify(responseData, null, 2));
-
-      // Detecta erro de número não encontrado no WhatsApp (Evolution API retorna array com exists: false)
-      const nestedMsg = responseData?.response?.message;
-      if (Array.isArray(nestedMsg) && nestedMsg[0]?.exists === false) {
-        throw Errors.whatsappNumberNotOnWhatsApp(data.to);
-      }
-
-      // Extrai a mensagem de erro da Evolution API (tenta múltiplos campos)
-      // IMPORTANTE: checar responseData?.response?.message ANTES de responseData?.error
-      // pois o campo 'error' contém apenas "Internal Server Error" enquanto
-      // o campo aninhado contém a causa real (ex: "Connection Closed")
-      const evolutionError = (typeof responseData === 'string' ? responseData : null)
-        || (typeof responseData?.message === 'string' ? responseData.message : null)
-        || (typeof nestedMsg === 'string' ? nestedMsg : null)
-        || responseData?.error
-        || (Array.isArray(responseData?.message) ? JSON.stringify(responseData.message) : null)
-        || (Array.isArray(nestedMsg) ? JSON.stringify(nestedMsg) : null)
-        || error.message
-        || "";
-
-      // Usa a análise inteligente para retornar o erro apropriado
-      throw Errors.whatsappSendFailed(evolutionError);
+      if (error instanceof AppError) throw error;
+      throw Errors.whatsappSendFailed(error?.message);
     }
   }
 

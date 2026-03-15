@@ -1281,7 +1281,7 @@ class DashboardService {
     const SOURCE_LABELS: Record<string, string> = {
       WHATSAPP_DIRECT: 'WhatsApp Direto',
       FLOW_WEBHOOK: 'Fluxo de Automação',
-      FASTERCHAT_DIRECT: 'FasterChat Manual',
+      FASTERCHAT_DIRECT: 'Chamada Manual',
       FLOW_SPREADSHEET: 'Planilha / Importação',
       WHATSAPP_LINK: 'Link do WhatsApp',
     };

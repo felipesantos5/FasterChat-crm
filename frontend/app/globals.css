@@ -32,6 +32,107 @@
   height: 78px;
 }
 
+/* ── Sidebar Nav Icon Animations ─────────────────────────────────────────── */
+
+/* spring-pop — Dashboard, Conversas, Mensagens Rápidas, Insights */
+@keyframes navIconSpringPop {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(0.70); }
+  55%  { transform: scale(1.20); }
+  75%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+/* bounce-up — Clientes (pessoas "aparecem") */
+@keyframes navIconBounceUp {
+  0%   { transform: translateY(0)    scale(1); }
+  30%  { transform: translateY(-5px) scale(1.15); }
+  60%  { transform: translateY(2px)  scale(0.94); }
+  80%  { transform: translateY(-1px) scale(1.02); }
+  100% { transform: translateY(0)    scale(1); }
+}
+
+/* drop-in — Funil (conteúdo "cai") */
+@keyframes navIconDropIn {
+  0%   { transform: translateY(-7px) scale(0.78); opacity: 0.5; }
+  55%  { transform: translateY(2px)  scale(1.06); opacity: 1; }
+  78%  { transform: translateY(-1px) scale(0.97); }
+  100% { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
+/* flip-x — Calendário (vira como página) */
+@keyframes navIconFlipX {
+  0%   { transform: perspective(180px) rotateX(0deg)   scale(1); }
+  40%  { transform: perspective(180px) rotateX(-75deg) scale(1.1); }
+  70%  { transform: perspective(180px) rotateX(12deg)  scale(0.97); }
+  100% { transform: perspective(180px) rotateX(0deg)   scale(1); }
+}
+
+/* wiggle — Campanhas (megafone "grita") */
+@keyframes navIconWiggle {
+  0%   { transform: rotate(0deg)   scale(1); }
+  15%  { transform: rotate(-14deg) scale(1.12); }
+  35%  { transform: rotate(11deg)  scale(1.10); }
+  55%  { transform: rotate(-7deg)  scale(1.05); }
+  75%  { transform: rotate(4deg)   scale(1.02); }
+  100% { transform: rotate(0deg)   scale(1); }
+}
+
+/* snap — Links WhatsApp (elo "encaixa") */
+@keyframes navIconSnap {
+  0%   { transform: rotate(-18deg) scale(0.82); }
+  45%  { transform: rotate(6deg)   scale(1.12); }
+  70%  { transform: rotate(-3deg)  scale(0.97); }
+  100% { transform: rotate(0deg)   scale(1); }
+}
+
+/* pulse-out — Fluxos (rede "expande") */
+@keyframes navIconPulseOut {
+  0%   { transform: scale(1);    opacity: 1; }
+  30%  { transform: scale(1.28); opacity: 0.75; }
+  60%  { transform: scale(0.90); opacity: 1; }
+  80%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* spin — Configurações (engrenagem gira) */
+@keyframes navIconSpin {
+  0%   { transform: rotate(0deg)   scale(1); }
+  50%  { transform: rotate(190deg) scale(1.12); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* heartbeat — Bot / IA (dois pulsos) */
+@keyframes navIconHeartbeat {
+  0%   { transform: scale(1); }
+  12%  { transform: scale(1.22); }
+  26%  { transform: scale(0.95); }
+  40%  { transform: scale(1.16); }
+  58%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+/* zap — Script de atendimento (faísca) */
+@keyframes navIconZap {
+  0%   { transform: scale(1)    rotate(0deg); opacity: 1; }
+  20%  { transform: scale(1.25) rotate(-8deg); opacity: 0.7; }
+  45%  { transform: scale(0.88) rotate(6deg);  opacity: 1; }
+  65%  { transform: scale(1.10) rotate(-3deg); }
+  100% { transform: scale(1)    rotate(0deg); }
+}
+
+/* Classes utilitárias */
+.nav-icon-spring-pop  { animation: navIconSpringPop  360ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.nav-icon-bounce-up   { animation: navIconBounceUp   360ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.nav-icon-drop-in     { animation: navIconDropIn     370ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.nav-icon-flip-x      { animation: navIconFlipX      360ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.nav-icon-wiggle      { animation: navIconWiggle     420ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.nav-icon-snap        { animation: navIconSnap       360ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.nav-icon-pulse-out   { animation: navIconPulseOut   380ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.nav-icon-spin        { animation: navIconSpin       480ms cubic-bezier(0.45, 0.05, 0.55, 1) both; }
+.nav-icon-heartbeat   { animation: navIconHeartbeat  500ms ease-in-out both; }
+.nav-icon-zap         { animation: navIconZap        380ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
 @layer base {
   :root {
     --background: 0 0% 100%;

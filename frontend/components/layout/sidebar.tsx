@@ -24,6 +24,7 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
+import { AnimatedNavIcon, type NavIconAnimation } from "@/components/layout/AnimatedNavIcon";
 import logo from "@/assets/logo2.webp";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -37,6 +38,7 @@ import { PricingModal } from "@/components/dashboard/pricing-modal";
 interface MenuItem {
   label: string;
   icon: any;
+  animation?: NavIconAnimation;
   href?: string;
   children?: MenuItem[];
   permission?: string; // Permissão necessária para ver este item
@@ -48,30 +50,35 @@ const menuItems: MenuItem[] = [
   {
     label: "Dashboard",
     icon: LayoutDashboard,
+    animation: "spring-pop",
     href: "/dashboard",
     permission: "DASHBOARD",
   },
   {
     label: "Clientes",
     icon: Users,
+    animation: "bounce-up",
     href: "/dashboard/customers",
     permission: "CUSTOMERS",
   },
   {
     label: "Conversas",
     icon: MessageSquare,
+    animation: "spring-pop",
     href: "/dashboard/conversations",
     permission: "CONVERSATIONS",
   },
   {
     label: "Funil",
     icon: FunnelPlus,
+    animation: "drop-in",
     href: "/dashboard/pipeline",
     permission: "PIPELINE",
   },
   {
     label: "Calendário",
     icon: CalendarDays,
+    animation: "flip-x",
     href: "/dashboard/calendario",
     permission: "CALENDAR",
     planFeature: "GOOGLE_CALENDAR",
@@ -79,6 +86,7 @@ const menuItems: MenuItem[] = [
   {
     label: "Campanhas",
     icon: Megaphone,
+    animation: "wiggle",
     href: "/dashboard/campaigns",
     permission: "CAMPAIGNS",
     planFeature: "CAMPAIGNS",
@@ -86,6 +94,7 @@ const menuItems: MenuItem[] = [
   {
     label: "Links de WhatsApp",
     icon: Link2,
+    animation: "snap",
     href: "/dashboard/links",
     permission: "WHATSAPP_LINKS",
     planFeature: "WHATSAPP_LINKS",
@@ -93,31 +102,37 @@ const menuItems: MenuItem[] = [
   {
     label: "Fluxos de Automação",
     icon: Network,
+    animation: "pulse-out",
     href: "/dashboard/flows",
     planFeature: "WORKFLOW",
   },
   {
     label: "Configurações",
     icon: Settings,
+    animation: "spin",
     children: [
       {
         label: "Agente",
         icon: Bot,
+        animation: "heartbeat",
         href: "/dashboard/settings/ai",
       },
       {
         label: "WhatsApp",
         icon: Smartphone,
+        animation: "spring-pop",
         href: "/dashboard/settings/whatsapp",
       },
       {
         label: "Script de atendimento",
         icon: Zap,
+        animation: "zap",
         href: "/dashboard/settings/ai/scripts",
       },
       {
         label: "Mensagens Rápidas",
         icon: MessageSquareText,
+        animation: "spring-pop",
         href: "/dashboard/configuracoes/mensagens-rapidas",
       },
     ],
@@ -125,10 +140,12 @@ const menuItems: MenuItem[] = [
   {
     label: "IA",
     icon: Bot,
+    animation: "heartbeat",
     children: [
       {
         label: "Insights",
         icon: BarChart3,
+        animation: "pulse-out",
         href: "/dashboard/ai/insights",
       },
     ],
@@ -270,7 +287,12 @@ export function Sidebar() {
             style={{ paddingLeft: `${depth * 12 + 12}px` }}
           >
             <div className="flex items-center space-x-2 md:space-x-3">
-              <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0" />
+              <AnimatedNavIcon
+                icon={Icon}
+                isActive={isOpen || !!isParentActive}
+                animation={item.animation ?? "spring-pop"}
+                className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0"
+              />
               <span className="truncate">{item.label}</span>
             </div>
             <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")} />
@@ -307,7 +329,12 @@ export function Sidebar() {
           style={{ paddingLeft: `${depth * 12 + 12}px` }}
         >
           <div className="flex items-center space-x-2 md:space-x-3 flex-1 overflow-hidden">
-            <Icon className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 opacity-50" />
+            <AnimatedNavIcon
+              icon={Icon}
+              isActive={false}
+              animation={item.animation ?? "spring-pop"}
+              className="h-4 w-4 md:h-5 md:w-5 flex-shrink-0 opacity-50"
+            />
             <span className="truncate opacity-60">{item.label}</span>
           </div>
           <div className="flex items-center justify-end min-w-[65px] gap-1.5">
@@ -336,7 +363,12 @@ export function Sidebar() {
         style={{ paddingLeft: isConversas && !isActive ? `${depth * 12 + 10}px` : `${depth * 12 + 12}px` }}
       >
         <div className="flex items-center space-x-2 md:space-x-3 flex-1">
-          <Icon className={cn("h-4 w-4 md:h-5 md:w-5 flex-shrink-0", !isActive && isConversas && "text-primary")} />
+          <AnimatedNavIcon
+            icon={Icon}
+            isActive={isActive}
+            animation={item.animation ?? "spring-pop"}
+            className={cn("h-4 w-4 md:h-5 md:w-5 flex-shrink-0", !isActive && isConversas && "text-primary")}
+          />
           <span className={cn("truncate", !isActive && isConversas && "font-semibold")}>{item.label}</span>
         </div>
 
