@@ -123,7 +123,7 @@ function DashboardPageContent() {
     );
   }
 
-  // Coleta os cards de baixo dinamicamente, máximo 4
+  // Coleta os cards de baixo dinamicamente
   const bottomCards = chartsData
     ? [
       <ModernPeakHoursChart key="peak" data={chartsData.messagesByHour} />,
@@ -136,8 +136,18 @@ function DashboardPageContent() {
       ...(chartsData.leadSources && chartsData.leadSources.length > 0
         ? [<LeadSourceChart key="leadSource" data={chartsData.leadSources} />]
         : []),
-    ].slice(0, 4)
+    ]
     : [];
+
+  // Colunas dinâmicas — preenche a linha inteira conforme o número de cards
+  const bottomColsLg = ({
+    1: "lg:grid-cols-1",
+    2: "lg:grid-cols-2",
+    3: "lg:grid-cols-3",
+    4: "lg:grid-cols-4",
+  } as Record<number, string>)[Math.min(bottomCards.length, 4)] ?? "lg:grid-cols-4";
+
+  const bottomColsSm = bottomCards.length === 1 ? "sm:grid-cols-1" : "sm:grid-cols-2";
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4 lg:p-6 bg-gray-50 dark:bg-gray-900">
@@ -177,10 +187,12 @@ function DashboardPageContent() {
           </div>
         </div>
 
-        {/* Linha 2: Cards bottom — sempre 4 colunas no desktop */}
-        <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-          {bottomCards}
-        </div>
+        {/* Linha 2: Cards bottom — colunas dinâmicas conforme quantidade */}
+        {bottomCards.length > 0 && (
+          <div className={`flex-1 min-h-0 grid grid-cols-1 ${bottomColsSm} ${bottomColsLg} gap-2 sm:gap-3 lg:gap-4`}>
+            {bottomCards}
+          </div>
+        )}
 
         {/* Linha 3: Desempenho da equipe — só aparece quando há mais de 1 colaborador */}
         {teamData?.hasMultipleCollaborators && (
