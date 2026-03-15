@@ -27,7 +27,6 @@ import {
   Trash2,
   Edit3,
   X,
-  Wand2,
   Clock,
   CreditCard,
   Shield,
@@ -48,6 +47,8 @@ import {
   HeartHandshake,
   MessageSquare,
   Tag,
+  Bot,
+  UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -795,8 +796,6 @@ function AISettingsPageContent() {
         autoReplyEnabled={autoReplyEnabled}
         replyDelay={replyDelay}
         onEdit={() => setSetupCompleted(false)}
-        onRegenerate={handleGenerateContext}
-        generatingContext={generatingContext}
         setAutoReplyEnabled={setAutoReplyEnabled}
         saveKnowledge={saveKnowledge}
       />
@@ -1620,8 +1619,6 @@ function CompletedView({
   autoReplyEnabled,
   replyDelay,
   onEdit,
-  onRegenerate,
-  generatingContext,
   setAutoReplyEnabled,
   saveKnowledge,
 }: {
@@ -1643,46 +1640,73 @@ function CompletedView({
   autoReplyEnabled: boolean;
   replyDelay: number;
   onEdit: () => void;
-  onRegenerate: () => void;
-  generatingContext: boolean;
   setAutoReplyEnabled: (value: boolean) => void;
   saveKnowledge: (nextStep?: number, overrides?: { autoReplyEnabled?: boolean }) => void;
 }) {
+  const [titlePortal, setTitlePortal] = useState<Element | null>(null);
+  const [actionsPortal, setActionsPortal] = useState<Element | null>(null);
+
+  useEffect(() => {
+    setTitlePortal(document.getElementById("header-title-portal"));
+    setActionsPortal(document.getElementById("header-actions-portal"));
+  }, []);
+
   // Encontra o preset selecionado
   const selectedPreset = objectivePresets.find((p) => p.id === objectiveType);
   const ObjectiveIcon = OBJECTIVE_ICONS[objectiveType] || Target;
   const isFreePlan = knowledge?.plan === "FREE" || knowledge?.plan === "INICIAL";
 
+  const headerToggle = (
+    <button
+      onClick={() => {
+        if (isFreePlan) {
+          toast.error("Upgrade necessário");
+          return;
+        }
+        const newValue = !autoReplyEnabled;
+        setAutoReplyEnabled(newValue);
+        saveKnowledge(undefined, { autoReplyEnabled: newValue });
+      }}
+      className={cn(
+        "flex items-center gap-2.5 px-4 py-2 rounded-full font-bold text-sm transition-all",
+        autoReplyEnabled
+          ? "bg-green-500/10 text-green-600 border-2 border-green-500/30 hover:bg-green-500/20"
+          : "bg-neutral-500/10 text-neutral-500 border-2 border-neutral-500/20 hover:bg-neutral-500/20",
+      )}
+    >
+      {autoReplyEnabled ? (
+        <>
+          <Bot className="h-5 w-5" />
+          <span>IA Ativada</span>
+          <div className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+        </>
+      ) : (
+        <>
+          <UserRound className="h-5 w-5" />
+          <span>Apenas Humano</span>
+          <div className="h-2.5 w-2.5 rounded-full bg-neutral-400" />
+        </>
+      )}
+    </button>
+  );
+
+  const headerEditButton = (
+    <Button variant="outline" size="sm" onClick={onEdit} className="shadow-sm border-2 gap-2">
+      <Edit3 className="h-4 w-4" />
+      Editar Configurações
+    </Button>
+  );
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 min-h-screen bg-background/50">
-      {/* Header com Status Principal */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-extrabold tracking-tight">{companyName || "Painel de Controle da IA"}</h1>
-            <Badge
-              variant={autoReplyEnabled ? "default" : "secondary"}
-              className={cn(
-                "px-3 py-1 text-xs font-bold uppercase tracking-wider",
-                autoReplyEnabled ? "bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20" : "bg-neutral-500/10 text-neutral-500",
-              )}
-            >
-              {autoReplyEnabled ? "Online" : "Offline"}
-            </Badge>
-          </div>
-          <p className="text-muted-foreground text-lg">{companySegment || "Inteligência Artificial"} • Visão geral da operação.</p>
-        </div>
+      {/* Portais do Header */}
+      {titlePortal && createPortal(headerToggle, titlePortal)}
+      {actionsPortal && createPortal(headerEditButton, actionsPortal)}
 
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="lg" onClick={onEdit} className="shadow-sm border-2">
-            <Edit3 className="h-5 w-5 mr-2" />
-            Editar Configurações
-          </Button>
-          <Button size="lg" onClick={onRegenerate} disabled={generatingContext || isFreePlan} className="shadow-lg bg-primary hover:bg-primary/90">
-            {generatingContext ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Wand2 className="h-5 w-5 mr-2" />}
-            Regenerar Contexto
-          </Button>
-        </div>
+      {/* Header com título */}
+      <div className="space-y-1">
+        <h1 className="text-4xl font-extrabold tracking-tight">{companyName || "Painel de Controle da IA"}</h1>
+        <p className="text-muted-foreground text-lg">{companySegment || "Inteligência Artificial"} • Visão geral da operação.</p>
       </div>
 
       {/* Bento Grid Styling */}
