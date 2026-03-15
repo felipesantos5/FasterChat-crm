@@ -134,7 +134,7 @@ function DashboardPageContent() {
       ...(chartsData.clientsByState && chartsData.clientsByState.length > 1
         ? [<ModernRegionChart key="region" data={chartsData.clientsByState} />]
         : []),
-      ...(chartsData.leadSources && chartsData.leadSources.length > 0
+      ...(chartsData.leadSources && chartsData.leadSources.length > 1
         ? [<LeadSourceChart key="leadSource" data={chartsData.leadSources} />]
         : []),
       ...(chartsData.flowMetrics?.hasFlowExecutions

@@ -130,12 +130,39 @@ function DotTimeline({
 }) {
   const [hovered, setHovered] = useState<{ date: string; count: number } | null>(null);
 
-  // Para períodos longos (>30 dias), agrupa dias em buckets para manter max 30 dots
+  // Sempre mostra pelo menos 24 dots para preencher a linha visualmente
+  const minDots = 24;
   const maxDots = 30;
+
+  // Para períodos curtos, subdivide para preencher; para longos, agrupa em buckets
+  const numDots = totalDays < minDots ? minDots : Math.min(totalDays, maxDots);
   const bucketSize = totalDays > maxDots ? Math.ceil(totalDays / maxDots) : 1;
-  const numDots = Math.min(totalDays, maxDots);
+
+  // Mapeia timeline por data para lookup rápido
+  const timelineMap: Record<string, number> = {};
+  for (const t of timeline) {
+    timelineMap[t.date] = (timelineMap[t.date] ?? 0) + t.count;
+  }
 
   const allDots = Array.from({ length: numDots }, (_, i) => {
+    if (totalDays <= minDots) {
+      // Períodos curtos: cada dot mapeia proporcionalmente a uma fração do período
+      // Distribui os dots uniformemente no período, vários dots podem cair no mesmo dia
+      const dayOffset = Math.floor((i / numDots) * totalDays);
+      const dotDate = new Date();
+      dotDate.setDate(dotDate.getDate() - (totalDays - 1 - dayOffset));
+      const dateStr = dotDate.toISOString().split("T")[0];
+      const dayCount = timelineMap[dateStr] ?? 0;
+      // Quantos dots mapeiam para este mesmo dia
+      const dotsForThisDay = Array.from({ length: numDots }, (__, j) =>
+        Math.floor((j / numDots) * totalDays)
+      ).filter((d) => d === dayOffset).length;
+      // Distribui o count igualmente entre os dots do mesmo dia
+      const count = dotsForThisDay > 0 ? dayCount / dotsForThisDay : 0;
+      return { date: dateStr, count };
+    }
+
+    // Períodos longos: agrupa em buckets
     const bucketEnd = new Date();
     bucketEnd.setDate(bucketEnd.getDate() - (numDots - 1 - i) * bucketSize);
     const bucketStart = new Date(bucketEnd);
