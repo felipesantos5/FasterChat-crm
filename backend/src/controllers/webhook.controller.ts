@@ -157,6 +157,7 @@ class WebhookController {
 
               // Logging omitted
               if (flowResumed) {
+                console.error(`[Webhook] Flow engine intercepted message for phone=${phone}, companyId=${companyId} — AI processing skipped`);
                 return res.status(200).json({
                   success: true,
                   message: "Flow resumed, skipping other processing"
@@ -220,6 +221,13 @@ class WebhookController {
           : geminiService.isConfigured();
 
         const shouldProcessAI = conversation.aiEnabled && isAutoReplyEnabled && isAIConfigured && !result.customer.isGroup;
+
+        // Debug: log das condições de IA para diagnóstico
+        if (!shouldProcessAI) {
+          console.error(`[Webhook AI] Skipped for customer ${result.customer.id}: aiEnabled=${conversation.aiEnabled}, autoReply=${isAutoReplyEnabled}, aiConfigured=${isAIConfigured}, isGroup=${result.customer.isGroup}`);
+        } else {
+          console.error(`[Webhook AI] Will schedule AI for customer ${result.customer.id}`);
+        }
 
         // Responde o webhook IMEDIATAMENTE (200 OK) para evitar timeout e ERR_HTTP_HEADERS_SENT
         res.status(200).json({

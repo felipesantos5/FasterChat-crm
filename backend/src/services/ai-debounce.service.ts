@@ -10,7 +10,7 @@
 
 import { Queue, Worker, Job } from 'bullmq';
 import Bottleneck from 'bottleneck';
-import redisConnection from '../config/redis';
+import { redisConfig } from '../config/redis';
 import { prisma } from '../utils/prisma';
 import aiService from './ai.service';
 import messageService from './message.service';
@@ -79,7 +79,7 @@ class AIDebounceService {
 
   constructor() {
     this.queue = new Queue<AIResponseJobData>(QUEUE_NAME, {
-      connection: redisConnection,
+      connection: redisConfig,
       defaultJobOptions: {
         attempts: 1,
         removeOnComplete: { age: 3600 }, // 1 hora
@@ -113,6 +113,7 @@ class AIDebounceService {
       jobId,
       delay: AI_DEBOUNCE_DELAY_MS,
     });
+    console.error(`[AIDebounce] Job scheduled: ${jobId} (delay=${AI_DEBOUNCE_DELAY_MS}ms) for customer=${data.customerId}`);
   }
 
   /**
@@ -169,6 +170,7 @@ class AIDebounceService {
    */
   private async processJob(job: Job<AIResponseJobData>): Promise<void> {
     const { customerId, companyId, instanceId, customerPhone } = job.data;
+    console.error(`[AIDebounce] Processing job ${job.id} for customer=${customerId}, phone=${customerPhone}`);
 
     // Verifica se a IA ainda está habilitada para esta conversa
     const conversation = await prisma.conversation.findUnique({
@@ -357,14 +359,20 @@ class AIDebounceService {
         });
       },
       {
-        connection: redisConnection,
+        connection: redisConfig,
         concurrency: 10,
       }
     );
 
+    this.worker.on('completed', (job) => {
+      console.error(`[AIDebounce] Job ${job?.id} completed successfully`);
+    });
+
     this.worker.on('failed', (job, err) => {
       console.error(`[AIDebounce] Job ${job?.id} failed:`, err.message);
     });
+
+    console.error('[AIDebounce] Worker started and listening for jobs');
   }
 
   /**
