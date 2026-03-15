@@ -15,6 +15,7 @@ interface ModernRegionChartProps {
   data: ClientsByStateData[];
 }
 
+// Sigla → nome completo (para exibição)
 const STATE_NAMES: Record<string, string> = {
   ac: "Acre", al: "Alagoas", ap: "Amapá", am: "Amazonas",
   ba: "Bahia", ce: "Ceará", df: "Distrito Federal", es: "Espírito Santo",
@@ -24,6 +25,11 @@ const STATE_NAMES: Record<string, string> = {
   rs: "Rio Grande do Sul", ro: "Rondônia", rr: "Roraima", sc: "Santa Catarina",
   sp: "São Paulo", se: "Sergipe", to: "Tocantins",
 };
+
+// Nome completo (lowercase) → sigla (para mapear dados do backend → IDs do SVG)
+const NAME_TO_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(STATE_NAMES).map(([code, name]) => [name.toLowerCase(), code])
+);
 
 const GREEN_SCALE = ["#bbf7d0", "#86efac", "#4ade80", "#22c55e", "#16a34a", "#14532d"];
 const EMPTY_FILL = "#e5e7eb"; // hex direto — CSS vars não funcionam em fill de SVG
@@ -63,9 +69,17 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
 
   const total = data.reduce((acc, d) => acc + d.count, 0);
   const maxCount = Math.max(...data.map((d) => d.count));
-  const countByState = Object.fromEntries(
-    data.map((d) => [d.state.toLowerCase(), d.count])
-  );
+
+  // Normaliza state do backend (pode ser nome completo "Bahia" ou sigla "BA") → sigla SVG "ba"
+  const countByState: Record<string, number> = {};
+  for (const d of data) {
+    const lower = d.state.toLowerCase();
+    // Se já é uma sigla de 2 letras conhecida, usa direto
+    const code = lower.length === 2 && STATE_NAMES[lower]
+      ? lower
+      : NAME_TO_CODE[lower] ?? lower;
+    countByState[code] = (countByState[code] ?? 0) + d.count;
+  }
 
   const getStateFill = (id: string): string => {
     const count = countByState[id] ?? 0;

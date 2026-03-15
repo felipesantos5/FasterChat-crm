@@ -583,6 +583,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
       const next = new Set(prev);
       if (next.has(messageId)) next.delete(messageId);
       else next.add(messageId);
+      // Se deselecionou todas, sai do modo seleção automaticamente
+      if (next.size === 0) setIsSelectMode(false);
       return next;
     });
   };
