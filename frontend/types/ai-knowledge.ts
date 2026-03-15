@@ -81,6 +81,7 @@ export interface AIKnowledge {
   maxTokens?: number | null;
   autoReplyEnabled?: boolean | null;
   replyDelay?: number | null;
+  welcomeMessage?: string | null;
 
   createdAt: string;
   updatedAt: string;
@@ -143,6 +144,7 @@ export interface UpdateAIKnowledgeRequest {
   maxTokens?: number;
   autoReplyEnabled?: boolean;
   replyDelay?: number;
+  welcomeMessage?: string | null;
 }
 
 export interface UpdateAIKnowledgeResponse {

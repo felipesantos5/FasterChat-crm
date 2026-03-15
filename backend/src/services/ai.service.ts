@@ -927,6 +927,9 @@ Total: R$ 505,00"
         }
         : undefined;
 
+      // Detecta primeira interação: nenhuma mensagem OUTBOUND no histórico
+      const isFirstInteraction = !messageHistory.some((m: { direction: string }) => m.direction === 'OUTBOUND');
+
       if (shouldUseModularPrompts(aiKnowledge)) {
         // Usa o novo sistema modular de prompts
         systemPrompt = buildModularPrompt({
@@ -947,6 +950,7 @@ Total: R$ 505,00"
           companyScripts,
           intentScriptCollectedData: collectedData,
           feedbackLearning,
+          isFirstInteraction,
         });
       } else {
         // Usa o sistema legado de prompts

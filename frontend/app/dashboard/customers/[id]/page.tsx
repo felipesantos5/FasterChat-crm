@@ -11,19 +11,9 @@ import { Customer } from "@/types/customer";
 import { CustomerNote } from "@/types/customer-note";
 import { CustomerAddress } from "@/types/customer-address";
 import { PipelineStage } from "@/types/pipeline";
-import {
-  CustomerServiceCard,
-  SERVICE_CARD_STATUS_LABELS,
-  SERVICE_CARD_STATUS_COLORS,
-} from "@/types/customer-service-card";
+import { CustomerServiceCard, SERVICE_CARD_STATUS_LABELS, SERVICE_CARD_STATUS_COLORS } from "@/types/customer-service-card";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerFormModal } from "@/components/forms/customer-form-modal";
 import { AddressFormModal } from "@/components/customers/address-form-modal";
 import { ServiceCardFormModal } from "@/components/customers/service-card-form-modal";
@@ -57,12 +47,7 @@ import { Tag } from "@/lib/tag";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatPhoneNumber } from "@/lib/utils";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -179,10 +164,7 @@ export default function CustomerDetailPage() {
     try {
       setLoadingDeals(true);
       const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const [deals, stages] = await Promise.all([
-        pipelineApi.getDealValuesByCustomer(params.id as string),
-        pipelineApi.getStages(user.companyId),
-      ]);
+      const [deals, stages] = await Promise.all([pipelineApi.getDealValuesByCustomer(params.id as string), pipelineApi.getStages(user.companyId)]);
       setDealValues(deals);
       setDealStages(stages.sort((a: PipelineStage, b: PipelineStage) => a.order - b.order));
     } catch (error) {
@@ -408,9 +390,7 @@ export default function CustomerDetailPage() {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center">
         <p className="text-muted-foreground mb-4">Cliente não encontrado</p>
-        <Button onClick={() => router.push("/dashboard/customers")}>
-          Voltar para Clientes
-        </Button>
+        <Button onClick={() => router.push("/dashboard/customers")}>Voltar para Clientes</Button>
       </div>
     );
   }
@@ -420,32 +400,20 @@ export default function CustomerDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-            className="hover:bg-gray-100 rounded-full"
-          >
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="hover:bg-gray-100 rounded-full">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           {/* Avatar do cliente */}
-          <div
-            onClick={() => customer.profilePicUrl && setAvatarZoomOpen(true)}
-            className={customer.profilePicUrl ? "cursor-zoom-in" : ""}
-          >
+          <div onClick={() => customer.profilePicUrl && setAvatarZoomOpen(true)} className={customer.profilePicUrl ? "cursor-zoom-in" : ""}>
             <Avatar className="h-14 w-14 border-2 border-primary/20 shadow-sm">
               <AvatarImage src={customer.profilePicUrl || undefined} alt={customer.name} />
-              <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
-                {customer.name.charAt(0).toUpperCase()}
-              </AvatarFallback>
+              <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">{customer.name.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
-              {customer.isGroup && (
-                <Badge variant="secondary">Grupo</Badge>
-              )}
+              {customer.isGroup && <Badge variant="secondary">Grupo</Badge>}
               {customer.pipelineStage ? (
                 <Badge
                   className="text-[10px] h-5 uppercase font-bold px-2 border"
@@ -492,90 +460,6 @@ export default function CustomerDetailPage() {
         {/* Left Column - Contact Info & Notes */}
         <div className="space-y-6 lg:col-span-2">
           {/* Contact Info */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-4">
-              <div className="space-y-1.5">
-                <CardTitle>Informações de Contato</CardTitle>
-                <CardDescription>Dados de contato do cliente</CardDescription>
-              </div>
-              {customer.pipelineStage ? (
-                <Badge
-                  variant="outline"
-                  className="text-xs"
-                  style={{
-                    backgroundColor: `${customer.pipelineStage.color}15`,
-                    borderColor: customer.pipelineStage.color,
-                    color: customer.pipelineStage.color
-                  }}
-                >
-                  {customer.pipelineStage.name}
-                </Badge>
-              ) : (
-                <Badge variant="destructive" className="text-xs bg-red-500 hover:bg-red-600">
-                  Sem Funil
-                </Badge>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-blue-100 p-2">
-                    <Phone className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Telefone</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatPhoneNumber(customer.phone)}
-                    </p>
-                  </div>
-                </div>
-
-                {customer.email && (
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-full bg-green-100 p-2">
-                      <Mail className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Email</p>
-                      <p className="text-sm text-muted-foreground">
-                        {customer.email}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-purple-100 p-2">
-                    <Calendar className="h-4 w-4 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Cliente desde</p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(customer.createdAt), "dd 'de' MMMM 'de' yyyy", {
-                        locale: ptBR,
-                      })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {customer.tags.length > 0 && (
-                <div className="pt-2 border-t">
-                  <p className="text-sm font-medium mb-2">Tags</p>
-                  <div className="flex flex-wrap gap-2">
-                    {customer.tags.map((tag) => (
-                      <TagBadge
-                        key={tag}
-                        tag={tag}
-                        tags={availableTags}
-                        variant="outline"
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Notes */}
           {customer.notes && (
@@ -636,28 +520,19 @@ export default function CustomerDetailPage() {
                 <StickyNote className="h-5 w-5" />
                 Notas do Atendimento
               </CardTitle>
-              <CardDescription>
-                Observações adicionadas durante as conversas
-              </CardDescription>
+              <CardDescription>Observações adicionadas durante as conversas</CardDescription>
             </CardHeader>
             <CardContent>
               {customerNotes.length === 0 ? (
                 <div className="flex h-32 flex-col items-center justify-center text-center">
                   <StickyNote className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Nenhuma nota de atendimento registrada
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    As notas podem ser adicionadas na área de conversas
-                  </p>
+                  <p className="text-sm text-muted-foreground">Nenhuma nota de atendimento registrada</p>
+                  <p className="text-xs text-muted-foreground mt-1">As notas podem ser adicionadas na área de conversas</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {customerNotes.map((note) => (
-                    <div
-                      key={note.id}
-                      className="rounded-lg border p-4 hover:bg-muted/50 transition-colors"
-                    >
+                    <div key={note.id} className="rounded-lg border p-4 hover:bg-muted/50 transition-colors">
                       <div className="space-y-2">
                         <p className="text-sm whitespace-pre-wrap">{note.note}</p>
                         <div className="flex items-center justify-between pt-2 border-t">
@@ -688,9 +563,7 @@ export default function CustomerDetailPage() {
                   <Clock className="h-5 w-5" />
                   Histórico de Serviços
                 </CardTitle>
-                <CardDescription>
-                  Registros de serviços realizados para este cliente
-                </CardDescription>
+                <CardDescription>Registros de serviços realizados para este cliente</CardDescription>
               </div>
               <Button
                 size="sm"
@@ -707,9 +580,7 @@ export default function CustomerDetailPage() {
               {serviceCards.length === 0 ? (
                 <div className="flex h-32 flex-col items-center justify-center text-center">
                   <Clock className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Nenhum serviço registrado ainda
-                  </p>
+                  <p className="text-sm text-muted-foreground">Nenhum serviço registrado ainda</p>
                   <Button
                     variant="link"
                     size="sm"
@@ -724,24 +595,16 @@ export default function CustomerDetailPage() {
               ) : (
                 <div className="space-y-4">
                   {serviceCards.map((card) => (
-                    <div
-                      key={card.id}
-                      className="rounded-lg border p-4 hover:bg-muted/50 transition-colors"
-                    >
+                    <div key={card.id} className="rounded-lg border p-4 hover:bg-muted/50 transition-colors">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1 flex-1">
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium">{card.title}</h4>
-                            <Badge
-                              variant="secondary"
-                              className={SERVICE_CARD_STATUS_COLORS[card.status]}
-                            >
+                            <Badge variant="secondary" className={SERVICE_CARD_STATUS_COLORS[card.status]}>
                               {SERVICE_CARD_STATUS_LABELS[card.status]}
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {card.description}
-                          </p>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{card.description}</p>
                           <div className="flex items-center gap-4 pt-2">
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Calendar className="h-3 w-3" />
@@ -758,13 +621,7 @@ export default function CustomerDetailPage() {
                             {card.rating && (
                               <div className="flex items-center gap-1">
                                 {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-3 w-3 ${i < card.rating!
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "text-gray-300"
-                                      }`}
-                                  />
+                                  <Star key={i} className={`h-3 w-3 ${i < card.rating! ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`} />
                                 ))}
                               </div>
                             )}
@@ -786,10 +643,7 @@ export default function CustomerDetailPage() {
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => setServiceCardToDelete(card)}
-                            >
+                            <DropdownMenuItem className="text-destructive" onClick={() => setServiceCardToDelete(card)}>
                               <Trash className="mr-2 h-4 w-4" />
                               Excluir
                             </DropdownMenuItem>
@@ -810,9 +664,7 @@ export default function CustomerDetailPage() {
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
                   Histórico de Vendas
-                  {dealValues.length > 0 && (
-                    <Badge variant="secondary">{dealValues.length}</Badge>
-                  )}
+                  {dealValues.length > 0 && <Badge variant="secondary">{dealValues.length}</Badge>}
                 </CardTitle>
                 <CardDescription>Vendas registradas para este cliente</CardDescription>
               </div>
@@ -828,12 +680,7 @@ export default function CustomerDetailPage() {
                   <div className="flex gap-3">
                     <div className="relative flex-1">
                       <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="0,00"
-                        value={dealValue}
-                        onChange={(e) => setDealValue(e.target.value)}
-                        className="pl-8"
-                      />
+                      <Input placeholder="0,00" value={dealValue} onChange={(e) => setDealValue(e.target.value)} className="pl-8" />
                     </div>
                     <Select value={dealStageId} onValueChange={setDealStageId}>
                       <SelectTrigger className="flex-1">
@@ -851,11 +698,7 @@ export default function CustomerDetailPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Input
-                    placeholder="Descrição do serviço / produto (opcional)"
-                    value={dealNotes}
-                    onChange={(e) => setDealNotes(e.target.value)}
-                  />
+                  <Input placeholder="Descrição do serviço / produto (opcional)" value={dealNotes} onChange={(e) => setDealNotes(e.target.value)} />
                   <div className="flex gap-2">
                     <Button onClick={handleAddDeal} disabled={submittingDeal} className="flex-1">
                       {submittingDeal ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -886,12 +729,7 @@ export default function CustomerDetailPage() {
                           <div className="flex gap-3">
                             <div className="relative flex-1">
                               <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input
-                                placeholder="0,00"
-                                value={editDealValue}
-                                onChange={(e) => setEditDealValue(e.target.value)}
-                                className="pl-8"
-                              />
+                              <Input placeholder="0,00" value={editDealValue} onChange={(e) => setEditDealValue(e.target.value)} className="pl-8" />
                             </div>
                             <Select value={editDealStageId} onValueChange={setEditDealStageId}>
                               <SelectTrigger className="flex-1">
@@ -906,11 +744,7 @@ export default function CustomerDetailPage() {
                               </SelectContent>
                             </Select>
                           </div>
-                          <Input
-                            placeholder="Observações (opcional)"
-                            value={editDealNotes}
-                            onChange={(e) => setEditDealNotes(e.target.value)}
-                          />
+                          <Input placeholder="Observações (opcional)" value={editDealNotes} onChange={(e) => setEditDealNotes(e.target.value)} />
                           <div className="flex gap-2 justify-end">
                             <Button size="sm" variant="outline" onClick={() => setEditingDeal(null)} disabled={submittingDeal}>
                               Cancelar
@@ -942,10 +776,7 @@ export default function CustomerDetailPage() {
                                     <Edit className="mr-2 h-4 w-4" />
                                     Editar
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={() => setDealToDelete(deal)}
-                                  >
+                                  <DropdownMenuItem className="text-destructive" onClick={() => setDealToDelete(deal)}>
                                     <Trash className="mr-2 h-4 w-4" />
                                     Remover
                                   </DropdownMenuItem>
@@ -953,9 +784,7 @@ export default function CustomerDetailPage() {
                               </DropdownMenu>
                             </div>
                           </div>
-                          {deal.notes && (
-                            <p className="text-sm text-muted-foreground mt-1">{deal.notes}</p>
-                          )}
+                          {deal.notes && <p className="text-sm text-muted-foreground mt-1">{deal.notes}</p>}
                           <p className="text-xs text-muted-foreground mt-2">
                             {format(new Date(deal.closedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                           </p>
@@ -981,6 +810,81 @@ export default function CustomerDetailPage() {
         <div className="space-y-6">
           {/* Addresses */}
           <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <CardTitle>Informações de Contato</CardTitle>
+                <CardDescription>Dados de contato do cliente</CardDescription>
+              </div>
+              {customer.pipelineStage ? (
+                <Badge
+                  variant="outline"
+                  className="text-xs"
+                  style={{
+                    backgroundColor: `${customer.pipelineStage.color}15`,
+                    borderColor: customer.pipelineStage.color,
+                    color: customer.pipelineStage.color,
+                  }}
+                >
+                  {customer.pipelineStage.name}
+                </Badge>
+              ) : (
+                <Badge variant="destructive" className="text-xs bg-red-500 hover:bg-red-600">
+                  Sem Funil
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-blue-100 p-2">
+                    <Phone className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Telefone</p>
+                    <p className="text-sm text-muted-foreground">{formatPhoneNumber(customer.phone)}</p>
+                  </div>
+                </div>
+
+                {customer.email && (
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-full bg-green-100 p-2">
+                      <Mail className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Email</p>
+                      <p className="text-sm text-muted-foreground">{customer.email}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-purple-100 p-2">
+                    <Calendar className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Cliente desde</p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(customer.createdAt), "dd 'de' MMMM 'de' yyyy", {
+                        locale: ptBR,
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {customer.tags.length > 0 && (
+                <div className="pt-2 border-t">
+                  <p className="text-sm font-medium mb-2">Tags</p>
+                  <div className="flex flex-wrap gap-2">
+                    {customer.tags.map((tag) => (
+                      <TagBadge key={tag} tag={tag} tags={availableTags} variant="outline" />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -1004,9 +908,7 @@ export default function CustomerDetailPage() {
               {addresses.length === 0 ? (
                 <div className="flex h-32 flex-col items-center justify-center text-center">
                   <Home className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Nenhum endereço cadastrado
-                  </p>
+                  <p className="text-sm text-muted-foreground">Nenhum endereço cadastrado</p>
                   <Button
                     variant="link"
                     size="sm"
@@ -1021,16 +923,11 @@ export default function CustomerDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {addresses.map((address) => (
-                    <div
-                      key={address.id}
-                      className="rounded-lg border p-3 hover:bg-muted/50 transition-colors"
-                    >
+                    <div key={address.id} className="rounded-lg border p-3 hover:bg-muted/50 transition-colors">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">
-                              {address.label}
-                            </span>
+                            <span className="font-medium text-sm">{address.label}</span>
                             {address.isDefault && (
                               <Badge variant="secondary" className="text-xs">
                                 Principal
@@ -1044,9 +941,7 @@ export default function CustomerDetailPage() {
                           <p className="text-xs text-muted-foreground">
                             {address.neighborhood}, {address.city} - {address.state}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            CEP: {address.zipCode}
-                          </p>
+                          <p className="text-xs text-muted-foreground">CEP: {address.zipCode}</p>
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -1056,9 +951,7 @@ export default function CustomerDetailPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {!address.isDefault && (
-                              <DropdownMenuItem
-                                onClick={() => handleSetDefaultAddress(address)}
-                              >
+                              <DropdownMenuItem onClick={() => handleSetDefaultAddress(address)}>
                                 <Star className="mr-2 h-4 w-4" />
                                 Definir como principal
                               </DropdownMenuItem>
@@ -1072,10 +965,7 @@ export default function CustomerDetailPage() {
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => setAddressToDelete(address)}
-                            >
+                            <DropdownMenuItem className="text-destructive" onClick={() => setAddressToDelete(address)}>
                               <Trash className="mr-2 h-4 w-4" />
                               Excluir
                             </DropdownMenuItem>
@@ -1101,19 +991,12 @@ export default function CustomerDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Serviços Concluídos</p>
-                <p className="text-2xl font-bold">
-                  {serviceCards.filter((c) => c.status === "completed").length}
-                </p>
+                <p className="text-2xl font-bold">{serviceCards.filter((c) => c.status === "completed").length}</p>
               </div>
               {serviceCards.some((c) => c.price) && (
                 <div>
                   <p className="text-sm text-muted-foreground">Valor Total</p>
-                  <p className="text-2xl font-bold">
-                    R${" "}
-                    {serviceCards
-                      .reduce((acc, c) => acc + (c.price || 0), 0)
-                      .toFixed(2)}
-                  </p>
+                  <p className="text-2xl font-bold">R$ {serviceCards.reduce((acc, c) => acc + (c.price || 0), 0).toFixed(2)}</p>
                 </div>
               )}
               <div className="pt-2 border-t">
@@ -1160,45 +1043,33 @@ export default function CustomerDetailPage() {
       />
 
       {/* Delete Address Confirmation */}
-      <AlertDialog
-        open={!!addressToDelete}
-        onOpenChange={() => setAddressToDelete(null)}
-      >
+      <AlertDialog open={!!addressToDelete} onOpenChange={() => setAddressToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Endereço</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o endereço "{addressToDelete?.label}"?
-              Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir o endereço "{addressToDelete?.label}"? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteAddress}>
-              Excluir
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteAddress}>Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Delete Service Card Confirmation */}
-      <AlertDialog
-        open={!!serviceCardToDelete}
-        onOpenChange={() => setServiceCardToDelete(null)}
-      >
+      <AlertDialog open={!!serviceCardToDelete} onOpenChange={() => setServiceCardToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Card de Serviço</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o card "{serviceCardToDelete?.title}"?
-              Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir o card "{serviceCardToDelete?.title}"? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteServiceCard}>
-              Excluir
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteServiceCard}>Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1210,18 +1081,13 @@ export default function CustomerDetailPage() {
             <AlertDialogTitle>Remover Venda</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja remover a venda de{" "}
-              {dealToDelete
-                ? Number(dealToDelete.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-                : ""}
-              ? Esta ação não pode ser desfeita.
+              {dealToDelete ? Number(dealToDelete.value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : ""}? Esta ação não pode ser
+              desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteDeal}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleDeleteDeal} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Remover
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1245,10 +1111,7 @@ export default function CustomerDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -32,6 +32,7 @@ interface AIKnowledgeData {
   policies?: string | null;
   negativeExamples?: string | null;
   faq?: any;
+  welcomeMessage?: string | null;
 }
 
 interface CustomerData {
@@ -85,6 +86,11 @@ interface BuildModularPromptOptions {
     badExamples: string[];
     insights: string[];
   };
+  /**
+   * Indica que esta é a primeira interação do cliente (sem histórico de respostas).
+   * Quando true e welcomeMessage estiver configurado, a IA usa a mensagem introdutória.
+   */
+  isFirstInteraction?: boolean;
 }
 
 /**
@@ -222,6 +228,16 @@ export function buildModularPrompt(options: BuildModularPromptOptions): string {
 - Use frases como: "Para informações sobre valores, vou te encaminhar para um dos nossos atendentes que poderá te passar todos os detalhes."
 - Após essa resposta, SEMPRE acione o transbordo/transferência para atendente humano.
 - Esta regra é ABSOLUTA e se sobrepõe a qualquer outra instrução sobre preços.`;
+  }
+
+  // MENSAGEM INTRODUTÓRIA: quando é a primeira interação e há welcomeMessage configurada
+  if (options.isFirstInteraction && aiKnowledge?.welcomeMessage) {
+    finalPrompt += `\n\n### MENSAGEM INTRODUTÓRIA (PRIMEIRA INTERAÇÃO)
+Este é o PRIMEIRO contato deste cliente. Use a seguinte mensagem como base para sua saudação inicial, adaptando naturalmente ao contexto da mensagem do cliente:
+
+"${aiKnowledge.welcomeMessage}"
+
+IMPORTANTE: Use esta mensagem como referência para o tom e conteúdo da sua primeira resposta. Você pode adaptar levemente para responder ao que o cliente disse, mas mantenha a essência e as informações da mensagem introdutória.`;
   }
 
   // Adiciona restrições específicas se houver

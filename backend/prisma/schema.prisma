@@ -375,6 +375,7 @@ model AIKnowledge {
   maxTokens        Int?    @default(500) // Limite de tokens na resposta
   autoReplyEnabled Boolean @default(true) @map("auto_reply_enabled") // Resposta automática ativada
   replyDelay       Int     @default(10) @map("reply_delay") // Delay em segundos para resposta
+  welcomeMessage   String? @db.Text @map("welcome_message") // Mensagem introdutória para novos clientes
 
   // Scripts de atendimento por intenção detectada
   // JSON: { [scriptId]: { enabled, customTriggers, customInstructions } }

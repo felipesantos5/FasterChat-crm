@@ -23,10 +23,10 @@ export interface AIObjectivePreset {
 
 export const AI_OBJECTIVE_PRESETS: AIObjectivePreset[] = [
   {
-    id: 'support',
-    label: 'Suporte ao Cliente',
-    description: 'Responde dúvidas, resolve problemas e fornece informações sobre produtos/serviços',
-    icon: 'headphones',
+    id: "support",
+    label: "Suporte ao Cliente",
+    description: "Responde dúvidas, resolve problemas e fornece informações sobre produtos/serviços",
+    icon: "headphones",
     prompt: `## OBJETIVO: SUPORTE AO CLIENTE
 
 ### Função Principal
@@ -73,10 +73,10 @@ Inicie sua resposta com \`[TRANSBORDO]\` seguido de uma mensagem educada quando:
 Exemplo: \`[TRANSBORDO]Entendo, vou transferir você para um atendente. Aguarde um momento.\``,
   },
   {
-    id: 'sales',
-    label: 'Vendas Consultivas',
-    description: 'Entende o cliente primeiro, depois recomenda a melhor solução',
-    icon: 'shopping-cart',
+    id: "sales",
+    label: "Vendas Consultivas",
+    description: "Entende o cliente primeiro, depois recomenda a melhor solução",
+    icon: "shopping-cart",
     prompt: `## OBJETIVO: VENDA CONSULTIVA
 
 ### Filosofia Principal
@@ -150,10 +150,10 @@ Inicie sua resposta com \`[TRANSBORDO]\` quando:
 Exemplo: \`[TRANSBORDO]Vou te transferir para um consultor que pode te ajudar melhor!\``,
   },
   {
-    id: 'consultative_attentive',
-    label: 'Atendimento Consultivo Atencioso',
-    description: 'Prioriza entender o cliente profundamente antes de apresentar soluções ou preços',
-    icon: 'heart-handshake',
+    id: "consultative_attentive",
+    label: "Atendimento Consultivo Atencioso",
+    description: "Prioriza entender o cliente profundamente antes de apresentar soluções ou preços",
+    icon: "heart-handshake",
     prompt: `## OBJETIVO: ATENDIMENTO CONSULTIVO ATENCIOSO
 
 ### Filosofia Central
@@ -336,10 +336,10 @@ Você está construindo um relacionamento, não apenas fechando uma venda. Um cl
 - Cliente ter uma experiência positiva, independente de comprar ou não`,
   },
   {
-    id: 'sales_scheduling',
-    label: 'Vendas Consultivas + Agendamento',
-    description: 'Entende o cliente, recomenda a melhor solução e agenda o serviço',
-    icon: 'calendar-check',
+    id: "sales_scheduling",
+    label: "Vendas Consultivas + Agendamento",
+    description: "Entende o cliente, recomenda a melhor solução e agenda o serviço",
+    icon: "calendar-check",
     prompt: `## OBJETIVO: VENDA CONSULTIVA + AGENDAMENTO
 
 ### Filosofia Principal
@@ -437,61 +437,10 @@ Inicie sua resposta com \`[TRANSBORDO]\` quando:
 Exemplo: \`[TRANSBORDO]Entendo! Vou transferir você para um atendente. Aguarde.\``,
   },
   {
-    id: 'scheduling_only',
-    label: 'Apenas Agendamento',
-    description: 'Foca em agendar horários para serviços já conhecidos pelo cliente',
-    icon: 'calendar',
-    prompt: `## OBJETIVO: AGENDAMENTO DE SERVIÇOS
-
-### Função Principal
-Você agenda atendimentos de forma rápida e eficiente para clientes que já conhecem os serviços.
-
-### Fluxo de Agendamento
-
-#### 1. Identificar o Serviço
-- Pergunte qual serviço o cliente deseja agendar
-- Confirme detalhes específicos se necessário
-- Se o cliente perguntar sobre valores, informe baseado no cadastro
-
-#### 2. Verificar Disponibilidade
-- Pergunte a preferência de data/horário do cliente
-- Apresente as opções disponíveis
-- Seja flexível e ofereça alternativas
-
-#### 3. Coletar Informações
-- Se for serviço presencial, colete o endereço completo
-- Verifique se o endereço está na área de atendimento
-- Confirme telefone de contato
-
-#### 4. Confirmar Agendamento
-- Repita todos os dados: serviço, data, hora, local
-- Peça confirmação do cliente
-- Informe sobre política de cancelamento se houver
-
-### Informações a Coletar
-- Tipo de serviço
-- Data e horário preferidos
-- Endereço completo (para serviços presenciais)
-- Contato para confirmação
-
-### Mensagens Úteis
-- "Qual serviço você gostaria de agendar?"
-- "Temos disponibilidade para [data]. Funciona para você?"
-- "Pode me passar o endereço completo para o atendimento?"
-- "Perfeito! Confirmado para [data] às [hora] no endereço [X]."
-
-### Transferir para Humano (USE O PREFIXO [TRANSBORDO])
-Inicie sua resposta com \`[TRANSBORDO]\` quando o cliente:
-- Pedir para falar com atendente/pessoa/humano
-- Estiver muito insatisfeito ou irritado
-- Solicitar cancelamento de agendamento com reclamação
-Exemplo: \`[TRANSBORDO]Vou transferir para um atendente resolver isso pra você!\``,
-  },
-  {
-    id: 'info_faq',
-    label: 'Informações e FAQ',
-    description: 'Responde perguntas frequentes e fornece informações sobre a empresa',
-    icon: 'info',
+    id: "info_faq",
+    label: "Informações e FAQ",
+    description: "Responde perguntas frequentes e fornece informações sobre a empresa",
+    icon: "info",
     prompt: `## OBJETIVO: INFORMAÇÕES E FAQ
 
 ### Função Principal
@@ -536,10 +485,10 @@ Inicie sua resposta com \`[TRANSBORDO]\` quando:
 Exemplo: \`[TRANSBORDO]Vou transferir você para nossa equipe que pode ajudar melhor!\``,
   },
   {
-    id: 'lead_qualification',
-    label: 'Qualificação de Leads',
-    description: 'Coleta informações de potenciais clientes e qualifica oportunidades',
-    icon: 'user-check',
+    id: "lead_qualification",
+    label: "Qualificação de Leads",
+    description: "Coleta informações de potenciais clientes e qualifica oportunidades",
+    icon: "user-check",
     prompt: `## OBJETIVO: QUALIFICAÇÃO DE LEADS
 
 ### Função Principal
@@ -598,62 +547,11 @@ Inicie sua resposta com \`[TRANSBORDO]\` quando:
 Exemplo: \`[TRANSBORDO]Vou transferir você para um consultor especializado!\``,
   },
   {
-    id: 'order_tracking',
-    label: 'Acompanhamento de Pedidos',
-    description: 'Fornece status de pedidos, entregas e agendamentos',
-    icon: 'package',
-    prompt: `## OBJETIVO: ACOMPANHAMENTO DE PEDIDOS
-
-### Função Principal
-Você ajuda clientes a acompanhar o status de pedidos, entregas e agendamentos.
-
-### Fluxo de Atendimento
-
-#### 1. Identificação
-- Peça o número do pedido ou dados do cliente
-- Confirme a identidade antes de passar informações sensíveis
-- Localize o pedido no sistema
-
-#### 2. Informar Status
-- Informe o status atual de forma clara
-- Explique o que significa cada etapa
-- Dê previsão de próximos passos
-
-#### 3. Resolver Problemas
-- Se houver atraso, explique o motivo (se souber)
-- Ofereça alternativas quando possível
-- Escale para humano em casos de problemas graves
-
-### Status Comuns
-- Pedido recebido/confirmado
-- Em preparação/produção
-- Enviado/Em trânsito
-- Saiu para entrega
-- Entregue
-- Agendamento confirmado
-- Serviço realizado
-
-### Informações Sensíveis
-- Confirme dados básicos antes de informar status detalhado
-- Não compartilhe informações de pedidos de terceiros
-- Para alterações de pedido, encaminhe para atendimento humano
-
-### Quando Encaminhar (USE O PREFIXO [TRANSBORDO])
-Inicie sua resposta com \`[TRANSBORDO]\` quando:
-- Pedidos com problemas de pagamento
-- Reclamações sobre atraso excessivo
-- Solicitações de cancelamento
-- Pedidos não localizados no sistema
-- Cliente pedir para falar com atendente/pessoa/humano
-- Cliente muito insatisfeito ou irritado
-Exemplo: \`[TRANSBORDO]Vou transferir para nossa equipe resolver isso pra você!\``,
-  },
-  {
-    id: 'custom',
-    label: 'Personalizado',
-    description: 'Defina um objetivo específico para sua necessidade',
-    icon: 'settings',
-    prompt: '', // Será preenchido pelo usuário
+    id: "custom",
+    label: "Personalizado",
+    description: "Defina um objetivo específico para sua necessidade",
+    icon: "settings",
+    prompt: "", // Será preenchido pelo usuário
   },
 ];
 
@@ -661,7 +559,7 @@ Exemplo: \`[TRANSBORDO]Vou transferir para nossa equipe resolver isso pra você!
  * Retorna um objetivo pelo ID
  */
 export function getObjectivePresetById(id: string): AIObjectivePreset | undefined {
-  return AI_OBJECTIVE_PRESETS.find(preset => preset.id === id);
+  return AI_OBJECTIVE_PRESETS.find((preset) => preset.id === id);
 }
 
 /**
@@ -669,12 +567,12 @@ export function getObjectivePresetById(id: string): AIObjectivePreset | undefine
  * Se for 'custom', retorna o texto customizado passado
  */
 export function getObjectivePrompt(objectiveId: string, customPrompt?: string): string {
-  if (objectiveId === 'custom' && customPrompt) {
+  if (objectiveId === "custom" && customPrompt) {
     return customPrompt;
   }
 
   const preset = getObjectivePresetById(objectiveId);
-  return preset?.prompt || '';
+  return preset?.prompt || "";
 }
 
 /**

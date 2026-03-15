@@ -120,8 +120,8 @@ export function ModernFunnelDonut({ data }: ModernFunnelDonutProps) {
                   data={chartData}
                   dataKey="value"
                   nameKey="name"
-                  innerRadius={60}
-                  outerRadius={80}
+                  innerRadius={65}
+                  outerRadius={95}
                   strokeWidth={2}
                   stroke="var(--background)"
                 >

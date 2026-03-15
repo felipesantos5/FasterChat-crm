@@ -99,6 +99,18 @@ interface ClientsByStateData {
   count: number;
 }
 
+interface FlowMetricsData {
+  hasFlowExecutions: boolean;
+  totalExecutions: number;
+  completed: number;
+  failed: number;
+  waitingReply: number;
+  running: number;
+  cancelled: number;
+  successRate: number;
+  topFlows: { name: string; executions: number; completed: number; failed: number }[];
+}
+
 interface CollaboratorPerformanceData {
   id: string;
   name: string;
@@ -129,6 +141,7 @@ interface DashboardChartsData {
   batchEngagement: BatchEngagementData;
   clientsByState: ClientsByStateData[];
   leadSources: LeadSourceData[];
+  flowMetrics: FlowMetricsData;
 }
 
 interface LeadSourceData {
@@ -521,6 +534,7 @@ class DashboardService {
       batchEngagement,
       clientsByState,
       leadSources,
+      flowMetrics,
     ] = await Promise.all([
       this.getPipelineFunnelData(companyId),
       this.getMessagesOverTimeData(companyId, currentStart, daysCount),
@@ -535,6 +549,7 @@ class DashboardService {
       this.getBatchEngagementData(companyId, currentStart, currentEnd),
       this.getClientsByStateData(companyId),
       this.getLeadSourceData(companyId, currentStart, currentEnd),
+      this.getFlowMetricsData(companyId, currentStart, currentEnd),
     ]);
 
     return {
@@ -551,6 +566,7 @@ class DashboardService {
       batchEngagement,
       clientsByState,
       leadSources,
+      flowMetrics,
     };
   }
 
@@ -1163,6 +1179,90 @@ class DashboardService {
       attemptedCalls,
       replies,
       responseRate: Math.round(responseRate * 10) / 10
+    };
+  }
+
+  private async getFlowMetricsData(companyId: string, startDate: Date, endDate: Date): Promise<FlowMetricsData> {
+    const emptyResult: FlowMetricsData = {
+      hasFlowExecutions: false,
+      totalExecutions: 0,
+      completed: 0,
+      failed: 0,
+      waitingReply: 0,
+      running: 0,
+      cancelled: 0,
+      successRate: 0,
+      topFlows: [],
+    };
+
+    const flows = await prisma.flow.findMany({
+      where: { companyId },
+      select: { id: true, name: true },
+    });
+
+    if (flows.length === 0) return emptyResult;
+
+    const flowIds = flows.map((f) => f.id);
+    const flowNameMap = new Map(flows.map((f) => [f.id, f.name]));
+
+    const executions = await prisma.flowExecution.findMany({
+      where: {
+        flowId: { in: flowIds },
+        startedAt: { gte: startDate, lte: endDate },
+      },
+      select: {
+        flowId: true,
+        status: true,
+      },
+    });
+
+    if (executions.length === 0) return emptyResult;
+
+    let completed = 0;
+    let failed = 0;
+    let waitingReply = 0;
+    let running = 0;
+    let cancelled = 0;
+
+    const flowStats = new Map<string, { executions: number; completed: number; failed: number }>();
+
+    for (const exec of executions) {
+      switch (exec.status) {
+        case 'COMPLETED': completed++; break;
+        case 'FAILED': failed++; break;
+        case 'WAITING_REPLY': waitingReply++; break;
+        case 'RUNNING': case 'DELAYED': case 'PAUSED': running++; break;
+        case 'FORCE_CANCELLED': cancelled++; break;
+      }
+
+      const stats = flowStats.get(exec.flowId) || { executions: 0, completed: 0, failed: 0 };
+      stats.executions++;
+      if (exec.status === 'COMPLETED') stats.completed++;
+      if (exec.status === 'FAILED') stats.failed++;
+      flowStats.set(exec.flowId, stats);
+    }
+
+    const topFlows = [...flowStats.entries()]
+      .map(([flowId, stats]) => ({
+        name: flowNameMap.get(flowId) || 'Fluxo removido',
+        ...stats,
+      }))
+      .sort((a, b) => b.executions - a.executions)
+      .slice(0, 5);
+
+    const finishedCount = completed + failed;
+    const successRate = finishedCount > 0 ? Math.round((completed / finishedCount) * 1000) / 10 : 0;
+
+    return {
+      hasFlowExecutions: true,
+      totalExecutions: executions.length,
+      completed,
+      failed,
+      waitingReply,
+      running,
+      cancelled,
+      successRate,
+      topFlows,
     };
   }
 

@@ -119,6 +119,18 @@ export interface LeadSourceData {
   timeline: LeadSourceTimelineItem[];
 }
 
+export interface FlowMetricsData {
+  hasFlowExecutions: boolean;
+  totalExecutions: number;
+  completed: number;
+  failed: number;
+  waitingReply: number;
+  running: number;
+  cancelled: number;
+  successRate: number;
+  topFlows: { name: string; executions: number; completed: number; failed: number }[];
+}
+
 export interface DashboardChartsData {
   pipelineFunnel: PipelineFunnelData[];
   messagesOverTime: MessagesOverTimeData[];
@@ -133,6 +145,7 @@ export interface DashboardChartsData {
   batchEngagement: BatchEngagementData;
   clientsByState: ClientsByStateData[];
   leadSources: LeadSourceData[];
+  flowMetrics: FlowMetricsData;
 }
 
 export interface CollaboratorPerformanceData {

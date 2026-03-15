@@ -86,7 +86,7 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
     return getStateColor(count, maxCount);
   };
 
-  const top3 = [...data].sort((a, b) => b.count - a.count).slice(0, 3);
+  const topStates = [...data].sort((a, b) => b.count - a.count).slice(0, 5);
 
   const hoveredData = hoveredId
     ? {
@@ -179,9 +179,9 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
           )}
         </div>
 
-        {/* Lista top 3 — posicionada no canto inferior esquerdo sobre o mapa */}
+        {/* Lista top 5 — posicionada no canto inferior esquerdo sobre o mapa */}
         <div className="absolute bottom-2 left-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-lg px-2.5 py-2 shadow-sm border border-gray-100 dark:border-gray-700 max-w-[45%]">
-          {top3.map((item, index) => {
+          {topStates.map((item, index) => {
             const code = getStateCode(item.state);
             const color = getStateColor(countByState[code] ?? item.count, maxCount);
             const name = getDisplayName(item.state);
@@ -200,12 +200,6 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
               </div>
             );
           })}
-
-          {/* Total */}
-          <div className="pt-1 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <span className="text-[9px] text-muted-foreground">Total</span>
-            <span className="text-[10px] font-bold text-green-600">{total}</span>
-          </div>
         </div>
       </CardContent>
     </Card>

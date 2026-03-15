@@ -12,6 +12,7 @@ import {
   ModernRegionChart,
   ModernTeamPerformanceCard,
   ModernProfitCard,
+  ModernFlowMetricsCard,
 } from "@/components/dashboard/charts";
 import { MessageSquare, UserPlus, MessageCircle } from "lucide-react";
 import { ProtectedPage } from "@/components/layout/protected-page";
@@ -135,6 +136,9 @@ function DashboardPageContent() {
         : []),
       ...(chartsData.leadSources && chartsData.leadSources.length > 0
         ? [<LeadSourceChart key="leadSource" data={chartsData.leadSources} />]
+        : []),
+      ...(chartsData.flowMetrics?.hasFlowExecutions
+        ? [<ModernFlowMetricsCard key="flowMetrics" data={chartsData.flowMetrics} />]
         : []),
     ]
     : [];
