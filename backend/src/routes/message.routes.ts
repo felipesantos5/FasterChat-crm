@@ -47,4 +47,7 @@ router.get('/feedback/stats/:companyId', asyncHandler(messageController.getFeedb
 // GET /api/messages/feedback/bad/:companyId - Obtém mensagens com feedback negativo
 router.get('/feedback/bad/:companyId', asyncHandler(messageController.getMessagesWithBadFeedback));
 
+// POST /api/messages/forward - Encaminha mensagem para múltiplos clientes
+router.post('/forward', asyncHandler(messageController.forwardMessage));
+
 export default router;

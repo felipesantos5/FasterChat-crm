@@ -429,7 +429,7 @@ class WhatsAppService {
       // Usa o helper para formatar corretamente (LID vs Phone)
       const remoteJid = this.formatJid(to);
 
-      const body: Record<string, unknown> = { number: remoteJid, text };
+      const body: Record<string, unknown> = { number: cleanTo, text };
 
       if (quoted) {
         body.quoted = {
@@ -466,11 +466,16 @@ class WhatsAppService {
       console.error("  - Message:", error.message);
       console.error("  - Response Body:", JSON.stringify(responseData, null, 2));
 
+      // Detecta erro de número não encontrado no WhatsApp (Evolution API retorna array com exists: false)
+      const nestedMsg = responseData?.response?.message;
+      if (Array.isArray(nestedMsg) && nestedMsg[0]?.exists === false) {
+        throw Errors.whatsappNumberNotOnWhatsApp(data.to);
+      }
+
       // Extrai a mensagem de erro da Evolution API (tenta múltiplos campos)
       // IMPORTANTE: checar responseData?.response?.message ANTES de responseData?.error
       // pois o campo 'error' contém apenas "Internal Server Error" enquanto
       // o campo aninhado contém a causa real (ex: "Connection Closed")
-      const nestedMsg = responseData?.response?.message;
       const evolutionError = (typeof responseData === 'string' ? responseData : null)
         || (typeof responseData?.message === 'string' ? responseData.message : null)
         || (typeof nestedMsg === 'string' ? nestedMsg : null)
@@ -778,7 +783,7 @@ class WhatsAppService {
 
         // ✅ PADRÃO EVOLUTION V2: 'sendWhatsAppAudio' com PTT e Encoding
         const response = await this.axiosInstance.post(`/message/sendWhatsAppAudio/${instance.instanceName}`, {
-          number: remoteJid,
+          number: cleanTo,
           audio: base64Data,
           delay: 1000, // Simula um pequeno delay de gravação
           encoding: true, // Converte para ogg/opus compatível (Essencial na V2)
@@ -820,7 +825,7 @@ class WhatsAppService {
         const fileName = caption || "documento";
 
         const response = await this.axiosInstance.post(`/message/sendMedia/${instance.instanceName}`, {
-          number: remoteJid,
+          number: cleanTo,
           mediatype: "document",
           mimetype: docMimetype,
           caption: "",
@@ -855,7 +860,7 @@ class WhatsAppService {
       }
 
       const response = await this.axiosInstance.post(`/message/sendMedia/${instance.instanceName}`, {
-        number: remoteJid,
+        number: cleanTo,
         mediatype: isVideo ? "video" : "image",
         mimetype,
         caption: caption || "",
@@ -875,6 +880,9 @@ class WhatsAppService {
       const mediaResponseData = error.response?.data;
       console.error("[WhatsApp Service] ❌ Error sending media:", mediaResponseData || error.message);
       const mediaNestedMsg = mediaResponseData?.response?.message;
+      if (Array.isArray(mediaNestedMsg) && mediaNestedMsg[0]?.exists === false) {
+        throw Errors.whatsappNumberNotOnWhatsApp(data.to);
+      }
       const evolutionError = (typeof mediaResponseData === 'string' ? mediaResponseData : null)
         || (typeof mediaResponseData?.message === 'string' ? mediaResponseData.message : null)
         || (typeof mediaNestedMsg === 'string' ? mediaNestedMsg : null)

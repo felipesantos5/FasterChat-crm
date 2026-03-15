@@ -18,7 +18,7 @@ import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
 import { useChatDraftStore } from "@/lib/store/chat-draft.store";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Video, Pause, Play, FileText, ExternalLink, Paperclip, BellOff } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Share2, Video, Pause, Play, FileText, ExternalLink, Paperclip, BellOff } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -34,6 +34,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { toast } from "sonner";
 import { ChatAreaSkeleton } from "@/components/ui/skeletons";
 import { AiThinkingAnimation } from "@/components/animations";
+import { ForwardMessageModal } from "@/components/chat/ForwardMessageModal";
 
 const TEMPERATURE_CONFIG: Record<string, { emoji: string; label: string; className: string }> = {
   HOT: { emoji: "🔥", label: "Quente", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
@@ -115,6 +116,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, string>>({});
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [sharingMessage, setSharingMessage] = useState<Message | null>(null);
+  const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1395,15 +1398,24 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                   </div>
                 )}
                 <div className={cn("flex items-end gap-1", isInbound ? "justify-start" : "justify-end")}>
-                  {/* Botão responder — inbound: aparece à direita da bolha; outbound: antes do menu */}
+                  {/* Botões de ação — inbound: aparecem à direita da bolha */}
                   {isInbound && (
-                    <button
-                      onClick={() => { setReplyingTo(message); setTimeout(() => inputRef.current?.focus(), 50); }}
-                      className="self-center opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 order-last"
-                      title="Responder"
-                    >
-                      <Reply className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-0.5 self-center order-last">
+                      <button
+                        onClick={() => { setReplyingTo(message); setTimeout(() => inputRef.current?.focus(), 50); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        title="Responder"
+                      >
+                        <Reply className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => { setSharingMessage(message); setIsForwardModalOpen(true); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        title="Encaminhar"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   )}
 
                   {/* Botão de menu — aparece ao hover */}
@@ -1447,15 +1459,24 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                     </div>
                   )}
 
-                  {/* Botão responder — outbound: aparece antes do menu */}
+                  {/* Botões de ação — outbound: aparecem antes do menu */}
                   {!isInbound && (
-                    <button
-                      onClick={() => { setReplyingTo(message); setTimeout(() => inputRef.current?.focus(), 50); }}
-                      className="self-center opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 order-first"
-                      title="Responder"
-                    >
-                      <Reply className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-0.5 self-center order-first">
+                      <button
+                        onClick={() => { setSharingMessage(message); setIsForwardModalOpen(true); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        title="Encaminhar"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => { setReplyingTo(message); setTimeout(() => inputRef.current?.focus(), 50); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        title="Responder"
+                      >
+                        <Reply className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   )}
 
                   <div
@@ -2504,6 +2525,14 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
           </div>
         </div>
       )}
+
+      {/* Modal de Encaminhamento de Mensagem */}
+      <ForwardMessageModal
+        open={isForwardModalOpen}
+        onClose={() => { setIsForwardModalOpen(false); setSharingMessage(null); }}
+        message={sharingMessage}
+        companyId={getCompanyId() ?? ""}
+      />
     </div>
   );
 }

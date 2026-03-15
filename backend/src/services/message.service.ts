@@ -1699,6 +1699,60 @@ class MessageService {
   }
 
   /**
+   * Encaminha uma mensagem (texto ou mídia) para múltiplos clientes
+   */
+  async forwardMessage(originalMessageId: string, customerIds: string[], companyId: string) {
+    const original = await prisma.message.findFirst({
+      where: { id: originalMessageId, customer: { companyId } },
+    });
+
+    if (!original) {
+      throw new Error('Mensagem original não encontrada');
+    }
+
+    const results: { customerId: string; success: boolean }[] = [];
+
+    for (const customerId of customerIds) {
+      try {
+        if (original.mediaUrl && original.mediaType && original.mediaType !== 'audio') {
+          // Encaminha mídia via URL direta na Evolution API
+          const customer = await prisma.customer.findUnique({
+            where: { id: customerId },
+            include: {
+              company: {
+                include: { whatsappInstances: { orderBy: { updatedAt: 'desc' } } },
+              },
+            },
+          });
+          if (!customer || customer.company.whatsappInstances.length === 0) {
+            results.push({ customerId, success: false });
+            continue;
+          }
+          const instance = customer.company.whatsappInstances[0];
+          await whatsappService['axiosInstance'].post(
+            `/message/sendMedia/${instance.instanceName}`,
+            {
+              number: customer.phone,
+              mediatype: original.mediaType === 'video' ? 'video' : 'image',
+              media: original.mediaUrl,
+              caption: original.content || '',
+            }
+          );
+        } else {
+          // Encaminha texto
+          const content = original.content || '';
+          if (content) await this.sendMessage(customerId, content, 'HUMAN');
+        }
+        results.push({ customerId, success: true });
+      } catch {
+        results.push({ customerId, success: false });
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * Envia uma reação emoji a uma mensagem existente
    */
   async sendReaction(messageDbId: string, emoji: string, companyId: string) {

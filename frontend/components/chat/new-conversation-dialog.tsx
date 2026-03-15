@@ -180,15 +180,19 @@ export function NewConversationDialog({
     // 1. Remove tudo que não é número
     let input = value.replace(/\D/g, "");
 
-    // 2. Limita a 11 dígitos (DDD + 9 dígitos) para evitar strings infinitas
+    // 2. Remove o prefixo 55 se o usuário digitou com código do país
+    // para manter a formatação visual no padrão (DDD) + número
+    if (input.startsWith("55") && input.length > 11) {
+      input = input.slice(2);
+    }
+
+    // 3. Limita a 11 dígitos (DDD + 9 dígitos)
     if (input.length > 11) {
       input = input.slice(0, 11);
     }
 
-    // 3. Aplica a formatação progressiva
-    // Coloca parênteses em volta dos dois primeiros dígitos (DDD)
+    // 4. Aplica a formatação progressiva
     input = input.replace(/^(\d{2})(\d)/g, "($1) $2");
-    // Coloca o hífen antes dos últimos 4 dígitos
     input = input.replace(/(\d)(\d{4})$/, "$1-$2");
 
     setFormData({ ...formData, phone: input });

@@ -171,4 +171,12 @@ export const messageApi = {
     const response = await api.get(`/messages/feedback/bad/${companyId}`, { params });
     return response.data;
   },
+
+  async forwardMessage(originalMessageId: string, customerIds: string[]): Promise<{
+    success: boolean;
+    data: { results: { customerId: string; success: boolean }[]; successCount: number };
+  }> {
+    const response = await api.post('/messages/forward', { originalMessageId, customerIds });
+    return response.data;
+  },
 };

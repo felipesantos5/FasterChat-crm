@@ -441,6 +441,36 @@ class MessageController {
       });
     }
   }
+
+  /**
+   * POST /api/messages/forward
+   * Encaminha uma mensagem para múltiplos clientes
+   */
+  async forwardMessage(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Não autenticado' });
+      }
+      const { originalMessageId, customerIds } = req.body;
+
+      if (!originalMessageId || !Array.isArray(customerIds) || customerIds.length === 0) {
+        return res.status(400).json({ success: false, message: 'originalMessageId e customerIds são obrigatórios' });
+      }
+
+      const results = await messageService.forwardMessage(
+        originalMessageId,
+        customerIds,
+        req.user.companyId
+      );
+
+      const successCount = results.filter((r) => r.success).length;
+
+      return res.status(200).json({ success: true, data: { results, successCount } });
+    } catch (error: any) {
+      console.error('Error in forwardMessage controller:', error);
+      return res.status(500).json({ success: false, message: error.message || 'Erro ao encaminhar mensagem' });
+    }
+  }
 }
 
 export default new MessageController();

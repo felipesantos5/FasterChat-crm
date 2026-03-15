@@ -93,7 +93,7 @@ class AIDebounceService {
    * Se já existe um job pendente, remove e cria um novo com delay resetado.
    */
   async scheduleResponse(data: AIResponseJobData): Promise<void> {
-    const jobId = `ai-debounce:${data.customerId}`;
+    const jobId = `ai-debounce_${data.customerId}`;
 
     // Remove job pendente anterior (se existir) para resetar o timer
     try {
@@ -119,7 +119,7 @@ class AIDebounceService {
    * Cancela qualquer job pendente para um customer (ex: atendente assumiu).
    */
   async cancelPending(customerId: string): Promise<void> {
-    const jobId = `ai-debounce:${customerId}`;
+    const jobId = `ai-debounce_${customerId}`;
     try {
       const job = await this.queue.getJob(jobId);
       if (job) {
