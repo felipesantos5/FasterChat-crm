@@ -1,29 +1,16 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useState } from "react";
+import Link from "next/link";
 // import { useRouter } from 'next/navigation';
-import api from '@/lib/api';
-import { toast } from 'sonner';
-import {
-  Plus,
-  Zap,
-  Trash2,
-  ChevronRight,
-  Play,
-  Clock,
-  Settings,
-  HelpCircle,
-  Sparkles,
-  Copy,
-  Loader2,
-  CheckCircle2,
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { FlowConfigModal } from '@/components/flows/flow-config-modal';
-import FlowsHowItWorksModal from '@/components/flows/FlowsHowItWorksModal';
-import { PlanGate } from '@/components/layout/plan-gate';
+import api from "@/lib/api";
+import { toast } from "sonner";
+import { Plus, Zap, Trash2, ChevronRight, Play, Clock, Settings, HelpCircle, Sparkles, Copy, Loader2, CheckCircle2 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { FlowConfigModal } from "@/components/flows/flow-config-modal";
+import FlowsHowItWorksModal from "@/components/flows/FlowsHowItWorksModal";
+import { PlanGate } from "@/components/layout/plan-gate";
 
 interface Flow {
   id: string;
@@ -81,14 +68,14 @@ function FlowsPageContent() {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!confirm('Tem certeza que deseja excluir este fluxo?')) return;
+    if (!confirm("Tem certeza que deseja excluir este fluxo?")) return;
 
     try {
       await api.delete(`/flows/${id}`);
-      setFlows(flows.filter(f => f.id !== id));
-      toast.success('Fluxo excluído com sucesso');
+      setFlows(flows.filter((f) => f.id !== id));
+      toast.success("Fluxo excluído com sucesso");
     } catch (error) {
-      toast.error('Erro ao excluir fluxo');
+      toast.error("Erro ao excluir fluxo");
     }
   };
 
@@ -101,7 +88,7 @@ function FlowsPageContent() {
 
   const handleSaveConfig = (tags: string[], status: string, sendWindowEnabled: boolean, sendWindowStart: number, sendWindowEnd: number) => {
     if (!selectedFlow) return;
-    setFlows(flows.map(f => f.id === selectedFlow.id ? { ...f, autoTags: tags, status, sendWindowEnabled, sendWindowStart, sendWindowEnd } : f));
+    setFlows(flows.map((f) => (f.id === selectedFlow.id ? { ...f, autoTags: tags, status, sendWindowEnabled, sendWindowStart, sendWindowEnd } : f)));
   };
 
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
@@ -112,10 +99,10 @@ function FlowsPageContent() {
     setDuplicatingId(id);
     try {
       const res = await api.post(`/flows/${id}/duplicate`);
-      setFlows(prev => [res.data, ...prev]);
-      toast.success('Fluxo duplicado com sucesso');
+      setFlows((prev) => [res.data, ...prev]);
+      toast.success("Fluxo duplicado com sucesso");
     } catch {
-      toast.error('Erro ao duplicar fluxo');
+      toast.error("Erro ao duplicar fluxo");
     } finally {
       setDuplicatingId(null);
     }
@@ -157,7 +144,7 @@ function FlowsPageContent() {
           <span className="text-sm font-medium">Carregando seus fluxos...</span>
         </div>
       ) : flows.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-col-3 gap-6">
           {flows.map((flow) => (
             <Link
               key={flow.id}
@@ -170,10 +157,9 @@ function FlowsPageContent() {
                 </div>
                 <div className="flex gap-2">
                   <span
-                    className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full ${flow.status === "ACTIVE"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
-                      }`}
+                    className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full ${
+                      flow.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                    }`}
                   >
                     {flow.status === "ACTIVE" ? "Ativo" : "Rascunho"}
                   </span>
@@ -190,10 +176,7 @@ function FlowsPageContent() {
                     title="Duplicar Fluxo"
                     disabled={duplicatingId === flow.id}
                   >
-                    {duplicatingId === flow.id
-                      ? <Loader2 size={16} className="animate-spin" />
-                      : <Copy size={16} />
-                    }
+                    {duplicatingId === flow.id ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}
                   </button>
                   <button
                     onClick={(e) => deleteFlow(flow.id, e)}
@@ -206,21 +189,13 @@ function FlowsPageContent() {
               </div>
 
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-800 group-hover:text-primary transition-colors">
-                  {flow.name}
-                </h3>
+                <h3 className="text-lg font-bold text-gray-800 group-hover:text-primary transition-colors">{flow.name}</h3>
                 <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-                  <div
-                    className="flex items-center gap-1.5"
-                    title="Execuções Totais"
-                  >
+                  <div className="flex items-center gap-1.5" title="Execuções Totais">
                     <Play size={14} className="text-gray-400" />
                     <span>{flow._count?.executions || 0} execuções</span>
                   </div>
-                  <div
-                    className="flex items-center gap-1.5"
-                    title="Concluídos com sucesso"
-                  >
+                  <div className="flex items-center gap-1.5" title="Concluídos com sucesso">
                     <CheckCircle2 size={14} className="text-green-500" />
                     <span className="text-green-600 font-medium">{flow.completedCount || 0} sucesso</span>
                   </div>
@@ -248,13 +223,8 @@ function FlowsPageContent() {
           <div className="bg-gray-50 p-4 rounded-full mb-4">
             <Zap size={40} className="text-gray-300" />
           </div>
-          <h3 className="text-xl font-bold text-gray-800">
-            Crie seu primeiro fluxo
-          </h3>
-          <p className="text-gray-500 mt-2 max-w-xs mx-auto">
-            Automatize suas vendas e atendimento pelo WhatsApp de forma visual
-            e poderosa.
-          </p>
+          <h3 className="text-xl font-bold text-gray-800">Crie seu primeiro fluxo</h3>
+          <p className="text-gray-500 mt-2 max-w-xs mx-auto">Automatize suas vendas e atendimento pelo WhatsApp de forma visual e poderosa.</p>
           <Link
             href="/dashboard/flows/new"
             className="mt-8 inline-flex items-center justify-center rounded-lg text-sm font-bold transition-all bg-primary text-white hover:bg-primary/90 h-11 px-8 shadow-lg shadow-primary/20"
@@ -288,9 +258,7 @@ function FlowsPageContent() {
       )} */}
 
       {/* How It Works Modal */}
-      {showHowItWorksModal && (
-        <FlowsHowItWorksModal onClose={() => setShowHowItWorksModal(false)} />
-      )}
+      {showHowItWorksModal && <FlowsHowItWorksModal onClose={() => setShowHowItWorksModal(false)} />}
     </div>
   );
 }
