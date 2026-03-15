@@ -18,7 +18,7 @@ import { aiKnowledgeApi } from "@/lib/ai-knowledge";
 import { conversationExampleApi } from "@/lib/conversation-example";
 import { showErrorToast } from "@/lib/error-handler";
 import { useChatDraftStore } from "@/lib/store/chat-draft.store";
-import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Share2, Video, Pause, Play, FileText, ExternalLink, Paperclip, BellOff } from "lucide-react";
+import { Send, Loader2, MessageSquare, Bot, User as UserIcon, Star, PanelRightOpen, Plus, X, ImageIcon, Smile, Mic, Check, CheckCheck, ChevronDown, Pencil, Download, ZoomIn, Archive, ArchiveRestore, Zap, Square, Trash2, Reply, Share2, Video, Pause, Play, FileText, ExternalLink, Paperclip, BellOff, Copy, CheckSquare } from "lucide-react";
 import { cn, formatPhoneNumber } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -118,6 +118,8 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [sharingMessage, setSharingMessage] = useState<Message | null>(null);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -564,6 +566,49 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
     } finally {
       setOpenMenuId(null);
     }
+  };
+
+  const handleCopyMessage = (content: string) => {
+    navigator.clipboard.writeText(content).then(() => toast.success("Copiado!")).catch(() => toast.error("Não foi possível copiar"));
+    setOpenMenuId(null);
+  };
+
+  const exitSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedMessageIds(new Set());
+  };
+
+  const handleToggleSelectMessage = (messageId: string) => {
+    setSelectedMessageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const deletable = messages.filter((m) => selectedMessageIds.has(m.id) && canDeleteMessage(m));
+    if (deletable.length === 0) {
+      toast.error("Nenhuma mensagem selecionada pode ser apagada");
+      return;
+    }
+    if (!confirm(`Apagar ${deletable.length} mensagem${deletable.length > 1 ? "s" : ""} para todos?`)) return;
+    let deleted = 0;
+    for (const msg of deletable) {
+      try { await messageApi.deleteMessage(msg.id); deleted++; } catch { /* skip */ }
+    }
+    setMessages((prev) => prev.filter((m) => !deletable.some((d) => d.id === m.id)));
+    toast.success(`${deleted} mensagem${deleted > 1 ? "s" : ""} apagada${deleted > 1 ? "s" : ""}!`);
+    exitSelectMode();
+  };
+
+  const handleBulkForward = () => {
+    const selected = messages.filter((m) => selectedMessageIds.has(m.id));
+    if (selected.length === 0) return;
+    setSharingMessage(selected[0]);
+    setIsForwardModalOpen(true);
+    exitSelectMode();
   };
 
   const handleSendReaction = async (messageId: string, emoji: string) => {
@@ -1388,7 +1433,11 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
             const showDateSeparator = shouldShowDateSeparator(message, previousMessage);
 
             return (
-              <div key={message.id} className="group">
+              <div
+                key={message.id}
+                className={cn("group", isSelectMode && "cursor-pointer select-none")}
+                onClick={isSelectMode ? () => handleToggleSelectMessage(message.id) : undefined}
+              >
                 {/* Separador de Data */}
                 {showDateSeparator && (
                   <div className="flex justify-center my-3">
@@ -1398,84 +1447,112 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
                   </div>
                 )}
                 <div className={cn("flex items-end gap-1", isInbound ? "justify-start" : "justify-end")}>
-                  {/* Botões de ação — inbound: aparecem à direita da bolha */}
-                  {isInbound && (
-                    <div className="flex items-center gap-0.5 self-center order-last">
-                      <button
-                        onClick={() => { setReplyingTo(message); setTimeout(() => inputRef.current?.focus(), 50); }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        title="Responder"
-                      >
-                        <Reply className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => { setSharingMessage(message); setIsForwardModalOpen(true); }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        title="Encaminhar"
-                      >
-                        <Share2 className="h-3.5 w-3.5" />
-                      </button>
+                  {/* ── Checkbox de seleção múltipla ─────────────────────── */}
+                  {isSelectMode && (
+                    <div
+                      className={cn("self-center flex-shrink-0", isInbound ? "order-first mr-1" : "order-last ml-1")}
+                      onClick={(e) => { e.stopPropagation(); handleToggleSelectMessage(message.id); }}
+                    >
+                      <div className={cn(
+                        "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors cursor-pointer",
+                        selectedMessageIds.has(message.id)
+                          ? "bg-primary border-primary"
+                          : "border-gray-400 dark:border-gray-500 bg-white dark:bg-gray-800"
+                      )}>
+                        {selectedMessageIds.has(message.id) && <Check className="h-3 w-3 text-white" />}
+                      </div>
                     </div>
                   )}
 
-                  {/* Botão de menu — aparece ao hover */}
-                  {!isInbound && (canEditMessage(message) || canDeleteMessage(message)) && (
-                    <div className="relative self-center opacity-0 group-hover:opacity-100 transition-opacity order-first">
+                  {/* ── ChevronDown unificado com menu completo ───────────── */}
+                  {!isSelectMode && (
+                    <div className={cn(
+                      "relative self-end mb-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
+                      isInbound ? "order-last" : "order-first"
+                    )}>
                       <button
-                        onClick={() => setOpenMenuId(openMenuId === message.id ? null : message.id)}
+                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === message.id ? null : message.id); }}
                         onBlur={(e) => {
                           if (!e.currentTarget.parentElement?.contains(e.relatedTarget as Node)) {
-                            // Pequeno delay para permitir o clique no botão antes de fechar o menu
                             setTimeout(() => setOpenMenuId(null), 150);
                           }
                         }}
-                        className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                        title="Opções da mensagem"
+                        className="p-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        title="Opções"
                       >
                         <ChevronDown className="h-3.5 w-3.5" />
                       </button>
+
                       {openMenuId === message.id && (
-                        <div className="absolute bottom-full mb-1 right-0 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-100 dark:border-gray-700 z-20 min-w-[130px] overflow-hidden">
+                        <div className={cn(
+                          "absolute bottom-full mb-1 bg-white dark:bg-gray-900 shadow-2xl rounded-xl border border-gray-100 dark:border-gray-700/80 z-30 min-w-[190px] overflow-hidden py-1",
+                          isInbound ? "left-0" : "right-0"
+                        )}>
+                          {/* Responder */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setReplyingTo(message); setOpenMenuId(null); setTimeout(() => inputRef.current?.focus(), 50); }}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 w-full text-left"
+                          >
+                            <Reply className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                            Responder
+                          </button>
+
+                          {/* Copiar — só se tiver conteúdo texto */}
+                          {!!message.content && !message.content.startsWith("[") && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleCopyMessage(message.content!); }}
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 w-full text-left"
+                            >
+                              <Copy className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                              Copiar
+                            </button>
+                          )}
+
+                          {/* Encaminhar */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSharingMessage(message); setIsForwardModalOpen(true); setOpenMenuId(null); }}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 w-full text-left"
+                          >
+                            <Share2 className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                            Encaminhar
+                          </button>
+
+                          {/* Editar — só se dentro da janela */}
                           {canEditMessage(message) && (
                             <button
-                              onClick={() => startEdit(message)}
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 w-full text-left"
+                              onClick={(e) => { e.stopPropagation(); startEdit(message); setOpenMenuId(null); }}
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 w-full text-left"
                             >
-                              <Pencil className="h-3.5 w-3.5" />
+                              <Pencil className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                               Editar
                             </button>
                           )}
+
+                          {/* Separador + Selecionar */}
+                          <div className="border-t border-gray-100 dark:border-gray-700/60 my-1" />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setIsSelectMode(true); setSelectedMessageIds(new Set([message.id])); setOpenMenuId(null); }}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 w-full text-left"
+                          >
+                            <CheckSquare className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                            Selecionar
+                          </button>
+
+                          {/* Separador + Apagar — só se dentro da janela */}
                           {canDeleteMessage(message) && (
-                            <button
-                              onClick={() => handleDeleteMessage(message.id)}
-                              className="flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 w-full text-left"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Apagar para todos
-                            </button>
+                            <>
+                              <div className="border-t border-gray-100 dark:border-gray-700/60 my-1" />
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteMessage(message.id); }}
+                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 w-full text-left"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Apagar
+                              </button>
+                            </>
                           )}
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {/* Botões de ação — outbound: aparecem antes do menu */}
-                  {!isInbound && (
-                    <div className="flex items-center gap-0.5 self-center order-first">
-                      <button
-                        onClick={() => { setSharingMessage(message); setIsForwardModalOpen(true); }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        title="Encaminhar"
-                      >
-                        <Share2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => { setReplyingTo(message); setTimeout(() => inputRef.current?.focus(), 50); }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        title="Responder"
-                      >
-                        <Reply className="h-3.5 w-3.5" />
-                      </button>
                     </div>
                   )}
 
@@ -1779,8 +1856,43 @@ export function ChatArea({ customerId, customerName, customerPhone, customerProf
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="border-t bg-muted/30">
+      {/* ── Barra de Seleção Múltipla ─────────────────────────────────────── */}
+      {isSelectMode && (
+        <div className="border-t bg-white dark:bg-gray-900 px-4 py-3 flex items-center justify-between shadow-lg z-10">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={exitSelectMode}
+              className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              title="Cancelar seleção"
+            >
+              <X className="h-4 w-4 text-gray-500" />
+            </button>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              {selectedMessageIds.size === 0
+                ? "Selecione mensagens"
+                : `${selectedMessageIds.size} selecionada${selectedMessageIds.size > 1 ? "s" : ""}`}
+            </span>
+          </div>
+
+          {selectedMessageIds.size > 0 && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleBulkForward}>
+                <Share2 className="h-3.5 w-3.5 mr-1.5" />
+                Encaminhar
+              </Button>
+              {messages.some((m) => selectedMessageIds.has(m.id) && canDeleteMessage(m)) && (
+                <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Apagar
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Input Area — oculto no modo de seleção */}
+      <div className={cn("border-t bg-muted/30", isSelectMode && "hidden")}>
         {/* Preview da imagem selecionada */}
         {selectedImage && (
           <div className="p-4 border-b bg-muted/50">
