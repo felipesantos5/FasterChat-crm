@@ -144,7 +144,7 @@ function FlowsPageContent() {
           <span className="text-sm font-medium">Carregando seus fluxos...</span>
         </div>
       ) : flows.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-col-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-col-3 gap-6">
           {flows.map((flow) => (
             <Link
               key={flow.id}
