@@ -41,22 +41,28 @@ export function AnimatedNavIcon({
     const el = spanRef.current;
     if (!el) return;
 
-    // Só anima na transição inativo → ativo
-    if (isActive && !prevActiveRef.current) {
+    const wasActive = prevActiveRef.current;
+    prevActiveRef.current = isActive;
+
+    // Transição inativo → ativo: animação normal
+    if (isActive && !wasActive) {
       const animClass = `nav-icon-${animation}`;
-
-      // Remove a classe (caso ainda esteja rodando), força reflow e re-adiciona
-      // para garantir que a animação sempre replaye do início
-      el.classList.remove(animClass);
-      void el.offsetWidth; // força reflow
+      el.classList.remove(animClass, `nav-icon-${animation}-reverse`);
+      void el.offsetWidth;
       el.classList.add(animClass);
-
-      // Remove a classe ao terminar para não acumular
       const handleEnd = () => el.classList.remove(animClass);
       el.addEventListener("animationend", handleEnd, { once: true });
     }
 
-    prevActiveRef.current = isActive;
+    // Transição ativo → inativo: animação reversa (apenas para spin)
+    if (!isActive && wasActive && animation === "spin") {
+      const reverseClass = `nav-icon-${animation}-reverse`;
+      el.classList.remove(`nav-icon-${animation}`, reverseClass);
+      void el.offsetWidth;
+      el.classList.add(reverseClass);
+      const handleEnd = () => el.classList.remove(reverseClass);
+      el.addEventListener("animationend", handleEnd, { once: true });
+    }
   }, [isActive, animation]);
 
   return (

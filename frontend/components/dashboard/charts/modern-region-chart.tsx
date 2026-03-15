@@ -51,7 +51,7 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
 
   if (!data || data.length === 0) {
     return (
-      <Card className="flex flex-col shadow-lg border-gray-100 dark:border-gray-800" style={{ maxHeight: 245 }}>
+      <Card className="flex flex-col shadow-lg border-gray-100 dark:border-gray-800 h-full">
         <CardHeader className="items-start py-1.5 sm:py-2 px-2 sm:px-3">
           <div className="flex items-center gap-1.5 sm:gap-2">
             <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600" />
@@ -95,11 +95,22 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
       }
     : null;
 
+  // Resolve nome de exibição: backend envia nome completo, usamos direto; se for sigla, converte
+  const getDisplayName = (state: string): string => {
+    const lower = state.toLowerCase();
+    if (lower.length === 2 && STATE_NAMES[lower]) return STATE_NAMES[lower];
+    return state; // Já é nome completo
+  };
+
+  // Resolve código SVG a partir do state do backend
+  const getStateCode = (state: string): string => {
+    const lower = state.toLowerCase();
+    if (lower.length === 2 && STATE_NAMES[lower]) return lower;
+    return NAME_TO_CODE[lower] ?? lower;
+  };
+
   return (
-    <Card
-      className="flex flex-col shadow-lg border-gray-100 dark:border-gray-800 overflow-hidden"
-      style={{ maxHeight: 245 }}
-    >
+    <Card className="flex flex-col shadow-lg border-gray-100 dark:border-gray-800 overflow-hidden h-full">
       {/* Header */}
       <CardHeader className="items-start py-1.5 sm:py-2 px-2 sm:px-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
         <div className="flex items-center gap-1.5 sm:gap-2">
@@ -108,13 +119,11 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
         </div>
       </CardHeader>
 
-      {/* Body: mapa à esquerda, lista à direita */}
-      <CardContent className="flex-1 p-0 flex flex-row overflow-hidden">
-
-        {/* Mapa */}
+      {/* Body: mapa com lista sobreposta no canto inferior esquerdo */}
+      <CardContent className="flex-1 p-0 relative overflow-hidden">
+        {/* Mapa ocupa todo o espaço */}
         <div
-          className="relative shrink-0 flex items-center justify-center"
-          style={{ width: "55%" }}
+          className="w-full h-full flex items-center justify-center"
           onMouseLeave={() => {
             setHoveredId(null);
             setTooltip((t) => ({ ...t, visible: false }));
@@ -122,7 +131,8 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
         >
           <svg
             viewBox={Brazil.viewBox}
-            style={{ width: "100%", height: "100%", maxHeight: 200 }}
+            className="w-full h-full"
+            preserveAspectRatio="xMidYMid meet"
             onMouseMove={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, visible: true });
@@ -165,43 +175,34 @@ export function ModernRegionChart({ data }: ModernRegionChartProps) {
           )}
         </div>
 
-        {/* Lista top 3 */}
-        <div className="flex-1 flex flex-col justify-center gap-2 px-3 py-2 border-l border-gray-100 dark:border-gray-800">
+        {/* Lista top 3 — posicionada no canto inferior esquerdo sobre o mapa */}
+        <div className="absolute bottom-2 left-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-lg px-2.5 py-2 shadow-sm border border-gray-100 dark:border-gray-700 max-w-[45%]">
           {top3.map((item, index) => {
-            const pct = total > 0 ? (item.count / total) * 100 : 0;
-            const color = getStateColor(item.count, maxCount);
-            const name = STATE_NAMES[item.state.toLowerCase()] ?? item.state;
+            const code = getStateCode(item.state);
+            const color = getStateColor(countByState[code] ?? item.count, maxCount);
+            const name = getDisplayName(item.state);
             return (
-              <div key={item.state} className="space-y-0.5">
-                <div className="flex items-center justify-between gap-1">
-                  <div className="flex items-center gap-1 min-w-0">
-                    <span className="text-[10px] font-bold text-green-600 shrink-0">{index + 1}</span>
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                    <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300 truncate">
-                      {name}
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 shrink-0">
-                    {item.count}
+              <div key={item.state} className="flex items-center justify-between gap-1 mb-1 last:mb-0">
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-[9px] font-bold text-green-600 shrink-0">{index + 1}</span>
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <span className="text-[10px] font-medium text-gray-700 dark:text-gray-300 truncate">
+                    {name}
                   </span>
                 </div>
-                <div className="h-1 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${pct}%`, backgroundColor: color }}
-                  />
-                </div>
+                <span className="text-[10px] font-bold text-gray-900 dark:text-gray-100 shrink-0 ml-2">
+                  {item.count}
+                </span>
               </div>
             );
           })}
 
           {/* Total */}
-          <div className="mt-1 pt-1.5 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">Total</span>
-            <span className="text-[11px] font-bold text-green-600">{total}</span>
+          <div className="pt-1 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <span className="text-[9px] text-muted-foreground">Total</span>
+            <span className="text-[10px] font-bold text-green-600">{total}</span>
           </div>
         </div>
-
       </CardContent>
     </Card>
   );
