@@ -11,7 +11,6 @@ import {
   Settings,
   Bot,
   ChevronDown,
-  BarChart3,
   Megaphone,
   CalendarDays,
   Link2,
@@ -134,19 +133,6 @@ const menuItems: MenuItem[] = [
         icon: MessageSquareText,
         animation: "spring-pop",
         href: "/dashboard/configuracoes/mensagens-rapidas",
-      },
-    ],
-  },
-  {
-    label: "IA",
-    icon: Bot,
-    animation: "heartbeat",
-    children: [
-      {
-        label: "Insights",
-        icon: BarChart3,
-        animation: "pulse-out",
-        href: "/dashboard/ai/insights",
       },
     ],
   },

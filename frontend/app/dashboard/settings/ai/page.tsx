@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ import {
   Tag,
   Bot,
   UserRound,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -1690,18 +1692,26 @@ function CompletedView({
     </button>
   );
 
-  const headerEditButton = (
-    <Button variant="outline" size="sm" onClick={onEdit} className="shadow-sm border-2 gap-2">
-      <Edit3 className="h-4 w-4" />
-      Editar Configurações
-    </Button>
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" asChild className="shadow-sm border-2 gap-2">
+        <Link href="/dashboard/ai/insights">
+          <BarChart3 className="h-4 w-4" />
+          Insights
+        </Link>
+      </Button>
+      <Button variant="outline" size="sm" onClick={onEdit} className="shadow-sm border-2 gap-2">
+        <Edit3 className="h-4 w-4" />
+        Editar Configurações
+      </Button>
+    </div>
   );
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 min-h-screen bg-background/50">
       {/* Portais do Header */}
       {titlePortal && createPortal(headerToggle, titlePortal)}
-      {actionsPortal && createPortal(headerEditButton, actionsPortal)}
+      {actionsPortal && createPortal(headerActions, actionsPortal)}
 
       {/* Header com título */}
       <div className="space-y-1">
