@@ -1,12 +1,7 @@
 "use client";
 
 import { Zap, CheckCircle2, XCircle, MessageCircle, Play, Ban } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlowMetricsData } from "@/lib/dashboard";
 
 interface ModernFlowMetricsCardProps {
@@ -38,24 +33,9 @@ export function ModernFlowMetricsCard({ data }: ModernFlowMetricsCardProps) {
         <div className="space-y-3">
           {/* Barra de progresso segmentada */}
           <div className="h-2.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex">
-            {completedPercent > 0 && (
-              <div
-                className="h-full bg-emerald-500 transition-all duration-500"
-                style={{ width: `${completedPercent}%` }}
-              />
-            )}
-            {otherPercent > 0 && (
-              <div
-                className="h-full bg-amber-400 transition-all duration-500"
-                style={{ width: `${otherPercent}%` }}
-              />
-            )}
-            {failedPercent > 0 && (
-              <div
-                className="h-full bg-red-400 transition-all duration-500"
-                style={{ width: `${failedPercent}%` }}
-              />
-            )}
+            {completedPercent > 0 && <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${completedPercent}%` }} />}
+            {otherPercent > 0 && <div className="h-full bg-amber-400 transition-all duration-500" style={{ width: `${otherPercent}%` }} />}
+            {failedPercent > 0 && <div className="h-full bg-red-400 transition-all duration-500" style={{ width: `${failedPercent}%` }} />}
           </div>
 
           {/* Taxa de sucesso */}
@@ -109,7 +89,7 @@ export function ModernFlowMetricsCard({ data }: ModernFlowMetricsCardProps) {
           )}
 
           {/* Top Fluxos */}
-          {data.topFlows.length > 0 && (
+          {/* {data.topFlows.length > 0 && (
             <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
               <p className="text-[10px] uppercase font-bold text-muted-foreground mb-2">Top Fluxos</p>
               <div className="space-y-1.5">
@@ -129,7 +109,7 @@ export function ModernFlowMetricsCard({ data }: ModernFlowMetricsCardProps) {
                 ))}
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </CardContent>
     </Card>
